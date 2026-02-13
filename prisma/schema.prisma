@@ -1,0 +1,312 @@
+generator client {
+  provider = "prisma-client-js"
+}
+
+datasource db {
+  provider = "sqlite"
+  url      = "file:./dev.db"
+}
+
+model AuditLog {
+  id         String   @id @default(uuid())
+  projectId  String
+  actorId    String
+  role       String
+  actionType String
+  entityType String
+  entityId   String
+  beforeJson String?
+  afterJson  String?
+  reason     String?
+  createdAt  DateTime @default(now())
+  actor      User     @relation(fields: [actorId], references: [id])
+  project    Project  @relation(fields: [projectId], references: [id], onDelete: Cascade)
+
+  @@index([actorId])
+  @@index([createdAt])
+  @@index([entityType, entityId])
+  @@index([projectId])
+}
+
+model BOQ {
+  id          String        @id @default(uuid())
+  projectId   String
+  status      String        @default("DRAFT")
+  createdAt   DateTime      @default(now())
+  updatedAt   DateTime      @updatedAt
+  project     Project       @relation(fields: [projectId], references: [id], onDelete: Cascade)
+  items       BOQItem[]
+  revisions   BOQRevision[]
+
+  @@index([projectId])
+}
+
+model BOQItem {
+  id             String             @id @default(uuid())
+  boqId          String
+  description    String
+  unit           String
+  plannedQty     Float
+  rate           Float
+  plannedValue   Float
+  createdAt      DateTime           @default(now())
+  updatedAt      DateTime           @updatedAt
+  boq            BOQ                @relation(fields: [boqId], references: [id], onDelete: Cascade)
+  milestoneLinks MilestoneBOQLink[]
+
+  @@index([boqId])
+}
+
+model BOQRevision {
+  id             String   @id @default(uuid())
+  boqId          String
+  revisionNumber Int
+  reason         String
+  changesJson    String
+  createdAt      DateTime @default(now())
+  boq            BOQ      @relation(fields: [boqId], references: [id], onDelete: Cascade)
+
+  @@index([boqId])
+}
+
+model CustomView {
+  id        String   @id @default(uuid())
+  projectId String
+  userId    String
+  name      String
+  config    String
+  isDefault Boolean  @default(false)
+  createdAt DateTime @default(now())
+  updatedAt DateTime @updatedAt
+
+  @@unique([projectId, userId, name])
+  @@index([projectId])
+  @@index([userId])
+}
+
+model EligibilityEvent {
+  id                   String             @id @default(uuid())
+  paymentEligibilityId String
+  eventType            String
+  fromState            String?
+  toState              String
+  actorId              String
+  actorRole            String
+  eligibleAmountBefore Float?
+  eligibleAmountAfter  Float
+  reasonCode           String?
+  explanation          String?
+  triggerEntityType    String?
+  triggerEntityId      String?
+  createdAt            DateTime           @default(now())
+  actor                User               @relation(fields: [actorId], references: [id])
+  paymentEligibility   PaymentEligibility @relation(fields: [paymentEligibilityId], references: [id], onDelete: Cascade)
+
+  @@index([createdAt])
+  @@index([eventType])
+  @@index([paymentEligibilityId])
+}
+
+model Evidence {
+  id            String         @id @default(uuid())
+  milestoneId   String
+  submittedById String
+  submittedAt   DateTime       @default(now())
+  qtyOrPercent  Float
+  remarks       String?
+  frozen        Boolean        @default(false)
+  status        String         @default("SUBMITTED")
+  reviewedAt    DateTime?
+  reviewNote    String?
+  updatedAt     DateTime       @updatedAt
+  milestone     Milestone      @relation(fields: [milestoneId], references: [id], onDelete: Cascade)
+  submittedBy   User           @relation(fields: [submittedById], references: [id])
+  files         EvidenceFile[]
+
+  @@index([milestoneId])
+  @@index([status])
+  @@index([submittedById])
+}
+
+model EvidenceFile {
+  id         String   @id @default(uuid())
+  evidenceId String
+  storageKey String
+  fileName   String
+  mimeType   String
+  size       Int
+  data       Bytes
+  createdAt  DateTime @default(now())
+  evidence   Evidence @relation(fields: [evidenceId], references: [id], onDelete: Cascade)
+
+  @@index([evidenceId])
+}
+
+model FollowUp {
+  id             String    @id @default(uuid())
+  projectId      String
+  type           String
+  targetEntity   String
+  targetEntityId String
+  description    String
+  status         String    @default("OPEN")
+  createdAt      DateTime  @default(now())
+  resolvedAt     DateTime?
+  resolvedById   String?
+  resolutionNote String?
+  project        Project   @relation(fields: [projectId], references: [id], onDelete: Cascade)
+  resolvedBy     User?     @relation(fields: [resolvedById], references: [id])
+
+  @@index([projectId])
+  @@index([status])
+  @@index([type])
+}
+
+model Milestone {
+  id                  String                     @id @default(uuid())
+  projectId           String
+  title               String
+  description         String?
+  paymentModel        String                     @default("PROGRESS_BASED")
+  plannedStart        DateTime?
+  plannedEnd          DateTime?
+  actualStart         DateTime?
+  actualSubmission    DateTime?
+  actualVerification  DateTime?
+  plannedQtyOrPercent Float                      @default(100)
+  retentionPercent    Float                      @default(0)
+  advancePercent      Float                      @default(0)
+  value               Float                      @default(0)
+  isExtra             Boolean                    @default(false)
+  extraApprovedAt     DateTime?
+  extraApprovedById   String?
+  state               String                     @default("DRAFT")
+  createdAt           DateTime                   @default(now())
+  updatedAt           DateTime                   @updatedAt
+  evidence            Evidence[]
+  project             Project                    @relation(fields: [projectId], references: [id], onDelete: Cascade)
+  boqLinks            MilestoneBOQLink[]
+  transitions         MilestoneStateTransition[]
+  paymentEligibility  PaymentEligibility?
+  verifications       Verification[]
+
+  @@index([projectId])
+  @@index([state])
+}
+
+model MilestoneBOQLink {
+  id          String    @id @default(uuid())
+  milestoneId String
+  boqItemId   String
+  plannedQty  Float
+  createdAt   DateTime  @default(now())
+  boqItem     BOQItem   @relation(fields: [boqItemId], references: [id], onDelete: Cascade)
+  milestone   Milestone @relation(fields: [milestoneId], references: [id], onDelete: Cascade)
+
+  @@unique([milestoneId, boqItemId])
+  @@index([boqItemId])
+  @@index([milestoneId])
+}
+
+model MilestoneStateTransition {
+  id          String    @id @default(uuid())
+  milestoneId String
+  fromState   String?
+  toState     String
+  actorId     String
+  role        String
+  reason      String?
+  createdAt   DateTime  @default(now())
+  actor       User      @relation(fields: [actorId], references: [id])
+  milestone   Milestone @relation(fields: [milestoneId], references: [id], onDelete: Cascade)
+
+  @@index([milestoneId])
+}
+
+model PaymentEligibility {
+  id                  String             @id @default(uuid())
+  milestoneId         String             @unique
+  boqValueCompleted   Float              @default(0)
+  deductions          Float              @default(0)
+  eligibleAmount      Float              @default(0)
+  advanceAmount       Float              @default(0)
+  remainingAmount     Float              @default(0)
+  blockedAmount       Float              @default(0)
+  state               String             @default("NOT_DUE")
+  dueDate             DateTime?
+  blockReasonCode     String?
+  blockExplanation    String?
+  blockedAt           DateTime?
+  blockedByActorId    String?
+  markedPaidAt        DateTime?
+  markedPaidByActorId String?
+  paidExplanation     String?
+  lastCalculatedAt    DateTime           @default(now())
+  createdAt           DateTime           @default(now())
+  updatedAt           DateTime           @updatedAt
+  events              EligibilityEvent[]
+  milestone           Milestone          @relation(fields: [milestoneId], references: [id], onDelete: Cascade)
+
+  @@index([dueDate])
+  @@index([state])
+}
+
+model Project {
+  id               String        @id @default(uuid())
+  name             String
+  description      String?
+  status           String        @default("ONGOING")
+  metadata         String?
+  createdAt        DateTime      @default(now())
+  updatedAt        DateTime      @updatedAt
+  isExampleProject Boolean       @default(false)
+  auditLogs        AuditLog[]
+  boqs             BOQ[]
+  followUps        FollowUp[]
+  milestones       Milestone[]
+  roles            ProjectRole[]
+}
+
+model ProjectRole {
+  id        String   @id @default(uuid())
+  projectId String
+  userId    String
+  role      String
+  createdAt DateTime @default(now())
+  project   Project  @relation(fields: [projectId], references: [id], onDelete: Cascade)
+  user      User     @relation(fields: [userId], references: [id], onDelete: Cascade)
+
+  @@unique([projectId, userId])
+  @@index([projectId])
+  @@index([userId])
+}
+
+model User {
+  id                 String                     @id @default(uuid())
+  name               String
+  email              String                     @unique
+  hashedPassword     String
+  createdAt          DateTime                   @default(now())
+  updatedAt          DateTime                   @updatedAt
+  auditLogs          AuditLog[]
+  eligibilityEvents  EligibilityEvent[]
+  evidence           Evidence[]
+  followUps          FollowUp[]
+  transitions        MilestoneStateTransition[]
+  projectRoles       ProjectRole[]
+  verifications      Verification[]
+}
+
+model Verification {
+  id                    String    @id @default(uuid())
+  milestoneId           String
+  verifiedById          String
+  verifiedAt            DateTime  @default(now())
+  notes                 String?
+  qtyVerified           Float
+  valueEligibleComputed Float
+  milestone             Milestone @relation(fields: [milestoneId], references: [id], onDelete: Cascade)
+  verifiedBy            User      @relation(fields: [verifiedById], references: [id])
+
+  @@index([milestoneId])
+}

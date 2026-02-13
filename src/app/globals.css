@@ -1,0 +1,164 @@
+@tailwind base;
+@tailwind components;
+@tailwind utilities;
+
+:root {
+  --foreground-rgb: 0, 0, 0;
+  --background-start-rgb: 245, 247, 250;
+  --background-end-rgb: 255, 255, 255;
+}
+
+body {
+  color: rgb(var(--foreground-rgb));
+  background: linear-gradient(
+      to bottom,
+      transparent,
+      rgb(var(--background-end-rgb))
+    )
+    rgb(var(--background-start-rgb));
+  min-height: 100vh;
+}
+
+@layer utilities {
+  .text-balance {
+    text-wrap: balance;
+  }
+}
+
+/* Status badges */
+.badge {
+  @apply inline-flex items-center px-2.5 py-0.5 rounded-full text-xs font-medium;
+}
+
+.badge-draft {
+  @apply bg-gray-100 text-gray-800;
+}
+
+.badge-in-progress {
+  @apply bg-blue-100 text-blue-800;
+}
+
+.badge-submitted {
+  @apply bg-yellow-100 text-yellow-800;
+}
+
+.badge-verified {
+  @apply bg-green-100 text-green-800;
+}
+
+.badge-closed {
+  @apply bg-purple-100 text-purple-800;
+}
+
+.badge-not-eligible {
+  @apply bg-gray-100 text-gray-600;
+}
+
+.badge-eligible {
+  @apply bg-green-100 text-green-800;
+}
+
+.badge-due-soon {
+  @apply bg-orange-100 text-orange-800;
+}
+
+.badge-blocked {
+  @apply bg-red-100 text-red-800;
+}
+
+.badge-paid {
+  @apply bg-emerald-100 text-emerald-800;
+}
+
+/* Cards */
+.card {
+  @apply bg-white rounded-lg shadow-sm border border-gray-200;
+}
+
+.card-header {
+  @apply px-6 py-4 border-b border-gray-200;
+}
+
+.card-body {
+  @apply px-6 py-4;
+}
+
+/* Buttons */
+.btn {
+  @apply inline-flex items-center justify-center px-4 py-2 border border-transparent text-sm font-medium rounded-md focus:outline-none focus:ring-2 focus:ring-offset-2 transition-colors;
+}
+
+.btn-primary {
+  @apply bg-primary-600 text-white hover:bg-primary-700 focus:ring-primary-500;
+}
+
+.btn-secondary {
+  @apply bg-white text-gray-700 border-gray-300 hover:bg-gray-50 focus:ring-primary-500;
+}
+
+.btn-danger {
+  @apply bg-red-600 text-white hover:bg-red-700 focus:ring-red-500;
+}
+
+.btn-success {
+  @apply bg-green-600 text-white hover:bg-green-700 focus:ring-green-500;
+}
+
+.btn-sm {
+  @apply px-3 py-1.5 text-xs;
+}
+
+.btn-lg {
+  @apply px-6 py-3 text-base;
+}
+
+/* Form inputs */
+.input {
+  @apply block w-full rounded-md border-gray-300 shadow-sm focus:border-primary-500 focus:ring-primary-500 sm:text-sm;
+}
+
+.label {
+  @apply block text-sm font-medium text-gray-700 mb-1;
+}
+
+/* Tables */
+.table {
+  @apply min-w-full divide-y divide-gray-200;
+}
+
+.table thead {
+  @apply bg-gray-50;
+}
+
+.table th {
+  @apply px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider;
+}
+
+.table td {
+  @apply px-6 py-4 whitespace-nowrap text-sm text-gray-900;
+}
+
+.table tbody tr {
+  @apply hover:bg-gray-50;
+}
+
+/* Alerts */
+.alert {
+  @apply p-4 rounded-md;
+}
+
+.alert-info {
+  @apply bg-blue-50 text-blue-800;
+}
+
+.alert-success {
+  @apply bg-green-50 text-green-800;
+}
+
+.alert-warning {
+  @apply bg-yellow-50 text-yellow-800;
+}
+
+.alert-error {
+  @apply bg-red-50 text-red-800;
+}
