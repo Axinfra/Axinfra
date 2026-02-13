@@ -66,7 +66,7 @@ export default function CustomViewBoard({ groups, projectId, viewName }: CustomV
               />
             </svg>
             <span className="text-sm text-blue-700">
-              <strong>Read-only View</strong> – CC-OS state enforced. State changes must be done via the main board.
+              <strong>Read-only View</strong> – MilestoneHQ state enforced. State changes must be done via the main board.
             </span>
           </div>
           <div className="text-sm text-blue-600">

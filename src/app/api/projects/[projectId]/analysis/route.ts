@@ -10,7 +10,7 @@ import { AnalysisService } from '@/services/AnalysisService';
  * - This endpoint is GET-ONLY
  * - NO mutation operations
  * - NO state transitions
- * - Only aggregates existing CC-OS data
+ * - Only aggregates existing MilestoneHQ data
  * - Accessible to OWNER and PMC only
  */
 

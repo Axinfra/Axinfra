@@ -40,9 +40,9 @@ export default function LoginPage() {
     <div className="min-h-screen flex items-center justify-center bg-gray-50 py-12 px-4 sm:px-6 lg:px-8">
       <div className="max-w-md w-full space-y-8">
         <div>
-          <h1 className="text-center text-3xl font-bold text-primary-600">CC-OS</h1>
+          <h1 className="text-center text-3xl font-bold text-primary-600">MilestoneHQ</h1>
           <h2 className="mt-2 text-center text-xl text-gray-600">
-            Construction Control Operating System
+            Evidence-First Execution Tracking
           </h2>
           <p className="mt-4 text-center text-sm text-gray-500">
             Sign in to your account

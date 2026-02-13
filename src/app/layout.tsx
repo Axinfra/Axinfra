@@ -5,7 +5,7 @@ import './globals.css';
 const inter = Inter({ subsets: ['latin'] });
 
 export const metadata: Metadata = {
-  title: 'CC-OS - Construction Control Operating System',
+  title: 'MilestoneHQ - Evidence-First Execution Tracking',
   description: 'Evidence-first construction execution control system',
 };
 

@@ -2,13 +2,13 @@ import { prisma } from '@/lib/db';
 import { MilestoneState, EligibilityState, EvidenceStatus, Role } from '@/types';
 
 /**
- * AnalysisService - READ-ONLY intelligence layer for CC-OS.
+ * AnalysisService - READ-ONLY intelligence layer for MilestoneHQ.
  *
  * CRITICAL SAFETY CONSTRAINTS:
  * - This service NEVER mutates data
  * - All operations are read-only aggregations
  * - No new business logic - only statistics
- * - Single source of truth: existing CC-OS data
+ * - Single source of truth: existing MilestoneHQ data
  */
 
 // ============================================

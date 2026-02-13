@@ -41,7 +41,7 @@ export default function Layout({ children }: LayoutProps) {
           <div className="flex justify-between h-16">
             <div className="flex items-center">
               <Link href="/projects" className="flex items-center">
-                <span className="text-xl font-bold text-primary-600">CC-OS</span>
+                <span className="text-xl font-bold text-primary-600">MilestoneHQ</span>
               </Link>
               <div className="hidden md:ml-10 md:flex md:space-x-8">
                 <Link
