@@ -1,4 +1,4 @@
-# CC-OS Manual QA Checklist
+# MilestoneHQ Manual QA Checklist
 
 This checklist verifies that all spec requirements are correctly implemented.
 

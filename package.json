@@ -1,7 +1,7 @@
 {
-  "name": "cc-os",
+  "name": "milestonehq",
   "version": "1.0.0",
-  "description": "Construction Control Operating System - Evidence-first execution tracking",
+  "description": "MilestoneHQ - Evidence-first execution tracking",
   "private": true,
   "prisma": {
     "seed": "tsx prisma/seed.ts"

@@ -1,4 +1,4 @@
-# Custom Views Feature - CC-OS
+# Custom Views Feature - MilestoneHQ
 
 ## Overview
 
@@ -20,7 +20,7 @@ Custom Views provide **READ-ONLY projections** of milestone data. They allow use
 - Create new milestones
 - Delete milestones
 - Modify payment status
-- Change any CC-OS core data
+- Change any MilestoneHQ core data
 
 ## Architecture
 
@@ -41,7 +41,7 @@ Custom Views provide **READ-ONLY projections** of milestone data. They allow use
                               │ Display Only
                               ▼
 ┌─────────────────────────────────────────────────────────────────┐
-│                      CC-OS CORE (LOCKED)                        │
+│                   MilestoneHQ CORE (LOCKED)                      │
 ├─────────────────────────────────────────────────────────────────┤
 │                                                                 │
 │  State Machine │ Payments │ Evidence │ Audit │ Permissions      │
@@ -54,7 +54,7 @@ Custom Views provide **READ-ONLY projections** of milestone data. They allow use
 ## UI Safety Measures
 
 1. **No Drag Handles**: Cards in custom views cannot be dragged
-2. **Read-Only Banner**: Every custom view shows "Read-only View – CC-OS state enforced"
+2. **Read-Only Banner**: Every custom view shows "Read-only View – MilestoneHQ state enforced"
 3. **Click to View Only**: Clicking a card opens the standard milestone detail page
 4. **Tooltip Warning**: Hover shows "This view is read-only. State changes must be done via the main board."
 5. **Visual Distinction**: Custom views have different styling from the main board

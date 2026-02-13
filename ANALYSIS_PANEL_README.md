@@ -1,8 +1,8 @@
-# Project Analysis Panel - CC-OS
+# Project Analysis Panel - MilestoneHQ
 
 ## Overview
 
-The Analysis Panel provides **READ-ONLY decision-grade insights** derived strictly from existing CC-OS data. It is a projection layer only - no mutations, no new states, no manual inputs.
+The Analysis Panel provides **READ-ONLY decision-grade insights** derived strictly from existing MilestoneHQ data. It is a projection layer only - no mutations, no new states, no manual inputs.
 
 ## Access Control
 
@@ -23,10 +23,10 @@ The Analysis Panel provides **READ-ONLY decision-grade insights** derived strict
 - Calculates risk scores from deterministic rules
 
 ### ❌ What Analysis Panel DOES NOT DO:
-- Modify any CC-OS data
+- Modify any MilestoneHQ data
 - Create new states or statuses
 - Add manual inputs or overrides
-- Bypass CC-OS business logic
+- Bypass MilestoneHQ business logic
 - Introduce new business rules
 - Allow inline editing
 
@@ -150,7 +150,7 @@ Formula: `min(100, delayedPercent + blockedPercent + overruns × 5)`
 ├─────────────────────────────────────────────────────────────────┤
 │                                                                 │
 │  ┌─────────────┐                    ┌────────────────────────┐  │
-│  │ Analysis    │                    │ Existing CC-OS Data    │  │
+│  │ Analysis    │                    │ Existing MilestoneHQ Data │  │
 │  │ Service     │───READ ONLY───────▶│ - Milestones           │  │
 │  │ (aggregate) │                    │ - Evidence             │  │
 │  └─────────────┘                    │ - Payments             │  │
@@ -171,7 +171,7 @@ Formula: `min(100, delayedPercent + blockedPercent + overruns × 5)`
                               │ Display Only
                               ▼
 ┌─────────────────────────────────────────────────────────────────┐
-│                      CC-OS CORE (LOCKED)                        │
+│                   MilestoneHQ CORE (LOCKED)                      │
 ├─────────────────────────────────────────────────────────────────┤
 │                                                                 │
 │  State Machine │ Payments │ Evidence │ Audit │ Permissions      │

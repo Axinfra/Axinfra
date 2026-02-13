@@ -1,10 +1,10 @@
-# CC-OS - Construction Control Operating System
+# MilestoneHQ
 
-**Evidence-first construction execution control system**
+**Evidence-first execution tracking system**
 
-CC-OS tracks execution progress, enforces evidence-first completion, applies role-based verification, calculates payment eligibility, flags financial and execution risk, and records immutable decision history.
+MilestoneHQ tracks execution progress, enforces evidence-first completion, applies role-based verification, calculates payment eligibility, flags financial and execution risk, and records immutable decision history.
 
-> **Important**: CC-OS certifies what work is verified and what value is eligible for payment. It does NOT move money - it certifies what is allowed to be paid, what is blocked, and why.
+> **Important**: MilestoneHQ certifies what work is verified and what value is eligible for payment. It does NOT move money - it certifies what is allowed to be paid, what is blocked, and why.
 
 ## Quick Start
 
@@ -18,7 +18,7 @@ CC-OS tracks execution progress, enforces evidence-first completion, applies rol
 
 1. **Clone and install dependencies**
    ```bash
-   cd cc-os
+   cd milestonehq
    pnpm install
    ```
 
@@ -56,7 +56,7 @@ CC-OS tracks execution progress, enforces evidence-first completion, applies rol
 
 ```env
 # Database (required)
-DATABASE_URL="postgresql://postgres:postgres@localhost:5432/ccos?schema=public"
+DATABASE_URL="postgresql://postgres:postgres@localhost:5432/milestonehq?schema=public"
 
 # Auth
 JWT_SECRET="your-super-secret-jwt-key-change-in-production"
