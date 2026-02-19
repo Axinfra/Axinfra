@@ -1,6 +1,7 @@
 import { NextRequest, NextResponse } from 'next/server';
 import { prisma } from '@/lib/db';
 import { createSession } from '@/lib/auth';
+import { loginRateLimiter } from '@/lib/rate-limiter';
 import bcrypt from 'bcryptjs';
 import { z } from 'zod';
 
@@ -15,6 +16,30 @@ export async function POST(request: NextRequest) {
   try {
     const body = await request.json();
     const { email, password } = loginSchema.parse(body);
+
+    // Rate limiting: 5 attempts per 10 minutes per IP+email
+    const clientIp = request.headers.get('x-forwarded-for')?.split(',')[0]?.trim()
+      || request.headers.get('x-real-ip')
+      || 'unknown';
+    const rateLimitKey = `${clientIp}:${email.toLowerCase()}`;
+
+    const rateCheck = loginRateLimiter.check(rateLimitKey);
+    if (!rateCheck.allowed) {
+      const retryAfterSeconds = Math.ceil((rateCheck.retryAfterMs || 0) / 1000);
+      return NextResponse.json(
+        {
+          success: false,
+          error: 'Too many login attempts. Please try again later.',
+          retryAfterSeconds,
+        },
+        {
+          status: 429,
+          headers: {
+            'Retry-After': String(retryAfterSeconds),
+          },
+        }
+      );
+    }
 
     const user = await prisma.user.findUnique({
       where: { email },
@@ -34,6 +59,9 @@ export async function POST(request: NextRequest) {
         { status: 401 }
       );
     }
+
+    // Successful login — reset rate limiter counter
+    loginRateLimiter.reset(rateLimitKey);
 
     const token = await createSession({
       id: user.id,

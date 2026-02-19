@@ -1,5 +1,6 @@
 import { NextRequest, NextResponse } from 'next/server';
 import { requireProjectAuth } from '@/lib/auth';
+import { validateBOQOwnership } from '@/lib/validate-ownership';
 import { BOQService } from '@/services/BOQService';
 
 // GET /api/projects/[projectId]/boq/[boqId] - Get BOQ with items
@@ -10,6 +11,15 @@ export async function GET(
   try {
     const { projectId, boqId } = await params;
     await requireProjectAuth(projectId);
+
+    // IDOR guard: verify BOQ belongs to this project
+    const ownershipCheck = await validateBOQOwnership(boqId, projectId);
+    if (!ownershipCheck) {
+      return NextResponse.json(
+        { success: false, error: 'BOQ not found' },
+        { status: 404 }
+      );
+    }
 
     const boq = await BOQService.getWithItems(boqId);
 

@@ -1,5 +1,6 @@
 import { NextRequest, NextResponse } from 'next/server';
 import { requireProjectAuth } from '@/lib/auth';
+import { validateBOQOwnership } from '@/lib/validate-ownership';
 import { RoleGuard } from '@/services/RoleGuard';
 import { BOQService } from '@/services/BOQService';
 import { z } from 'zod';
@@ -35,6 +36,15 @@ export async function POST(
     const auth = await requireProjectAuth(projectId);
 
     RoleGuard.requireRole(auth, ['OWNER', 'PMC']);
+
+    // IDOR guard: verify BOQ belongs to this project
+    const ownershipCheck = await validateBOQOwnership(boqId, projectId);
+    if (!ownershipCheck) {
+      return NextResponse.json(
+        { success: false, error: 'BOQ not found' },
+        { status: 404 }
+      );
+    }
 
     const body = await request.json();
     const item = addItemSchema.parse(body);
@@ -85,10 +95,19 @@ export async function PATCH(
   { params }: { params: Promise<{ projectId: string; boqId: string }> }
 ) {
   try {
-    const { projectId } = await params;
+    const { projectId, boqId } = await params;
     const auth = await requireProjectAuth(projectId);
 
     RoleGuard.requireRole(auth, ['OWNER', 'PMC']);
+
+    // IDOR guard: verify BOQ belongs to this project
+    const ownershipCheck2 = await validateBOQOwnership(boqId, projectId);
+    if (!ownershipCheck2) {
+      return NextResponse.json(
+        { success: false, error: 'BOQ not found' },
+        { status: 404 }
+      );
+    }
 
     const body = await request.json();
     const { itemId, updates } = updateItemSchema.parse(body);
@@ -136,10 +155,19 @@ export async function DELETE(
   { params }: { params: Promise<{ projectId: string; boqId: string }> }
 ) {
   try {
-    const { projectId } = await params;
+    const { projectId, boqId } = await params;
     const auth = await requireProjectAuth(projectId);
 
     RoleGuard.requireRole(auth, ['OWNER', 'PMC']);
+
+    // IDOR guard: verify BOQ belongs to this project
+    const ownershipCheck3 = await validateBOQOwnership(boqId, projectId);
+    if (!ownershipCheck3) {
+      return NextResponse.json(
+        { success: false, error: 'BOQ not found' },
+        { status: 404 }
+      );
+    }
 
     const body = await request.json();
     const { itemId } = removeItemSchema.parse(body);

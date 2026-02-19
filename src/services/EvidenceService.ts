@@ -1,5 +1,6 @@
 import { EvidenceStatus, Role, MilestoneState, EligibilityEventType, AuditActionTypes } from '@/types';
 import { prisma } from '@/lib/db';
+import { fileStorage } from '@/lib/file-storage';
 import { AuditLogger } from './AuditLogger';
 import { RoleGuard } from './RoleGuard';
 import { PaymentEligibilityEngine } from './PaymentEligibilityEngine';
@@ -52,8 +53,8 @@ export class EvidenceService {
     }
 
     // Validate milestone state
-    const milestone = await prisma.milestone.findUnique({
-      where: { id: submission.milestoneId },
+    const milestone = await prisma.milestone.findFirst({
+      where: { id: submission.milestoneId, projectId },
     });
 
     if (!milestone) {
@@ -89,23 +90,24 @@ export class EvidenceService {
         },
       });
 
-      // Save files to database
-      const fileRecords = [];
+      // Save files to disk and store metadata in database
       for (const file of submission.files) {
         const storageKey = generateStorageKey(file.originalName);
 
-        // Create file record with data stored in database
-        const fileRecord = await tx.evidenceFile.create({
+        // Save file to disk/object storage
+        const filePath = await fileStorage.save(storageKey, file.buffer, file.mimeType);
+
+        // Create file record with path only (NO binary data)
+        await tx.evidenceFile.create({
           data: {
             evidenceId: evidence.id,
             storageKey,
             fileName: file.originalName,
             mimeType: file.mimeType,
             size: file.size,
-            data: file.buffer, // Store file content in database
+            filePath,
           },
         });
-        fileRecords.push(fileRecord);
       }
 
       return evidence;
@@ -146,9 +148,12 @@ export class EvidenceService {
       return { success: false, error: 'Only Owner or PMC can review evidence' };
     }
 
-    // Get evidence
-    const evidence = await prisma.evidence.findUnique({
-      where: { id: review.evidenceId },
+    // Get evidence — IDOR guard: verify evidence belongs to this project
+    const evidence = await prisma.evidence.findFirst({
+      where: {
+        id: review.evidenceId,
+        milestone: { projectId },
+      },
       include: { milestone: true },
     });
 
@@ -323,18 +328,25 @@ export class EvidenceService {
 
   /**
    * Get file content for download.
+   * Reads from file storage (disk/S3) instead of database blob.
    */
   static async getFile(fileId: string): Promise<{ buffer: Buffer; fileName: string; mimeType: string } | null> {
     const file = await prisma.evidenceFile.findUnique({
       where: { id: fileId },
     });
 
-    if (!file || !file.data) {
+    if (!file || !file.filePath) {
+      return null;
+    }
+
+    // Read file from disk/object storage
+    const buffer = await fileStorage.read(file.filePath);
+    if (!buffer) {
       return null;
     }
 
     return {
-      buffer: Buffer.from(file.data),
+      buffer,
       fileName: file.fileName,
       mimeType: file.mimeType,
     };

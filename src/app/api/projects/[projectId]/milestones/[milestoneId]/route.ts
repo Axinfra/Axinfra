@@ -15,8 +15,8 @@ export async function GET(
     const { projectId, milestoneId } = await params;
     const auth = await requireProjectAuth(projectId);
 
-    const milestone = await prisma.milestone.findUnique({
-      where: { id: milestoneId },
+    const milestone = await prisma.milestone.findFirst({
+      where: { id: milestoneId, projectId },
       include: {
         boqLinks: {
           include: {
@@ -121,9 +121,9 @@ export async function DELETE(
     // Only OWNER can delete milestones
     RoleGuard.requireRole(auth, ['OWNER']);
 
-    // Get milestone details before deletion for audit log
-    const milestone = await prisma.milestone.findUnique({
-      where: { id: milestoneId },
+    // Get milestone details before deletion for audit log — validate ownership
+    const milestone = await prisma.milestone.findFirst({
+      where: { id: milestoneId, projectId },
       include: {
         paymentEligibility: true,
       },

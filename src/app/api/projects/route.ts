@@ -82,7 +82,7 @@ export async function POST(request: NextRequest) {
     const body = await request.json();
     const { name, description } = createProjectSchema.parse(body);
 
-    // Create project and assign all demo users with their roles
+    // Create project and assign creator as owner
     const project = await prisma.$transaction(async (tx) => {
       const project = await tx.project.create({
         data: {
@@ -91,35 +91,14 @@ export async function POST(request: NextRequest) {
         },
       });
 
-      // Find all demo users by their email patterns
-      const ownerUser = await tx.user.findFirst({ where: { email: 'owner@example.com' } });
-      const pmcUser = await tx.user.findFirst({ where: { email: 'pmc@example.com' } });
-      const vendorUser = await tx.user.findFirst({ where: { email: 'vendor@example.com' } });
-      const viewerUser = await tx.user.findFirst({ where: { email: 'viewer@example.com' } });
-
-      // Create roles for all users that exist
-      const roleAssignments = [];
-
-      if (ownerUser) {
-        roleAssignments.push({ projectId: project.id, userId: ownerUser.id, role: Role.OWNER });
-      }
-      if (pmcUser) {
-        roleAssignments.push({ projectId: project.id, userId: pmcUser.id, role: Role.PMC });
-      }
-      if (vendorUser) {
-        roleAssignments.push({ projectId: project.id, userId: vendorUser.id, role: Role.VENDOR });
-      }
-      if (viewerUser) {
-        roleAssignments.push({ projectId: project.id, userId: viewerUser.id, role: Role.VIEWER });
-      }
-
-      // If no demo users found, at least assign the creator as owner
-      if (roleAssignments.length === 0) {
-        roleAssignments.push({ projectId: project.id, userId: auth.userId, role: Role.OWNER });
-      }
-
-      await tx.projectRole.createMany({
-        data: roleAssignments,
+      // Assign the creating user as project owner
+      // Other users must be invited/assigned explicitly
+      await tx.projectRole.create({
+        data: {
+          projectId: project.id,
+          userId: auth.userId,
+          role: Role.OWNER,
+        },
       });
 
       return project;

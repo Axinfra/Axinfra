@@ -1,50 +1,42 @@
-type ClassValue = string | number | boolean | undefined | null | ClassValue[];
+import { type ClassValue, clsx } from "clsx";
+import { twMerge } from "tailwind-merge";
+import { format } from "date-fns";
+import { v4 as uuidv4 } from "uuid";
 
-export function cn(...inputs: ClassValue[]): string {
-  return inputs
-    .flat()
-    .filter((x) => typeof x === 'string' && x.length > 0)
-    .join(' ');
+export function cn(...inputs: ClassValue[]) {
+  return twMerge(clsx(inputs));
 }
 
-export function formatDate(date: Date | string | null | undefined): string {
-  if (!date) return '-';
-  const d = new Date(date);
-  return d.toLocaleDateString('en-US', {
-    year: 'numeric',
-    month: 'short',
-    day: 'numeric',
-  });
-}
-
-export function formatDateTime(date: Date | string | null | undefined): string {
-  if (!date) return '-';
-  const d = new Date(date);
-  return d.toLocaleString('en-US', {
-    year: 'numeric',
-    month: 'short',
-    day: 'numeric',
-    hour: '2-digit',
-    minute: '2-digit',
-  });
-}
-
-export function formatCurrency(amount: number): string {
+// Formatters
+export function formatCurrency(amount: number | string) {
+  const value = typeof amount === 'string' ? parseFloat(amount) : amount;
   return new Intl.NumberFormat('en-US', {
     style: 'currency',
     currency: 'USD',
-    minimumFractionDigits: 2,
-  }).format(amount);
+    minimumFractionDigits: 0,
+    maximumFractionDigits: 0,
+  }).format(value);
 }
 
-export function formatPercent(value: number): string {
-  return `${value.toFixed(1)}%`;
+export function formatDate(date: string | Date | null | undefined) {
+  if (!date) return '-';
+  try {
+    return format(new Date(date), 'MMM d, yyyy');
+  } catch (error) {
+    return '-';
+  }
 }
 
-export function clamp(value: number, min: number, max: number): number {
-  return Math.max(min, Math.min(max, value));
+export function formatDateTime(date: string | Date | null | undefined) {
+  if (!date) return '-';
+  try {
+    return format(new Date(date), 'MMM d, yyyy HH:mm');
+  } catch (error) {
+    return '-';
+  }
 }
 
+// Env helpers
 export function getEnvNumber(key: string, defaultValue: number): number {
   const value = process.env[key];
   if (!value) return defaultValue;
@@ -52,13 +44,11 @@ export function getEnvNumber(key: string, defaultValue: number): number {
   return isNaN(parsed) ? defaultValue : parsed;
 }
 
-export function sanitizeFilename(filename: string): string {
-  return filename.replace(/[^a-zA-Z0-9._-]/g, '_');
-}
+// Alias for backwards compatibility found in some files
+export const parseEnvNumber = getEnvNumber;
 
-export function generateStorageKey(filename: string): string {
-  const timestamp = Date.now();
-  const random = Math.random().toString(36).substring(2, 8);
-  const sanitized = sanitizeFilename(filename);
-  return `${timestamp}-${random}-${sanitized}`;
+// Generators
+export function generateStorageKey(fileName: string): string {
+  const cleanName = fileName.replace(/[^a-zA-Z0-9.-]/g, '_');
+  return `${uuidv4()}-${cleanName}`;
 }

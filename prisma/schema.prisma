@@ -3,8 +3,8 @@ generator client {
 }
 
 datasource db {
-  provider = "sqlite"
-  url      = "file:./dev.db"
+  provider = "postgresql"
+  url      = env("DATABASE_URL")
 }
 
 model AuditLog {
@@ -135,7 +135,7 @@ model EvidenceFile {
   fileName   String
   mimeType   String
   size       Int
-  data       Bytes
+  filePath   String   @default("")
   createdAt  DateTime @default(now())
   evidence   Evidence @relation(fields: [evidenceId], references: [id], onDelete: Cascade)
 

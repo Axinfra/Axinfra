@@ -1,5 +1,6 @@
 import { NextRequest, NextResponse } from 'next/server';
 import { requireProjectAuth } from '@/lib/auth';
+import { validateEvidenceOwnership } from '@/lib/validate-ownership';
 import { RoleGuard } from '@/services/RoleGuard';
 import { EvidenceService } from '@/services/EvidenceService';
 import { z } from 'zod';
@@ -20,6 +21,15 @@ export async function POST(
 
     // Only Owner and PMC can review evidence
     RoleGuard.requireRole(auth, ['OWNER', 'PMC']);
+
+    // IDOR guard: verify evidence belongs to this project
+    const ownershipCheck = await validateEvidenceOwnership(evidenceId, projectId);
+    if (!ownershipCheck) {
+      return NextResponse.json(
+        { success: false, error: 'Evidence not found' },
+        { status: 404 }
+      );
+    }
 
     const body = await request.json();
     const { action, note } = reviewSchema.parse(body);

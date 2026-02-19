@@ -62,8 +62,8 @@ export class BOQService {
     role: Role,
     projectId: string
   ): Promise<{ success: boolean; itemId?: string; error?: string }> {
-    const boq = await prisma.bOQ.findUnique({
-      where: { id: boqId },
+    const boq = await prisma.bOQ.findFirst({
+      where: { id: boqId, projectId },
     });
 
     if (!boq) {
@@ -111,8 +111,8 @@ export class BOQService {
     role: Role,
     projectId: string
   ): Promise<{ success: boolean; error?: string }> {
-    const item = await prisma.bOQItem.findUnique({
-      where: { id: itemId },
+    const item = await prisma.bOQItem.findFirst({
+      where: { id: itemId, boq: { projectId } },
       include: { boq: true },
     });
 
@@ -171,8 +171,8 @@ export class BOQService {
     role: Role,
     projectId: string
   ): Promise<{ success: boolean; error?: string }> {
-    const item = await prisma.bOQItem.findUnique({
-      where: { id: itemId },
+    const item = await prisma.bOQItem.findFirst({
+      where: { id: itemId, boq: { projectId } },
       include: { boq: true },
     });
 
@@ -224,8 +224,8 @@ export class BOQService {
       return { success: false, error: 'Only Owner can approve BOQ' };
     }
 
-    const boq = await prisma.bOQ.findUnique({
-      where: { id: boqId },
+    const boq = await prisma.bOQ.findFirst({
+      where: { id: boqId, projectId },
       include: { items: true },
     });
 
@@ -280,8 +280,8 @@ export class BOQService {
       return { success: false, error: 'Revision reason is required' };
     }
 
-    const boq = await prisma.bOQ.findUnique({
-      where: { id: boqId },
+    const boq = await prisma.bOQ.findFirst({
+      where: { id: boqId, projectId },
       include: { items: true, revisions: true },
     });
 

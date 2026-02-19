@@ -1,5 +1,6 @@
 import { NextRequest, NextResponse } from 'next/server';
 import { requireProjectAuth } from '@/lib/auth';
+import { validateBOQOwnership } from '@/lib/validate-ownership';
 import { RoleGuard } from '@/services/RoleGuard';
 import { BOQService } from '@/services/BOQService';
 
@@ -14,6 +15,15 @@ export async function POST(
 
     // Only Owner can approve BOQ
     RoleGuard.requireRole(auth, ['OWNER']);
+
+    // IDOR guard: verify BOQ belongs to this project
+    const ownershipCheck = await validateBOQOwnership(boqId, projectId);
+    if (!ownershipCheck) {
+      return NextResponse.json(
+        { success: false, error: 'BOQ not found' },
+        { status: 404 }
+      );
+    }
 
     const result = await BOQService.approve(boqId, auth.userId, auth.role, projectId);
 

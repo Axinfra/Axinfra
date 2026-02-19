@@ -2,163 +2,275 @@
 @tailwind components;
 @tailwind utilities;
 
-:root {
-  --foreground-rgb: 0, 0, 0;
-  --background-start-rgb: 245, 247, 250;
-  --background-end-rgb: 255, 255, 255;
+@layer base {
+  :root {
+    --radius-card: 16px;
+    --radius-btn: 10px;
+    --radius-input: 10px;
+    --radius-pill: 9999px;
+    --transition-fast: 150ms cubic-bezier(0.16, 1, 0.3, 1);
+    --transition-normal: 250ms cubic-bezier(0.16, 1, 0.3, 1);
+  }
+
+  * {
+    @apply border-surface-200;
+  }
+
+  html {
+    font-feature-settings: 'cv11', 'ss01';
+    -webkit-font-smoothing: antialiased;
+    -moz-osx-font-smoothing: grayscale;
+    scroll-behavior: smooth;
+  }
+
+  body {
+    @apply bg-surface-50 text-surface-600 font-sans;
+    font-size: 0.875rem;
+    /* 14px */
+    line-height: 1.5;
+    min-height: 100vh;
+  }
+
+  ::selection {
+    @apply bg-primary-100 text-primary-900;
+  }
+
+  h1,
+  h2,
+  h3,
+  h4,
+  h5,
+  h6 {
+    @apply text-surface-900 tracking-tight font-semibold;
+  }
+
+  .tabular-nums {
+    font-variant-numeric: tabular-nums;
+  }
 }
 
-body {
-  color: rgb(var(--foreground-rgb));
-  background: linear-gradient(
-      to bottom,
-      transparent,
-      rgb(var(--background-end-rgb))
-    )
-    rgb(var(--background-start-rgb));
-  min-height: 100vh;
+@layer components {
+
+  /* ---- Badges / Pills ---- */
+  .badge {
+    @apply inline-flex items-center gap-1.5 px-2.5 py-1 rounded-full text-xs font-medium border border-transparent transition-colors;
+    letter-spacing: 0.01em;
+  }
+
+  .badge-draft {
+    @apply bg-surface-100 text-surface-600 border-surface-200;
+  }
+
+  .badge-in-progress {
+    @apply bg-primary-50 text-primary-700 border-primary-100;
+  }
+
+  .badge-submitted {
+    @apply bg-warning-50 text-warning-700 border-warning-100;
+  }
+
+  .badge-verified {
+    @apply bg-success-50 text-success-700 border-success-100;
+  }
+
+  .badge-closed {
+    @apply bg-surface-100 text-surface-500 border-surface-200;
+  }
+
+  .badge-not-eligible {
+    @apply bg-surface-100 text-surface-500 border-surface-200;
+  }
+
+  .badge-eligible {
+    @apply bg-success-50 text-success-700 border-success-100;
+  }
+
+  .badge-due-soon {
+    @apply bg-warning-50 text-warning-700 border-warning-100;
+  }
+
+  .badge-blocked {
+    @apply bg-danger-50 text-danger-700 border-danger-100;
+  }
+
+  .badge-paid {
+    @apply bg-success-50 text-success-700 border-success-100;
+  }
+
+  /* ---- Cards ---- */
+  .card {
+    @apply bg-white rounded-xl border border-surface-200 shadow-sm transition-all duration-200;
+  }
+
+  .card:hover {
+    @apply shadow-md border-surface-300;
+  }
+
+  .card-header {
+    @apply px-6 py-5 border-b border-surface-100;
+  }
+
+  .card-body {
+    @apply px-6 py-5;
+  }
+
+  /* ---- Buttons — Legacy Class Support ---- */
+  .btn {
+    @apply inline-flex items-center justify-center gap-2 font-medium transition-all duration-200 focus:outline-none focus:ring-4 focus:ring-primary-100 disabled:opacity-50 disabled:pointer-events-none select-none active:scale-[0.98];
+    padding: 10px 16px;
+    /* Slightly larger targets */
+    font-size: 0.875rem;
+    line-height: 1.25rem;
+    border-radius: var(--radius-btn);
+    letter-spacing: -0.01em;
+    border: 1px solid transparent;
+    box-shadow: 0 1px 2px rgba(16, 24, 40, 0.05);
+  }
+
+  .btn-primary {
+    @apply bg-primary-600 text-white border-transparent hover:bg-primary-700 hover:shadow-md shadow-primary-500/20;
+  }
+
+  .btn-secondary {
+    @apply bg-white text-surface-700 border-surface-300 hover:bg-surface-50 hover:text-surface-800 hover:border-surface-400;
+  }
+
+  .btn-danger {
+    @apply bg-danger-600 text-white border-transparent hover:bg-danger-700 shadow-danger-500/20;
+  }
+
+  .btn-success {
+    @apply bg-success-600 text-white border-transparent hover:bg-success-700 shadow-success-500/20;
+  }
+
+  .btn-ghost {
+    @apply text-surface-600 bg-transparent border-transparent shadow-none hover:bg-surface-100 hover:text-surface-900;
+  }
+
+  .btn-sm {
+    @apply px-3 py-1.5 text-xs rounded-lg;
+  }
+
+  .btn-lg {
+    @apply px-6 py-3 text-base rounded-xl;
+  }
+
+  /* ---- Form Controls ---- */
+  .input {
+    @apply block w-full bg-white text-surface-900 placeholder:text-surface-400 border border-surface-300 shadow-xs focus:border-primary-500 focus:ring-4 focus:ring-primary-500/10 focus:outline-none transition-all duration-200 hover:border-surface-400;
+    font-size: 0.875rem;
+    line-height: 1.5rem;
+    padding: 10px 14px;
+    border-radius: var(--radius-input);
+  }
+
+  .input:disabled {
+    @apply bg-surface-50 text-surface-400 cursor-not-allowed hover:border-surface-300 shadow-none;
+  }
+
+  .label {
+    @apply block text-sm font-medium text-surface-700 mb-2;
+  }
+
+  /* ---- Tables — Clean Enterprise Style ---- */
+  .table {
+    @apply w-full caption-bottom text-sm;
+    border-collapse: separate;
+    border-spacing: 0;
+  }
+
+  .table thead {
+    @apply bg-surface-50/50 backdrop-blur-sm sticky top-0 z-10;
+  }
+
+  .table th {
+    @apply h-11 px-4 text-left align-middle font-medium text-surface-500 border-b border-surface-200;
+    font-size: 0.75rem;
+    text-transform: uppercase;
+    letter-spacing: 0.05em;
+  }
+
+  .table td {
+    @apply p-4 align-middle border-b border-surface-100 text-surface-700 transition-colors;
+  }
+
+  .table tbody tr {
+    @apply transition-colors hover:bg-surface-50/60;
+  }
+
+  .table tbody tr:last-child td {
+    @apply border-0;
+  }
+
+  /* ---- Alerts ---- */
+  .alert {
+    @apply px-4 py-3 rounded-lg text-sm font-medium border shadow-xs flex items-start gap-3;
+  }
+
+  .alert-info {
+    @apply text-primary-700 border-primary-200;
+    background-color: #F5FAFF;
+  }
+
+  .alert-success {
+    @apply text-success-700 border-success-200;
+    background-color: #F6FEF9;
+  }
+
+  .alert-warning {
+    @apply text-warning-700 border-warning-200;
+    background-color: #FFFCF5;
+  }
+
+  .alert-error {
+    @apply text-danger-700 border-danger-200;
+    background-color: #FFFBFA;
+  }
+
+  /* ---- Skeleton Loader ---- */
+  .skeleton {
+    @apply bg-surface-100 rounded-md animate-pulse;
+  }
+
+  /* ---- Stat Card ---- */
+  .stat-card {
+    @apply bg-white rounded-xl border border-surface-200 shadow-sm p-6 hover:shadow-md transition-shadow;
+  }
+
+  .stat-card .stat-label {
+    @apply text-sm text-surface-500 font-medium mb-1;
+  }
+
+  .stat-card .stat-value {
+    @apply text-3xl font-bold text-surface-900 tracking-tight;
+  }
 }
 
 @layer utilities {
   .text-balance {
     text-wrap: balance;
   }
-}
 
-/* Status badges */
-.badge {
-  @apply inline-flex items-center px-2.5 py-0.5 rounded-full text-xs font-medium;
-}
+  .glass {
+    @apply bg-white/80 backdrop-blur-md border border-white/20;
+  }
 
-.badge-draft {
-  @apply bg-gray-100 text-gray-800;
-}
+  /* Refined Scrollbar */
+  .scrollbar-thin {
+    scrollbar-width: thin;
+    scrollbar-color: #D0D5DD transparent;
+  }
 
-.badge-in-progress {
-  @apply bg-blue-100 text-blue-800;
-}
+  .scrollbar-thin::-webkit-scrollbar {
+    width: 6px;
+    height: 6px;
+  }
 
-.badge-submitted {
-  @apply bg-yellow-100 text-yellow-800;
-}
+  .scrollbar-thin::-webkit-scrollbar-track {
+    background: transparent;
+  }
 
-.badge-verified {
-  @apply bg-green-100 text-green-800;
-}
-
-.badge-closed {
-  @apply bg-purple-100 text-purple-800;
-}
-
-.badge-not-eligible {
-  @apply bg-gray-100 text-gray-600;
-}
-
-.badge-eligible {
-  @apply bg-green-100 text-green-800;
-}
-
-.badge-due-soon {
-  @apply bg-orange-100 text-orange-800;
-}
-
-.badge-blocked {
-  @apply bg-red-100 text-red-800;
-}
-
-.badge-paid {
-  @apply bg-emerald-100 text-emerald-800;
-}
-
-/* Cards */
-.card {
-  @apply bg-white rounded-lg shadow-sm border border-gray-200;
-}
-
-.card-header {
-  @apply px-6 py-4 border-b border-gray-200;
-}
-
-.card-body {
-  @apply px-6 py-4;
-}
-
-/* Buttons */
-.btn {
-  @apply inline-flex items-center justify-center px-4 py-2 border border-transparent text-sm font-medium rounded-md focus:outline-none focus:ring-2 focus:ring-offset-2 transition-colors;
-}
-
-.btn-primary {
-  @apply bg-primary-600 text-white hover:bg-primary-700 focus:ring-primary-500;
-}
-
-.btn-secondary {
-  @apply bg-white text-gray-700 border-gray-300 hover:bg-gray-50 focus:ring-primary-500;
-}
-
-.btn-danger {
-  @apply bg-red-600 text-white hover:bg-red-700 focus:ring-red-500;
-}
-
-.btn-success {
-  @apply bg-green-600 text-white hover:bg-green-700 focus:ring-green-500;
-}
-
-.btn-sm {
-  @apply px-3 py-1.5 text-xs;
-}
-
-.btn-lg {
-  @apply px-6 py-3 text-base;
-}
-
-/* Form inputs */
-.input {
-  @apply block w-full rounded-md border-gray-300 shadow-sm focus:border-primary-500 focus:ring-primary-500 sm:text-sm;
-}
-
-.label {
-  @apply block text-sm font-medium text-gray-700 mb-1;
-}
-
-/* Tables */
-.table {
-  @apply min-w-full divide-y divide-gray-200;
-}
-
-.table thead {
-  @apply bg-gray-50;
-}
-
-.table th {
-  @apply px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider;
-}
-
-.table td {
-  @apply px-6 py-4 whitespace-nowrap text-sm text-gray-900;
-}
-
-.table tbody tr {
-  @apply hover:bg-gray-50;
-}
-
-/* Alerts */
-.alert {
-  @apply p-4 rounded-md;
-}
-
-.alert-info {
-  @apply bg-blue-50 text-blue-800;
-}
-
-.alert-success {
-  @apply bg-green-50 text-green-800;
-}
-
-.alert-warning {
-  @apply bg-yellow-50 text-yellow-800;
-}
-
-.alert-error {
-  @apply bg-red-50 text-red-800;
+  .scrollbar-thin::-webkit-scrollbar-thumb {
+    @apply bg-surface-300 rounded-full hover:bg-surface-400 transition-colors;
+  }
 }

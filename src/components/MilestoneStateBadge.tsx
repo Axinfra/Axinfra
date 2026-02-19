@@ -1,21 +1,22 @@
 'use client';
 
 import { MilestoneState } from '@/types';
+import { Badge } from '@/components/ui/Badge';
 
 interface MilestoneStateBadgeProps {
   state: MilestoneState;
 }
 
-const stateConfig: Record<MilestoneState, { label: string; className: string }> = {
-  DRAFT: { label: 'Draft', className: 'badge-draft' },
-  IN_PROGRESS: { label: 'In Progress', className: 'badge-in-progress' },
-  SUBMITTED: { label: 'Submitted', className: 'badge-submitted' },
-  VERIFIED: { label: 'Verified', className: 'badge-verified' },
-  CLOSED: { label: 'Closed', className: 'badge-closed' },
+const stateConfig: Record<MilestoneState, { label: string; variant: "default" | "secondary" | "destructive" | "outline" | "success" | "warning" | "neutral" }> = {
+  DRAFT: { label: 'Draft', variant: 'neutral' },
+  IN_PROGRESS: { label: 'In Progress', variant: 'default' },
+  SUBMITTED: { label: 'Submitted', variant: 'warning' },
+  VERIFIED: { label: 'Verified', variant: 'success' },
+  CLOSED: { label: 'Closed', variant: 'neutral' },
 };
 
 export default function MilestoneStateBadge({ state }: MilestoneStateBadgeProps) {
-  const config = stateConfig[state];
+  const config = stateConfig[state] || { label: state, variant: 'neutral' };
 
-  return <span className={`badge ${config.className}`}>{config.label}</span>;
+  return <Badge variant={config.variant}>{config.label}</Badge>;
 }

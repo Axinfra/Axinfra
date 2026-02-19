@@ -1,48 +1,35 @@
 /**
  * EligibilityStateBadge - Displays canonical payment eligibility state
- *
- * GOVERNANCE RULES:
- * 1. This component ONLY displays data from the canonical PaymentEligibility record
- * 2. It does NOT compute any values - all computation is done server-side
- * 3. All roles see the SAME badge for the same eligibility
- * 4. Colors and labels are deterministic based on state
  */
 
 import { EligibilityState, EligibilityStateLabels } from '@/types';
+import { Badge } from '@/components/ui/Badge';
 
 interface EligibilityStateBadgeProps {
   state: EligibilityState;
   size?: 'sm' | 'md' | 'lg';
 }
 
-const stateStyles: Record<EligibilityState, { bg: string; text: string }> = {
-  NOT_DUE: { bg: 'bg-gray-100', text: 'text-gray-700' },
-  DUE_PENDING_VERIFICATION: { bg: 'bg-yellow-100', text: 'text-yellow-800' },
-  VERIFIED_NOT_ELIGIBLE: { bg: 'bg-gray-100', text: 'text-gray-600' },
-  PARTIALLY_ELIGIBLE: { bg: 'bg-yellow-100', text: 'text-yellow-800' },
-  FULLY_ELIGIBLE: { bg: 'bg-green-100', text: 'text-green-800' },
-  BLOCKED: { bg: 'bg-red-100', text: 'text-red-800' },
-  MARKED_PAID: { bg: 'bg-purple-100', text: 'text-purple-800' },
-};
-
-const sizeClasses = {
-  sm: 'px-2 py-0.5 text-xs',
-  md: 'px-2.5 py-1 text-sm',
-  lg: 'px-3 py-1.5 text-base',
+const stateVariants: Record<EligibilityState, "default" | "secondary" | "destructive" | "outline" | "success" | "warning" | "neutral"> = {
+  NOT_DUE: 'neutral',
+  DUE_PENDING_VERIFICATION: 'warning',
+  VERIFIED_NOT_ELIGIBLE: 'neutral',
+  PARTIALLY_ELIGIBLE: 'warning',
+  FULLY_ELIGIBLE: 'success',
+  BLOCKED: 'destructive',
+  MARKED_PAID: 'success', // or a special paid variant if added, using success for now
 };
 
 export default function EligibilityStateBadge({
   state,
   size = 'sm',
 }: EligibilityStateBadgeProps) {
-  const style = stateStyles[state] || stateStyles.NOT_DUE;
+  const variant = stateVariants[state] || 'neutral';
   const label = EligibilityStateLabels[state] || state;
 
   return (
-    <span
-      className={`inline-flex items-center rounded-full font-medium ${style.bg} ${style.text} ${sizeClasses[size]}`}
-    >
+    <Badge variant={variant} className={size === 'lg' ? 'text-base px-3 py-1' : ''}>
       {label}
-    </span>
+    </Badge>
   );
 }

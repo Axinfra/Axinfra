@@ -1,6 +1,7 @@
 import { NextRequest, NextResponse } from 'next/server';
 import { prisma } from '@/lib/db';
 import { requireProjectAuth } from '@/lib/auth';
+import { validateMilestoneOwnership } from '@/lib/validate-ownership';
 import { RoleGuard } from '@/services/RoleGuard';
 import { MilestoneStateMachine } from '@/services/MilestoneStateMachine';
 import { AuditLogger } from '@/services/AuditLogger';
@@ -24,6 +25,15 @@ export async function POST(
     // Only Owner and PMC can verify
     RoleGuard.requireRole(auth, ['OWNER', 'PMC']);
 
+    // IDOR guard: verify milestone belongs to this project
+    const milestoneCheck = await validateMilestoneOwnership(milestoneId, projectId);
+    if (!milestoneCheck) {
+      return NextResponse.json(
+        { success: false, error: 'Milestone not found' },
+        { status: 404 }
+      );
+    }
+
     const body = await request.json();
     const { qtyVerified, notes } = verifySchema.parse(body);
 
@@ -36,7 +46,7 @@ export async function POST(
       );
     }
 
-    // Get milestone with BOQ links to calculate value
+    // Get milestone with BOQ links to calculate value — already validated ownership
     const milestone = await prisma.milestone.findUnique({
       where: { id: milestoneId },
       include: {

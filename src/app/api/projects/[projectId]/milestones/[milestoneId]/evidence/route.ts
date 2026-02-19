@@ -1,5 +1,6 @@
 import { NextRequest, NextResponse } from 'next/server';
 import { requireProjectAuth } from '@/lib/auth';
+import { validateMilestoneOwnership } from '@/lib/validate-ownership';
 import { RoleGuard } from '@/services/RoleGuard';
 import { EvidenceService } from '@/services/EvidenceService';
 import { z } from 'zod';
@@ -17,6 +18,15 @@ export async function GET(
   try {
     const { projectId, milestoneId } = await params;
     await requireProjectAuth(projectId);
+
+    // IDOR guard: verify milestone belongs to this project
+    const milestone = await validateMilestoneOwnership(milestoneId, projectId);
+    if (!milestone) {
+      return NextResponse.json(
+        { success: false, error: 'Milestone not found' },
+        { status: 404 }
+      );
+    }
 
     const evidence = await EvidenceService.getForMilestone(milestoneId);
 
@@ -47,6 +57,15 @@ export async function POST(
 
     // Only Vendor can submit evidence
     RoleGuard.requireRole(auth, ['VENDOR']);
+
+    // IDOR guard: verify milestone belongs to this project
+    const milestoneCheck = await validateMilestoneOwnership(milestoneId, projectId);
+    if (!milestoneCheck) {
+      return NextResponse.json(
+        { success: false, error: 'Milestone not found' },
+        { status: 404 }
+      );
+    }
 
     // Parse multipart form data
     const formData = await request.formData();

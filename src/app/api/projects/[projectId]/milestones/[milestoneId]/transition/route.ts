@@ -1,5 +1,6 @@
 import { NextRequest, NextResponse } from 'next/server';
 import { requireProjectAuth } from '@/lib/auth';
+import { validateMilestoneOwnership } from '@/lib/validate-ownership';
 import { MilestoneStateMachine } from '@/services/MilestoneStateMachine';
 import { MilestoneState } from '@/types';
 import { z } from 'zod';
@@ -17,6 +18,15 @@ export async function POST(
   try {
     const { projectId, milestoneId } = await params;
     const auth = await requireProjectAuth(projectId);
+
+    // IDOR guard: verify milestone belongs to this project
+    const milestone = await validateMilestoneOwnership(milestoneId, projectId);
+    if (!milestone) {
+      return NextResponse.json(
+        { success: false, error: 'Milestone not found' },
+        { status: 404 }
+      );
+    }
 
     const body = await request.json();
     const { toState, reason } = transitionSchema.parse(body);

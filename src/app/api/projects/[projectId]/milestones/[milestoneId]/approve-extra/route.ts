@@ -18,8 +18,8 @@ export async function POST(
     // Only Owner can approve extras
     RoleGuard.requireRole(auth, ['OWNER']);
 
-    const milestone = await prisma.milestone.findUnique({
-      where: { id: milestoneId },
+    const milestone = await prisma.milestone.findFirst({
+      where: { id: milestoneId, projectId },
     });
 
     if (!milestone) {

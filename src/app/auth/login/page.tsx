@@ -1,7 +1,12 @@
+
 'use client';
 
 import { useState } from 'react';
 import { useRouter } from 'next/navigation';
+import { Button } from '@/components/ui/Button';
+import { Input } from '@/components/ui/Input';
+import { ArrowRight, Loader2, AlertCircle } from 'lucide-react';
+import Link from 'next/link';
 
 export default function LoginPage() {
   const router = useRouter();
@@ -36,78 +41,126 @@ export default function LoginPage() {
     }
   };
 
+  const fillDemo = (role: 'owner' | 'pmc' | 'vendor' | 'viewer') => {
+    const emails = {
+      owner: 'owner@example.com',
+      pmc: 'pmc@example.com',
+      vendor: 'vendor@example.com',
+      viewer: 'viewer@example.com',
+    };
+    setEmail(emails[role]);
+    setPassword('password123');
+  };
+
   return (
-    <div className="min-h-screen flex items-center justify-center bg-gray-50 py-12 px-4 sm:px-6 lg:px-8">
-      <div className="max-w-md w-full space-y-8">
-        <div>
-          <h1 className="text-center text-3xl font-bold text-primary-600">MilestoneHQ</h1>
-          <h2 className="mt-2 text-center text-xl text-gray-600">
-            Evidence-First Execution Tracking
-          </h2>
-          <p className="mt-4 text-center text-sm text-gray-500">
-            Sign in to your account
+    <div className="min-h-screen w-full flex bg-white">
+      {/* Left Panel - Solid Navy, Minimal */}
+      <div className="hidden lg:flex lg:w-[45%] bg-[#0A2540] flex-col justify-between p-16 xl:p-24 relative overflow-hidden">
+        {/* Logo area */}
+        <div className="text-white font-bold text-xl tracking-tight">
+          MilestoneHQ
+        </div>
+
+        {/* Main Headings - Serious & Heavy */}
+        <div className="z-10">
+          <h1 className="text-white text-5xl xl:text-6xl font-bold tracking-tight leading-[1.1] mb-8">
+            Infrastructure <br />
+            for execution.
+          </h1>
+          <p className="text-[#879BB3] text-xl leading-relaxed max-w-md font-normal">
+            Financial visibility and evidence-based payments for enterprise construction projects.
           </p>
         </div>
 
-        <form className="mt-8 space-y-6" onSubmit={handleSubmit}>
-          {error && (
-            <div className="alert alert-error">
-              {error}
-            </div>
-          )}
+        {/* Copyright */}
+        <div className="text-[#879BB3] text-sm">
+          &copy; MilestoneHQ Inc.
+        </div>
+      </div>
 
-          <div className="space-y-4">
-            <div>
-              <label htmlFor="email" className="label">
-                Email address
-              </label>
-              <input
-                id="email"
-                name="email"
-                type="email"
-                autoComplete="email"
-                required
-                className="input"
-                value={email}
-                onChange={(e) => setEmail(e.target.value)}
-              />
-            </div>
+      {/* Right Panel - Clean, Sharp, Boring */}
+      <div className="w-full lg:w-[55%] flex items-center justify-center p-8 bg-white">
+        <div className="w-full max-w-sm space-y-10">
 
-            <div>
-              <label htmlFor="password" className="label">
-                Password
-              </label>
-              <input
-                id="password"
-                name="password"
-                type="password"
-                autoComplete="current-password"
-                required
-                className="input"
-                value={password}
-                onChange={(e) => setPassword(e.target.value)}
-              />
-            </div>
+          <div className="space-y-2">
+            <h2 className="text-2xl font-semibold text-gray-900 tracking-tight">Log in</h2>
+            <p className="text-gray-500 text-sm">Access your workspace.</p>
           </div>
 
-          <button
-            type="submit"
-            disabled={loading}
-            className="btn btn-primary w-full"
-          >
-            {loading ? 'Signing in...' : 'Sign in'}
-          </button>
+          <form onSubmit={handleSubmit} className="space-y-6">
+            {error && (
+              <div className="bg-red-50 border border-red-100 rounded-sm p-3 flex items-start gap-3 text-sm text-red-700">
+                <AlertCircle className="h-4 w-4 mt-0.5 shrink-0" />
+                <p>{error}</p>
+              </div>
+            )}
 
-          <div className="text-center text-sm text-gray-500 mt-4">
-            <p>Demo accounts:</p>
-            <p className="font-mono text-xs mt-2">
-              owner@example.com / password123<br />
-              pmc@example.com / password123<br />
-              vendor@example.com / password123<br />
-              viewer@example.com / password123
-            </p>
+            <div className="space-y-5">
+              <div className="space-y-1.5">
+                <label htmlFor="email" className="text-sm font-medium text-gray-700 block">Email</label>
+                <Input
+                  id="email"
+                  type="email"
+                  value={email}
+                  onChange={(e) => setEmail(e.target.value)}
+                  placeholder="name@company.com"
+                  required
+                  autoComplete="email"
+                  className="h-10 rounded-md border-gray-300 focus:border-gray-500 focus:ring-gray-500/20"
+                />
+              </div>
+
+              <div className="space-y-1.5">
+                <div className="flex items-center justify-between">
+                  <label htmlFor="password" className="text-sm font-medium text-gray-700 block">Password</label>
+                  <Link href="#" className="text-xs font-medium text-[#0A2540] hover:underline">Forgot password?</Link>
+                </div>
+                <Input
+                  id="password"
+                  type="password"
+                  value={password}
+                  onChange={(e) => setPassword(e.target.value)}
+                  placeholder="••••••••"
+                  required
+                  autoComplete="current-password"
+                  className="h-10 rounded-md border-gray-300 focus:border-gray-500 focus:ring-gray-500/20"
+                />
+              </div>
+            </div>
+
+            <Button
+              type="submit"
+              className="w-full h-10 rounded-md bg-[#0A2540] hover:bg-[#0A2540]/90 text-white font-medium shadow-none transition-all"
+              disabled={loading}
+            >
+              {loading ? (
+                <>
+                  <Loader2 className="mr-2 h-3.5 w-3.5 animate-spin" />
+                  Signing in...
+                </>
+              ) : (
+                <>
+                  Sign in
+                  <ArrowRight className="ml-2 h-3.5 w-3.5 opacity-50" />
+                </>
+              )}
+            </Button>
+          </form>
+
+          <div className="pt-6 border-t border-gray-100">
+            <p className="text-xs text-center text-gray-400 mb-3 font-medium">Demo Access</p>
+            <div className="flex items-center justify-center gap-4 text-xs font-medium text-gray-500">
+              <button type="button" onClick={() => fillDemo('owner')} className="hover:text-[#0A2540] transition-colors">Owner</button>
+              <span className="text-gray-300">·</span>
+              <button type="button" onClick={() => fillDemo('pmc')} className="hover:text-[#0A2540] transition-colors">PMC</button>
+              <span className="text-gray-300">·</span>
+              <button type="button" onClick={() => fillDemo('vendor')} className="hover:text-[#0A2540] transition-colors">Vendor</button>
+              <span className="text-gray-300">·</span>
+              <button type="button" onClick={() => fillDemo('viewer')} className="hover:text-[#0A2540] transition-colors">Viewer</button>
+            </div>
+            <p className="text-[10px] text-center text-gray-400 mt-2">Password: <span className="font-mono">password123</span></p>
           </div>
-        </form>
+        </div>
       </div>
     </div>
   );

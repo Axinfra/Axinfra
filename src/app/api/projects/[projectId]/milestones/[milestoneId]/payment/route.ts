@@ -10,6 +10,7 @@
 
 import { NextRequest, NextResponse } from 'next/server';
 import { requireProjectAuth } from '@/lib/auth';
+import { validateMilestoneOwnership } from '@/lib/validate-ownership';
 import { RoleGuard } from '@/services/RoleGuard';
 import { PaymentEligibilityEngine } from '@/services/PaymentEligibilityEngine';
 import { EligibilityState } from '@/types';
@@ -27,6 +28,15 @@ export async function GET(
   try {
     const { projectId, milestoneId } = await params;
     const auth = await requireProjectAuth(projectId);
+
+    // IDOR guard: verify milestone belongs to this project
+    const milestoneCheck = await validateMilestoneOwnership(milestoneId, projectId);
+    if (!milestoneCheck) {
+      return NextResponse.json(
+        { success: false, error: 'Milestone not found' },
+        { status: 404 }
+      );
+    }
 
     // All roles can view eligibility (governance requirement: same data for all)
     if (!RoleGuard.canViewPayments(auth)) {

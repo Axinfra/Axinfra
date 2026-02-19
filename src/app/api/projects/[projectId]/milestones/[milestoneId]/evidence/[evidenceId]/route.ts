@@ -1,6 +1,7 @@
 import { NextRequest, NextResponse } from 'next/server';
 import { prisma } from '@/lib/db';
 import { requireProjectAuth } from '@/lib/auth';
+import { validateEvidenceOwnership } from '@/lib/validate-ownership';
 
 // GET /api/projects/[projectId]/milestones/[milestoneId]/evidence/[evidenceId] - Get evidence details
 export async function GET(
@@ -11,10 +12,29 @@ export async function GET(
     const { projectId, evidenceId } = await params;
     await requireProjectAuth(projectId);
 
+    // IDOR guard: verify evidence belongs to this project via milestone→projectId
+    const ownershipCheck = await validateEvidenceOwnership(evidenceId, projectId);
+    if (!ownershipCheck) {
+      return NextResponse.json(
+        { success: false, error: 'Evidence not found' },
+        { status: 404 }
+      );
+    }
+
     const evidence = await prisma.evidence.findUnique({
       where: { id: evidenceId },
       include: {
-        files: true,
+        files: {
+          select: {
+            id: true,
+            storageKey: true,
+            fileName: true,
+            mimeType: true,
+            size: true,
+            createdAt: true,
+            // NOTE: intentionally excludes 'data' (binary blob) from response
+          },
+        },
         submittedBy: {
           select: {
             id: true,

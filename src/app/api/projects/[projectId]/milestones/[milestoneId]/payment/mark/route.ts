@@ -10,6 +10,7 @@
 
 import { NextRequest, NextResponse } from 'next/server';
 import { requireProjectAuth } from '@/lib/auth';
+import { validateMilestoneOwnership } from '@/lib/validate-ownership';
 import { RoleGuard } from '@/services/RoleGuard';
 import { PaymentEligibilityEngine } from '@/services/PaymentEligibilityEngine';
 import { BlockingReasonCode, BlockingReasonCodes, EligibilityState } from '@/types';
@@ -59,6 +60,15 @@ export async function POST(
   try {
     const { projectId, milestoneId } = await params;
     const auth = await requireProjectAuth(projectId);
+
+    // IDOR guard: verify milestone belongs to this project
+    const milestoneCheck = await validateMilestoneOwnership(milestoneId, projectId);
+    if (!milestoneCheck) {
+      return NextResponse.json(
+        { success: false, error: 'Milestone not found' },
+        { status: 404 }
+      );
+    }
 
     const body = await request.json();
     const data = actionSchema.parse(body);
@@ -139,16 +149,16 @@ export async function POST(
       success: true,
       data: eligibility
         ? {
-            state: eligibility.state,
+          state: eligibility.state,
+          eligibleAmount: eligibility.eligibleAmount,
+          blockedAmount: eligibility.blockedAmount,
+          indicator: PaymentEligibilityEngine.derivePaymentIndicator({
+            state: eligibility.state as EligibilityState,
             eligibleAmount: eligibility.eligibleAmount,
             blockedAmount: eligibility.blockedAmount,
-            indicator: PaymentEligibilityEngine.derivePaymentIndicator({
-              state: eligibility.state as EligibilityState,
-              eligibleAmount: eligibility.eligibleAmount,
-              blockedAmount: eligibility.blockedAmount,
-              dueDate: eligibility.dueDate,
-            }),
-          }
+            dueDate: eligibility.dueDate,
+          }),
+        }
         : null,
     });
   } catch (error) {
