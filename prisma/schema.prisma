@@ -163,32 +163,38 @@ model FollowUp {
 }
 
 model Milestone {
-  id                  String                     @id @default(uuid())
-  projectId           String
-  title               String
-  description         String?
-  paymentModel        String                     @default("PROGRESS_BASED")
-  plannedStart        DateTime?
-  plannedEnd          DateTime?
-  actualStart         DateTime?
-  actualSubmission    DateTime?
-  actualVerification  DateTime?
-  plannedQtyOrPercent Float                      @default(100)
-  retentionPercent    Float                      @default(0)
-  advancePercent      Float                      @default(0)
-  value               Float                      @default(0)
-  isExtra             Boolean                    @default(false)
-  extraApprovedAt     DateTime?
-  extraApprovedById   String?
-  state               String                     @default("DRAFT")
-  createdAt           DateTime                   @default(now())
-  updatedAt           DateTime                   @updatedAt
-  evidence            Evidence[]
-  project             Project                    @relation(fields: [projectId], references: [id], onDelete: Cascade)
-  boqLinks            MilestoneBOQLink[]
-  transitions         MilestoneStateTransition[]
-  paymentEligibility  PaymentEligibility?
-  verifications       Verification[]
+  id                      String                     @id @default(uuid())
+  projectId               String
+  title                   String
+  description             String?
+  paymentModel            String                     @default("PROGRESS_BASED")
+  plannedStart            DateTime?
+  plannedEnd              DateTime?
+  actualStart             DateTime?
+  actualSubmission        DateTime?
+  actualVerification      DateTime?
+  // Schedule intelligence fields (Phase 1 additions)
+  baselinePlannedEnd      DateTime?                  // Snapshot of original plannedEnd for baseline comparison
+  baselinePlannedStart    DateTime?                  // Snapshot of original plannedStart
+  sortOrder               Int                        @default(0) // Display order in Gantt
+  plannedQtyOrPercent     Float                      @default(100)
+  retentionPercent        Float                      @default(0)
+  advancePercent          Float                      @default(0)
+  value                   Float                      @default(0)
+  isExtra                 Boolean                    @default(false)
+  extraApprovedAt         DateTime?
+  extraApprovedById       String?
+  state                   String                     @default("DRAFT")
+  createdAt               DateTime                   @default(now())
+  updatedAt               DateTime                   @updatedAt
+  evidence                Evidence[]
+  project                 Project                    @relation(fields: [projectId], references: [id], onDelete: Cascade)
+  boqLinks                MilestoneBOQLink[]
+  transitions             MilestoneStateTransition[]
+  paymentEligibility      PaymentEligibility?
+  verifications           Verification[]
+  successorDependencies   MilestoneDependency[]      @relation("DependencySuccessor")
+  predecessorDependencies MilestoneDependency[]      @relation("DependencyPredecessor")
 
   @@index([projectId])
   @@index([state])
@@ -252,19 +258,54 @@ model PaymentEligibility {
 }
 
 model Project {
-  id               String        @id @default(uuid())
+  id               String                  @id @default(uuid())
   name             String
   description      String?
-  status           String        @default("ONGOING")
+  status           String                  @default("ONGOING")
   metadata         String?
-  createdAt        DateTime      @default(now())
-  updatedAt        DateTime      @updatedAt
-  isExampleProject Boolean       @default(false)
+  createdAt        DateTime                @default(now())
+  updatedAt        DateTime                @updatedAt
+  isExampleProject Boolean                 @default(false)
   auditLogs        AuditLog[]
   boqs             BOQ[]
   followUps        FollowUp[]
   milestones       Milestone[]
   roles            ProjectRole[]
+  scheduleConfig   ProjectScheduleConfig?
+}
+
+/// Dependency link between two milestones (CPM / Gantt edges)
+model MilestoneDependency {
+  id                 String    @id @default(uuid())
+  predecessorId      String
+  successorId        String
+  /// Dependency type: FS=Finish-to-Start, SS=Start-to-Start, FF=Finish-to-Finish, SF=Start-to-Finish
+  dependencyType     String    @default("FS")
+  lagDays            Float     @default(0)
+  createdAt          DateTime  @default(now())
+  predecessor        Milestone @relation("DependencyPredecessor", fields: [predecessorId], references: [id], onDelete: Cascade)
+  successor          Milestone @relation("DependencySuccessor", fields: [successorId], references: [id], onDelete: Cascade)
+
+  @@unique([predecessorId, successorId])
+  @@index([predecessorId])
+  @@index([successorId])
+}
+
+/// Per-project schedule configuration for delay cost estimation and display preferences
+model ProjectScheduleConfig {
+  id                    String   @id @default(uuid())
+  projectId             String   @unique
+  /// Project start date used as Gantt origin
+  projectStartDate      DateTime?
+  /// Estimated daily overhead cost in project currency (for delay cost estimation)
+  dailyOverheadCost     Float    @default(0)
+  /// Contractual penalty rate per day of delay (fraction, e.g. 0.001 = 0.1%)
+  penaltyRatePerDay     Float    @default(0)
+  /// Opportunity cost multiplier (optional)
+  opportunityCostFactor Float    @default(1.0)
+  createdAt             DateTime @default(now())
+  updatedAt             DateTime @updatedAt
+  project               Project  @relation(fields: [projectId], references: [id], onDelete: Cascade)
 }
 
 model ProjectRole {

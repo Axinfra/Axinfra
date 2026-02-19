@@ -279,6 +279,128 @@ export interface PaymentStatusRecord {
   indicator: PaymentIndicator;
 }
 
+// ============================================
+// EXECUTION INTELLIGENCE / SCHEDULE TYPES
+// ============================================
+
+export const DependencyType = {
+  FS: 'FS', // Finish-to-Start (default)
+  SS: 'SS', // Start-to-Start
+  FF: 'FF', // Finish-to-Finish
+  SF: 'SF', // Start-to-Finish
+} as const;
+export type DependencyType = (typeof DependencyType)[keyof typeof DependencyType];
+
+export const GanttMode = {
+  L1: 'L1', // Read-only timeline bars
+  L2: 'L2', // Interactive drag/drop
+  L3: 'L3', // CPM critical path
+  L4: 'L4', // Earned-value overlay
+} as const;
+export type GanttMode = (typeof GanttMode)[keyof typeof GanttMode];
+
+/** A single milestone row as used in Gantt/CPM calculations */
+export interface ScheduleMilestone {
+  id: string;
+  title: string;
+  state: string;
+  plannedStart: Date | null;
+  plannedEnd: Date | null;
+  actualStart: Date | null;
+  actualEnd: Date | null; // maps to actualVerification (done) or actualSubmission (submitted)
+  baselinePlannedStart: Date | null;
+  baselinePlannedEnd: Date | null;
+  sortOrder: number;
+  value: number;
+  // vendor info
+  vendorId: string | null;
+  vendorName: string | null;
+  // dependencies
+  predecessorIds: string[];
+}
+
+/** CPM node with computed ES/EF/LS/LF and float */
+export interface CpmNode {
+  milestoneId: string;
+  title: string;
+  duration: number; // planned duration in days
+  predecessorIds: string[];
+  // Forward pass
+  earlyStart: number;  // days from project start
+  earlyFinish: number;
+  // Backward pass
+  lateStart: number;
+  lateFinish: number;
+  totalFloat: number;
+  isCritical: boolean;
+}
+
+/** Result of CPM computation */
+export interface CpmResult {
+  nodes: CpmNode[];
+  criticalPath: string[]; // ordered milestone IDs on critical path
+  projectDuration: number; // total days
+  hasCycle: boolean;
+  cycleDescription?: string;
+}
+
+/** Time saved / overrun metrics for a single milestone */
+export interface MilestoneScheduleMetrics {
+  milestoneId: string;
+  title: string;
+  state: string;
+  plannedEnd: Date | null;
+  actualEnd: Date | null;
+  isComplete: boolean;
+  isOverdue: boolean;
+  timeSavedDays: number;   // positive = saved; negative = overrun
+  overrunDays: number;     // abs(timeSaved) when overrun, else 0
+  projectedOverrun: number; // for incomplete overdue milestones, today - plannedEnd
+  remainingBuffer: number;  // for incomplete on-track, plannedEnd - today
+}
+
+/** Aggregate schedule KPIs for a project */
+export interface ProjectScheduleKPIs {
+  netScheduleDays: number;         // TotalSaved - TotalOverrun
+  totalSavedDays: number;
+  totalOverrunDays: number;
+  onTimePct: number;               // % of completed milestones on-time
+  avgApprovalCycleDays: number;    // avg(pmcReviewed - evidenceSubmitted)
+  criticalMilestoneCount: number;
+  escalationsLast30Days: number;
+  completedMilestones: number;
+  totalMilestones: number;
+}
+
+/** Vendor performance scorecard row */
+export interface VendorScorecard {
+  vendorId: string;
+  vendorName: string;
+  totalMilestones: number;
+  completedOnTime: number;
+  completedLate: number;
+  inProgress: number;
+  onTimePct: number;
+  avgDelayDays: number;
+  avgApprovalCycleDays: number;
+  escalationCount: number;
+  rank: number;
+}
+
+/** S-curve data point */
+export interface SCurvePoint {
+  date: string; // ISO date string
+  plannedCumulative: number;
+  actualCumulative: number;
+}
+
+/** Burn-down data point */
+export interface BurndownPoint {
+  date: string;
+  plannedRemaining: number;
+  actualRemaining: number;
+}
+
 // Audit log action types
 export const AuditActionTypes = {
   PROJECT_CREATE: 'PROJECT_CREATE',
