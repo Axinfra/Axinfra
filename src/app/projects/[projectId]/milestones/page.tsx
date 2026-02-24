@@ -9,6 +9,12 @@ import MilestoneStateBadge from '@/components/MilestoneStateBadge';
 import PaymentStatusBadge from '@/components/PaymentStatusBadge';
 import { formatCurrency, formatDate } from '@/lib/utils';
 
+interface VendorUser {
+  userId: string;
+  name: string;
+  email: string;
+}
+
 interface Milestone {
   id: string;
   title: string;
@@ -21,6 +27,8 @@ interface Milestone {
   extraApprovedAt: string | null;
   plannedStart: string | null;
   plannedEnd: string | null;
+  vendorUserId?: string | null;
+  vendorUser?: { id: string; name: string; email: string } | null;
   boqLinks?: Array<{
     id: string;
     plannedQty: number;
@@ -66,6 +74,7 @@ export default function MilestonesPage() {
 
   const [showCreate, setShowCreate] = useState(false);
   const [boqItems, setBoqItems] = useState<BOQItem[]>([]);
+  const [vendors, setVendors] = useState<VendorUser[]>([]);
   const [newMilestone, setNewMilestone] = useState({
     title: '',
     description: '',
@@ -75,6 +84,7 @@ export default function MilestonesPage() {
     isExtra: false,
     selectedBoqItemId: '',
     boqQty: '',
+    vendorUserId: '',
   });
 
   useEffect(() => {
@@ -110,6 +120,19 @@ export default function MilestonesPage() {
         const approvedBoq = boqData.data.find((b: BOQ) => b.status === 'APPROVED');
         if (approvedBoq) {
           setBoqItems(approvedBoq.items || []);
+        }
+      }
+
+      // Load vendor users for the dropdown (OWNER/PMC only — admin endpoint returns 403 for vendors)
+      if (projectData.success && (projectData.data.myRole === 'OWNER' || projectData.data.myRole === 'PMC')) {
+        try {
+          const vendorsRes = await fetch(`/api/admin/vendors?projectId=${projectId}`);
+          const vendorsData = await vendorsRes.json();
+          if (vendorsData.success) {
+            setVendors(vendorsData.data);
+          }
+        } catch {
+          // Vendor dropdown is optional — silently ignore
         }
       }
     } catch {
@@ -152,6 +175,7 @@ export default function MilestonesPage() {
         value: newMilestone.value ? parseFloat(newMilestone.value) : 0,
         advancePercent: newMilestone.advancePercent ? parseFloat(newMilestone.advancePercent) : 0,
         isExtra: newMilestone.isExtra,
+        vendorUserId: newMilestone.vendorUserId || null,
         boqLinks,
       }),
     });
@@ -168,6 +192,7 @@ export default function MilestonesPage() {
         isExtra: false,
         selectedBoqItemId: '',
         boqQty: '',
+        vendorUserId: '',
       });
       loadData();
     } else {
@@ -212,6 +237,7 @@ export default function MilestonesPage() {
                 <thead>
                   <tr>
                     <th>Title</th>
+                    {(myRole === 'OWNER' || myRole === 'PMC') && <th>Vendor</th>}
                     <th>State</th>
                     <th>Due Date</th>
                     <th>Payment Status</th>
@@ -249,6 +275,20 @@ export default function MilestonesPage() {
                           </p>
                         )}
                       </td>
+                      {(myRole === 'OWNER' || myRole === 'PMC') && (
+                        <td>
+                          {milestone.vendorUser ? (
+                            <span className="inline-flex items-center gap-1 px-2 py-0.5 rounded-full bg-teal-50 text-teal-700 text-xs font-medium">
+                              <svg className="w-3 h-3" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                                <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M16 7a4 4 0 11-8 0 4 4 0 018 0zM12 14a7 7 0 00-7 7h14a7 7 0 00-7-7z" />
+                              </svg>
+                              {milestone.vendorUser.name}
+                            </span>
+                          ) : (
+                            <span className="text-xs text-gray-400">—</span>
+                          )}
+                        </td>
+                      )}
                       <td>
                         <MilestoneStateBadge state={milestone.state as any} />
                       </td>
@@ -484,6 +524,28 @@ export default function MilestonesPage() {
                     )}
                   </p>
                 </div>
+                {/* Assign Vendor */}
+                {vendors.length > 0 && (
+                  <div>
+                    <label className="label">Assign Vendor</label>
+                    <select
+                      className="input"
+                      value={newMilestone.vendorUserId}
+                      onChange={(e) => setNewMilestone({ ...newMilestone, vendorUserId: e.target.value })}
+                    >
+                      <option value="">-- No vendor assigned --</option>
+                      {vendors.map((v) => (
+                        <option key={v.userId} value={v.userId}>
+                          {v.name} ({v.email})
+                        </option>
+                      ))}
+                    </select>
+                    <p className="text-xs text-gray-500 mt-1">
+                      Optional: assign a vendor responsible for this milestone
+                    </p>
+                  </div>
+                )}
+
                 <div>
                   <label className="label">Due Date</label>
                   <input

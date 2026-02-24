@@ -39,7 +39,8 @@ export async function GET(
             lagDays: true,
           },
         },
-        // To derive vendorId: look at who submitted the first evidence
+        // Vendor info: prefer explicit FK, fallback to first evidence submitter
+        vendorUser: { select: { id: true, name: true } },
         evidence: {
           orderBy: { submittedAt: 'asc' },
           take: 1,
@@ -49,11 +50,12 @@ export async function GET(
       orderBy: [{ sortOrder: 'asc' }, { plannedStart: 'asc' }, { createdAt: 'asc' }],
     });
 
-    // Role-based filtering: vendor only sees milestones where they submitted evidence
+    // Role-based filtering: vendor sees milestones assigned via vendorUserId,
+    // falling back to evidence-based ownership for legacy data
     let filteredMilestones = milestones;
     if (auth.role === 'VENDOR') {
       filteredMilestones = milestones.filter(
-        (m) => m.evidence[0]?.submittedById === auth.userId,
+        (m) => m.vendorUserId === auth.userId || m.evidence[0]?.submittedById === auth.userId,
       );
     }
 
@@ -92,7 +94,7 @@ export async function GET(
 
     // Build response
     const ganttMilestones = filteredMilestones.map((m) => {
-      const vendor = m.evidence[0]?.submittedBy ?? null;
+      const evidenceVendor = m.evidence[0]?.submittedBy ?? null;
       const cpmNode = cpmByMilestone.get(m.id);
       return {
         id: m.id,
@@ -106,8 +108,8 @@ export async function GET(
         baselinePlannedStart: m.baselinePlannedStart,
         baselinePlannedEnd: m.baselinePlannedEnd,
         value: m.value,
-        vendorId: vendor?.id ?? null,
-        vendorName: vendor?.name ?? null,
+        vendorId: m.vendorUser?.id ?? evidenceVendor?.id ?? null,
+        vendorName: m.vendorUser?.name ?? evidenceVendor?.name ?? null,
         isCritical: criticalSet.has(m.id),
         totalFloat: cpmNode?.totalFloat ?? null,
         earlyStart: cpmNode?.earlyStart ?? null,

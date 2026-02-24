@@ -36,6 +36,7 @@ export async function GET(
           include: { submittedBy: { select: { id: true, name: true } } },
         },
         verifications: { orderBy: { verifiedAt: 'asc' }, take: 1 },
+        vendorUser: { select: { id: true, name: true } },
         predecessorDependencies: {
           select: { predecessorId: true, successorId: true, lagDays: true },
         },
@@ -43,10 +44,11 @@ export async function GET(
       orderBy: [{ sortOrder: 'asc' }, { plannedStart: 'asc' }],
     });
 
-    // Role filter: vendor sees only their milestones
+    // Role filter: vendor sees milestones assigned via vendorUserId,
+    // falling back to evidence-based ownership for legacy data
     const filtered =
       auth.role === 'VENDOR'
-        ? milestones.filter((m) => m.evidence[0]?.submittedById === auth.userId)
+        ? milestones.filter((m) => m.vendorUserId === auth.userId || m.evidence[0]?.submittedById === auth.userId)
         : milestones;
 
     // --- Schedule config ---
@@ -91,8 +93,9 @@ export async function GET(
     const rawMilestones = filtered.map((m) => {
       const firstEvidence = m.evidence[0] ?? null;
       const firstVerification = m.verifications[0] ?? null;
-      const vendorId = firstEvidence?.submittedById ?? null;
-      const vendorName = firstEvidence?.submittedBy?.name ?? null;
+      // Prefer explicit vendorUser FK, fallback to evidence submitter
+      const vendorId = m.vendorUser?.id ?? firstEvidence?.submittedById ?? null;
+      const vendorName = m.vendorUser?.name ?? firstEvidence?.submittedBy?.name ?? null;
       const actualEnd = m.actualVerification ?? m.actualSubmission ?? null;
 
       // Approval cycle: evidence submitted → first verification

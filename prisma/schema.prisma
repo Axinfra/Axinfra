@@ -185,10 +185,12 @@ model Milestone {
   extraApprovedAt         DateTime?
   extraApprovedById       String?
   state                   String                     @default("DRAFT")
+  vendorUserId            String?                    // Optional: assigned vendor user
   createdAt               DateTime                   @default(now())
   updatedAt               DateTime                   @updatedAt
   evidence                Evidence[]
   project                 Project                    @relation(fields: [projectId], references: [id], onDelete: Cascade)
+  vendorUser              User?                      @relation("MilestoneVendor", fields: [vendorUserId], references: [id])
   boqLinks                MilestoneBOQLink[]
   transitions             MilestoneStateTransition[]
   paymentEligibility      PaymentEligibility?
@@ -198,6 +200,7 @@ model Milestone {
 
   @@index([projectId])
   @@index([state])
+  @@index([vendorUserId])
 }
 
 model MilestoneBOQLink {
@@ -336,6 +339,7 @@ model User {
   transitions        MilestoneStateTransition[]
   projectRoles       ProjectRole[]
   verifications      Verification[]
+  assignedMilestones Milestone[]                @relation("MilestoneVendor")
 }
 
 model Verification {

@@ -30,7 +30,16 @@ export default function LoginPage() {
       const data = await res.json();
 
       if (data.success) {
-        router.push('/projects');
+        // Check if user is vendor-only to redirect appropriately
+        const sessionRes = await fetch('/api/auth/session');
+        const sessionData = await sessionRes.json();
+        if (sessionData.success) {
+          const roles = sessionData.data.projectRoles || [];
+          const isVendorOnly = roles.length > 0 && roles.every((r: { role: string }) => r.role === 'VENDOR');
+          router.push(isVendorOnly ? '/vendor' : '/projects');
+        } else {
+          router.push('/projects');
+        }
       } else {
         setError(data.error || 'Login failed');
       }

@@ -15,6 +15,7 @@ const createMilestoneSchema = z.object({
   value: z.number().min(0).default(0), // Milestone value in currency (required)
   advancePercent: z.number().min(0).max(100).default(0), // Advance percentage (0-100)
   isExtra: z.boolean().default(false), // Outside BOQ - requires owner approval
+  vendorUserId: z.string().uuid().optional().nullable(), // Optional vendor assignment
   boqLinks: z.array(z.object({
     boqItemId: z.string().uuid(),
     plannedQty: z.number().positive(),
@@ -47,6 +48,9 @@ export async function GET(
           take: 1,
         },
         paymentEligibility: true,
+        vendorUser: {
+          select: { id: true, name: true, email: true },
+        },
       },
       orderBy: { createdAt: 'asc' },
     });
@@ -98,6 +102,7 @@ export async function POST(
           value: data.value,
           advancePercent: data.advancePercent,
           isExtra: data.isExtra,
+          vendorUserId: data.vendorUserId ?? null,
         },
       });
 
@@ -143,6 +148,7 @@ export async function POST(
         advanceAmount,
         remainingAmount,
         isExtra: data.isExtra,
+        vendorUserId: data.vendorUserId ?? null,
         boqLinks: data.boqLinks,
       },
     });

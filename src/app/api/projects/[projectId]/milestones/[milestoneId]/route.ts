@@ -67,6 +67,9 @@ export async function GET(
             },
           },
         },
+        vendorUser: {
+          select: { id: true, name: true, email: true },
+        },
       },
     });
 
