@@ -10,7 +10,7 @@ import { AnalysisService } from '@/services/AnalysisService';
  * - This endpoint is GET-ONLY
  * - NO mutation operations
  * - NO state transitions
- * - Only aggregates existing MilestoneHQ data
+ * - Only aggregates existing Axinfra data
  * - Accessible to OWNER and PMC only
  */
 

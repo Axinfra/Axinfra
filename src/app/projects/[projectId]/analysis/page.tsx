@@ -13,7 +13,7 @@ import { formatCurrency, formatDate } from '@/lib/utils';
  * - This page is READ-ONLY
  * - NO mutation operations
  * - NO editable fields
- * - All data derived from existing MilestoneHQ truth
+ * - All data derived from existing Axinfra truth
  * - Accessible to OWNER and PMC only
  */
 
@@ -115,7 +115,7 @@ export default function AnalysisPage() {
           <div>
             <h1 className="text-2xl font-bold text-gray-900">Project Analysis</h1>
             <p className="text-sm text-gray-500 mt-1">
-              Decision-grade insights derived from MilestoneHQ data
+              Decision-grade insights derived from Axinfra data
             </p>
           </div>
           <div className="text-xs text-gray-400 bg-gray-100 px-3 py-1 rounded">

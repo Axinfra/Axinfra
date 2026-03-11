@@ -1,7 +1,7 @@
 {
-  "name": "milestonehq",
+  "name": "axinfra",
   "version": "1.0.0",
-  "description": "MilestoneHQ - Evidence-first execution tracking",
+  "description": "Axinfra - Evidence-first execution tracking",
   "private": true,
   "prisma": {
     "seed": "tsx prisma/seed.ts"

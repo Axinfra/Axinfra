@@ -1,4 +1,4 @@
-import { Role } from '@/types';
+import { Role, BaseRole, ExtendedRole, ExtendedRoleMapping } from '@/types';
 import { ProjectAuthContext } from '@/lib/auth';
 
 /**
@@ -6,14 +6,37 @@ import { ProjectAuthContext } from '@/lib/auth';
  *
  * SPEC REQUIREMENT: Roles are hard-enforced server-side.
  * No UI-only permission logic. No role overlap initially.
+ *
+ * Extended roles (BUILDER, PMC_MANAGER, ENGINEER) are resolved to their
+ * base role for permission checks via resolveBaseRole().
  */
 export class RoleGuard {
   /**
+   * Resolve an extended role to its base role.
+   * Base roles pass through unchanged.
+   *
+   * Mapping:
+   *   BUILDER     → OWNER
+   *   PMC_MANAGER → PMC
+   *   ENGINEER    → VENDOR
+   *   OWNER/PMC/VENDOR/VIEWER → unchanged
+   */
+  static resolveBaseRole(role: Role): BaseRole {
+    if (role in ExtendedRoleMapping) {
+      return ExtendedRoleMapping[role as ExtendedRole];
+    }
+    return role as BaseRole;
+  }
+
+  /**
    * Check if user has one of the allowed roles.
+   * Resolves extended roles before checking.
    * Throws if unauthorized.
    */
   static requireRole(auth: ProjectAuthContext, allowedRoles: Role[]): void {
-    if (!allowedRoles.includes(auth.role)) {
+    const baseRole = this.resolveBaseRole(auth.role);
+    const allowedBaseRoles = allowedRoles.map((r) => this.resolveBaseRole(r));
+    if (!allowedBaseRoles.includes(baseRole)) {
       throw new Error(`FORBIDDEN: Role ${auth.role} not allowed. Required: ${allowedRoles.join(' or ')}`);
     }
   }
@@ -23,23 +46,24 @@ export class RoleGuard {
    * All roles can read.
    */
   static canRead(auth: ProjectAuthContext): boolean {
-    return [Role.OWNER, Role.PMC, Role.VENDOR, Role.VIEWER].includes(auth.role);
+    const base = this.resolveBaseRole(auth.role);
+    return (['OWNER', 'PMC', 'VENDOR', 'VIEWER'] as string[]).includes(base);
   }
 
   /**
    * Check if user can create/modify project settings.
-   * Only Owner.
+   * Only Owner (and BUILDER).
    */
   static canManageProject(auth: ProjectAuthContext): boolean {
-    return auth.role === Role.OWNER;
+    return this.resolveBaseRole(auth.role) === Role.OWNER;
   }
 
   /**
    * Check if user can manage roles.
-   * Only Owner.
+   * Only Owner (and BUILDER).
    */
   static canManageRoles(auth: ProjectAuthContext): boolean {
-    return auth.role === Role.OWNER;
+    return this.resolveBaseRole(auth.role) === Role.OWNER;
   }
 
   /**
@@ -47,15 +71,16 @@ export class RoleGuard {
    * Owner and PMC can modify, but only Owner can approve.
    */
   static canEditBOQ(auth: ProjectAuthContext): boolean {
-    return auth.role === Role.OWNER || auth.role === Role.PMC;
+    const base = this.resolveBaseRole(auth.role);
+    return base === Role.OWNER || base === Role.PMC;
   }
 
   /**
    * Check if user can approve BOQ.
-   * Only Owner.
+   * Only Owner (and BUILDER).
    */
   static canApproveBOQ(auth: ProjectAuthContext): boolean {
-    return auth.role === Role.OWNER;
+    return this.resolveBaseRole(auth.role) === Role.OWNER;
   }
 
   /**
@@ -63,15 +88,16 @@ export class RoleGuard {
    * Owner and PMC.
    */
   static canEditMilestones(auth: ProjectAuthContext): boolean {
-    return auth.role === Role.OWNER || auth.role === Role.PMC;
+    const base = this.resolveBaseRole(auth.role);
+    return base === Role.OWNER || base === Role.PMC;
   }
 
   /**
    * Check if user can submit evidence.
-   * Only Vendor.
+   * Only Vendor (and ENGINEER).
    */
   static canSubmitEvidence(auth: ProjectAuthContext): boolean {
-    return auth.role === Role.VENDOR;
+    return this.resolveBaseRole(auth.role) === Role.VENDOR;
   }
 
   /**
@@ -79,7 +105,8 @@ export class RoleGuard {
    * Owner and PMC. Vendor cannot approve own work.
    */
   static canReviewEvidence(auth: ProjectAuthContext): boolean {
-    return auth.role === Role.OWNER || auth.role === Role.PMC;
+    const base = this.resolveBaseRole(auth.role);
+    return base === Role.OWNER || base === Role.PMC;
   }
 
   /**
@@ -87,7 +114,8 @@ export class RoleGuard {
    * Owner and PMC only.
    */
   static canVerify(auth: ProjectAuthContext): boolean {
-    return auth.role === Role.OWNER || auth.role === Role.PMC;
+    const base = this.resolveBaseRole(auth.role);
+    return base === Role.OWNER || base === Role.PMC;
   }
 
   /**
@@ -95,7 +123,8 @@ export class RoleGuard {
    * Owner and PMC.
    */
   static canBlockPayment(auth: ProjectAuthContext): boolean {
-    return auth.role === Role.OWNER || auth.role === Role.PMC;
+    const base = this.resolveBaseRole(auth.role);
+    return base === Role.OWNER || base === Role.PMC;
   }
 
   /**
@@ -103,7 +132,8 @@ export class RoleGuard {
    * Owner and PMC.
    */
   static canMarkPaid(auth: ProjectAuthContext): boolean {
-    return auth.role === Role.OWNER || auth.role === Role.PMC;
+    const base = this.resolveBaseRole(auth.role);
+    return base === Role.OWNER || base === Role.PMC;
   }
 
   /**
@@ -111,7 +141,7 @@ export class RoleGuard {
    * Only Owner (with mandatory reason).
    */
   static canUnblockPayment(auth: ProjectAuthContext): boolean {
-    return auth.role === Role.OWNER;
+    return this.resolveBaseRole(auth.role) === Role.OWNER;
   }
 
   /**
@@ -119,7 +149,8 @@ export class RoleGuard {
    * All roles except Viewer have full access; Vendor has read-only.
    */
   static canViewPayments(auth: ProjectAuthContext): boolean {
-    return auth.role === Role.OWNER || auth.role === Role.PMC || auth.role === Role.VENDOR;
+    const base = this.resolveBaseRole(auth.role);
+    return base === Role.OWNER || base === Role.PMC || base === Role.VENDOR;
   }
 
   /**
@@ -127,7 +158,8 @@ export class RoleGuard {
    * Owner and PMC.
    */
   static canExportAuditLog(auth: ProjectAuthContext): boolean {
-    return auth.role === Role.OWNER || auth.role === Role.PMC;
+    const base = this.resolveBaseRole(auth.role);
+    return base === Role.OWNER || base === Role.PMC;
   }
 
   /**
@@ -135,7 +167,16 @@ export class RoleGuard {
    * Owner and PMC.
    */
   static canResolveFollowUp(auth: ProjectAuthContext): boolean {
-    return auth.role === Role.OWNER || auth.role === Role.PMC;
+    const base = this.resolveBaseRole(auth.role);
+    return base === Role.OWNER || base === Role.PMC;
+  }
+
+  /**
+   * Check if user can access the Builder Cash Module.
+   * SECURITY: Only BUILDER role (resolves to OWNER base, but only actual BUILDER gets access).
+   */
+  static canAccessCashModule(auth: ProjectAuthContext): boolean {
+    return auth.role === Role.BUILDER;
   }
 
   /**
@@ -150,7 +191,7 @@ export class RoleGuard {
 
   /**
    * Get permission summary for a role.
-   * Useful for UI rendering.
+   * Useful for UI rendering. Resolves extended roles.
    */
   static getPermissions(role: Role): Record<string, boolean> {
     const fakeAuth = { userId: '', email: '', name: '', projectId: '', role } as ProjectAuthContext;
@@ -171,6 +212,7 @@ export class RoleGuard {
       canViewPayments: this.canViewPayments(fakeAuth),
       canExportAuditLog: this.canExportAuditLog(fakeAuth),
       canResolveFollowUp: this.canResolveFollowUp(fakeAuth),
+      canAccessCashModule: this.canAccessCashModule(fakeAuth),
     };
   }
 }

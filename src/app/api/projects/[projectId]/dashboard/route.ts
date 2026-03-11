@@ -4,6 +4,7 @@ import { requireProjectAuth } from '@/lib/auth';
 import { EvidenceService } from '@/services/EvidenceService';
 import { PaymentEligibilityEngine } from '@/services/PaymentEligibilityEngine';
 import { FollowUpScheduler } from '@/services/FollowUpScheduler';
+import { RoleGuard } from '@/services/RoleGuard';
 import { Role, EligibilityState, EvidenceStatus, MilestoneState } from '@/types';
 import { cached } from '@/lib/cache';
 
@@ -18,8 +19,11 @@ export async function GET(
 
     let dashboardData: unknown;
 
+    // Resolve extended roles (BUILDER→OWNER, PMC_MANAGER→PMC, ENGINEER→VENDOR) for dashboard routing
+    const baseRole = RoleGuard.resolveBaseRole(auth.role);
+
     const TTL = 30_000; // 30s cache
-    switch (auth.role) {
+    switch (baseRole) {
       case Role.OWNER:
         dashboardData = await cached(`dash:owner:${projectId}`, TTL, () => getOwnerDashboard(projectId));
         break;

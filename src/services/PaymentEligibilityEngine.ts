@@ -37,6 +37,7 @@ import {
 import { prisma } from '@/lib/db';
 import { AuditLogger } from './AuditLogger';
 import { getEnvNumber } from '@/lib/utils';
+import { SystemEventService, SystemEventType } from './SystemEventService';
 
 const PAYMENT_DUE_SOON_THRESHOLD_DAYS = getEnvNumber('PAYMENT_DUE_SOON_THRESHOLD_DAYS', 7);
 
@@ -223,6 +224,15 @@ export class PaymentEligibilityEngine {
           boqValueCompleted: calculation.boqValueCompleted,
           deductions: calculation.deductions,
         },
+      });
+
+      // Viseron Intelligence: emit system event for analytics pipeline
+      SystemEventService.emit(SystemEventType.ELIGIBILITY_RECALCULATED, milestone.projectId, 'PaymentEligibility', eligibilityRecord.id, actorId, {
+        milestoneId,
+        fromState: previousState,
+        toState: newState,
+        eligibleAmount: calculation.eligibleAmount,
+        eventType,
       });
 
       return {
@@ -448,6 +458,14 @@ export class PaymentEligibilityEngine {
       reason: explanation,
     });
 
+    // Viseron Intelligence: emit system event for analytics pipeline
+    SystemEventService.emit(SystemEventType.PAYMENT_BLOCKED, projectId, 'PaymentEligibility', eligibility.id, actorId, {
+      milestoneId,
+      reasonCode,
+      fromState: previousState,
+      blockedAmount: eligibility.eligibleAmount,
+    });
+
     return { success: true };
   }
 
@@ -518,6 +536,12 @@ export class PaymentEligibilityEngine {
       beforeJson: { state: EligibilityState.BLOCKED },
       afterJson: { state: result.eligibility?.state },
       reason,
+    });
+
+    // Viseron Intelligence: emit system event for analytics pipeline
+    SystemEventService.emit(SystemEventType.PAYMENT_UNBLOCKED, projectId, 'PaymentEligibility', eligibility.id, actorId, {
+      milestoneId,
+      newState: result.eligibility?.state,
     });
 
     return { success: true };
@@ -602,6 +626,13 @@ export class PaymentEligibilityEngine {
       beforeJson: { state: previousState },
       afterJson: { state: EligibilityState.MARKED_PAID },
       reason: explanation,
+    });
+
+    // Viseron Intelligence: emit system event for analytics pipeline
+    SystemEventService.emit(SystemEventType.PAYMENT_MARKED_PAID, projectId, 'PaymentEligibility', eligibility.id, actorId, {
+      milestoneId,
+      fromState: previousState,
+      eligibleAmount: eligibility.eligibleAmount,
     });
 
     return { success: true };

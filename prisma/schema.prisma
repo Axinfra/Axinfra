@@ -276,6 +276,11 @@ model Project {
   milestones       Milestone[]
   roles            ProjectRole[]
   scheduleConfig   ProjectScheduleConfig?
+  vendorMetrics    VendorMetrics[]
+  projectMetrics   ProjectMetrics[]
+  systemEvents     SystemEvent[]
+  cashAdjustments  CashAdjustment[]
+  privateCosts     PrivateCostEntry[]
 }
 
 /// Dependency link between two milestones (CPM / Gantt edges)
@@ -341,6 +346,10 @@ model User {
   projectRoles       ProjectRole[]
   verifications      Verification[]
   assignedMilestones Milestone[]                @relation("MilestoneVendor")
+  vendorMetrics      VendorMetrics[]
+  systemEventsActor  SystemEvent[]              @relation("SystemEventActor")
+  cashAdjustments    CashAdjustment[]           @relation("CashAdjustmentCreator")
+  privateCosts       PrivateCostEntry[]         @relation("PrivateCostCreator")
 }
 
 model Verification {
@@ -355,4 +364,114 @@ model Verification {
   verifiedBy            User      @relation(fields: [verifiedById], references: [id])
 
   @@index([milestoneId])
+}
+
+/// Vendor-level metrics snapshot for a project (computed periodically)
+model VendorMetrics {
+  id                    String   @id @default(uuid())
+  projectId             String
+  vendorUserId          String
+  period                String
+  totalMilestones       Int      @default(0)
+  completedOnTime       Int      @default(0)
+  completedLate         Int      @default(0)
+  avgDelayDays          Float    @default(0)
+  qualityScore          Float    @default(0)
+  escalationCount       Int      @default(0)
+  totalValueDelivered   Float    @default(0)
+  totalValuePaid        Float    @default(0)
+  createdAt             DateTime @default(now())
+  updatedAt             DateTime @updatedAt
+  project               Project  @relation(fields: [projectId], references: [id], onDelete: Cascade)
+  vendor                User     @relation(fields: [vendorUserId], references: [id])
+
+  @@unique([projectId, vendorUserId, period])
+  @@index([projectId])
+  @@index([vendorUserId])
+}
+
+/// Project-level aggregated metrics snapshot (computed periodically)
+model ProjectMetrics {
+  id                    String   @id @default(uuid())
+  projectId             String
+  period                String
+  totalBudget           Float    @default(0)
+  spentToDate           Float    @default(0)
+  earnedValue           Float    @default(0)
+  plannedValue          Float    @default(0)
+  costVariance          Float    @default(0)
+  scheduleVariance      Float    @default(0)
+  cpi                   Float    @default(0)
+  spi                   Float    @default(0)
+  milestonesTotal       Int      @default(0)
+  milestonesComplete    Int      @default(0)
+  milestonesOverdue     Int      @default(0)
+  healthStatus          String   @default("GREEN")
+  createdAt             DateTime @default(now())
+  updatedAt             DateTime @updatedAt
+  project               Project  @relation(fields: [projectId], references: [id], onDelete: Cascade)
+
+  @@unique([projectId, period])
+  @@index([projectId])
+}
+
+/// System-wide event log for infrastructure-level events
+model SystemEvent {
+  id          String   @id @default(uuid())
+  eventType   String
+  severity    String   @default("INFO")
+  actorId     String?
+  projectId   String?
+  entityType  String?
+  entityId    String?
+  message     String
+  metadata    String?
+  createdAt   DateTime @default(now())
+  actor       User?    @relation("SystemEventActor", fields: [actorId], references: [id])
+  project     Project? @relation(fields: [projectId], references: [id], onDelete: Cascade)
+
+  @@index([eventType])
+  @@index([severity])
+  @@index([actorId])
+  @@index([projectId])
+  @@index([createdAt])
+}
+
+/// Builder-private cash adjustment (credit/debit) for internal financial tracking
+model CashAdjustment {
+  id          String   @id @default(uuid())
+  projectId   String
+  description String
+  amount      Float
+  type        String
+  reason      String?
+  createdById String
+  createdAt   DateTime @default(now())
+  updatedAt   DateTime @updatedAt
+  project     Project  @relation(fields: [projectId], references: [id], onDelete: Cascade)
+  createdBy   User     @relation("CashAdjustmentCreator", fields: [createdById], references: [id])
+
+  @@index([projectId])
+  @@index([createdById])
+}
+
+/// Builder-private cost entry not visible to PMC / Vendor / other roles
+model PrivateCostEntry {
+  id          String    @id @default(uuid())
+  projectId   String
+  description String
+  amount      Float
+  category    String
+  vendor      String?
+  notes       String?
+  incurredAt  DateTime?
+  createdById String
+  createdAt   DateTime  @default(now())
+  updatedAt   DateTime  @updatedAt
+  project     Project   @relation(fields: [projectId], references: [id], onDelete: Cascade)
+  createdBy   User      @relation("PrivateCostCreator", fields: [createdById], references: [id])
+
+  @@index([projectId])
+  @@index([createdById])
+  @@index([category])
 }

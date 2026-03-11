@@ -107,7 +107,7 @@ async function benchmarkApi() {
 }
 
 async function main() {
-  console.log('MilestoneHQ Performance Benchmark');
+  console.log('Axinfra Performance Benchmark');
   console.log('═'.repeat(55));
 
   await benchmarkDb();

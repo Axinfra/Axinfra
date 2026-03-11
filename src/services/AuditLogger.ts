@@ -54,9 +54,11 @@ export class AuditLogger {
       endDate?: Date;
       limit?: number;
       offset?: number;
+      /** SECURITY: Exclude private action types (e.g. cash module entries) from non-BUILDER roles */
+      excludeActionTypes?: string[];
     } = {}
   ) {
-    const { entityType, entityId, actorId, actionType, startDate, endDate, limit = 100, offset = 0 } = options;
+    const { entityType, entityId, actorId, actionType, startDate, endDate, limit = 100, offset = 0, excludeActionTypes } = options;
 
     const where: Record<string, unknown> = { projectId };
 
@@ -64,6 +66,10 @@ export class AuditLogger {
     if (entityId) where.entityId = entityId;
     if (actorId) where.actorId = actorId;
     if (actionType) where.actionType = actionType;
+    // SECURITY: Filter out private cash module action types for non-BUILDER users
+    if (excludeActionTypes && excludeActionTypes.length > 0) {
+      where.actionType = { ...(where.actionType ? { equals: where.actionType } : {}), notIn: excludeActionTypes };
+    }
     if (startDate || endDate) {
       where.createdAt = {};
       if (startDate) (where.createdAt as Record<string, Date>).gte = startDate;
@@ -101,12 +107,18 @@ export class AuditLogger {
       entityType?: string;
       startDate?: Date;
       endDate?: Date;
+      /** SECURITY: Exclude private action types (e.g. cash module entries) from non-BUILDER roles */
+      excludeActionTypes?: string[];
     } = {}
   ): Promise<string> {
-    const { entityType, startDate, endDate } = options;
+    const { entityType, startDate, endDate, excludeActionTypes } = options;
 
     const where: Record<string, unknown> = { projectId };
     if (entityType) where.entityType = entityType;
+    // SECURITY: Filter out private cash module action types
+    if (excludeActionTypes && excludeActionTypes.length > 0) {
+      where.actionType = { notIn: excludeActionTypes };
+    }
     if (startDate || endDate) {
       where.createdAt = {};
       if (startDate) (where.createdAt as Record<string, Date>).gte = startDate;

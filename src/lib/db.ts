@@ -4,7 +4,7 @@ import { PrismaClient } from '@prisma/client';
 if (!process.env.DATABASE_URL) {
   throw new Error(
     'FATAL: DATABASE_URL is not set. ' +
-    'Create a .env.local file with your Supabase connection string. ' +
+    'Create a .env.local file with your PostgreSQL connection string. ' +
     'See .env.example for the required format.'
   );
 }

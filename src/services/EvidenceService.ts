@@ -5,6 +5,7 @@ import { AuditLogger } from './AuditLogger';
 import { RoleGuard } from './RoleGuard';
 import { PaymentEligibilityEngine } from './PaymentEligibilityEngine';
 import { generateStorageKey } from '@/lib/utils';
+import { SystemEventService, SystemEventType } from './SystemEventService';
 
 const MAX_FILE_SIZE_MB = parseInt(process.env.MAX_FILE_SIZE_MB || '10', 10);
 const MAX_FILE_SIZE_BYTES = MAX_FILE_SIZE_MB * 1024 * 1024;
@@ -130,6 +131,13 @@ export class EvidenceService {
       },
     });
 
+    // Viseron Intelligence: emit system event for analytics pipeline
+    SystemEventService.emit(SystemEventType.EVIDENCE_SUBMITTED, projectId, 'Evidence', evidence.id, actorId, {
+      milestoneId: submission.milestoneId,
+      qtyOrPercent: submission.qtyOrPercent,
+      fileCount: submission.files.length,
+    });
+
     return { success: true, evidenceId: evidence.id };
   }
 
@@ -213,6 +221,17 @@ export class EvidenceService {
       'Evidence',
       review.evidenceId
     );
+
+    // Viseron Intelligence: emit system event for analytics pipeline
+    const sysEventType = review.action === 'APPROVE'
+      ? SystemEventType.EVIDENCE_APPROVED
+      : SystemEventType.EVIDENCE_REJECTED;
+
+    SystemEventService.emit(sysEventType, projectId, 'Evidence', review.evidenceId, actorId, {
+      milestoneId: evidence.milestoneId,
+      action: review.action,
+      note: review.note,
+    });
 
     return { success: true };
   }

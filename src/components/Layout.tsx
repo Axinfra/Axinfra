@@ -59,6 +59,7 @@ export default function Layout({ children }: LayoutProps) {
     : [
       { href: '/projects', label: 'Projects', icon: FolderIcon },
       { href: '/execution-intelligence', label: 'Execution Intelligence', icon: ChartIcon },
+      { href: '/viseron-intelligence', label: 'Viseron Intelligence', icon: ViseronNavIcon },
       ...(isAdminUser
         ? [{ href: '/admin/vendors', label: 'Vendor Onboarding', icon: UsersIcon }]
         : []),
@@ -85,9 +86,9 @@ export default function Layout({ children }: LayoutProps) {
         <div className="h-14 flex items-center px-5 border-b border-surface-100 shrink-0">
           <Link href="/projects" className="flex items-center gap-2.5" onClick={() => setSidebarOpen(false)}>
             <div className="w-7 h-7 rounded-lg bg-primary-600 flex items-center justify-center shadow-xs">
-              <span className="text-white text-[10px] font-bold tracking-tight">MH</span>
+              <span className="text-white text-[10px] font-bold tracking-tight">AX</span>
             </div>
-            <span className="text-[15px] font-semibold text-surface-900 tracking-tight">MilestoneHQ</span>
+            <span className="text-[15px] font-semibold text-surface-900 tracking-tight">Axinfra</span>
           </Link>
         </div>
 
@@ -185,9 +186,9 @@ export default function Layout({ children }: LayoutProps) {
           {/* Mobile logo */}
           <div className="lg:hidden flex items-center gap-2 mr-auto">
             <div className="w-6 h-6 rounded-md bg-primary-600 flex items-center justify-center">
-              <span className="text-white text-[9px] font-bold">MH</span>
+              <span className="text-white text-[9px] font-bold">AX</span>
             </div>
-            <span className="text-sm font-semibold text-surface-900">MilestoneHQ</span>
+            <span className="text-sm font-semibold text-surface-900">Axinfra</span>
           </div>
 
           <div className="hidden lg:block flex-1" />
@@ -265,6 +266,16 @@ function FlagIcon({ className }: { className?: string }) {
   return (
     <svg className={className} fill="none" viewBox="0 0 24 24" strokeWidth={1.5} stroke="currentColor">
       <path strokeLinecap="round" strokeLinejoin="round" d="M3 3v1.5M3 21v-6m0 0 2.77-.693a9 9 0 0 1 6.208.682l.108.054a9 9 0 0 0 6.086.71l3.114-.732a48.524 48.524 0 0 1-.005-10.499l-3.11.732a9 9 0 0 1-6.085-.711l-.108-.054a9 9 0 0 0-6.208-.682L3 4.5M3 15V4.5" />
+    </svg>
+  );
+}
+
+function ViseronNavIcon({ className }: { className?: string }) {
+  return (
+    <svg className={className} fill="none" viewBox="0 0 24 24" strokeWidth={1.5} stroke="currentColor">
+      <path strokeLinecap="round" strokeLinejoin="round" d="M12 3L20 7.5V16.5L12 21L4 16.5V7.5L12 3Z" />
+      <circle cx="12" cy="12" r="3" strokeWidth={1.5} />
+      <path strokeLinecap="round" d="M12 6V9M12 15V18M7 8.5L9.5 10M14.5 14L17 15.5M7 15.5L9.5 14M14.5 10L17 8.5" strokeWidth="1" opacity="0.5" />
     </svg>
   );
 }

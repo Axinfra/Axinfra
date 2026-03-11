@@ -2,6 +2,7 @@ import { MilestoneState, Role, EligibilityEventType, AuditActionTypes } from '@/
 import { prisma } from '@/lib/db';
 import { AuditLogger } from './AuditLogger';
 import { PaymentEligibilityEngine } from './PaymentEligibilityEngine';
+import { SystemEventService, SystemEventType } from './SystemEventService';
 
 /**
  * Valid state transitions for milestones.
@@ -198,6 +199,19 @@ export class MilestoneStateMachine {
       'Milestone',
       milestoneId
     );
+
+    // Viseron Intelligence: emit system event for analytics pipeline
+    const eventType =
+      toState === MilestoneState.SUBMITTED ? SystemEventType.MILESTONE_SUBMITTED
+      : toState === MilestoneState.VERIFIED ? SystemEventType.MILESTONE_VERIFIED
+      : fromState === MilestoneState.SUBMITTED && toState === MilestoneState.IN_PROGRESS ? SystemEventType.MILESTONE_REJECTED
+      : SystemEventType.MILESTONE_TRANSITIONED;
+
+    SystemEventService.emit(eventType, projectId, 'Milestone', milestoneId, actorId, {
+      fromState,
+      toState,
+      reason,
+    });
 
     return {
       success: true,

@@ -35,7 +35,8 @@ export default function LoginPage() {
         const sessionData = await sessionRes.json();
         if (sessionData.success) {
           const roles = sessionData.data.projectRoles || [];
-          const isVendorOnly = roles.length > 0 && roles.every((r: { role: string }) => r.role === 'VENDOR');
+          const vendorRoles = ['VENDOR', 'ENGINEER'];
+          const isVendorOnly = roles.length > 0 && roles.every((r: { role: string }) => vendorRoles.includes(r.role));
           router.push(isVendorOnly ? '/vendor' : '/projects');
         } else {
           router.push('/projects');
@@ -50,12 +51,15 @@ export default function LoginPage() {
     }
   };
 
-  const fillDemo = (role: 'owner' | 'pmc' | 'vendor' | 'viewer') => {
-    const emails = {
+  const fillDemo = (role: 'owner' | 'pmc' | 'vendor' | 'viewer' | 'builder' | 'pmc_manager' | 'engineer') => {
+    const emails: Record<string, string> = {
       owner: 'owner@example.com',
       pmc: 'pmc@example.com',
       vendor: 'vendor@example.com',
       viewer: 'viewer@example.com',
+      builder: 'builder@example.com',
+      pmc_manager: 'pmcmanager@example.com',
+      engineer: 'engineer@example.com',
     };
     setEmail(emails[role]);
     setPassword('password123');
@@ -67,7 +71,7 @@ export default function LoginPage() {
       <div className="hidden lg:flex lg:w-[45%] bg-[#0A2540] flex-col justify-between p-16 xl:p-24 relative overflow-hidden">
         {/* Logo area */}
         <div className="text-white font-bold text-xl tracking-tight">
-          MilestoneHQ
+          Axinfra
         </div>
 
         {/* Main Headings - Serious & Heavy */}
@@ -83,7 +87,7 @@ export default function LoginPage() {
 
         {/* Copyright */}
         <div className="text-[#879BB3] text-sm">
-          &copy; MilestoneHQ Inc.
+          &copy; Axinfra Inc.
         </div>
       </div>
 
@@ -166,6 +170,13 @@ export default function LoginPage() {
               <button type="button" onClick={() => fillDemo('vendor')} className="hover:text-[#0A2540] transition-colors">Vendor</button>
               <span className="text-gray-300">·</span>
               <button type="button" onClick={() => fillDemo('viewer')} className="hover:text-[#0A2540] transition-colors">Viewer</button>
+            </div>
+            <div className="flex items-center justify-center gap-4 text-xs font-medium text-gray-400 mt-2">
+              <button type="button" onClick={() => fillDemo('builder')} className="hover:text-[#0A2540] transition-colors">Builder</button>
+              <span className="text-gray-300">·</span>
+              <button type="button" onClick={() => fillDemo('pmc_manager')} className="hover:text-[#0A2540] transition-colors">PMC Manager</button>
+              <span className="text-gray-300">·</span>
+              <button type="button" onClick={() => fillDemo('engineer')} className="hover:text-[#0A2540] transition-colors">Engineer</button>
             </div>
             <p className="text-[10px] text-center text-gray-400 mt-2">Password: <span className="font-mono">password123</span></p>
           </div>

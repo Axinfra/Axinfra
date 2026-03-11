@@ -1,6 +1,17 @@
 import { NextRequest, NextResponse } from 'next/server';
 import { requireProjectAuth } from '@/lib/auth';
 import { AuditLogger } from '@/services/AuditLogger';
+import { RoleGuard } from '@/services/RoleGuard';
+import { AuditActionTypes } from '@/types';
+
+/**
+ * SECURITY: Cash-module audit action types are PRIVATE to BUILDER role.
+ * Non-BUILDER roles must never see these entries in the shared audit log.
+ */
+const PRIVATE_CASH_ACTION_TYPES: string[] = [
+  AuditActionTypes.CASH_ADJUSTMENT_CREATE,
+  AuditActionTypes.PRIVATE_COST_CREATE,
+];
 
 // GET /api/projects/[projectId]/audit-log - Get audit logs
 export async function GET(
@@ -9,7 +20,7 @@ export async function GET(
 ) {
   try {
     const { projectId } = await params;
-    await requireProjectAuth(projectId);
+    const auth = await requireProjectAuth(projectId);
 
     const { searchParams } = new URL(request.url);
 
@@ -22,6 +33,10 @@ export async function GET(
       endDate: searchParams.get('endDate') ? new Date(searchParams.get('endDate')!) : undefined,
       limit: searchParams.get('limit') ? parseInt(searchParams.get('limit')!, 10) : 100,
       offset: searchParams.get('offset') ? parseInt(searchParams.get('offset')!, 10) : 0,
+      // SECURITY: Non-BUILDER users must never see cash module audit entries
+      excludeActionTypes: !RoleGuard.canAccessCashModule(auth)
+        ? PRIVATE_CASH_ACTION_TYPES
+        : undefined,
     };
 
     const { logs, total } = await AuditLogger.getProjectLogs(projectId, options);

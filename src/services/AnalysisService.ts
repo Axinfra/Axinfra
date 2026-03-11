@@ -2,13 +2,13 @@ import { prisma } from '@/lib/db';
 import { MilestoneState, EligibilityState, EvidenceStatus, Role } from '@/types';
 
 /**
- * AnalysisService - READ-ONLY intelligence layer for MilestoneHQ.
+ * AnalysisService - READ-ONLY intelligence layer for Axinfra.
  *
  * CRITICAL SAFETY CONSTRAINTS:
  * - This service NEVER mutates data
  * - All operations are read-only aggregations
  * - No new business logic - only statistics
- * - Single source of truth: existing MilestoneHQ data
+ * - Single source of truth: existing Axinfra data
  */
 
 // ============================================

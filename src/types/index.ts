@@ -4,8 +4,25 @@ export const Role = {
   PMC: 'PMC',
   VENDOR: 'VENDOR',
   VIEWER: 'VIEWER',
+  // Axinfra extended roles (map to base roles via resolveBaseRole)
+  BUILDER: 'BUILDER',
+  PMC_MANAGER: 'PMC_MANAGER',
+  ENGINEER: 'ENGINEER',
 } as const;
 export type Role = (typeof Role)[keyof typeof Role];
+
+/** Base roles that the permission system operates on */
+export type BaseRole = 'OWNER' | 'PMC' | 'VENDOR' | 'VIEWER';
+
+/** Extended roles introduced in Axinfra upgrade */
+export type ExtendedRole = 'BUILDER' | 'PMC_MANAGER' | 'ENGINEER';
+
+/** Mapping from extended roles to the base role they inherit permissions from */
+export const ExtendedRoleMapping: Record<ExtendedRole, BaseRole> = {
+  BUILDER: 'OWNER',
+  PMC_MANAGER: 'PMC',
+  ENGINEER: 'VENDOR',
+};
 
 export const MilestoneState = {
   DRAFT: 'DRAFT',
@@ -82,6 +99,26 @@ export const FollowUpStatus = {
   ESCALATED: 'ESCALATED',
 } as const;
 export type FollowUpStatus = (typeof FollowUpStatus)[keyof typeof FollowUpStatus];
+
+export const SystemEventType = {
+  USER_LOGIN: 'USER_LOGIN',
+  USER_LOGOUT: 'USER_LOGOUT',
+  CRON_RUN: 'CRON_RUN',
+  HEALTH_CHECK: 'HEALTH_CHECK',
+  ALERT: 'ALERT',
+  METRICS_COMPUTED: 'METRICS_COMPUTED',
+  SYSTEM_ERROR: 'SYSTEM_ERROR',
+  MIGRATION_RUN: 'MIGRATION_RUN',
+  SEED_RUN: 'SEED_RUN',
+} as const;
+export type SystemEventType = (typeof SystemEventType)[keyof typeof SystemEventType];
+
+export const HealthStatus = {
+  GREEN: 'GREEN',
+  AMBER: 'AMBER',
+  RED: 'RED',
+} as const;
+export type HealthStatus = (typeof HealthStatus)[keyof typeof HealthStatus];
 
 // API Response types
 export interface ApiResponse<T = void> {
@@ -432,6 +469,8 @@ export const AuditActionTypes = {
   FOLLOWUP_CREATE: 'FOLLOWUP_CREATE',
   FOLLOWUP_RESOLVE: 'FOLLOWUP_RESOLVE',
   FOLLOWUP_ESCALATE: 'FOLLOWUP_ESCALATE',
+  CASH_ADJUSTMENT_CREATE: 'CASH_ADJUSTMENT_CREATE',
+  PRIVATE_COST_CREATE: 'PRIVATE_COST_CREATE',
 } as const;
 
 export type AuditActionType = (typeof AuditActionTypes)[keyof typeof AuditActionTypes];
@@ -482,3 +521,48 @@ export const EligibilityStateColors: Record<EligibilityState, string> = {
   BLOCKED: 'red',
   MARKED_PAID: 'purple',
 };
+
+// ============================================
+// BUILDER CASH MODULE TYPES
+// ============================================
+
+export const CashAdjustmentType = {
+  CREDIT: 'CREDIT',
+  DEBIT: 'DEBIT',
+} as const;
+export type CashAdjustmentType = (typeof CashAdjustmentType)[keyof typeof CashAdjustmentType];
+
+export const PrivateCostCategory = {
+  LABOR: 'LABOR',
+  MATERIALS: 'MATERIALS',
+  EQUIPMENT: 'EQUIPMENT',
+  SUBCONTRACTOR: 'SUBCONTRACTOR',
+  OVERHEAD: 'OVERHEAD',
+  PERMITS: 'PERMITS',
+  INSURANCE: 'INSURANCE',
+  TRANSPORT: 'TRANSPORT',
+  OTHER: 'OTHER',
+} as const;
+export type PrivateCostCategory = (typeof PrivateCostCategory)[keyof typeof PrivateCostCategory];
+
+export const PrivateCostCategoryLabels: Record<PrivateCostCategory, string> = {
+  LABOR: 'Labor',
+  MATERIALS: 'Materials',
+  EQUIPMENT: 'Equipment',
+  SUBCONTRACTOR: 'Subcontractor',
+  OVERHEAD: 'Overhead',
+  PERMITS: 'Permits & Fees',
+  INSURANCE: 'Insurance',
+  TRANSPORT: 'Transport',
+  OTHER: 'Other',
+};
+
+export interface CashSummary {
+  totalCredits: number;
+  totalDebits: number;
+  netCashPosition: number;
+  totalPrivateCosts: number;
+  costsByCategory: Record<string, number>;
+  adjustmentCount: number;
+  costEntryCount: number;
+}

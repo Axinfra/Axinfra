@@ -4,7 +4,7 @@ import bcrypt from 'bcryptjs';
 const prisma = new PrismaClient();
 
 // ─── String-based enums (matches src/types/index.ts) ────────────────────────
-const Role = { OWNER: 'OWNER', PMC: 'PMC', VENDOR: 'VENDOR', VIEWER: 'VIEWER' } as const;
+const Role = { OWNER: 'OWNER', PMC: 'PMC', VENDOR: 'VENDOR', VIEWER: 'VIEWER', BUILDER: 'BUILDER', PMC_MANAGER: 'PMC_MANAGER', ENGINEER: 'ENGINEER' } as const;
 const BOQStatus = { DRAFT: 'DRAFT', APPROVED: 'APPROVED', REVISED: 'REVISED' } as const;
 const MilestoneState = {
   DRAFT: 'DRAFT', IN_PROGRESS: 'IN_PROGRESS', SUBMITTED: 'SUBMITTED',
@@ -27,10 +27,15 @@ const daysFromNow = (d: number) => new Date(now.getTime() + d * 86_400_000);
 
 // ─── Main seed ───────────────────────────────────────────────────────────────
 async function main() {
-  console.log('🌱 Seeding MilestoneHQ database…\n');
+  console.log('🌱 Seeding Axinfra database…\n');
 
   // ── 1. Wipe all data (respects FK order) ─────────────────────────────────
   console.log('  Clearing existing data…');
+  await prisma.privateCostEntry.deleteMany();
+  await prisma.cashAdjustment.deleteMany();
+  await prisma.systemEvent.deleteMany();
+  await prisma.projectMetrics.deleteMany();
+  await prisma.vendorMetrics.deleteMany();
   await prisma.auditLog.deleteMany();
   await prisma.followUp.deleteMany();
   await prisma.eligibilityEvent.deleteMany();
@@ -70,7 +75,17 @@ async function main() {
   const viewer = await prisma.user.create({
     data: { name: 'Vera Viewer', email: 'viewer@example.com', hashedPassword: hash },
   });
-  console.log('  Created 5 users');
+  // Extended role users (Axinfra)
+  const builder = await prisma.user.create({
+    data: { name: 'Blake Builder', email: 'builder@example.com', hashedPassword: hash },
+  });
+  const pmcManager = await prisma.user.create({
+    data: { name: 'Morgan PMC-Mgr', email: 'pmcmanager@example.com', hashedPassword: hash },
+  });
+  const engineer = await prisma.user.create({
+    data: { name: 'Ellie Engineer', email: 'engineer@example.com', hashedPassword: hash },
+  });
+  console.log('  Created 8 users (5 base + 3 extended roles)');
 
   // ════════════════════════════════════════════════════════════════════════════
   // PROJECT 1 — Downtown Office Building
@@ -90,6 +105,10 @@ async function main() {
       { projectId: p1.id, userId: vendor1.id, role: Role.VENDOR },
       { projectId: p1.id, userId: vendor2.id, role: Role.VENDOR },
       { projectId: p1.id, userId: viewer.id, role: Role.VIEWER },
+      // Extended roles
+      { projectId: p1.id, userId: builder.id, role: Role.BUILDER },
+      { projectId: p1.id, userId: pmcManager.id, role: Role.PMC_MANAGER },
+      { projectId: p1.id, userId: engineer.id, role: Role.ENGINEER },
     ],
   });
 
@@ -530,13 +549,16 @@ async function main() {
   console.log('  Database seeded successfully!');
   console.log('========================================');
   console.log('\n  3 Projects  |  11 Milestones  |  8 Dependencies');
-  console.log('  5 Users with role assignments + vendor-milestone links\n');
+  console.log('  8 Users with role assignments + vendor-milestone links\n');
   console.log('  Demo accounts (all use password: password123):');
-  console.log('    Owner  : owner@example.com');
-  console.log('    PMC    : pmc@example.com');
-  console.log('    Vendor : vendor@example.com   (Projects 1 & 2)');
-  console.log('    Vendor : vendor2@example.com  (Projects 1 & 3)');
-  console.log('    Viewer : viewer@example.com');
+  console.log('    Owner       : owner@example.com');
+  console.log('    PMC         : pmc@example.com');
+  console.log('    Vendor      : vendor@example.com   (Projects 1 & 2)');
+  console.log('    Vendor      : vendor2@example.com  (Projects 1 & 3)');
+  console.log('    Viewer      : viewer@example.com');
+  console.log('    Builder     : builder@example.com     (→ OWNER perms)');
+  console.log('    PMC Manager : pmcmanager@example.com  (→ PMC perms)');
+  console.log('    Engineer    : engineer@example.com    (→ VENDOR perms)');
   console.log('');
 }
 

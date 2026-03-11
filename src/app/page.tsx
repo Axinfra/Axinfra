@@ -30,9 +30,9 @@ export default async function LandingPage() {
         <div className="container mx-auto flex h-16 items-center justify-between px-4 sm:px-6 lg:px-8">
           <div className="flex items-center gap-2">
             <div className="flex h-8 w-8 items-center justify-center rounded-lg bg-primary-600 text-white font-bold">
-              M
+              A
             </div>
-            <span className="text-lg font-bold tracking-tight text-surface-900">MilestoneHQ</span>
+            <span className="text-lg font-bold tracking-tight text-surface-900">Axinfra</span>
           </div>
           <nav className="hidden md:flex items-center gap-8 text-sm font-medium text-surface-600">
             <Link href="#features" className="hover:text-primary-600 transition-colors">Features</Link>
@@ -187,7 +187,7 @@ export default async function LandingPage() {
         <section id="how-it-works" className="py-24 bg-white border-y border-surface-100">
           <div className="container mx-auto px-4 sm:px-6 lg:px-8">
             <div className="text-center mb-16">
-              <h2 className="text-3xl font-bold text-surface-900">How MilestoneHQ Works</h2>
+              <h2 className="text-3xl font-bold text-surface-900">How Axinfra Works</h2>
             </div>
             <div className="flex flex-col md:flex-row items-center justify-center gap-12 relative">
               {/* Connecting Line (Desktop) */}
@@ -240,8 +240,8 @@ export default async function LandingPage() {
       <footer className="bg-surface-50 border-t border-surface-200 py-12 text-sm">
         <div className="container mx-auto px-4 flex flex-col md:flex-row justify-between items-center gap-6">
           <div className="flex items-center gap-2 text-surface-900 font-bold">
-            <div className="h-6 w-6 rounded bg-surface-900 text-white flex items-center justify-center text-xs">M</div>
-            MilestoneHQ
+            <div className="h-6 w-6 rounded bg-surface-900 text-white flex items-center justify-center text-xs">A</div>
+            Axinfra
           </div>
           <div className="flex gap-8 text-surface-500">
             <Link href="#" className="hover:text-surface-900">Privacy</Link>
@@ -249,7 +249,7 @@ export default async function LandingPage() {
             <Link href="#" className="hover:text-surface-900">Support</Link>
           </div>
           <div className="text-surface-400">
-            &copy; {new Date().getFullYear()} MilestoneHQ. All rights reserved.
+            &copy; {new Date().getFullYear()} Axinfra. All rights reserved.
           </div>
         </div>
       </footer>

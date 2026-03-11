@@ -9,7 +9,7 @@ const inter = Inter({
 });
 
 export const metadata: Metadata = {
-  title: 'MilestoneHQ - Evidence-First Execution Tracking',
+  title: 'Axinfra - Evidence-First Execution Tracking',
   description: 'Evidence-first construction execution control system',
 };
 
