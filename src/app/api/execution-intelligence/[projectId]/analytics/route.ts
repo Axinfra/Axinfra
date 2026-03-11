@@ -9,6 +9,7 @@ import { NextRequest, NextResponse } from 'next/server';
 import { differenceInDays, subDays, startOfDay } from 'date-fns';
 import { prisma } from '@/lib/db';
 import { requireProjectAuth } from '@/lib/auth';
+import { cached } from '@/lib/cache';
 import {
   computeMilestoneScheduleMetrics,
   computeProjectScheduleKPIs,
@@ -25,11 +26,30 @@ export async function GET(
 ) {
   try {
     const auth = await requireProjectAuth(params.projectId);
+
+    const data = await cached(
+      `analytics:${params.projectId}:${auth.role}:${auth.userId}`,
+      60_000, // 60s TTL — analytics data changes infrequently
+      () => computeAnalytics(params.projectId, auth),
+    );
+
+    return NextResponse.json({ success: true, data });
+  } catch (err: unknown) {
+    const message = err instanceof Error ? err.message : 'Unknown error';
+    if (message === 'UNAUTHORIZED') {
+      return NextResponse.json({ success: false, error: 'Unauthorized' }, { status: 401 });
+    }
+    console.error('[analytics]', err);
+    return NextResponse.json({ success: false, error: 'Internal error' }, { status: 500 });
+  }
+}
+
+async function computeAnalytics(projectId: string, auth: { role: string; userId: string }) {
     const today = new Date();
 
     // --- Load milestones with evidence + transitions ---
     const milestones = await prisma.milestone.findMany({
-      where: { projectId: params.projectId },
+      where: { projectId },
       include: {
         evidence: {
           orderBy: { submittedAt: 'asc' },
@@ -53,14 +73,14 @@ export async function GET(
 
     // --- Schedule config ---
     const scheduleConfig = await prisma.projectScheduleConfig.findUnique({
-      where: { projectId: params.projectId },
+      where: { projectId },
     });
 
     // --- Follow-ups / escalations (last 30 days) ---
     const thirtyDaysAgo = subDays(today, 30);
     const escalations = await prisma.followUp.findMany({
       where: {
-        projectId: params.projectId,
+        projectId,
         status: 'ESCALATED',
         createdAt: { gte: thirtyDaysAgo },
       },
@@ -209,10 +229,10 @@ export async function GET(
     const approvalHistogram = buildApprovalHistogram(rawMilestones);
 
     // --- Escalation trend (weekly for last 12 weeks) ---
-    const escalationTrend = await buildEscalationTrend(params.projectId, today);
+    const escalationTrend = await buildEscalationTrend(projectId, today);
 
     // --- Payment to eligibility ---
-    const paymentCycleDays = await buildPaymentCycleDays(params.projectId);
+    const paymentCycleDays = await buildPaymentCycleDays(projectId);
 
     // --- Delay cost estimation ---
     const totalProjectValue = filtered.reduce((s, m) => s + (m.value || 0), 0);
@@ -232,16 +252,13 @@ export async function GET(
       duration: n.duration,
     }));
 
-    return NextResponse.json({
-      success: true,
-      data: {
+    return {
         kpis,
         milestoneMetrics,
         vendorScorecards:
           auth.role === 'VENDOR'
             ? vendorScorecards.map((s) => ({
                 ...s,
-                // anonymize peers
                 vendorName: s.vendorId === auth.userId ? s.vendorName : `Vendor ${s.rank}`,
               }))
             : vendorScorecards,
@@ -259,16 +276,7 @@ export async function GET(
           projectDuration: cpmResult.projectDuration,
           hasCycle: cpmResult.hasCycle,
         },
-      },
-    });
-  } catch (err: unknown) {
-    const message = err instanceof Error ? err.message : 'Unknown error';
-    if (message === 'UNAUTHORIZED') {
-      return NextResponse.json({ success: false, error: 'Unauthorized' }, { status: 401 });
-    }
-    console.error('[analytics]', err);
-    return NextResponse.json({ success: false, error: 'Internal error' }, { status: 500 });
-  }
+    };
 }
 
 // -------------------------------------------------------------------------
@@ -347,17 +355,24 @@ async function buildEscalationTrend(
   projectId: string,
   today: Date,
 ): Promise<Array<{ week: string; count: number }>> {
+  // Single query instead of 12 separate COUNT queries
+  const windowStart = subDays(today, 11 * 7 + 6);
+  const allEscalations = await prisma.followUp.findMany({
+    where: {
+      projectId,
+      status: 'ESCALATED',
+      createdAt: { gte: windowStart, lte: today },
+    },
+    select: { createdAt: true },
+  });
+
   const weeks: Array<{ week: string; count: number }> = [];
   for (let i = 11; i >= 0; i--) {
     const weekStart = subDays(today, i * 7 + 6);
     const weekEnd = subDays(today, i * 7);
-    const count = await prisma.followUp.count({
-      where: {
-        projectId,
-        status: 'ESCALATED',
-        createdAt: { gte: weekStart, lte: weekEnd },
-      },
-    });
+    const count = allEscalations.filter(
+      (e) => e.createdAt >= weekStart && e.createdAt <= weekEnd,
+    ).length;
     weeks.push({ week: weekEnd.toISOString().slice(0, 10), count });
   }
   return weeks;

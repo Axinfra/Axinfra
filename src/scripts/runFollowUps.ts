@@ -3,10 +3,8 @@
  * Usage: pnpm cron:follow-ups
  */
 
-import { PrismaClient } from '@prisma/client';
+import { prisma } from '../lib/db';
 import { FollowUpScheduler } from '../services/FollowUpScheduler';
-
-const prisma = new PrismaClient();
 
 async function main() {
   console.log('Running follow-up checks...');

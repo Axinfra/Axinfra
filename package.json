@@ -14,11 +14,14 @@
     "db:generate": "prisma generate",
     "db:push": "prisma db push",
     "db:migrate": "prisma migrate dev",
-    "db:seed": "tsx prisma/seed.ts",
+    "db:seed": "npx prisma db seed",
+    "db:reset": "tsx prisma/seed.ts",
     "db:studio": "prisma studio",
     "test": "vitest run",
     "test:watch": "vitest",
-    "cron:follow-ups": "tsx src/scripts/runFollowUps.ts"
+    "cron:follow-ups": "tsx src/scripts/runFollowUps.ts",
+    "benchmark": "tsx scripts/benchmark.ts",
+    "benchmark:api": "tsx scripts/benchmark.ts http://localhost:3000"
   },
   "dependencies": {
     "@prisma/client": "^5.22.0",

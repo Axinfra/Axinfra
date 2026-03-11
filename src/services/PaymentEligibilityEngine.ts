@@ -810,44 +810,42 @@ export class PaymentEligibilityEngine {
     verifiedWork: number;
     exposure: number;
   }[]> {
-    const vendorRoles = await prisma.projectRole.findMany({
-      where: { projectId, role: Role.VENDOR },
-      include: { user: true },
-    });
-
-    const exposures = [];
-
-    for (const vendorRole of vendorRoles) {
-      const advanceMilestones = await prisma.milestone.findMany({
-        where: {
-          projectId,
-          paymentModel: PaymentModel.ADVANCE,
-        },
+    // Single query: fetch vendors + advance milestones in parallel (no N+1)
+    const [vendorRoles, advanceMilestones] = await Promise.all([
+      prisma.projectRole.findMany({
+        where: { projectId, role: Role.VENDOR },
+        include: { user: true },
+      }),
+      prisma.milestone.findMany({
+        where: { projectId, paymentModel: PaymentModel.ADVANCE },
         include: {
           paymentEligibility: true,
-          verifications: true,
+          verifications: { select: { valueEligibleComputed: true } },
         },
-      });
+      }),
+    ]);
 
-      let advancePaid = 0;
-      let verifiedWork = 0;
-
-      for (const ms of advanceMilestones) {
-        if (ms.paymentEligibility?.state === EligibilityState.MARKED_PAID) {
-          advancePaid += ms.paymentEligibility.eligibleAmount;
-        }
-        for (const v of ms.verifications) {
-          verifiedWork += v.valueEligibleComputed;
-        }
+    // Aggregate once for all vendors
+    let totalAdvancePaid = 0;
+    let totalVerifiedWork = 0;
+    for (const ms of advanceMilestones) {
+      if (ms.paymentEligibility?.state === EligibilityState.MARKED_PAID) {
+        totalAdvancePaid += ms.paymentEligibility.eligibleAmount;
       }
+      for (const v of ms.verifications) {
+        totalVerifiedWork += v.valueEligibleComputed;
+      }
+    }
 
-      if (advancePaid > verifiedWork) {
+    const exposures = [];
+    if (totalAdvancePaid > totalVerifiedWork) {
+      for (const vendorRole of vendorRoles) {
         exposures.push({
           vendorId: vendorRole.userId,
           vendorName: vendorRole.user.name,
-          advancePaid,
-          verifiedWork,
-          exposure: advancePaid - verifiedWork,
+          advancePaid: totalAdvancePaid,
+          verifiedWork: totalVerifiedWork,
+          exposure: totalAdvancePaid - totalVerifiedWork,
         });
       }
     }

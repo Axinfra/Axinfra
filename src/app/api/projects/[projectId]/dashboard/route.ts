@@ -5,6 +5,7 @@ import { EvidenceService } from '@/services/EvidenceService';
 import { PaymentEligibilityEngine } from '@/services/PaymentEligibilityEngine';
 import { FollowUpScheduler } from '@/services/FollowUpScheduler';
 import { Role, EligibilityState, EvidenceStatus, MilestoneState } from '@/types';
+import { cached } from '@/lib/cache';
 
 // GET /api/projects/[projectId]/dashboard - Get role-specific dashboard data
 export async function GET(
@@ -17,18 +18,19 @@ export async function GET(
 
     let dashboardData: unknown;
 
+    const TTL = 30_000; // 30s cache
     switch (auth.role) {
       case Role.OWNER:
-        dashboardData = await getOwnerDashboard(projectId);
+        dashboardData = await cached(`dash:owner:${projectId}`, TTL, () => getOwnerDashboard(projectId));
         break;
       case Role.PMC:
-        dashboardData = await getPMCDashboard(projectId);
+        dashboardData = await cached(`dash:pmc:${projectId}`, TTL, () => getPMCDashboard(projectId));
         break;
       case Role.VENDOR:
-        dashboardData = await getVendorDashboard(projectId, auth.userId);
+        dashboardData = await cached(`dash:vendor:${projectId}:${auth.userId}`, TTL, () => getVendorDashboard(projectId, auth.userId));
         break;
       case Role.VIEWER:
-        dashboardData = await getViewerDashboard(projectId);
+        dashboardData = await cached(`dash:viewer:${projectId}`, TTL, () => getViewerDashboard(projectId));
         break;
     }
 
@@ -49,11 +51,17 @@ export async function GET(
 }
 
 async function getOwnerDashboard(projectId: string) {
-  // Get all payment eligibility data
+  // Get all payment eligibility data + verifications in a single query (no N+1)
   const eligibilities = await prisma.paymentEligibility.findMany({
     where: { milestone: { projectId } },
     include: {
-      milestone: true,
+      milestone: {
+        include: {
+          verifications: {
+            select: { valueEligibleComputed: true },
+          },
+        },
+      },
     },
   });
 
@@ -74,10 +82,9 @@ async function getOwnerDashboard(projectId: string) {
       totalBlockedValue += elig.blockedAmount;
     }
     if (elig.milestone.paymentModel === 'ADVANCE' && elig.state === EligibilityState.MARKED_PAID) {
-      const verifications = await prisma.verification.findMany({
-        where: { milestoneId: elig.milestoneId },
-      });
-      const verifiedValue = verifications.reduce((sum, v) => sum + v.valueEligibleComputed, 0);
+      const verifiedValue = elig.milestone.verifications.reduce(
+        (sum: number, v: { valueEligibleComputed: number }) => sum + v.valueEligibleComputed, 0
+      );
       if (elig.eligibleAmount > verifiedValue) {
         advanceExposure += elig.eligibleAmount - verifiedValue;
       }

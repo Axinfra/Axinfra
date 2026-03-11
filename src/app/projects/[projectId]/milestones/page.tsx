@@ -9,12 +9,6 @@ import MilestoneStateBadge from '@/components/MilestoneStateBadge';
 import PaymentStatusBadge from '@/components/PaymentStatusBadge';
 import { formatCurrency, formatDate } from '@/lib/utils';
 
-interface VendorUser {
-  userId: string;
-  name: string;
-  email: string;
-}
-
 interface Milestone {
   id: string;
   title: string;
@@ -47,21 +41,6 @@ interface Milestone {
   };
 }
 
-interface BOQItem {
-  id: string;
-  description: string;
-  unit: string;
-  plannedQty: number;
-  rate: number;
-  plannedValue: number;
-}
-
-interface BOQ {
-  id: string;
-  status: string;
-  items: BOQItem[];
-}
-
 export default function MilestonesPage() {
   const params = useParams();
   const projectId = params.projectId as string;
@@ -71,21 +50,7 @@ export default function MilestonesPage() {
   const [permissions, setPermissions] = useState<Record<string, boolean>>({});
   const [loading, setLoading] = useState(true);
   const [error, setError] = useState('');
-
-  const [showCreate, setShowCreate] = useState(false);
-  const [boqItems, setBoqItems] = useState<BOQItem[]>([]);
-  const [vendors, setVendors] = useState<VendorUser[]>([]);
-  const [newMilestone, setNewMilestone] = useState({
-    title: '',
-    description: '',
-    plannedEnd: '',
-    value: '',
-    advancePercent: '',
-    isExtra: false,
-    selectedBoqItemId: '',
-    boqQty: '',
-    vendorUserId: '',
-  });
+  const [deleteConfirm, setDeleteConfirm] = useState<string | null>(null);
 
   useEffect(() => {
     loadData();
@@ -93,16 +58,14 @@ export default function MilestonesPage() {
 
   const loadData = async () => {
     try {
-      const [projectRes, milestonesRes, boqRes] = await Promise.all([
+      const [projectRes, milestonesRes] = await Promise.all([
         fetch(`/api/projects/${projectId}`),
         fetch(`/api/projects/${projectId}/milestones`),
-        fetch(`/api/projects/${projectId}/boq`),
       ]);
 
-      const [projectData, milestonesData, boqData] = await Promise.all([
+      const [projectData, milestonesData] = await Promise.all([
         projectRes.json(),
         milestonesRes.json(),
-        boqRes.json(),
       ]);
 
       if (projectData.success) {
@@ -114,35 +77,12 @@ export default function MilestonesPage() {
       if (milestonesData.success) {
         setMilestones(milestonesData.data);
       }
-
-      // Extract all BOQ items from approved BOQs
-      if (boqData.success && boqData.data) {
-        const approvedBoq = boqData.data.find((b: BOQ) => b.status === 'APPROVED');
-        if (approvedBoq) {
-          setBoqItems(approvedBoq.items || []);
-        }
-      }
-
-      // Load vendor users for the dropdown (OWNER/PMC only — admin endpoint returns 403 for vendors)
-      if (projectData.success && (projectData.data.myRole === 'OWNER' || projectData.data.myRole === 'PMC')) {
-        try {
-          const vendorsRes = await fetch(`/api/admin/vendors?projectId=${projectId}`);
-          const vendorsData = await vendorsRes.json();
-          if (vendorsData.success) {
-            setVendors(vendorsData.data);
-          }
-        } catch {
-          // Vendor dropdown is optional — silently ignore
-        }
-      }
     } catch {
       setError('Failed to load data');
     } finally {
       setLoading(false);
     }
   };
-
-  const [deleteConfirm, setDeleteConfirm] = useState<string | null>(null);
 
   const handleDelete = async (milestoneId: string) => {
     const res = await fetch(`/api/projects/${projectId}/milestones/${milestoneId}`, {
@@ -156,47 +96,6 @@ export default function MilestonesPage() {
     } else {
       setError(data.error);
       setDeleteConfirm(null);
-    }
-  };
-
-  const handleCreate = async () => {
-    // Build BOQ links if a BOQ item is selected
-    const boqLinks = newMilestone.selectedBoqItemId && newMilestone.boqQty
-      ? [{ boqItemId: newMilestone.selectedBoqItemId, plannedQty: parseFloat(newMilestone.boqQty) }]
-      : undefined;
-
-    const res = await fetch(`/api/projects/${projectId}/milestones`, {
-      method: 'POST',
-      headers: { 'Content-Type': 'application/json' },
-      body: JSON.stringify({
-        title: newMilestone.title,
-        description: newMilestone.description || undefined,
-        plannedEnd: newMilestone.plannedEnd || undefined,
-        value: newMilestone.value ? parseFloat(newMilestone.value) : 0,
-        advancePercent: newMilestone.advancePercent ? parseFloat(newMilestone.advancePercent) : 0,
-        isExtra: newMilestone.isExtra,
-        vendorUserId: newMilestone.vendorUserId || null,
-        boqLinks,
-      }),
-    });
-
-    const data = await res.json();
-    if (data.success) {
-      setShowCreate(false);
-      setNewMilestone({
-        title: '',
-        description: '',
-        plannedEnd: '',
-        value: '',
-        advancePercent: '',
-        isExtra: false,
-        selectedBoqItemId: '',
-        boqQty: '',
-        vendorUserId: '',
-      });
-      loadData();
-    } else {
-      setError(data.error);
     }
   };
 
@@ -216,9 +115,12 @@ export default function MilestonesPage() {
         <div className="flex justify-between items-center">
           <h1 className="text-2xl font-bold text-gray-900">Milestones</h1>
           {permissions.canEditMilestones && (
-            <button onClick={() => setShowCreate(true)} className="btn btn-primary">
+            <Link
+              href={`/projects/${projectId}/milestones/new`}
+              className="btn btn-primary"
+            >
               Create Milestone
-            </button>
+            </Link>
           )}
         </div>
 
@@ -265,7 +167,7 @@ export default function MilestonesPage() {
                                 ? 'bg-green-100 text-green-700'
                                 : 'bg-orange-100 text-orange-700'
                             }`}>
-                              {milestone.extraApprovedAt ? 'Extra ✓' : 'Extra (Pending)'}
+                              {milestone.extraApprovedAt ? 'Extra \u2713' : 'Extra (Pending)'}
                             </span>
                           )}
                         </div>
@@ -285,7 +187,7 @@ export default function MilestonesPage() {
                               {milestone.vendorUser.name}
                             </span>
                           ) : (
-                            <span className="text-xs text-gray-400">—</span>
+                            <span className="text-xs text-gray-400">&mdash;</span>
                           )}
                         </td>
                       )}
@@ -342,7 +244,7 @@ export default function MilestonesPage() {
         )}
       </div>
 
-      {/* Delete Confirmation Modal */}
+      {/* Delete Confirmation Modal — kept as modal (destructive action confirmation) */}
       {deleteConfirm && (
         <div className="fixed inset-0 bg-black bg-opacity-50 flex items-center justify-center z-50">
           <div className="bg-white rounded-lg shadow-xl max-w-sm w-full mx-4">
@@ -361,212 +263,6 @@ export default function MilestonesPage() {
                 >
                   Delete
                 </button>
-              </div>
-            </div>
-          </div>
-        </div>
-      )}
-
-      {/* Create Modal */}
-      {showCreate && (
-        <div className="fixed inset-0 bg-black bg-opacity-50 flex items-center justify-center z-50">
-          <div className="bg-white rounded-lg shadow-xl max-w-md w-full mx-4">
-            <div className="p-6">
-              <h2 className="text-lg font-semibold mb-4">Create Milestone</h2>
-              <div className="space-y-4">
-                <div>
-                  <label className="label">Title *</label>
-                  <input
-                    type="text"
-                    className="input"
-                    value={newMilestone.title}
-                    onChange={(e) => setNewMilestone({ ...newMilestone, title: e.target.value })}
-                  />
-                </div>
-                <div>
-                  <label className="label">Description</label>
-                  <textarea
-                    className="input"
-                    rows={2}
-                    value={newMilestone.description}
-                    onChange={(e) => setNewMilestone({ ...newMilestone, description: e.target.value })}
-                  />
-                </div>
-
-                {/* BOQ Link or Extras Toggle */}
-                <div className="border rounded-lg p-3 bg-gray-50">
-                  <div className="flex items-center mb-3">
-                    <label className="flex items-center cursor-pointer">
-                      <input
-                        type="checkbox"
-                        className="mr-2"
-                        checked={newMilestone.isExtra}
-                        onChange={(e) => setNewMilestone({
-                          ...newMilestone,
-                          isExtra: e.target.checked,
-                          selectedBoqItemId: e.target.checked ? '' : newMilestone.selectedBoqItemId,
-                          boqQty: e.target.checked ? '' : newMilestone.boqQty,
-                        })}
-                      />
-                      <span className="text-sm font-medium text-orange-700">
-                        Extras (Outside BOQ)
-                      </span>
-                    </label>
-                  </div>
-
-                  {newMilestone.isExtra ? (
-                    <div className="bg-orange-50 border border-orange-200 rounded p-2">
-                      <p className="text-xs text-orange-700">
-                        ⚠️ This milestone is outside the approved BOQ and requires Owner approval.
-                        The associated vendor will be flagged as high risk.
-                      </p>
-                    </div>
-                  ) : (
-                    <>
-                      <div className="mb-2">
-                        <label className="label text-sm">Link to BOQ Item</label>
-                        <select
-                          className="input"
-                          value={newMilestone.selectedBoqItemId}
-                          onChange={(e) => {
-                            const selectedItem = boqItems.find(item => item.id === e.target.value);
-                            setNewMilestone({
-                              ...newMilestone,
-                              selectedBoqItemId: e.target.value,
-                              // Auto-fill value based on BOQ rate if qty is set
-                              value: selectedItem && newMilestone.boqQty
-                                ? String(selectedItem.rate * parseFloat(newMilestone.boqQty))
-                                : newMilestone.value,
-                            });
-                          }}
-                        >
-                          <option value="">-- Select BOQ Item --</option>
-                          {boqItems.map((item) => (
-                            <option key={item.id} value={item.id}>
-                              {item.description} ({item.unit}) - Rate: {formatCurrency(item.rate)} | Available: {item.plannedQty}
-                            </option>
-                          ))}
-                        </select>
-                      </div>
-                      {newMilestone.selectedBoqItemId && (
-                        <div>
-                          <label className="label text-sm">Quantity from BOQ</label>
-                          <input
-                            type="number"
-                            className="input"
-                            placeholder="0"
-                            min="0"
-                            step="0.01"
-                            value={newMilestone.boqQty}
-                            onChange={(e) => {
-                              const selectedItem = boqItems.find(item => item.id === newMilestone.selectedBoqItemId);
-                              const qty = parseFloat(e.target.value) || 0;
-                              setNewMilestone({
-                                ...newMilestone,
-                                boqQty: e.target.value,
-                                // Auto-calculate value from BOQ rate × qty
-                                value: selectedItem ? String(selectedItem.rate * qty) : newMilestone.value,
-                              });
-                            }}
-                          />
-                          {newMilestone.boqQty && (
-                            <p className="text-xs text-green-600 mt-1">
-                              Calculated value: {formatCurrency(
-                                (boqItems.find(i => i.id === newMilestone.selectedBoqItemId)?.rate || 0) *
-                                parseFloat(newMilestone.boqQty || '0')
-                              )}
-                            </p>
-                          )}
-                        </div>
-                      )}
-                      {boqItems.length === 0 && (
-                        <p className="text-xs text-gray-500">No approved BOQ items available. Create a BOQ first or mark as Extras.</p>
-                      )}
-                    </>
-                  )}
-                </div>
-
-                <div>
-                  <label className="label">Value *</label>
-                  <input
-                    type="number"
-                    className="input"
-                    placeholder="0.00"
-                    min="0"
-                    step="0.01"
-                    value={newMilestone.value}
-                    onChange={(e) => setNewMilestone({ ...newMilestone, value: e.target.value })}
-                  />
-                  <p className="text-xs text-gray-500 mt-1">
-                    {newMilestone.selectedBoqItemId ? 'Auto-calculated from BOQ (editable)' : 'Total milestone value'}
-                  </p>
-                </div>
-                <div>
-                  <label className="label">Advance Percentage</label>
-                  <input
-                    type="number"
-                    className="input"
-                    placeholder="0"
-                    min="0"
-                    max="100"
-                    step="1"
-                    value={newMilestone.advancePercent}
-                    onChange={(e) => setNewMilestone({ ...newMilestone, advancePercent: e.target.value })}
-                  />
-                  <p className="text-xs text-gray-500 mt-1">
-                    {newMilestone.value && newMilestone.advancePercent ? (
-                      <>
-                        Advance: {formatCurrency(parseFloat(newMilestone.value) * parseFloat(newMilestone.advancePercent) / 100)} |
-                        Remaining on verification: {formatCurrency(parseFloat(newMilestone.value) * (100 - parseFloat(newMilestone.advancePercent)) / 100)}
-                      </>
-                    ) : (
-                      'Optional: % paid upfront, rest due on verification'
-                    )}
-                  </p>
-                </div>
-                {/* Assign Vendor */}
-                {vendors.length > 0 && (
-                  <div>
-                    <label className="label">Assign Vendor</label>
-                    <select
-                      className="input"
-                      value={newMilestone.vendorUserId}
-                      onChange={(e) => setNewMilestone({ ...newMilestone, vendorUserId: e.target.value })}
-                    >
-                      <option value="">-- No vendor assigned --</option>
-                      {vendors.map((v) => (
-                        <option key={v.userId} value={v.userId}>
-                          {v.name} ({v.email})
-                        </option>
-                      ))}
-                    </select>
-                    <p className="text-xs text-gray-500 mt-1">
-                      Optional: assign a vendor responsible for this milestone
-                    </p>
-                  </div>
-                )}
-
-                <div>
-                  <label className="label">Due Date</label>
-                  <input
-                    type="date"
-                    className="input"
-                    value={newMilestone.plannedEnd}
-                    onChange={(e) => setNewMilestone({ ...newMilestone, plannedEnd: e.target.value })}
-                  />
-                </div>
-
-                <div className="flex justify-end space-x-3 pt-4">
-                  <button onClick={() => setShowCreate(false)} className="btn btn-secondary">
-                    Cancel
-                  </button>
-                  <button
-                    onClick={handleCreate}
-                    className={`btn ${newMilestone.isExtra ? 'bg-orange-600 hover:bg-orange-700 text-white' : 'btn-primary'}`}
-                  >
-                    {newMilestone.isExtra ? 'Create & Send for Approval' : 'Create'}
-                  </button>
-                </div>
               </div>
             </div>
           </div>
