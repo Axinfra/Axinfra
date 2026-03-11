@@ -54,7 +54,7 @@ export class AuditLogger {
       endDate?: Date;
       limit?: number;
       offset?: number;
-      /** SECURITY: Exclude private action types (e.g. cash module entries) from non-BUILDER roles */
+      /** SECURITY: Exclude private action types (e.g. cash module entries) from non-OWNER roles */
       excludeActionTypes?: string[];
     } = {}
   ) {
@@ -66,7 +66,7 @@ export class AuditLogger {
     if (entityId) where.entityId = entityId;
     if (actorId) where.actorId = actorId;
     if (actionType) where.actionType = actionType;
-    // SECURITY: Filter out private cash module action types for non-BUILDER users
+    // SECURITY: Filter out private cash module action types for non-OWNER users
     if (excludeActionTypes && excludeActionTypes.length > 0) {
       where.actionType = { ...(where.actionType ? { equals: where.actionType } : {}), notIn: excludeActionTypes };
     }
@@ -107,7 +107,7 @@ export class AuditLogger {
       entityType?: string;
       startDate?: Date;
       endDate?: Date;
-      /** SECURITY: Exclude private action types (e.g. cash module entries) from non-BUILDER roles */
+      /** SECURITY: Exclude private action types (e.g. cash module entries) from non-OWNER roles */
       excludeActionTypes?: string[];
     } = {}
   ): Promise<string> {

@@ -1,8 +1,8 @@
 /**
- * CashModuleService - Builder-private financial tracking.
+ * CashModuleService - Owner-private financial tracking.
  *
- * SECURITY: All methods are restricted to BUILDER role only.
- * PMC_MANAGER, ENGINEER, PMC, VENDOR must NEVER access this data.
+ * SECURITY: All methods are restricted to OWNER role only.
+ * PMC, VENDOR, VIEWER must NEVER access this data.
  * Role enforcement is done at the API layer via RoleGuard.canAccessCashModule().
  * This service assumes callers have already passed the role check.
  */
@@ -54,7 +54,7 @@ export interface ListPrivateCostsInput {
 export class CashModuleService {
   /**
    * Create a new cash adjustment (credit or debit).
-   * Used by BUILDER to track incoming/outgoing cash privately.
+   * Used by OWNER to track incoming/outgoing cash privately.
    */
   static async createCashAdjustment(input: CreateCashAdjustmentInput) {
     const { projectId, description, amount, type, reason, actorId, actorRole } = input;
@@ -127,7 +127,7 @@ export class CashModuleService {
 
   /**
    * Create a private cost entry.
-   * Used by BUILDER to track internal costs not visible to PMC/Vendor.
+   * Used by OWNER to track internal costs not visible to PMC/Vendor.
    */
   static async createPrivateCostEntry(input: CreatePrivateCostInput) {
     const { projectId, description, amount, category, vendor, notes, incurredAt, actorId, actorRole } = input;

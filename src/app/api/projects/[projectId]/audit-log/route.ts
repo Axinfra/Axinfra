@@ -5,8 +5,8 @@ import { RoleGuard } from '@/services/RoleGuard';
 import { AuditActionTypes } from '@/types';
 
 /**
- * SECURITY: Cash-module audit action types are PRIVATE to BUILDER role.
- * Non-BUILDER roles must never see these entries in the shared audit log.
+ * SECURITY: Cash-module audit action types are PRIVATE to OWNER role.
+ * Non-OWNER roles must never see these entries in the shared audit log.
  */
 const PRIVATE_CASH_ACTION_TYPES: string[] = [
   AuditActionTypes.CASH_ADJUSTMENT_CREATE,
@@ -33,7 +33,7 @@ export async function GET(
       endDate: searchParams.get('endDate') ? new Date(searchParams.get('endDate')!) : undefined,
       limit: searchParams.get('limit') ? parseInt(searchParams.get('limit')!, 10) : 100,
       offset: searchParams.get('offset') ? parseInt(searchParams.get('offset')!, 10) : 0,
-      // SECURITY: Non-BUILDER users must never see cash module audit entries
+      // SECURITY: Non-OWNER users must never see cash module audit entries
       excludeActionTypes: !RoleGuard.canAccessCashModule(auth)
         ? PRIVATE_CASH_ACTION_TYPES
         : undefined,

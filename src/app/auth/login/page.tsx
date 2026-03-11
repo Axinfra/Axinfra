@@ -35,7 +35,7 @@ export default function LoginPage() {
         const sessionData = await sessionRes.json();
         if (sessionData.success) {
           const roles = sessionData.data.projectRoles || [];
-          const vendorRoles = ['VENDOR', 'ENGINEER'];
+          const vendorRoles = ['VENDOR'];
           const isVendorOnly = roles.length > 0 && roles.every((r: { role: string }) => vendorRoles.includes(r.role));
           router.push(isVendorOnly ? '/vendor' : '/projects');
         } else {
@@ -51,18 +51,23 @@ export default function LoginPage() {
     }
   };
 
-  const fillDemo = (role: 'owner' | 'pmc' | 'vendor' | 'viewer' | 'builder' | 'pmc_manager' | 'engineer') => {
+  const fillDemo = (role: 'admin' | 'owner' | 'pmc' | 'vendor' | 'viewer') => {
     const emails: Record<string, string> = {
+      admin: 'admin@axinfra.local',
       owner: 'owner@example.com',
       pmc: 'pmc@example.com',
       vendor: 'vendor@example.com',
       viewer: 'viewer@example.com',
-      builder: 'builder@example.com',
-      pmc_manager: 'pmcmanager@example.com',
-      engineer: 'engineer@example.com',
+    };
+    const passwords: Record<string, string> = {
+      admin: 'admin123',
+      owner: 'password123',
+      pmc: 'password123',
+      vendor: 'password123',
+      viewer: 'password123',
     };
     setEmail(emails[role]);
-    setPassword('password123');
+    setPassword(passwords[role]);
   };
 
   return (
@@ -163,6 +168,8 @@ export default function LoginPage() {
           <div className="pt-6 border-t border-gray-100">
             <p className="text-xs text-center text-gray-400 mb-3 font-medium">Demo Access</p>
             <div className="flex items-center justify-center gap-4 text-xs font-medium text-gray-500">
+              <button type="button" onClick={() => fillDemo('admin')} className="hover:text-[#0A2540] transition-colors">Admin</button>
+              <span className="text-gray-300">·</span>
               <button type="button" onClick={() => fillDemo('owner')} className="hover:text-[#0A2540] transition-colors">Owner</button>
               <span className="text-gray-300">·</span>
               <button type="button" onClick={() => fillDemo('pmc')} className="hover:text-[#0A2540] transition-colors">PMC</button>
@@ -171,14 +178,6 @@ export default function LoginPage() {
               <span className="text-gray-300">·</span>
               <button type="button" onClick={() => fillDemo('viewer')} className="hover:text-[#0A2540] transition-colors">Viewer</button>
             </div>
-            <div className="flex items-center justify-center gap-4 text-xs font-medium text-gray-400 mt-2">
-              <button type="button" onClick={() => fillDemo('builder')} className="hover:text-[#0A2540] transition-colors">Builder</button>
-              <span className="text-gray-300">·</span>
-              <button type="button" onClick={() => fillDemo('pmc_manager')} className="hover:text-[#0A2540] transition-colors">PMC Manager</button>
-              <span className="text-gray-300">·</span>
-              <button type="button" onClick={() => fillDemo('engineer')} className="hover:text-[#0A2540] transition-colors">Engineer</button>
-            </div>
-            <p className="text-[10px] text-center text-gray-400 mt-2">Password: <span className="font-mono">password123</span></p>
           </div>
         </div>
       </div>

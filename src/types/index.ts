@@ -1,28 +1,10 @@
-// String-based enums for SQLite compatibility
 export const Role = {
   OWNER: 'OWNER',
   PMC: 'PMC',
   VENDOR: 'VENDOR',
   VIEWER: 'VIEWER',
-  // Axinfra extended roles (map to base roles via resolveBaseRole)
-  BUILDER: 'BUILDER',
-  PMC_MANAGER: 'PMC_MANAGER',
-  ENGINEER: 'ENGINEER',
 } as const;
 export type Role = (typeof Role)[keyof typeof Role];
-
-/** Base roles that the permission system operates on */
-export type BaseRole = 'OWNER' | 'PMC' | 'VENDOR' | 'VIEWER';
-
-/** Extended roles introduced in Axinfra upgrade */
-export type ExtendedRole = 'BUILDER' | 'PMC_MANAGER' | 'ENGINEER';
-
-/** Mapping from extended roles to the base role they inherit permissions from */
-export const ExtendedRoleMapping: Record<ExtendedRole, BaseRole> = {
-  BUILDER: 'OWNER',
-  PMC_MANAGER: 'PMC',
-  ENGINEER: 'VENDOR',
-};
 
 export const MilestoneState = {
   DRAFT: 'DRAFT',
@@ -523,7 +505,7 @@ export const EligibilityStateColors: Record<EligibilityState, string> = {
 };
 
 // ============================================
-// BUILDER CASH MODULE TYPES
+// OWNER CASH MODULE TYPES
 // ============================================
 
 export const CashAdjustmentType = {

@@ -32,7 +32,6 @@ const roleColors: Record<string, "default" | "secondary" | "outline" | "destruct
   PMC: 'warning',
   VENDOR: 'success',
   VIEWER: 'secondary',
-  BUILDER: 'default',
 };
 
 export default function Navbar({ projectId, projectName, role }: NavbarProps) {
@@ -49,7 +48,7 @@ export default function Navbar({ projectId, projectName, role }: NavbarProps) {
     { href: `/projects/${projectId}/follow-ups`, label: 'Follow-ups', icon: BellRing, roles: ['OWNER', 'PMC'] },
     { href: `/projects/${projectId}/dashboard`, label: 'Dashboard', icon: BarChart2, always: true }, // Using same icon as Analysis? Maybe generic Chart?
     { href: `/projects/${projectId}/audit-log`, label: 'Audit Log', icon: History, always: true },
-    { href: `/projects/${projectId}/cash`, label: 'Cash', icon: Wallet, roles: ['BUILDER'] },
+    { href: `/projects/${projectId}/cash`, label: 'Cash', icon: Wallet, roles: ['OWNER'] },
     { href: `/projects/${projectId}/roles`, label: 'Roles', icon: Users, roles: ['OWNER'] },
     { href: `/projects/${projectId}/settings`, label: 'Settings', icon: Settings, roles: ['OWNER'] },
   ];

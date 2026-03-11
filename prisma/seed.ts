@@ -4,7 +4,7 @@ import bcrypt from 'bcryptjs';
 const prisma = new PrismaClient();
 
 // ─── String-based enums (matches src/types/index.ts) ────────────────────────
-const Role = { OWNER: 'OWNER', PMC: 'PMC', VENDOR: 'VENDOR', VIEWER: 'VIEWER', BUILDER: 'BUILDER', PMC_MANAGER: 'PMC_MANAGER', ENGINEER: 'ENGINEER' } as const;
+const Role = { OWNER: 'OWNER', PMC: 'PMC', VENDOR: 'VENDOR', VIEWER: 'VIEWER' } as const;
 const BOQStatus = { DRAFT: 'DRAFT', APPROVED: 'APPROVED', REVISED: 'REVISED' } as const;
 const MilestoneState = {
   DRAFT: 'DRAFT', IN_PROGRESS: 'IN_PROGRESS', SUBMITTED: 'SUBMITTED',
@@ -60,6 +60,12 @@ async function main() {
   // ── 2. Users ─────────────────────────────────────────────────────────────
   const hash = await bcrypt.hash('password123', 10);
 
+  // Dev fallback admin user
+  const adminHash = await bcrypt.hash('admin123', 10);
+  const admin = await prisma.user.create({
+    data: { name: 'Admin', email: 'admin@axinfra.local', hashedPassword: adminHash },
+  });
+
   const owner = await prisma.user.create({
     data: { name: 'Alex Owner', email: 'owner@example.com', hashedPassword: hash },
   });
@@ -75,17 +81,7 @@ async function main() {
   const viewer = await prisma.user.create({
     data: { name: 'Vera Viewer', email: 'viewer@example.com', hashedPassword: hash },
   });
-  // Extended role users (Axinfra)
-  const builder = await prisma.user.create({
-    data: { name: 'Blake Builder', email: 'builder@example.com', hashedPassword: hash },
-  });
-  const pmcManager = await prisma.user.create({
-    data: { name: 'Morgan PMC-Mgr', email: 'pmcmanager@example.com', hashedPassword: hash },
-  });
-  const engineer = await prisma.user.create({
-    data: { name: 'Ellie Engineer', email: 'engineer@example.com', hashedPassword: hash },
-  });
-  console.log('  Created 8 users (5 base + 3 extended roles)');
+  console.log('  Created 6 users (1 admin + 5 demo)');
 
   // ════════════════════════════════════════════════════════════════════════════
   // PROJECT 1 — Downtown Office Building
@@ -100,15 +96,12 @@ async function main() {
 
   await prisma.projectRole.createMany({
     data: [
+      { projectId: p1.id, userId: admin.id, role: Role.OWNER },
       { projectId: p1.id, userId: owner.id, role: Role.OWNER },
       { projectId: p1.id, userId: pmc.id, role: Role.PMC },
       { projectId: p1.id, userId: vendor1.id, role: Role.VENDOR },
       { projectId: p1.id, userId: vendor2.id, role: Role.VENDOR },
       { projectId: p1.id, userId: viewer.id, role: Role.VIEWER },
-      // Extended roles
-      { projectId: p1.id, userId: builder.id, role: Role.BUILDER },
-      { projectId: p1.id, userId: pmcManager.id, role: Role.PMC_MANAGER },
-      { projectId: p1.id, userId: engineer.id, role: Role.ENGINEER },
     ],
   });
 
@@ -549,16 +542,14 @@ async function main() {
   console.log('  Database seeded successfully!');
   console.log('========================================');
   console.log('\n  3 Projects  |  11 Milestones  |  8 Dependencies');
-  console.log('  8 Users with role assignments + vendor-milestone links\n');
-  console.log('  Demo accounts (all use password: password123):');
-  console.log('    Owner       : owner@example.com');
-  console.log('    PMC         : pmc@example.com');
-  console.log('    Vendor      : vendor@example.com   (Projects 1 & 2)');
-  console.log('    Vendor      : vendor2@example.com  (Projects 1 & 3)');
-  console.log('    Viewer      : viewer@example.com');
-  console.log('    Builder     : builder@example.com     (→ OWNER perms)');
-  console.log('    PMC Manager : pmcmanager@example.com  (→ PMC perms)');
-  console.log('    Engineer    : engineer@example.com    (→ VENDOR perms)');
+  console.log('  6 Users with role assignments + vendor-milestone links\n');
+  console.log('  Demo accounts:');
+  console.log('    Admin (OWNER) : admin@axinfra.local  (password: admin123)');
+  console.log('    Owner         : owner@example.com    (password: password123)');
+  console.log('    PMC           : pmc@example.com      (password: password123)');
+  console.log('    Vendor        : vendor@example.com   (password: password123)');
+  console.log('    Vendor        : vendor2@example.com  (password: password123)');
+  console.log('    Viewer        : viewer@example.com   (password: password123)');
   console.log('');
 }
 

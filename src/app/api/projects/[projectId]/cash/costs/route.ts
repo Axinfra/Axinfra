@@ -2,7 +2,7 @@
  * Builder Cash Module API - Private Cost Entries
  *
  * SECURITY: All endpoints enforce RoleGuard.canAccessCashModule().
- * Only BUILDER role can access. PMC_MANAGER, ENGINEER, PMC, VENDOR are DENIED.
+ * Only OWNER role can access.
  *
  * GET  /api/projects/[projectId]/cash/costs   - List private cost entries
  * POST /api/projects/[projectId]/cash/costs   - Create private cost entry
@@ -46,10 +46,10 @@ export async function GET(
     const { projectId } = await params;
     const auth = await requireProjectAuth(projectId);
 
-    // SECURITY: Only BUILDER role
+    // SECURITY: Only OWNER role
     if (!RoleGuard.canAccessCashModule(auth)) {
       return NextResponse.json(
-        { success: false, error: 'Forbidden: Cash module is restricted to Builder role' },
+        { success: false, error: 'Forbidden: Cash module is restricted to Owner role' },
         { status: 403 }
       );
     }
@@ -98,10 +98,10 @@ export async function POST(
     const { projectId } = await params;
     const auth = await requireProjectAuth(projectId);
 
-    // SECURITY: Only BUILDER role
+    // SECURITY: Only OWNER role
     if (!RoleGuard.canAccessCashModule(auth)) {
       return NextResponse.json(
-        { success: false, error: 'Forbidden: Cash module is restricted to Builder role' },
+        { success: false, error: 'Forbidden: Cash module is restricted to Owner role' },
         { status: 403 }
       );
     }
