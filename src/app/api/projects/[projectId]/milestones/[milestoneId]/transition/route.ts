@@ -1,6 +1,7 @@
 import { NextRequest, NextResponse } from 'next/server';
 import { requireProjectAuth } from '@/lib/auth';
 import { validateMilestoneOwnership } from '@/lib/validate-ownership';
+import { RoleGuard } from '@/services/RoleGuard';
 import { MilestoneStateMachine } from '@/services/MilestoneStateMachine';
 import { MilestoneState } from '@/types';
 import { z } from 'zod';
@@ -18,6 +19,9 @@ export async function POST(
   try {
     const { projectId, milestoneId } = await params;
     const auth = await requireProjectAuth(projectId);
+
+    // Block VIEWER role — they cannot perform any state transitions
+    RoleGuard.requireRole(auth, ['OWNER', 'PMC', 'VENDOR']);
 
     // IDOR guard: verify milestone belongs to this project
     const milestone = await validateMilestoneOwnership(milestoneId, projectId);
@@ -58,6 +62,12 @@ export async function POST(
       return NextResponse.json(
         { success: false, error: 'Unauthorized' },
         { status: 401 }
+      );
+    }
+    if (error instanceof Error && error.message.startsWith('FORBIDDEN')) {
+      return NextResponse.json(
+        { success: false, error: error.message },
+        { status: 403 }
       );
     }
     if (error instanceof z.ZodError) {

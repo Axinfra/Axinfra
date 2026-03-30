@@ -582,6 +582,17 @@ export class PaymentEligibilityEngine {
       return { success: false, error: 'Item is already marked as paid' };
     }
 
+    // Cannot mark as paid unless milestone is eligible (FULLY_ELIGIBLE or PARTIALLY_ELIGIBLE)
+    if (
+      eligibility.state !== EligibilityState.FULLY_ELIGIBLE &&
+      eligibility.state !== EligibilityState.PARTIALLY_ELIGIBLE
+    ) {
+      return {
+        success: false,
+        error: `Cannot mark as paid: milestone is in ${eligibility.state} state. Payment must be eligible first.`,
+      };
+    }
+
     const previousState = eligibility.state;
 
     // Update eligibility

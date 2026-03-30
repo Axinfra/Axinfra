@@ -6,19 +6,28 @@ import { FollowUpScheduler } from '@/services/FollowUpScheduler';
 // This endpoint should be called by a cron job (e.g., daily)
 export async function POST(request: NextRequest) {
   try {
-    // Simple API key auth for cron jobs
+    // API key auth for cron jobs — CRON_SECRET must be set
     const authHeader = request.headers.get('authorization');
     const cronSecret = process.env.CRON_SECRET;
 
-    if (cronSecret && authHeader !== `Bearer ${cronSecret}`) {
+    if (!cronSecret) {
+      console.error('CRON_SECRET environment variable is not set. Cron endpoint is disabled.');
+      return NextResponse.json(
+        { success: false, error: 'Cron endpoint not configured' },
+        { status: 503 }
+      );
+    }
+
+    if (authHeader !== `Bearer ${cronSecret}`) {
       return NextResponse.json(
         { success: false, error: 'Unauthorized' },
         { status: 401 }
       );
     }
 
-    // Get all projects
+    // Get all active projects (exclude soft-deleted)
     const projects = await prisma.project.findMany({
+      where: { deletedAt: null },
       select: { id: true, name: true },
     });
 

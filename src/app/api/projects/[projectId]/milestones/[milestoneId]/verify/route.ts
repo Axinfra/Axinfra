@@ -4,7 +4,6 @@ import { requireProjectAuth } from '@/lib/auth';
 import { validateMilestoneOwnership } from '@/lib/validate-ownership';
 import { RoleGuard } from '@/services/RoleGuard';
 import { MilestoneStateMachine } from '@/services/MilestoneStateMachine';
-import { AuditLogger } from '@/services/AuditLogger';
 import { AuditActionTypes, MilestoneState } from '@/types';
 import { z } from 'zod';
 
@@ -37,11 +36,11 @@ export async function POST(
     const body = await request.json();
     const { qtyVerified, notes } = verifySchema.parse(body);
 
-    // Check if milestone can be verified
-    const canVerify = await MilestoneStateMachine.canVerify(milestoneId);
-    if (!canVerify.canVerify) {
+    // Check if milestone can be verified (pre-check before transaction)
+    const canVerifyResult = await MilestoneStateMachine.canVerify(milestoneId);
+    if (!canVerifyResult.canVerify) {
       return NextResponse.json(
-        { success: false, error: canVerify.reason },
+        { success: false, error: canVerifyResult.reason },
         { status: 400 }
       );
     }
@@ -66,12 +65,9 @@ export async function POST(
     }
 
     // Calculate eligible value based on verified qty
-    // For milestones with BOQ links, calculate from BOQ
-    // For Extras (no BOQ links), use the milestone's stored value
     let valueEligibleComputed: number;
 
     if (milestone.boqLinks.length > 0) {
-      // Calculate from BOQ links
       const totalPlannedValue = milestone.boqLinks.reduce((sum: number, link: { plannedQty: number; boqItem: { rate: number } }) => {
         return sum + link.plannedQty * link.boqItem.rate;
       }, 0);
@@ -79,27 +75,11 @@ export async function POST(
       const verifiedRatio = totalPlannedQty > 0 ? qtyVerified / totalPlannedQty : 1;
       valueEligibleComputed = totalPlannedValue * verifiedRatio;
     } else {
-      // Extras or milestones without BOQ links - use stored value
       valueEligibleComputed = milestone.value;
     }
 
-    // Create verification record and transition state
-    await prisma.$transaction(async (tx) => {
-      // Create verification
-      await tx.verification.create({
-        data: {
-          milestoneId,
-          verifiedById: auth.userId,
-          qtyVerified,
-          valueEligibleComputed,
-          notes,
-        },
-      });
-    });
-
-    // Transition to VERIFIED state
-    // MilestoneStateMachine.transition now automatically triggers
-    // PaymentEligibilityEngine.recalculatePaymentEligibility internally
+    // Transition to VERIFIED state via state machine (which now validates
+    // ALL evidence approved, writes audit log atomically, and recalculates eligibility)
     const transitionResult = await MilestoneStateMachine.transition(
       milestoneId,
       MilestoneState.VERIFIED,
@@ -116,19 +96,33 @@ export async function POST(
       );
     }
 
-    // Log verification
-    await AuditLogger.log({
-      projectId,
-      actorId: auth.userId,
-      role: auth.role,
-      actionType: AuditActionTypes.VERIFICATION_CREATE,
-      entityType: 'Verification',
-      entityId: milestoneId,
-      afterJson: {
-        qtyVerified,
-        valueEligibleComputed,
-        notes,
-      },
+    // Create verification record and audit log atomically
+    await prisma.$transaction(async (tx) => {
+      await tx.verification.create({
+        data: {
+          milestoneId,
+          verifiedById: auth.userId,
+          qtyVerified,
+          valueEligibleComputed,
+          notes,
+        },
+      });
+
+      await tx.auditLog.create({
+        data: {
+          projectId,
+          actorId: auth.userId,
+          role: auth.role,
+          actionType: AuditActionTypes.VERIFICATION_CREATE,
+          entityType: 'Verification',
+          entityId: milestoneId,
+          afterJson: JSON.stringify({
+            qtyVerified,
+            valueEligibleComputed,
+            notes,
+          }),
+        },
+      });
     });
 
     return NextResponse.json({

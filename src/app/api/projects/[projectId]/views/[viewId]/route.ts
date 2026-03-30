@@ -1,5 +1,6 @@
 import { NextRequest, NextResponse } from 'next/server';
 import { requireProjectAuth } from '@/lib/auth';
+import { validateCustomViewOwnership } from '@/lib/validate-ownership';
 import { CustomViewService, CustomViewConfig } from '@/services/CustomViewService';
 import { z } from 'zod';
 
@@ -75,6 +76,15 @@ export async function GET(
       }
     }
 
+    // IDOR guard: verify view belongs to this project
+    const ownershipCheck = await validateCustomViewOwnership(viewId, projectId);
+    if (!ownershipCheck) {
+      return NextResponse.json(
+        { success: false, error: 'View not found' },
+        { status: 404 }
+      );
+    }
+
     // Get saved view
     const view = await CustomViewService.getView(viewId);
 
@@ -119,6 +129,15 @@ export async function PUT(
   try {
     const { projectId, viewId } = await params;
     const auth = await requireProjectAuth(projectId);
+
+    // IDOR guard: verify view belongs to this project
+    const ownershipCheck = await validateCustomViewOwnership(viewId, projectId);
+    if (!ownershipCheck) {
+      return NextResponse.json(
+        { success: false, error: 'View not found' },
+        { status: 404 }
+      );
+    }
 
     const body = await request.json();
     const updates = updateViewSchema.parse(body);
@@ -168,6 +187,15 @@ export async function DELETE(
   try {
     const { projectId, viewId } = await params;
     const auth = await requireProjectAuth(projectId);
+
+    // IDOR guard: verify view belongs to this project
+    const deleteOwnershipCheck = await validateCustomViewOwnership(viewId, projectId);
+    if (!deleteOwnershipCheck) {
+      return NextResponse.json(
+        { success: false, error: 'View not found' },
+        { status: 404 }
+      );
+    }
 
     const success = await CustomViewService.deleteView(viewId, auth.userId);
 

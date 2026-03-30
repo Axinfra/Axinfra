@@ -7,6 +7,7 @@ import Layout from '@/components/Layout';
 import Navbar from '@/components/Navbar';
 import MilestoneStateBadge from '@/components/MilestoneStateBadge';
 import PaymentStatusBadge from '@/components/PaymentStatusBadge';
+import MilestoneSearch from '@/components/milestones/MilestoneSearch';
 import { formatCurrency, formatDate } from '@/lib/utils';
 
 interface Milestone {
@@ -51,6 +52,7 @@ export default function MilestonesPage() {
   const [loading, setLoading] = useState(true);
   const [error, setError] = useState('');
   const [deleteConfirm, setDeleteConfirm] = useState<string | null>(null);
+  const [searchActive, setSearchActive] = useState(false);
 
   useEffect(() => {
     loadData();
@@ -126,7 +128,9 @@ export default function MilestonesPage() {
 
         {error && <div className="alert alert-error">{error}</div>}
 
-        {milestones.length === 0 ? (
+        <MilestoneSearch projectId={projectId} onSearchActive={setSearchActive} />
+
+        {searchActive ? null : milestones.length === 0 ? (
           <div className="card">
             <div className="card-body text-center py-12">
               <p className="text-gray-500">No milestones created yet</p>

@@ -1,8 +1,15 @@
 import { MilestoneState, Role, EligibilityEventType, AuditActionTypes } from '@/types';
 import { prisma } from '@/lib/db';
-import { AuditLogger } from './AuditLogger';
 import { PaymentEligibilityEngine } from './PaymentEligibilityEngine';
 import { SystemEventService, SystemEventType } from './SystemEventService';
+
+/** Error class for transition validation failures (non-exceptional control flow) */
+class TransitionError extends Error {
+  constructor(message: string) {
+    super(message);
+    this.name = 'TransitionError';
+  }
+}
 
 /**
  * Valid state transitions for milestones.
@@ -96,98 +103,121 @@ export class MilestoneStateMachine {
     projectId: string,
     reason?: string
   ): Promise<TransitionResult> {
-    // Get current milestone state
-    const milestone = await prisma.milestone.findUnique({
-      where: { id: milestoneId },
-    });
+    // Perform ALL reads, validations, writes, and audit log inside a single transaction
+    // to prevent race conditions and ensure atomicity
+    let fromState = MilestoneState.DRAFT as MilestoneState; // Will be overwritten inside transaction
+    let result: { id: string; state: string };
 
-    if (!milestone) {
-      return { success: false, error: 'Milestone not found' };
-    }
+    try {
+      result = await prisma.$transaction(async (tx) => {
+        // Read current state INSIDE transaction for consistency
+        const milestone = await tx.milestone.findUnique({
+          where: { id: milestoneId },
+        });
 
-    const fromState = milestone.state as MilestoneState;
+        if (!milestone) {
+          throw new TransitionError('Milestone not found');
+        }
 
-    // Validate transition
-    if (!this.isValidTransition(fromState, toState)) {
-      return {
-        success: false,
-        error: `Invalid transition: ${fromState} -> ${toState}. Valid next states: ${VALID_TRANSITIONS[fromState].join(', ') || 'none'}`,
-      };
-    }
+        fromState = milestone.state as MilestoneState;
 
-    // Check role permission
-    if (!this.canPerformTransition(fromState, toState, role)) {
-      return {
-        success: false,
-        error: `Role ${role} cannot perform transition: ${fromState} -> ${toState}`,
-      };
-    }
+        // Validate transition
+        if (!this.isValidTransition(fromState, toState)) {
+          throw new TransitionError(
+            `Invalid transition: ${fromState} -> ${toState}. Valid next states: ${VALID_TRANSITIONS[fromState].join(', ') || 'none'}`
+          );
+        }
 
-    // Special validation for SUBMITTED state (requires evidence)
-    if (toState === MilestoneState.SUBMITTED) {
-      const hasEvidence = await prisma.evidence.count({
-        where: { milestoneId, status: 'SUBMITTED' },
+        // Check role permission
+        if (!this.canPerformTransition(fromState, toState, role)) {
+          throw new TransitionError(
+            `Role ${role} cannot perform transition: ${fromState} -> ${toState}`
+          );
+        }
+
+        // Special validation for SUBMITTED state (requires evidence)
+        if (toState === MilestoneState.SUBMITTED) {
+          const hasEvidence = await tx.evidence.count({
+            where: { milestoneId, status: 'SUBMITTED' },
+          });
+          if (hasEvidence === 0) {
+            throw new TransitionError('Cannot submit milestone without evidence');
+          }
+        }
+
+        // Special validation for VERIFIED state (requires ALL evidence to be APPROVED)
+        if (toState === MilestoneState.VERIFIED) {
+          const totalEvidence = await tx.evidence.count({
+            where: { milestoneId },
+          });
+          const approvedEvidence = await tx.evidence.count({
+            where: { milestoneId, status: 'APPROVED' },
+          });
+          if (totalEvidence === 0) {
+            throw new TransitionError('Cannot verify milestone without evidence');
+          }
+          if (approvedEvidence < totalEvidence) {
+            throw new TransitionError(
+              `Cannot verify: ${totalEvidence - approvedEvidence} of ${totalEvidence} evidence items are not yet approved`
+            );
+          }
+        }
+
+        // Special validation for rejection (SUBMITTED -> IN_PROGRESS)
+        if (fromState === MilestoneState.SUBMITTED && toState === MilestoneState.IN_PROGRESS) {
+          if (!reason) {
+            throw new TransitionError('Rejection requires a reason');
+          }
+        }
+
+        // Update milestone state
+        const updatedMilestone = await tx.milestone.update({
+          where: { id: milestoneId },
+          data: {
+            state: toState,
+            ...(toState === MilestoneState.IN_PROGRESS && fromState === MilestoneState.DRAFT
+              ? { actualStart: new Date() }
+              : {}),
+            ...(toState === MilestoneState.SUBMITTED ? { actualSubmission: new Date() } : {}),
+            ...(toState === MilestoneState.VERIFIED ? { actualVerification: new Date() } : {}),
+          },
+        });
+
+        // Create transition record (immutable history)
+        await tx.milestoneStateTransition.create({
+          data: {
+            milestoneId,
+            fromState,
+            toState,
+            actorId,
+            role,
+            reason,
+          },
+        });
+
+        // Audit log INSIDE transaction for atomicity
+        await tx.auditLog.create({
+          data: {
+            projectId,
+            actorId,
+            role,
+            actionType: AuditActionTypes.MILESTONE_STATE_TRANSITION,
+            entityType: 'Milestone',
+            entityId: milestoneId,
+            beforeJson: JSON.stringify({ state: fromState }),
+            afterJson: JSON.stringify({ state: toState }),
+            reason,
+          },
+        });
+
+        return updatedMilestone;
       });
-      if (hasEvidence === 0) {
-        return {
-          success: false,
-          error: 'Cannot submit milestone without evidence',
-        };
+    } catch (error) {
+      if (error instanceof TransitionError) {
+        return { success: false, error: error.message };
       }
+      throw error; // Re-throw unexpected errors
     }
-
-    // Special validation for rejection (SUBMITTED -> IN_PROGRESS)
-    if (fromState === MilestoneState.SUBMITTED && toState === MilestoneState.IN_PROGRESS) {
-      if (!reason) {
-        return {
-          success: false,
-          error: 'Rejection requires a reason',
-        };
-      }
-    }
-
-    // Perform transaction
-    const result = await prisma.$transaction(async (tx) => {
-      // Update milestone state
-      const updatedMilestone = await tx.milestone.update({
-        where: { id: milestoneId },
-        data: {
-          state: toState,
-          ...(toState === MilestoneState.IN_PROGRESS && fromState === MilestoneState.DRAFT
-            ? { actualStart: new Date() }
-            : {}),
-          ...(toState === MilestoneState.SUBMITTED ? { actualSubmission: new Date() } : {}),
-          ...(toState === MilestoneState.VERIFIED ? { actualVerification: new Date() } : {}),
-        },
-      });
-
-      // Create transition record (immutable history)
-      await tx.milestoneStateTransition.create({
-        data: {
-          milestoneId,
-          fromState,
-          toState,
-          actorId,
-          role,
-          reason,
-        },
-      });
-
-      return updatedMilestone;
-    });
-
-    // Log to audit trail
-    await AuditLogger.log({
-      projectId,
-      actorId,
-      role,
-      actionType: AuditActionTypes.MILESTONE_STATE_TRANSITION,
-      entityType: 'Milestone',
-      entityId: milestoneId,
-      beforeJson: { state: fromState },
-      afterJson: { state: toState },
-      reason,
-    });
 
     // GOVERNANCE: Trigger payment eligibility recalculation on state change
     // This ensures eligibility is updated when milestones are verified, closed, etc.
@@ -201,13 +231,13 @@ export class MilestoneStateMachine {
     );
 
     // Viseron Intelligence: emit system event for analytics pipeline
-    const eventType =
+    const sysEventType =
       toState === MilestoneState.SUBMITTED ? SystemEventType.MILESTONE_SUBMITTED
       : toState === MilestoneState.VERIFIED ? SystemEventType.MILESTONE_VERIFIED
       : fromState === MilestoneState.SUBMITTED && toState === MilestoneState.IN_PROGRESS ? SystemEventType.MILESTONE_REJECTED
       : SystemEventType.MILESTONE_TRANSITIONED;
 
-    SystemEventService.emit(eventType, projectId, 'Milestone', milestoneId, actorId, {
+    SystemEventService.emit(sysEventType, projectId, 'Milestone', milestoneId, actorId, {
       fromState,
       toState,
       reason,
@@ -277,9 +307,7 @@ export class MilestoneStateMachine {
     const milestone = await prisma.milestone.findUnique({
       where: { id: milestoneId },
       include: {
-        evidence: {
-          where: { status: 'APPROVED' },
-        },
+        evidence: true, // Fetch ALL evidence to check status
       },
     });
 
@@ -292,7 +320,16 @@ export class MilestoneStateMachine {
     }
 
     if (milestone.evidence.length === 0) {
-      return { canVerify: false, reason: 'No approved evidence found' };
+      return { canVerify: false, reason: 'No evidence found' };
+    }
+
+    // ALL evidence must be APPROVED before verification
+    const unapproved = milestone.evidence.filter(e => e.status !== 'APPROVED');
+    if (unapproved.length > 0) {
+      return {
+        canVerify: false,
+        reason: `${unapproved.length} of ${milestone.evidence.length} evidence items are not yet approved`,
+      };
     }
 
     return { canVerify: true };

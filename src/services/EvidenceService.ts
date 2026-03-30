@@ -1,7 +1,6 @@
 import { EvidenceStatus, Role, MilestoneState, EligibilityEventType, AuditActionTypes } from '@/types';
 import { prisma } from '@/lib/db';
 import { fileStorage } from '@/lib/file-storage';
-import { AuditLogger } from './AuditLogger';
 import { RoleGuard } from './RoleGuard';
 import { PaymentEligibilityEngine } from './PaymentEligibilityEngine';
 import { generateStorageKey } from '@/lib/utils';
@@ -9,6 +8,23 @@ import { SystemEventService, SystemEventType } from './SystemEventService';
 
 const MAX_FILE_SIZE_MB = parseInt(process.env.MAX_FILE_SIZE_MB || '10', 10);
 const MAX_FILE_SIZE_BYTES = MAX_FILE_SIZE_MB * 1024 * 1024;
+
+/** Allowed MIME types for evidence files (images, PDFs, documents) */
+const ALLOWED_MIME_TYPES = new Set([
+  'image/jpeg',
+  'image/png',
+  'image/gif',
+  'image/webp',
+  'image/heic',
+  'image/heif',
+  'application/pdf',
+  'application/msword',
+  'application/vnd.openxmlformats-officedocument.wordprocessingml.document',
+  'application/vnd.ms-excel',
+  'application/vnd.openxmlformats-officedocument.spreadsheetml.sheet',
+  'video/mp4',
+  'video/quicktime',
+]);
 
 export interface EvidenceSubmission {
   milestoneId: string;
@@ -75,6 +91,12 @@ export class EvidenceService {
       if (file.size > MAX_FILE_SIZE_BYTES) {
         return { success: false, error: `File ${file.originalName} exceeds maximum size of ${MAX_FILE_SIZE_MB}MB` };
       }
+      if (!ALLOWED_MIME_TYPES.has(file.mimeType)) {
+        return {
+          success: false,
+          error: `File ${file.originalName} has disallowed type: ${file.mimeType}. Allowed: images, PDFs, Office documents, MP4 videos.`,
+        };
+      }
     }
 
     // Create evidence and files in transaction
@@ -111,24 +133,26 @@ export class EvidenceService {
         });
       }
 
-      return evidence;
-    });
+      // Audit log INSIDE transaction for atomicity
+      await tx.auditLog.create({
+        data: {
+          projectId,
+          actorId,
+          role,
+          actionType: AuditActionTypes.EVIDENCE_SUBMIT,
+          entityType: 'Evidence',
+          entityId: evidence.id,
+          afterJson: JSON.stringify({
+            milestoneId: submission.milestoneId,
+            qtyOrPercent: submission.qtyOrPercent,
+            remarks: submission.remarks,
+            fileCount: submission.files.length,
+            frozen: true,
+          }),
+        },
+      });
 
-    // Log to audit trail
-    await AuditLogger.log({
-      projectId,
-      actorId,
-      role,
-      actionType: AuditActionTypes.EVIDENCE_SUBMIT,
-      entityType: 'Evidence',
-      entityId: evidence.id,
-      afterJson: {
-        milestoneId: submission.milestoneId,
-        qtyOrPercent: submission.qtyOrPercent,
-        remarks: submission.remarks,
-        fileCount: submission.files.length,
-        frozen: true,
-      },
+      return evidence;
     });
 
     // Viseron Intelligence: emit system event for analytics pipeline
@@ -184,27 +208,30 @@ export class EvidenceService {
 
     const newStatus = review.action === 'APPROVE' ? EvidenceStatus.APPROVED : EvidenceStatus.REJECTED;
 
-    // Update evidence
-    await prisma.evidence.update({
-      where: { id: review.evidenceId },
-      data: {
-        status: newStatus,
-        reviewedAt: new Date(),
-        reviewNote: review.note,
-      },
-    });
+    // Update evidence + audit log atomically in a single transaction
+    await prisma.$transaction(async (tx) => {
+      await tx.evidence.update({
+        where: { id: review.evidenceId },
+        data: {
+          status: newStatus,
+          reviewedAt: new Date(),
+          reviewNote: review.note,
+        },
+      });
 
-    // Log to audit trail
-    await AuditLogger.log({
-      projectId,
-      actorId,
-      role,
-      actionType: review.action === 'APPROVE' ? AuditActionTypes.EVIDENCE_APPROVE : AuditActionTypes.EVIDENCE_REJECT,
-      entityType: 'Evidence',
-      entityId: review.evidenceId,
-      beforeJson: { status: EvidenceStatus.SUBMITTED },
-      afterJson: { status: newStatus, reviewNote: review.note },
-      reason: review.note,
+      await tx.auditLog.create({
+        data: {
+          projectId,
+          actorId,
+          role,
+          actionType: review.action === 'APPROVE' ? AuditActionTypes.EVIDENCE_APPROVE : AuditActionTypes.EVIDENCE_REJECT,
+          entityType: 'Evidence',
+          entityId: review.evidenceId,
+          beforeJson: JSON.stringify({ status: EvidenceStatus.SUBMITTED }),
+          afterJson: JSON.stringify({ status: newStatus, reviewNote: review.note }),
+          reason: review.note,
+        },
+      });
     });
 
     // GOVERNANCE: Trigger eligibility recalculation after evidence review

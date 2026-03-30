@@ -51,6 +51,7 @@ export default function Navbar({ projectId, projectName, role }: NavbarProps) {
     { href: `/projects/${projectId}/cash`, label: 'Cash', icon: Wallet, roles: ['OWNER'] },
     { href: `/projects/${projectId}/roles`, label: 'Roles', icon: Users, roles: ['OWNER'] },
     { href: `/projects/${projectId}/settings`, label: 'Settings', icon: Settings, roles: ['OWNER'] },
+    { href: `/projects`, label: 'Manage Projects', icon: FolderOpen, roles: ['OWNER'] },
   ];
 
   const visibleItems = navItems.filter(

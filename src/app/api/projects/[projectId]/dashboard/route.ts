@@ -209,9 +209,15 @@ async function getPMCDashboard(projectId: string) {
 }
 
 async function getVendorDashboard(projectId: string, vendorId: string) {
-  // Get submitted milestones
+  // Get milestones — scoped to vendor's assigned milestones or those with their evidence
   const milestones = await prisma.milestone.findMany({
-    where: { projectId },
+    where: {
+      projectId,
+      OR: [
+        { vendorUserId: vendorId },
+        { evidence: { some: { submittedById: vendorId } } },
+      ],
+    },
     include: {
       evidence: {
         where: { submittedById: vendorId },
@@ -249,9 +255,15 @@ async function getVendorDashboard(projectId: string, vendorId: string) {
     orderBy: { submittedAt: 'desc' },
   });
 
-  // Get payment status (read-only for vendor)
+  // Get payment status — ONLY for milestones assigned to or submitted by this vendor
+  const vendorMilestoneIds = milestones
+    .filter((m) => m.vendorUserId === vendorId || m.evidence.some((e) => e.submittedById === vendorId))
+    .map((m) => m.id);
+
   const eligibilities = await prisma.paymentEligibility.findMany({
-    where: { milestone: { projectId } },
+    where: {
+      milestoneId: { in: vendorMilestoneIds },
+    },
     include: {
       milestone: { select: { title: true, state: true } },
     },

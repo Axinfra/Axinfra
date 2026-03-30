@@ -2,6 +2,7 @@ import { NextRequest, NextResponse } from 'next/server';
 import { prisma } from '@/lib/db';
 import { requireProjectAuth } from '@/lib/auth';
 import { RoleGuard } from '@/services/RoleGuard';
+import { requireProjectOwner } from '@/lib/guards/requireOwner';
 import { AuditLogger } from '@/services/AuditLogger';
 import { AuditActionTypes } from '@/types';
 import { z } from 'zod';
@@ -9,8 +10,20 @@ import { z } from 'zod';
 const updateProjectSchema = z.object({
   name: z.string().min(1).max(200).optional(),
   description: z.string().optional(),
+  location: z.string().max(200).optional(),
+  contractValue: z.number().positive().optional(),
+  startDate: z.string().optional(),
+  endDate: z.string().optional(),
   status: z.enum(['ONGOING', 'COMPLETED']).optional(),
-});
+}).refine(
+  (data) => {
+    if (data.startDate && data.endDate) {
+      return new Date(data.endDate) > new Date(data.startDate);
+    }
+    return true;
+  },
+  { message: 'End date must be after start date', path: ['endDate'] }
+);
 
 // GET /api/projects/[projectId] - Get project details
 export async function GET(
@@ -22,7 +35,7 @@ export async function GET(
     const auth = await requireProjectAuth(projectId);
 
     const project = await prisma.project.findUnique({
-      where: { id: projectId },
+      where: { id: projectId, deletedAt: null },
       include: {
         roles: {
           include: {
@@ -93,8 +106,8 @@ export async function PATCH(
     const { projectId } = await params;
     const auth = await requireProjectAuth(projectId);
 
-    // Only Owner can update project
-    RoleGuard.requireRole(auth, ['OWNER']);
+    // Verify requesting owner is the owner of this specific project
+    await requireProjectOwner(auth, projectId);
 
     const body = await request.json();
     const updates = updateProjectSchema.parse(body);
@@ -103,9 +116,26 @@ export async function PATCH(
       where: { id: projectId },
     });
 
+    // Build Prisma update data (metadata fields go into metadata JSON)
+    const { location, contractValue, startDate, endDate, ...directUpdates } = updates;
+    let metadataUpdate: string | undefined;
+    if (location !== undefined || contractValue !== undefined || startDate !== undefined || endDate !== undefined) {
+      const existingMeta = beforeProject?.metadata ? JSON.parse(beforeProject.metadata) : {};
+      metadataUpdate = JSON.stringify({
+        ...existingMeta,
+        ...(location !== undefined ? { location } : {}),
+        ...(contractValue !== undefined ? { contractValue } : {}),
+        ...(startDate !== undefined ? { startDate } : {}),
+        ...(endDate !== undefined ? { endDate } : {}),
+      });
+    }
+
     const updatedProject = await prisma.project.update({
       where: { id: projectId },
-      data: updates,
+      data: {
+        ...directUpdates,
+        ...(metadataUpdate ? { metadata: metadataUpdate } : {}),
+      },
     });
 
     // Use appropriate action type based on what was updated
@@ -155,7 +185,7 @@ export async function PATCH(
   }
 }
 
-// DELETE /api/projects/[projectId] - Delete project (OWNER only)
+// DELETE /api/projects/[projectId] - Soft-delete project (OWNER only)
 export async function DELETE(
   request: NextRequest,
   { params }: { params: Promise<{ projectId: string }> }
@@ -164,19 +194,12 @@ export async function DELETE(
     const { projectId } = await params;
     const auth = await requireProjectAuth(projectId);
 
-    // Only Owner can delete project
-    RoleGuard.requireRole(auth, ['OWNER']);
+    // Verify requesting owner is the owner of this specific project
+    await requireProjectOwner(auth, projectId);
 
-    // Get project details before deletion
+    // Get project details before soft-deletion
     const project = await prisma.project.findUnique({
-      where: { id: projectId },
-      include: {
-        _count: {
-          select: {
-            milestones: true,
-          },
-        },
-      },
+      where: { id: projectId, deletedAt: null },
     });
 
     if (!project) {
@@ -186,17 +209,35 @@ export async function DELETE(
       );
     }
 
-    // Delete project (cascade will handle related records)
-    await prisma.project.delete({
-      where: { id: projectId },
+    const now = new Date();
+
+    // SOFT DELETE: Set deletedAt on project and cascade to children
+    await prisma.$transaction(async (tx) => {
+      // Soft-delete the project
+      await tx.project.update({
+        where: { id: projectId },
+        data: { deletedAt: now },
+      });
+
+      // Cascade soft-delete to milestones (we don't have deletedAt on Milestone,
+      // but the project-level deletedAt filter ensures they're excluded from queries)
     });
 
-    // Note: Can't log to audit since project is deleted
-    // In production, you might want to log to a separate system
+    // Audit log (project still exists for audit purposes)
+    await AuditLogger.log({
+      projectId,
+      actorId: auth.userId,
+      role: auth.role,
+      actionType: AuditActionTypes.PROJECT_DELETE,
+      entityType: 'Project',
+      entityId: projectId,
+      beforeJson: { name: project.name, status: project.status },
+      afterJson: { deletedAt: now.toISOString() },
+    });
 
     return NextResponse.json({
       success: true,
-      data: { deleted: true, projectName: project.name },
+      data: { success: true, message: 'Project archived successfully' },
     });
   } catch (error) {
     if (error instanceof Error && error.message === 'UNAUTHORIZED') {
@@ -207,7 +248,7 @@ export async function DELETE(
     }
     if (error instanceof Error && error.message.startsWith('FORBIDDEN')) {
       return NextResponse.json(
-        { success: false, error: 'Only Owner can delete projects' },
+        { success: false, error: error.message },
         { status: 403 }
       );
     }

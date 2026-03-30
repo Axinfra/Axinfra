@@ -59,15 +59,18 @@ export default function LoginPage() {
       vendor: 'vendor@example.com',
       viewer: 'viewer@example.com',
     };
-    const passwords: Record<string, string> = {
-      admin: 'admin123',
-      owner: 'password123',
-      pmc: 'password123',
-      vendor: 'password123',
-      viewer: 'password123',
-    };
+    // Only auto-fill passwords in development mode
+    if (process.env.NODE_ENV === 'development') {
+      const passwords: Record<string, string> = {
+        admin: 'admin123',
+        owner: 'password123',
+        pmc: 'password123',
+        vendor: 'password123',
+        viewer: 'password123',
+      };
+      setPassword(passwords[role]);
+    }
     setEmail(emails[role]);
-    setPassword(passwords[role]);
   };
 
   return (

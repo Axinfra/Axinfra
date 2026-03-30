@@ -8,9 +8,22 @@ import { z } from 'zod';
 export const dynamic = 'force-dynamic';
 
 const createProjectSchema = z.object({
-  name: z.string().min(1).max(200),
+  name: z.string().min(1, 'Project name is required').max(200),
   description: z.string().optional(),
-});
+  location: z.string().max(200).optional(),
+  contractValue: z.number().positive('Contract value must be positive').optional(),
+  currency: z.string().default('AED').optional(),
+  startDate: z.string().optional(),
+  endDate: z.string().optional(),
+}).refine(
+  (data) => {
+    if (data.startDate && data.endDate) {
+      return new Date(data.endDate) > new Date(data.startDate);
+    }
+    return true;
+  },
+  { message: 'End date must be after start date', path: ['endDate'] }
+);
 
 // GET /api/projects - List projects for current user
 export async function GET() {
@@ -18,7 +31,10 @@ export async function GET() {
     const auth = await requireAuth();
 
     const projectRoles = await prisma.projectRole.findMany({
-      where: { userId: auth.userId },
+      where: {
+        userId: auth.userId,
+        project: { deletedAt: null },
+      },
       include: {
         project: {
           include: {
@@ -75,12 +91,37 @@ export async function GET() {
   }
 }
 
-// POST /api/projects - Create a new project
+// POST /api/projects - Create a new project (any authenticated user can create, becomes OWNER)
+// SECURITY: Only users who are already OWNER in at least one project, or if no projects exist yet
 export async function POST(request: NextRequest) {
   try {
     const auth = await requireAuth();
     const body = await request.json();
-    const { name, description } = createProjectSchema.parse(body);
+    const parsed = createProjectSchema.parse(body);
+    const { name, description, location, contractValue, currency, startDate, endDate } = parsed;
+
+    // Check if user has OWNER or PMC role in any project (gatekeep project creation)
+    const existingRole = await prisma.projectRole.findFirst({
+      where: {
+        userId: auth.userId,
+        role: { in: [Role.OWNER, Role.PMC] },
+      },
+    });
+    // Allow if user is already an owner/PMC, or if there are no projects at all (bootstrap)
+    if (!existingRole) {
+      const projectCount = await prisma.project.count();
+      if (projectCount > 0) {
+        return NextResponse.json(
+          { success: false, error: 'Only project owners can create new projects' },
+          { status: 403 }
+        );
+      }
+    }
+
+    // Build metadata from optional fields
+    const metadata = (location || contractValue || currency || startDate || endDate)
+      ? JSON.stringify({ location, contractValue, currency: currency || 'AED', startDate, endDate })
+      : undefined;
 
     // Create project and assign creator as owner
     const project = await prisma.$transaction(async (tx) => {
@@ -88,6 +129,7 @@ export async function POST(request: NextRequest) {
         data: {
           name,
           description,
+          metadata,
         },
       });
 

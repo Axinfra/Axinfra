@@ -118,13 +118,13 @@ export async function POST(
       }
 
       // Create initial payment eligibility record
-      // Advance is due immediately (NOT_DUE until milestone starts)
-      // Remaining is due on verification
+      // eligibleAmount starts at 0 — it's computed by PaymentEligibilityEngine
+      // only when the milestone reaches VERIFIED state
       await tx.paymentEligibility.create({
         data: {
           milestoneId: milestone.id,
           state: EligibilityState.NOT_DUE,
-          eligibleAmount: data.value,
+          eligibleAmount: 0,
           advanceAmount: advanceAmount,
           remainingAmount: remainingAmount,
           dueDate: data.plannedEnd ? new Date(data.plannedEnd) : null,

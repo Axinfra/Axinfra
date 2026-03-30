@@ -41,13 +41,23 @@ async function requireAdminCaller(userId: string) {
 export async function GET(request: NextRequest) {
   try {
     const auth = await requireAuth();
-    await requireAdminCaller(auth.userId);
 
     const projectId = request.nextUrl.searchParams.get('projectId');
     if (!projectId) {
       return NextResponse.json(
         { success: false, error: 'projectId query param required' },
         { status: 400 },
+      );
+    }
+
+    // Verify caller has OWNER or PMC role in THIS specific project (not just any project)
+    const callerRole = await prisma.projectRole.findUnique({
+      where: { projectId_userId: { projectId, userId: auth.userId } },
+    });
+    if (!callerRole || (callerRole.role !== Role.OWNER && callerRole.role !== Role.PMC)) {
+      return NextResponse.json(
+        { success: false, error: 'You must be Owner or PMC of this project' },
+        { status: 403 },
       );
     }
 

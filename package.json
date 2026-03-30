@@ -21,7 +21,8 @@
     "test:watch": "vitest",
     "cron:follow-ups": "tsx src/scripts/runFollowUps.ts",
     "benchmark": "tsx scripts/benchmark.ts",
-    "benchmark:api": "tsx scripts/benchmark.ts http://localhost:3000"
+    "benchmark:api": "tsx scripts/benchmark.ts http://localhost:3000",
+    "seed:stress": "tsx prisma/seed-stress-test.ts"
   },
   "dependencies": {
     "@prisma/client": "^5.22.0",
