@@ -75,7 +75,6 @@ export async function GET(
     });
   } catch (error) {
     console.error('File download error:', error);
-    const safeFileName = file.fileName.replace(/[^\x20-\x7E]/g, "_");
 
     return NextResponse.json(
       { success: false, error: 'Internal server error' },
