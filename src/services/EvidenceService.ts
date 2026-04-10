@@ -386,7 +386,7 @@ export class EvidenceService {
     }
 
     // Read file from disk/object storage
-    const buffer = await fileStorage.read(file.storagekey);
+    const buffer = await fileStorage.read(file.storageKey);
     if (!buffer) {
       return null;
     }
