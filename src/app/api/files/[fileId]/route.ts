@@ -64,17 +64,19 @@ export async function GET(
         { status: 404 }
       );
     }
-
+    const safeFileName = file.fileName.replace(/[^\x20-\x7E]/g, "_");
     // Return file with proper headers - convert Buffer to Uint8Array for NextResponse
     return new NextResponse(new Uint8Array(file.buffer), {
       headers: {
         'Content-Type': file.mimeType,
-        'Content-Disposition': `inline; filename="${file.fileName}"`,
+        'Content-Disposition': `inline; filename="${safeFileName}"`,
         'Content-Length': file.buffer.length.toString(),
       },
     });
   } catch (error) {
     console.error('File download error:', error);
+    const safeFileName = file.fileName.replace(/[^\x20-\x7E]/g, "_");
+
     return NextResponse.json(
       { success: false, error: 'Internal server error' },
       { status: 500 }
