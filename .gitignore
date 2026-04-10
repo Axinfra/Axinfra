@@ -89,3 +89,4 @@ coverage/
 *.key
 .vercel
 .turbo
+.env*.local
