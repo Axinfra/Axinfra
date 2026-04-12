@@ -381,7 +381,7 @@ export class EvidenceService {
       where: { id: fileId },
     });
 
-    if (!file || !file.filePath) {
+    if (!file || !file.storageKey) {
       return null;
     }
 
