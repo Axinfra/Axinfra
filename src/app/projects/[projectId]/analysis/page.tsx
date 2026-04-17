@@ -113,12 +113,12 @@ export default function AnalysisPage() {
         {/* Header */}
         <div className="flex justify-between items-start">
           <div>
-            <h1 className="text-2xl font-bold text-gray-900">Project Analysis</h1>
-            <p className="text-sm text-gray-500 mt-1">
+            <h1 className="text-2xl font-bold text-[#f5f1e8]">Project Analysis</h1>
+            <p className="text-sm text-[rgba(232,228,220,0.6)] mt-1">
               Decision-grade insights derived from Axinfra data
             </p>
           </div>
-          <div className="text-xs text-gray-400 bg-gray-100 px-3 py-1 rounded">
+          <div className="text-xs text-[rgba(232,228,220,0.4)] bg-[rgba(255,255,255,0.06)] px-3 py-1 rounded">
             READ-ONLY • No editable fields
           </div>
         </div>
@@ -126,7 +126,7 @@ export default function AnalysisPage() {
         {error && <div className="alert alert-error">{error}</div>}
 
         {/* Tabs */}
-        <div className="border-b border-gray-200">
+        <div className="border-b border-[rgba(255,255,255,0.08)]">
           <div className="flex space-x-1">
             {TABS.map(tab => (
               <button
@@ -135,7 +135,7 @@ export default function AnalysisPage() {
                 className={`px-4 py-3 text-sm font-medium border-b-2 transition-colors ${
                   activeTab === tab.id
                     ? 'border-primary-500 text-primary-600 bg-primary-50'
-                    : 'border-transparent text-gray-500 hover:text-gray-700 hover:bg-gray-50'
+                    : 'border-transparent text-[rgba(232,228,220,0.6)] hover:text-[rgba(232,228,220,0.8)] hover:bg-[rgba(255,255,255,0.04)]'
                 }`}
               >
                 {tab.label}
@@ -149,7 +149,7 @@ export default function AnalysisPage() {
           {tabLoading ? (
             <div className="text-center py-12">
               <div className="animate-spin rounded-full h-8 w-8 border-b-2 border-primary-600 mx-auto"></div>
-              <p className="mt-2 text-gray-500">Loading analysis...</p>
+              <p className="mt-2 text-[rgba(232,228,220,0.6)]">Loading analysis...</p>
             </div>
           ) : (
             <>
@@ -171,15 +171,15 @@ export default function AnalysisPage() {
 // ============================================
 
 function ExecutionTab({ data }: { data: any }) {
-  if (!data) return <div className="text-center py-8 text-gray-500">No data available</div>;
+  if (!data) return <div className="text-center py-8 text-[rgba(232,228,220,0.6)]">No data available</div>;
 
   const { overview, stateBreakdown, slaBreaches, byTrade } = data;
 
   return (
     <div className="space-y-6">
       {/* Key Question */}
-      <div className="bg-blue-50 border-l-4 border-blue-500 p-4">
-        <p className="text-blue-800 font-medium">
+      <div className="bg-[rgba(59,130,246,0.1)] border-l-4 border-blue-500 p-4">
+        <p className="text-blue-300 font-medium">
           "Where is work actually moving, and where is it stuck?"
         </p>
       </div>
@@ -233,9 +233,9 @@ function ExecutionTab({ data }: { data: any }) {
           <div className="space-y-3">
             {stateBreakdown.map((state: any) => (
               <div key={state.state} className="flex items-center">
-                <div className="w-28 text-sm text-gray-600">{state.state.replace('_', ' ')}</div>
+                <div className="w-28 text-sm text-[rgba(232,228,220,0.7)]">{state.state.replace('_', ' ')}</div>
                 <div className="flex-1 mx-4">
-                  <div className="h-6 bg-gray-100 rounded-full overflow-hidden">
+                  <div className="h-6 bg-[rgba(255,255,255,0.06)] rounded-full overflow-hidden">
                     <div
                       className={`h-full ${getStateColor(state.state)}`}
                       style={{ width: `${state.percent}%` }}
@@ -244,9 +244,9 @@ function ExecutionTab({ data }: { data: any }) {
                 </div>
                 <div className="w-20 text-right text-sm">
                   <span className="font-medium">{state.count}</span>
-                  <span className="text-gray-400 ml-1">({Math.round(state.percent)}%)</span>
+                  <span className="text-[rgba(232,228,220,0.4)] ml-1">({Math.round(state.percent)}%)</span>
                 </div>
-                <div className="w-24 text-right text-xs text-gray-500">
+                <div className="w-24 text-right text-xs text-[rgba(232,228,220,0.6)]">
                   {state.avgDaysInState}d avg
                 </div>
               </div>
@@ -258,8 +258,8 @@ function ExecutionTab({ data }: { data: any }) {
       {/* SLA Breaches */}
       {slaBreaches.length > 0 && (
         <div className="card border-red-200">
-          <div className="card-header bg-red-50">
-            <h3 className="font-semibold text-red-700">SLA Breaches ({slaBreaches.length})</h3>
+          <div className="card-header bg-[rgba(239,68,68,0.1)]">
+            <h3 className="font-semibold text-red-300">SLA Breaches ({slaBreaches.length})</h3>
           </div>
           <div className="card-body">
             <table className="table text-sm">
@@ -276,8 +276,8 @@ function ExecutionTab({ data }: { data: any }) {
                   <tr key={breach.milestoneId}>
                     <td className="font-medium">{breach.title}</td>
                     <td><span className="badge badge-draft">{breach.state}</span></td>
-                    <td className="text-right text-red-600 font-medium">{breach.daysInState}</td>
-                    <td className="text-right text-gray-500">{breach.threshold}d</td>
+                    <td className="text-right text-red-400 font-medium">{breach.daysInState}</td>
+                    <td className="text-right text-[rgba(232,228,220,0.6)]">{breach.threshold}d</td>
                   </tr>
                 ))}
               </tbody>
@@ -326,15 +326,15 @@ function ExecutionTab({ data }: { data: any }) {
 }
 
 function FinancialTab({ data }: { data: any }) {
-  if (!data) return <div className="text-center py-8 text-gray-500">No data available</div>;
+  if (!data) return <div className="text-center py-8 text-[rgba(232,228,220,0.6)]">No data available</div>;
 
   const { summary, byStatus = [], byPaymentModel = [], cashFlowRisk } = data;
 
   return (
     <div className="space-y-6">
       {/* Key Question */}
-      <div className="bg-blue-50 border-l-4 border-blue-500 p-4">
-        <p className="text-blue-800 font-medium">
+      <div className="bg-[rgba(59,130,246,0.1)] border-l-4 border-blue-500 p-4">
+        <p className="text-blue-300 font-medium">
           "What money is safe, blocked, or exposed right now?"
         </p>
       </div>
@@ -371,7 +371,7 @@ function FinancialTab({ data }: { data: any }) {
           <h3 className="font-semibold">Financial Position</h3>
         </div>
         <div className="card-body">
-          <div className="h-12 flex rounded-lg overflow-hidden bg-gray-100">
+          <div className="h-12 flex rounded-lg overflow-hidden bg-[rgba(255,255,255,0.06)]">
             <div
               className="bg-emerald-500"
               style={{ width: `${(summary.paidValue / summary.totalProjectValue) * 100}%` }}
@@ -406,22 +406,22 @@ function FinancialTab({ data }: { data: any }) {
       <div className="grid grid-cols-3 gap-4">
         <div className="card bg-yellow-50 border-yellow-200">
           <div className="card-body">
-            <p className="text-sm text-yellow-700">Exposed Value</p>
-            <p className="text-2xl font-bold text-yellow-800">{formatCurrency(summary.exposedValue)}</p>
+            <p className="text-sm text-yellow-300">Exposed Value</p>
+            <p className="text-2xl font-bold text-yellow-300">{formatCurrency(summary.exposedValue)}</p>
             <p className="text-xs text-yellow-600">Certified but not yet paid</p>
           </div>
         </div>
         <div className="card bg-purple-50 border-purple-200">
           <div className="card-body">
-            <p className="text-sm text-purple-700">Retention Held</p>
-            <p className="text-2xl font-bold text-purple-800">{formatCurrency(summary.retentionHeld)}</p>
+            <p className="text-sm text-purple-300">Retention Held</p>
+            <p className="text-2xl font-bold text-purple-300">{formatCurrency(summary.retentionHeld)}</p>
             <p className="text-xs text-purple-600">Held per contract terms</p>
           </div>
         </div>
         <div className="card bg-orange-50 border-orange-200">
           <div className="card-body">
-            <p className="text-sm text-orange-700">Cash Flow at Risk</p>
-            <p className="text-2xl font-bold text-orange-800">{formatCurrency(cashFlowRisk.blockedTooLong)}</p>
+            <p className="text-sm text-orange-300">Cash Flow at Risk</p>
+            <p className="text-2xl font-bold text-orange-300">{formatCurrency(cashFlowRisk.blockedTooLong)}</p>
             <p className="text-xs text-orange-600">Blocked &gt;14 days</p>
           </div>
         </div>
@@ -448,7 +448,7 @@ function FinancialTab({ data }: { data: any }) {
                   <td><span className={`badge ${getPaymentStatusBadgeClass(status.status)}`}>{status.status.replace('_', ' ')}</span></td>
                   <td className="text-right">{status.count}</td>
                   <td className="text-right font-medium">{formatCurrency(status.value)}</td>
-                  <td className="text-right text-gray-500">{status.percent}%</td>
+                  <td className="text-right text-[rgba(232,228,220,0.6)]">{status.percent}%</td>
                 </tr>
               ))}
             </tbody>
@@ -489,7 +489,7 @@ function FinancialTab({ data }: { data: any }) {
 }
 
 function VendorTab({ data }: { data: any }) {
-  if (!data) return <div className="text-center py-8 text-gray-500">No data available</div>;
+  if (!data) return <div className="text-center py-8 text-[rgba(232,228,220,0.6)]">No data available</div>;
 
   const [sortBy, setSortBy] = useState<'exposure' | 'delay' | 'rejection'>('exposure');
   const { vendors, totals } = data;
@@ -506,8 +506,8 @@ function VendorTab({ data }: { data: any }) {
   return (
     <div className="space-y-6">
       {/* Key Question */}
-      <div className="bg-blue-50 border-l-4 border-blue-500 p-4">
-        <p className="text-blue-800 font-medium">
+      <div className="bg-[rgba(59,130,246,0.1)] border-l-4 border-blue-500 p-4">
+        <p className="text-blue-300 font-medium">
           "Which vendors are risky, slow, or over-exposed?"
         </p>
       </div>
@@ -550,22 +550,22 @@ function VendorTab({ data }: { data: any }) {
 
       {/* Sort Controls */}
       <div className="flex items-center space-x-2">
-        <span className="text-sm text-gray-500">Sort by:</span>
+        <span className="text-sm text-[rgba(232,228,220,0.6)]">Sort by:</span>
         <button
           onClick={() => setSortBy('exposure')}
-          className={`px-3 py-1 text-sm rounded ${sortBy === 'exposure' ? 'bg-primary-100 text-primary-700' : 'bg-gray-100'}`}
+          className={`px-3 py-1 text-sm rounded ${sortBy === 'exposure' ? 'bg-primary-100 text-primary-700' : 'bg-[rgba(255,255,255,0.06)]'}`}
         >
           Exposure %
         </button>
         <button
           onClick={() => setSortBy('delay')}
-          className={`px-3 py-1 text-sm rounded ${sortBy === 'delay' ? 'bg-primary-100 text-primary-700' : 'bg-gray-100'}`}
+          className={`px-3 py-1 text-sm rounded ${sortBy === 'delay' ? 'bg-primary-100 text-primary-700' : 'bg-[rgba(255,255,255,0.06)]'}`}
         >
           Delay
         </button>
         <button
           onClick={() => setSortBy('rejection')}
-          className={`px-3 py-1 text-sm rounded ${sortBy === 'rejection' ? 'bg-primary-100 text-primary-700' : 'bg-gray-100'}`}
+          className={`px-3 py-1 text-sm rounded ${sortBy === 'rejection' ? 'bg-primary-100 text-primary-700' : 'bg-[rgba(255,255,255,0.06)]'}`}
         >
           Rejection Rate
         </button>
@@ -591,30 +591,30 @@ function VendorTab({ data }: { data: any }) {
             </thead>
             <tbody>
               {sortedVendors.map((vendor: any) => (
-                <tr key={vendor.vendorId} className={vendor.riskLevel === 'HIGH' ? 'bg-red-50' : ''}>
+                <tr key={vendor.vendorId} className={vendor.riskLevel === 'HIGH' ? 'bg-[rgba(239,68,68,0.1)]' : ''}>
                   <td className="font-medium">
                     {vendor.vendorName}
                     {vendor.hasExtras && (
-                      <span className="ml-2 px-1.5 py-0.5 text-xs bg-orange-100 text-orange-700 rounded">
+                      <span className="ml-2 px-1.5 py-0.5 text-xs bg-[rgba(249,115,22,0.15)] text-orange-300 rounded">
                         {vendor.extrasCount} Extra{vendor.extrasCount > 1 ? 's' : ''}
                       </span>
                     )}
                   </td>
                   <td>
                     <span className={`px-2 py-0.5 text-xs rounded ${
-                      vendor.riskLevel === 'HIGH' ? 'bg-red-100 text-red-700' :
-                      vendor.riskLevel === 'MEDIUM' ? 'bg-yellow-100 text-yellow-700' :
-                      'bg-green-100 text-green-700'
+                      vendor.riskLevel === 'HIGH' ? 'bg-[rgba(239,68,68,0.15)] text-red-300' :
+                      vendor.riskLevel === 'MEDIUM' ? 'bg-[rgba(234,179,8,0.15)] text-yellow-300' :
+                      'bg-[rgba(34,197,94,0.15)] text-green-300'
                     }`}>
                       {vendor.riskLevel}
                       {vendor.hasExtras && ' ⚠️'}
                     </span>
                   </td>
-                  <td className="text-right text-gray-500">{formatCurrency(vendor.boqValue || 0)}</td>
+                  <td className="text-right text-[rgba(232,228,220,0.6)]">{formatCurrency(vendor.boqValue || 0)}</td>
                   <td className="text-right font-medium">{formatCurrency(vendor.contractValue)}</td>
                   <td className="text-right">
                     {vendor.overrunValue > 0 ? (
-                      <span className={vendor.overrunPercent > 10 ? 'text-red-600 font-medium' : 'text-orange-600'}>
+                      <span className={vendor.overrunPercent > 10 ? 'text-red-400 font-medium' : 'text-orange-600'}>
                         +{formatCurrency(vendor.overrunValue)}
                         <span className="text-xs ml-1">({vendor.overrunPercent > 0 ? '+' : ''}{vendor.overrunPercent}%)</span>
                       </span>
@@ -624,19 +624,19 @@ function VendorTab({ data }: { data: any }) {
                         <span className="text-xs ml-1">({vendor.overrunPercent}%)</span>
                       </span>
                     ) : (
-                      <span className="text-gray-400">-</span>
+                      <span className="text-[rgba(232,228,220,0.4)]">-</span>
                     )}
                   </td>
                   <td className="text-right">{formatCurrency(vendor.certifiedValue)}</td>
                   <td className="text-right">{formatCurrency(vendor.paidValue)}</td>
                   <td className="text-right">
-                    <span className={vendor.exposurePercent > 20 ? 'text-red-600 font-medium' : ''}>
+                    <span className={vendor.exposurePercent > 20 ? 'text-red-400 font-medium' : ''}>
                       {vendor.exposurePercent}%
                     </span>
                   </td>
                   <td className="text-right">{vendor.milestonesVerified}/{vendor.milestonesTotal}</td>
                   <td className="text-right">
-                    <span className={vendor.rejectionRate > 20 ? 'text-red-600' : ''}>
+                    <span className={vendor.rejectionRate > 20 ? 'text-red-400' : ''}>
                       {vendor.evidenceRejections} ({vendor.rejectionRate}%)
                     </span>
                   </td>
@@ -667,15 +667,15 @@ function VendorTab({ data }: { data: any }) {
 }
 
 function DelayRiskTab({ data }: { data: any }) {
-  if (!data) return <div className="text-center py-8 text-gray-500">No data available</div>;
+  if (!data) return <div className="text-center py-8 text-[rgba(232,228,220,0.6)]">No data available</div>;
 
   const { delayedMilestones, riskBuckets, blockedPayments, boqOverruns, overallRiskScore } = data;
 
   return (
     <div className="space-y-6">
       {/* Key Question */}
-      <div className="bg-blue-50 border-l-4 border-blue-500 p-4">
-        <p className="text-blue-800 font-medium">
+      <div className="bg-[rgba(59,130,246,0.1)] border-l-4 border-blue-500 p-4">
+        <p className="text-blue-300 font-medium">
           "Where will this project blow up if I don't act?"
         </p>
       </div>
@@ -685,10 +685,10 @@ function DelayRiskTab({ data }: { data: any }) {
         <div className="card-body flex items-center justify-between">
           <div>
             <h3 className="text-lg font-semibold">Overall Risk Score</h3>
-            <p className="text-sm text-gray-500">Based on delays, blocks, and overruns</p>
+            <p className="text-sm text-[rgba(232,228,220,0.6)]">Based on delays, blocks, and overruns</p>
           </div>
           <div className={`text-5xl font-bold ${
-            overallRiskScore > 50 ? 'text-red-600' :
+            overallRiskScore > 50 ? 'text-red-400' :
             overallRiskScore > 25 ? 'text-yellow-600' :
             'text-green-600'
           }`}>
@@ -703,9 +703,9 @@ function DelayRiskTab({ data }: { data: any }) {
           <div className="card-body">
             <div className="flex items-center justify-between">
               <span className="w-4 h-4 rounded-full bg-green-500"></span>
-              <span className="text-2xl font-bold text-green-700">{riskBuckets.safe.count}</span>
+              <span className="text-2xl font-bold text-green-300">{riskBuckets.safe.count}</span>
             </div>
-            <p className="text-sm font-medium text-green-700 mt-2">Safe</p>
+            <p className="text-sm font-medium text-green-300 mt-2">Safe</p>
             <p className="text-xs text-green-600">{formatCurrency(riskBuckets.safe.value)}</p>
           </div>
         </div>
@@ -713,20 +713,20 @@ function DelayRiskTab({ data }: { data: any }) {
           <div className="card-body">
             <div className="flex items-center justify-between">
               <span className="w-4 h-4 rounded-full bg-yellow-500"></span>
-              <span className="text-2xl font-bold text-yellow-700">{riskBuckets.attention.count}</span>
+              <span className="text-2xl font-bold text-yellow-300">{riskBuckets.attention.count}</span>
             </div>
-            <p className="text-sm font-medium text-yellow-700 mt-2">Needs Attention</p>
+            <p className="text-sm font-medium text-yellow-300 mt-2">Needs Attention</p>
             <p className="text-xs text-yellow-600">{formatCurrency(riskBuckets.attention.value)}</p>
           </div>
         </div>
-        <div className="card bg-red-50 border-red-200">
+        <div className="card bg-[rgba(239,68,68,0.1)] border-red-200">
           <div className="card-body">
             <div className="flex items-center justify-between">
-              <span className="w-4 h-4 rounded-full bg-red-500"></span>
-              <span className="text-2xl font-bold text-red-700">{riskBuckets.immediate.count}</span>
+              <span className="w-4 h-4 rounded-full bg-[rgba(239,68,68,0.1)]0"></span>
+              <span className="text-2xl font-bold text-red-300">{riskBuckets.immediate.count}</span>
             </div>
-            <p className="text-sm font-medium text-red-700 mt-2">Immediate Action</p>
-            <p className="text-xs text-red-600">{formatCurrency(riskBuckets.immediate.value)}</p>
+            <p className="text-sm font-medium text-red-300 mt-2">Immediate Action</p>
+            <p className="text-xs text-red-400">{formatCurrency(riskBuckets.immediate.value)}</p>
           </div>
         </div>
       </div>
@@ -735,7 +735,7 @@ function DelayRiskTab({ data }: { data: any }) {
       {delayedMilestones.length > 0 && (
         <div className="card border-orange-200">
           <div className="card-header bg-orange-50">
-            <h3 className="font-semibold text-orange-700">Delayed Milestones ({delayedMilestones.length})</h3>
+            <h3 className="font-semibold text-orange-300">Delayed Milestones ({delayedMilestones.length})</h3>
           </div>
           <div className="card-body">
             <table className="table text-sm">
@@ -755,13 +755,13 @@ function DelayRiskTab({ data }: { data: any }) {
                     <td className="font-medium">{m.title}</td>
                     <td><span className="badge badge-draft">{m.state}</span></td>
                     <td>{formatDate(m.dueDate)}</td>
-                    <td className="text-right text-red-600 font-medium">{m.daysOverdue}</td>
+                    <td className="text-right text-red-400 font-medium">{m.daysOverdue}</td>
                     <td className="text-right">{formatCurrency(m.value)}</td>
                     <td>
                       <span className={`px-2 py-0.5 text-xs rounded ${
-                        m.severity === 'CRITICAL' ? 'bg-red-100 text-red-700' :
-                        m.severity === 'MAJOR' ? 'bg-orange-100 text-orange-700' :
-                        'bg-yellow-100 text-yellow-700'
+                        m.severity === 'CRITICAL' ? 'bg-[rgba(239,68,68,0.15)] text-red-300' :
+                        m.severity === 'MAJOR' ? 'bg-[rgba(249,115,22,0.15)] text-orange-300' :
+                        'bg-[rgba(234,179,8,0.15)] text-yellow-300'
                       }`}>
                         {m.severity}
                       </span>
@@ -777,8 +777,8 @@ function DelayRiskTab({ data }: { data: any }) {
       {/* Blocked Payments */}
       {blockedPayments.length > 0 && (
         <div className="card border-red-200">
-          <div className="card-header bg-red-50">
-            <h3 className="font-semibold text-red-700">Blocked Payments ({blockedPayments.length})</h3>
+          <div className="card-header bg-[rgba(239,68,68,0.1)]">
+            <h3 className="font-semibold text-red-300">Blocked Payments ({blockedPayments.length})</h3>
           </div>
           <div className="card-body">
             <table className="table text-sm">
@@ -795,7 +795,7 @@ function DelayRiskTab({ data }: { data: any }) {
                   <tr key={p.milestoneId}>
                     <td className="font-medium">{p.title}</td>
                     <td className="text-right">{formatCurrency(p.value)}</td>
-                    <td className="text-right text-red-600">{p.daysBlocked}</td>
+                    <td className="text-right text-red-400">{p.daysBlocked}</td>
                     <td>{p.reason}</td>
                   </tr>
                 ))}
@@ -809,7 +809,7 @@ function DelayRiskTab({ data }: { data: any }) {
       {boqOverruns.length > 0 && (
         <div className="card border-purple-200">
           <div className="card-header bg-purple-50">
-            <h3 className="font-semibold text-purple-700">BOQ Overruns ({boqOverruns.length})</h3>
+            <h3 className="font-semibold text-purple-300">BOQ Overruns ({boqOverruns.length})</h3>
           </div>
           <div className="card-body">
             <table className="table text-sm">
@@ -827,7 +827,7 @@ function DelayRiskTab({ data }: { data: any }) {
                     <td className="font-medium">{o.itemDescription}</td>
                     <td className="text-right">{formatCurrency(o.plannedValue)}</td>
                     <td className="text-right">{formatCurrency(o.actualValue)}</td>
-                    <td className="text-right text-red-600">+{o.overrunPercent}%</td>
+                    <td className="text-right text-red-400">+{o.overrunPercent}%</td>
                   </tr>
                 ))}
               </tbody>
@@ -840,15 +840,15 @@ function DelayRiskTab({ data }: { data: any }) {
 }
 
 function ComplianceTab({ data }: { data: any }) {
-  if (!data) return <div className="text-center py-8 text-gray-500">No data available</div>;
+  if (!data) return <div className="text-center py-8 text-[rgba(232,228,220,0.6)]">No data available</div>;
 
   const { evidenceSLA, rejectionsByVendor, lateApprovals, auditCompleteness, recentAuditActivity } = data;
 
   return (
     <div className="space-y-6">
       {/* Key Question */}
-      <div className="bg-blue-50 border-l-4 border-blue-500 p-4">
-        <p className="text-blue-800 font-medium">
+      <div className="bg-[rgba(59,130,246,0.1)] border-l-4 border-blue-500 p-4">
+        <p className="text-blue-300 font-medium">
           "Are procedures being followed, and by whom?"
         </p>
       </div>
@@ -895,22 +895,22 @@ function ComplianceTab({ data }: { data: any }) {
             <div className={`text-5xl font-bold ${
               auditCompleteness.score >= 90 ? 'text-green-600' :
               auditCompleteness.score >= 70 ? 'text-yellow-600' :
-              'text-red-600'
+              'text-red-400'
             }`}>
               {auditCompleteness.score}%
             </div>
             <div className="flex-1">
-              <div className="h-4 bg-gray-100 rounded-full overflow-hidden">
+              <div className="h-4 bg-[rgba(255,255,255,0.06)] rounded-full overflow-hidden">
                 <div
                   className={`h-full ${
                     auditCompleteness.score >= 90 ? 'bg-green-500' :
                     auditCompleteness.score >= 70 ? 'bg-yellow-500' :
-                    'bg-red-500'
+                    'bg-[rgba(239,68,68,0.1)]0'
                   }`}
                   style={{ width: `${auditCompleteness.score}%` }}
                 />
               </div>
-              <div className="flex justify-between mt-1 text-xs text-gray-500">
+              <div className="flex justify-between mt-1 text-xs text-[rgba(232,228,220,0.6)]">
                 <span>{auditCompleteness.loggedActions} actions logged</span>
                 <span>{auditCompleteness.missingReasons} missing reasons</span>
               </div>
@@ -940,9 +940,9 @@ function ComplianceTab({ data }: { data: any }) {
                   <tr key={i}>
                     <td className="font-medium">{v.vendorName}</td>
                     <td className="text-right">{v.submissionCount}</td>
-                    <td className="text-right text-red-600">{v.rejectionCount}</td>
+                    <td className="text-right text-red-400">{v.rejectionCount}</td>
                     <td className="text-right">
-                      <span className={v.rejectionRate > 20 ? 'text-red-600 font-medium' : ''}>
+                      <span className={v.rejectionRate > 20 ? 'text-red-400 font-medium' : ''}>
                         {v.rejectionRate}%
                       </span>
                     </td>
@@ -1037,10 +1037,10 @@ function MetricCard({
   color?: 'gray' | 'green' | 'yellow' | 'red' | 'emerald' | 'purple' | 'orange';
 }) {
   const colorClasses = {
-    gray: 'text-gray-900',
+    gray: 'text-[#f5f1e8]',
     green: 'text-green-600',
     yellow: 'text-yellow-600',
-    red: 'text-red-600',
+    red: 'text-red-400',
     emerald: 'text-emerald-600',
     purple: 'text-purple-600',
     orange: 'text-orange-600',
@@ -1049,9 +1049,9 @@ function MetricCard({
   return (
     <div className="card">
       <div className="card-body">
-        <p className="text-sm text-gray-500">{label}</p>
+        <p className="text-sm text-[rgba(232,228,220,0.6)]">{label}</p>
         <p className={`text-2xl font-bold ${colorClasses[color]}`}>{value}</p>
-        {subtext && <p className="text-xs text-gray-400">{subtext}</p>}
+        {subtext && <p className="text-xs text-[rgba(232,228,220,0.4)]">{subtext}</p>}
       </div>
     </div>
   );
@@ -1060,9 +1060,9 @@ function MetricCard({
 function InsightBox({ text, type = 'info' }: { text: string; type?: 'info' | 'warning' }) {
   return (
     <div className={`p-4 rounded-lg ${
-      type === 'warning' ? 'bg-yellow-50 border border-yellow-200' : 'bg-gray-50 border border-gray-200'
+      type === 'warning' ? 'bg-yellow-50 border border-yellow-200' : 'bg-[rgba(255,255,255,0.04)] border border-[rgba(255,255,255,0.08)]'
     }`}>
-      <p className={`text-sm ${type === 'warning' ? 'text-yellow-800' : 'text-gray-700'}`}>{text}</p>
+      <p className={`text-sm ${type === 'warning' ? 'text-yellow-300' : 'text-[rgba(232,228,220,0.8)]'}`}>{text}</p>
     </div>
   );
 }
@@ -1074,7 +1074,7 @@ function InsightBox({ text, type = 'info' }: { text: string; type?: 'info' | 'wa
 function getStateColor(state: string): string {
   const colors: Record<string, string> = {
     DRAFT: 'bg-gray-400',
-    IN_PROGRESS: 'bg-blue-500',
+    IN_PROGRESS: 'bg-[rgba(59,130,246,0.1)]0',
     SUBMITTED: 'bg-yellow-500',
     VERIFIED: 'bg-green-500',
     CLOSED: 'bg-purple-500',

@@ -35,7 +35,6 @@ import {
   ValidStateTransitions,
 } from '@/types';
 import { prisma } from '@/lib/db';
-import { AuditLogger } from './AuditLogger';
 import { getEnvNumber } from '@/lib/utils';
 import { SystemEventService, SystemEventType } from './SystemEventService';
 
@@ -159,71 +158,75 @@ export class PaymentEligibilityEngine {
         }
       }
 
-      // 7. Upsert the eligibility record
-      const eligibilityRecord = await prisma.paymentEligibility.upsert({
-        where: { milestoneId },
-        create: {
-          milestoneId,
-          boqValueCompleted: calculation.boqValueCompleted,
-          deductions: calculation.deductions,
-          eligibleAmount: calculation.eligibleAmount,
-          advanceAmount: calculation.advanceAmount,
-          remainingAmount: calculation.remainingAmount,
-          blockedAmount: calculation.blockedAmount,
-          state: newState,
-          dueDate: calculation.dueDate,
-          lastCalculatedAt: new Date(),
-        },
-        update: {
-          boqValueCompleted: calculation.boqValueCompleted,
-          deductions: calculation.deductions,
-          eligibleAmount: calculation.eligibleAmount,
-          advanceAmount: calculation.advanceAmount,
-          remainingAmount: calculation.remainingAmount,
-          blockedAmount:
-            newState === EligibilityState.BLOCKED ? calculation.eligibleAmount : 0,
-          state: newState,
-          dueDate: calculation.dueDate,
-          lastCalculatedAt: new Date(),
-        },
-      });
+      // 7-9. Upsert eligibility + create event + audit log atomically
+      const eligibilityRecord = await prisma.$transaction(async (tx) => {
+        const record = await tx.paymentEligibility.upsert({
+          where: { milestoneId },
+          create: {
+            milestoneId,
+            boqValueCompleted: calculation.boqValueCompleted,
+            deductions: calculation.deductions,
+            eligibleAmount: calculation.eligibleAmount,
+            advanceAmount: calculation.advanceAmount,
+            remainingAmount: calculation.remainingAmount,
+            blockedAmount: calculation.blockedAmount,
+            state: newState,
+            dueDate: calculation.dueDate,
+            lastCalculatedAt: new Date(),
+          },
+          update: {
+            boqValueCompleted: calculation.boqValueCompleted,
+            deductions: calculation.deductions,
+            eligibleAmount: calculation.eligibleAmount,
+            advanceAmount: calculation.advanceAmount,
+            remainingAmount: calculation.remainingAmount,
+            blockedAmount:
+              newState === EligibilityState.BLOCKED ? calculation.eligibleAmount : 0,
+            state: newState,
+            dueDate: calculation.dueDate,
+            lastCalculatedAt: new Date(),
+          },
+        });
 
-      // 8. Create eligibility event for audit trail
-      await prisma.eligibilityEvent.create({
-        data: {
-          paymentEligibilityId: eligibilityRecord.id,
-          eventType,
-          fromState: previousState,
-          toState: newState,
-          actorId,
-          actorRole,
-          eligibleAmountBefore: previousAmount,
-          eligibleAmountAfter: calculation.eligibleAmount,
-          triggerEntityType,
-          triggerEntityId,
-        },
-      });
+        await tx.eligibilityEvent.create({
+          data: {
+            paymentEligibilityId: record.id,
+            eventType,
+            fromState: previousState,
+            toState: newState,
+            actorId,
+            actorRole,
+            eligibleAmountBefore: previousAmount,
+            eligibleAmountAfter: calculation.eligibleAmount,
+            triggerEntityType,
+            triggerEntityId,
+          },
+        });
 
-      // 9. Log to audit system
-      await AuditLogger.log({
-        projectId: milestone.projectId,
-        actorId,
-        role: actorRole,
-        actionType: AuditActionTypes.ELIGIBILITY_RECALCULATED,
-        entityType: 'PaymentEligibility',
-        entityId: eligibilityRecord.id,
-        beforeJson: currentEligibility
-          ? {
-              state: previousState,
-              eligibleAmount: previousAmount,
-            }
-          : null,
-        afterJson: {
-          state: newState,
-          eligibleAmount: calculation.eligibleAmount,
-          boqValueCompleted: calculation.boqValueCompleted,
-          deductions: calculation.deductions,
-        },
+        await tx.auditLog.create({
+          data: {
+            projectId: milestone.projectId,
+            actorId,
+            role: actorRole,
+            actionType: AuditActionTypes.ELIGIBILITY_RECALCULATED,
+            entityType: 'PaymentEligibility',
+            entityId: record.id,
+            beforeJson: currentEligibility
+              ? JSON.stringify({
+                  state: previousState,
+                  eligibleAmount: previousAmount,
+                })
+              : null,
+            afterJson: JSON.stringify({
+              state: newState,
+              eligibleAmount: calculation.eligibleAmount,
+              boqValueCompleted: calculation.boqValueCompleted,
+              deductions: calculation.deductions,
+            }),
+          },
+        });
+
+        return record;
       });
 
       // Viseron Intelligence: emit system event for analytics pipeline
@@ -410,52 +413,53 @@ export class PaymentEligibilityEngine {
     }
 
     const previousState = eligibility.state;
-
-    // Update eligibility with block info
-    await prisma.paymentEligibility.update({
-      where: { milestoneId },
-      data: {
-        state: EligibilityState.BLOCKED,
-        blockedAmount: eligibility.eligibleAmount,
-        blockReasonCode: reasonCode,
-        blockExplanation: explanation,
-        blockedAt: new Date(),
-        blockedByActorId: actorId,
-      },
-    });
-
-    // Create event
     const eventType =
       actorRole === Role.OWNER
         ? EligibilityEventType.BLOCKED_BY_OWNER
         : EligibilityEventType.BLOCKED_BY_PMC;
 
-    await prisma.eligibilityEvent.create({
-      data: {
-        paymentEligibilityId: eligibility.id,
-        eventType,
-        fromState: previousState,
-        toState: EligibilityState.BLOCKED,
-        actorId,
-        actorRole,
-        eligibleAmountBefore: eligibility.eligibleAmount,
-        eligibleAmountAfter: eligibility.eligibleAmount,
-        reasonCode,
-        explanation,
-      },
-    });
+    // Atomic: update eligibility + create event + audit log together
+    await prisma.$transaction(async (tx) => {
+      await tx.paymentEligibility.update({
+        where: { milestoneId },
+        data: {
+          state: EligibilityState.BLOCKED,
+          blockedAmount: eligibility.eligibleAmount,
+          blockReasonCode: reasonCode,
+          blockExplanation: explanation,
+          blockedAt: new Date(),
+          blockedByActorId: actorId,
+        },
+      });
 
-    // Audit log
-    await AuditLogger.log({
-      projectId,
-      actorId,
-      role: actorRole,
-      actionType: AuditActionTypes.ELIGIBILITY_BLOCKED,
-      entityType: 'PaymentEligibility',
-      entityId: eligibility.id,
-      beforeJson: { state: previousState },
-      afterJson: { state: EligibilityState.BLOCKED, reasonCode },
-      reason: explanation,
+      await tx.eligibilityEvent.create({
+        data: {
+          paymentEligibilityId: eligibility.id,
+          eventType,
+          fromState: previousState,
+          toState: EligibilityState.BLOCKED,
+          actorId,
+          actorRole,
+          eligibleAmountBefore: eligibility.eligibleAmount,
+          eligibleAmountAfter: eligibility.eligibleAmount,
+          reasonCode,
+          explanation,
+        },
+      });
+
+      await tx.auditLog.create({
+        data: {
+          projectId,
+          actorId,
+          role: actorRole,
+          actionType: AuditActionTypes.ELIGIBILITY_BLOCKED,
+          entityType: 'PaymentEligibility',
+          entityId: eligibility.id,
+          beforeJson: JSON.stringify({ state: previousState }),
+          afterJson: JSON.stringify({ state: EligibilityState.BLOCKED, reasonCode }),
+          reason: explanation,
+        },
+      });
     });
 
     // Viseron Intelligence: emit system event for analytics pipeline
@@ -513,29 +517,32 @@ export class PaymentEligibilityEngine {
       return result;
     }
 
-    // Clear block info
-    await prisma.paymentEligibility.update({
-      where: { milestoneId },
-      data: {
-        blockedAmount: 0,
-        blockReasonCode: null,
-        blockExplanation: null,
-        blockedAt: null,
-        blockedByActorId: null,
-      },
-    });
+    // Atomic: clear block info + audit log
+    await prisma.$transaction(async (tx) => {
+      await tx.paymentEligibility.update({
+        where: { milestoneId },
+        data: {
+          blockedAmount: 0,
+          blockReasonCode: null,
+          blockExplanation: null,
+          blockedAt: null,
+          blockedByActorId: null,
+        },
+      });
 
-    // Audit log
-    await AuditLogger.log({
-      projectId,
-      actorId,
-      role: actorRole,
-      actionType: AuditActionTypes.ELIGIBILITY_UNBLOCKED,
-      entityType: 'PaymentEligibility',
-      entityId: eligibility.id,
-      beforeJson: { state: EligibilityState.BLOCKED },
-      afterJson: { state: result.eligibility?.state },
-      reason,
+      await tx.auditLog.create({
+        data: {
+          projectId,
+          actorId,
+          role: actorRole,
+          actionType: AuditActionTypes.ELIGIBILITY_UNBLOCKED,
+          entityType: 'PaymentEligibility',
+          entityId: eligibility.id,
+          beforeJson: JSON.stringify({ state: EligibilityState.BLOCKED }),
+          afterJson: JSON.stringify({ state: result.eligibility?.state }),
+          reason,
+        },
+      });
     });
 
     // Viseron Intelligence: emit system event for analytics pipeline
@@ -594,49 +601,50 @@ export class PaymentEligibilityEngine {
     }
 
     const previousState = eligibility.state;
-
-    // Update eligibility
-    await prisma.paymentEligibility.update({
-      where: { milestoneId },
-      data: {
-        state: EligibilityState.MARKED_PAID,
-        markedPaidAt: new Date(),
-        markedPaidByActorId: actorId,
-        paidExplanation: explanation,
-      },
-    });
-
-    // Create event
     const eventType =
       actorRole === Role.OWNER
         ? EligibilityEventType.MARKED_PAID_BY_OWNER
         : EligibilityEventType.MARKED_PAID_BY_PMC;
 
-    await prisma.eligibilityEvent.create({
-      data: {
-        paymentEligibilityId: eligibility.id,
-        eventType,
-        fromState: previousState,
-        toState: EligibilityState.MARKED_PAID,
-        actorId,
-        actorRole,
-        eligibleAmountBefore: eligibility.eligibleAmount,
-        eligibleAmountAfter: eligibility.eligibleAmount,
-        explanation,
-      },
-    });
+    // Atomic: update eligibility + create event + audit log
+    await prisma.$transaction(async (tx) => {
+      await tx.paymentEligibility.update({
+        where: { milestoneId },
+        data: {
+          state: EligibilityState.MARKED_PAID,
+          markedPaidAt: new Date(),
+          markedPaidByActorId: actorId,
+          paidExplanation: explanation,
+        },
+      });
 
-    // Audit log
-    await AuditLogger.log({
-      projectId,
-      actorId,
-      role: actorRole,
-      actionType: AuditActionTypes.ELIGIBILITY_MARKED_PAID,
-      entityType: 'PaymentEligibility',
-      entityId: eligibility.id,
-      beforeJson: { state: previousState },
-      afterJson: { state: EligibilityState.MARKED_PAID },
-      reason: explanation,
+      await tx.eligibilityEvent.create({
+        data: {
+          paymentEligibilityId: eligibility.id,
+          eventType,
+          fromState: previousState,
+          toState: EligibilityState.MARKED_PAID,
+          actorId,
+          actorRole,
+          eligibleAmountBefore: eligibility.eligibleAmount,
+          eligibleAmountAfter: eligibility.eligibleAmount,
+          explanation,
+        },
+      });
+
+      await tx.auditLog.create({
+        data: {
+          projectId,
+          actorId,
+          role: actorRole,
+          actionType: AuditActionTypes.ELIGIBILITY_MARKED_PAID,
+          entityType: 'PaymentEligibility',
+          entityId: eligibility.id,
+          beforeJson: JSON.stringify({ state: previousState }),
+          afterJson: JSON.stringify({ state: EligibilityState.MARKED_PAID }),
+          reason: explanation,
+        },
+      });
     });
 
     // Viseron Intelligence: emit system event for analytics pipeline
@@ -863,36 +871,55 @@ export class PaymentEligibilityEngine {
         include: {
           paymentEligibility: true,
           verifications: { select: { valueEligibleComputed: true } },
+          evidence: { select: { submittedById: true } },
         },
       }),
     ]);
 
-    // Aggregate once for all vendors
-    let totalAdvancePaid = 0;
-    let totalVerifiedWork = 0;
+    const vendorRoleIds = new Set(vendorRoles.map((r) => r.userId));
+    const vendorNameById = new Map(vendorRoles.map((r) => [r.userId, r.user.name]));
+
+    // Per-vendor attribution: each vendor only carries their own exposure
+    const perVendor = new Map<
+      string,
+      { advancePaid: number; verified: number; name: string }
+    >();
+
     for (const ms of advanceMilestones) {
+      const vendorId =
+        (ms.vendorUserId && vendorRoleIds.has(ms.vendorUserId) ? ms.vendorUserId : null) ??
+        ms.evidence.find((e) => vendorRoleIds.has(e.submittedById))?.submittedById;
+
+      if (!vendorId) continue;
+
+      const v =
+        perVendor.get(vendorId) ??
+        {
+          advancePaid: 0,
+          verified: 0,
+          name: vendorNameById.get(vendorId) ?? 'Unknown',
+        };
+
       if (ms.paymentEligibility?.state === EligibilityState.MARKED_PAID) {
-        totalAdvancePaid += ms.paymentEligibility.eligibleAmount;
+        v.advancePaid += ms.paymentEligibility.eligibleAmount;
       }
-      for (const v of ms.verifications) {
-        totalVerifiedWork += v.valueEligibleComputed;
-      }
+      v.verified += ms.verifications.reduce(
+        (s: number, x: { valueEligibleComputed: number }) => s + x.valueEligibleComputed,
+        0
+      );
+
+      perVendor.set(vendorId, v);
     }
 
-    const exposures = [];
-    if (totalAdvancePaid > totalVerifiedWork) {
-      for (const vendorRole of vendorRoles) {
-        exposures.push({
-          vendorId: vendorRole.userId,
-          vendorName: vendorRole.user.name,
-          advancePaid: totalAdvancePaid,
-          verifiedWork: totalVerifiedWork,
-          exposure: totalAdvancePaid - totalVerifiedWork,
-        });
-      }
-    }
-
-    return exposures;
+    return Array.from(perVendor.entries())
+      .filter(([, v]) => v.advancePaid > v.verified)
+      .map(([vendorId, v]) => ({
+        vendorId,
+        vendorName: v.name,
+        advancePaid: v.advancePaid,
+        verifiedWork: v.verified,
+        exposure: v.advancePaid - v.verified,
+      }));
   }
 
   /**
@@ -926,18 +953,24 @@ export class PaymentEligibilityEngine {
 
     if (!boq) return [];
 
+    // Materiality threshold — aligned with AnalysisService.BOQ_OVERRUN_THRESHOLD
+    const OVERRUN_TOLERANCE = 0.10;
+
     const overruns = [];
 
     for (const item of boq.items) {
       let verifiedQty = 0;
 
+      // Use the latest verification per linked milestone as the cumulative total
+      // (avoids double-counting when a milestone has multiple verification rows).
       for (const link of item.milestoneLinks) {
-        for (const v of link.milestone.verifications) {
-          verifiedQty += v.qtyVerified;
-        }
+        const latestVerification = [...link.milestone.verifications].sort(
+          (a, b) => b.verifiedAt.getTime() - a.verifiedAt.getTime()
+        )[0];
+        verifiedQty += latestVerification?.qtyVerified ?? 0;
       }
 
-      if (verifiedQty > item.plannedQty) {
+      if (verifiedQty > item.plannedQty * (1 + OVERRUN_TOLERANCE)) {
         overruns.push({
           boqItemId: item.id,
           description: item.description,

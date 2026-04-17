@@ -27,11 +27,11 @@ const typeLabels: Record<string, string> = {
 
 const typeColors: Record<string, string> = {
   PENDING_EVIDENCE_REVIEW: 'bg-[rgba(196,163,90,0.08)] text-[#c4a35a]',
-  PENDING_VERIFICATION: 'bg-[rgba(196,163,90,0.08)] text-blue-800',
-  PAYMENT_DUE_SOON: 'bg-[rgba(196,163,90,0.08)] text-orange-800',
+  PENDING_VERIFICATION: 'bg-[rgba(59,130,246,0.1)] text-blue-300',
+  PAYMENT_DUE_SOON: 'bg-[rgba(249,115,22,0.1)] text-orange-300',
   PAYMENT_BLOCKED_TOO_LONG: 'bg-[rgba(220,80,60,0.1)] text-[#e06050]',
   HIGH_VENDOR_EXPOSURE: 'bg-[rgba(196,163,90,0.08)] text-[#c4a35a]',
-  BOQ_OVERRUN: 'bg-pink-100 text-pink-800',
+  BOQ_OVERRUN: 'bg-[rgba(236,72,153,0.1)] text-pink-300',
 };
 
 export default function FollowUpsPage() {

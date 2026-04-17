@@ -165,7 +165,7 @@ export default function ProjectSettingsPage() {
           <div className={`px-3 py-1 rounded-full text-sm font-medium ${
             status === 'COMPLETED'
               ? 'bg-[rgba(50,200,120,0.1)] text-[#5cba80]'
-              : 'bg-[rgba(196,163,90,0.08)] text-blue-800'
+              : 'bg-[rgba(59,130,246,0.1)] text-blue-300'
           }`}>
             {status === 'COMPLETED' ? 'Completed' : 'Ongoing'}
           </div>

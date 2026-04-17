@@ -93,8 +93,8 @@ export default function ProjectDetailPage() {
       <Navbar projectId={projectId} projectName={project.name} role={project.myRole} />
 
       {project.isExampleProject && (
-        <div className="mb-6 p-4 bg-purple-50 border border-purple-200 rounded-lg">
-          <p className="text-sm text-purple-700">
+        <div className="mb-6 p-4 rounded-lg border-l-4 border-purple-500" style={{ backgroundColor: 'rgba(139, 92, 246, 0.1)' }}>
+          <p className="text-sm text-purple-300">
             <span className="font-medium">Example Project:</span> This project was created as an example for demonstration and testing.
           </p>
         </div>
@@ -105,26 +105,26 @@ export default function ProjectDetailPage() {
         <div className="grid gap-4 md:grid-cols-4">
           <div className="card">
             <div className="card-body">
-              <p className="text-sm text-gray-500">Total BOQ Value</p>
-              <p className="text-2xl font-bold text-gray-900">{formatCurrency(totalBOQValue)}</p>
+              <p className="text-sm font-medium" style={{ color: 'rgba(232, 228, 220, 0.6)' }}>Total BOQ Value</p>
+              <p className="text-2xl font-bold" style={{ color: '#f5f1e8' }}>{formatCurrency(totalBOQValue)}</p>
             </div>
           </div>
           <div className="card">
             <div className="card-body">
-              <p className="text-sm text-gray-500">Total Milestones</p>
-              <p className="text-2xl font-bold text-gray-900">{milestoneStats.total}</p>
+              <p className="text-sm font-medium" style={{ color: 'rgba(232, 228, 220, 0.6)' }}>Total Milestones</p>
+              <p className="text-2xl font-bold" style={{ color: '#f5f1e8' }}>{milestoneStats.total}</p>
             </div>
           </div>
           <div className="card">
             <div className="card-body">
-              <p className="text-sm text-gray-500">Verified</p>
-              <p className="text-2xl font-bold text-green-600">{milestoneStats.verified}</p>
+              <p className="text-sm font-medium" style={{ color: 'rgba(232, 228, 220, 0.6)' }}>Verified</p>
+              <p className="text-2xl font-bold text-green-400">{milestoneStats.verified}</p>
             </div>
           </div>
           <div className="card">
             <div className="card-body">
-              <p className="text-sm text-gray-500">In Progress</p>
-              <p className="text-2xl font-bold text-orange-600">{milestoneStats.inProgress}</p>
+              <p className="text-sm font-medium" style={{ color: 'rgba(232, 228, 220, 0.6)' }}>In Progress</p>
+              <p className="text-2xl font-bold text-orange-400">{milestoneStats.inProgress}</p>
             </div>
           </div>
         </div>
@@ -160,7 +160,7 @@ export default function ProjectDetailPage() {
         <div className="card">
           <div className="card-header flex justify-between items-center">
             <h2 className="text-lg font-semibold">Recent Milestones</h2>
-            <Link href={`/projects/${projectId}/milestones`} className="text-sm text-primary-600 hover:underline">
+            <Link href={`/projects/${projectId}/milestones`} className="text-sm hover:underline" style={{ color: '#c4a35a' }}>
               View all
             </Link>
           </div>
@@ -181,7 +181,8 @@ export default function ProjectDetailPage() {
                     <td>
                       <Link
                         href={`/projects/${projectId}/milestones/${milestone.id}`}
-                        className="text-primary-600 hover:underline"
+                        className="hover:underline"
+                        style={{ color: '#c4a35a' }}
                       >
                         {milestone.title}
                       </Link>
@@ -189,18 +190,18 @@ export default function ProjectDetailPage() {
                     <td>
                       <MilestoneStateBadge state={milestone.state as any} />
                     </td>
-                    <td className="text-gray-500">{milestone.paymentModel}</td>
-                    <td className="text-gray-500">{formatDate(milestone.plannedEnd)}</td>
+                    <td style={{ color: 'rgba(232, 228, 220, 0.7)' }}>{milestone.paymentModel}</td>
+                    <td style={{ color: 'rgba(232, 228, 220, 0.7)' }}>{formatDate(milestone.plannedEnd)}</td>
                     <td>
                       {milestone.paymentEligibility ? (
                         <div className="flex items-center space-x-2">
                           <PaymentStatusBadge state={milestone.paymentEligibility.state as any} />
-                          <span className="text-sm text-gray-500">
+                          <span className="text-sm" style={{ color: 'rgba(232, 228, 220, 0.7)' }}>
                             {formatCurrency(milestone.paymentEligibility.eligibleAmount)}
                           </span>
                         </div>
                       ) : (
-                        <span className="text-gray-400">-</span>
+                        <span style={{ color: 'rgba(232, 228, 220, 0.4)' }}>-</span>
                       )}
                     </td>
                   </tr>
@@ -217,7 +218,7 @@ export default function ProjectDetailPage() {
           </div>
           <div className="card-body">
             <div className="flex items-center space-x-4">
-              <div className="flex-1 bg-gray-200 rounded-full h-4 overflow-hidden flex">
+              <div className="flex-1 rounded-full h-4 overflow-hidden flex" style={{ backgroundColor: 'rgba(255, 255, 255, 0.06)' }}>
                 {milestoneStats.total > 0 && (
                   <>
                     <div
@@ -249,7 +250,7 @@ export default function ProjectDetailPage() {
                 )}
               </div>
             </div>
-            <div className="flex justify-between mt-2 text-xs text-gray-500">
+            <div className="flex justify-between mt-2 text-xs" style={{ color: 'rgba(232, 228, 220, 0.6)' }}>
               <span>Draft: {milestoneStats.draft}</span>
               <span>In Progress: {milestoneStats.inProgress}</span>
               <span>Submitted: {milestoneStats.submitted}</span>

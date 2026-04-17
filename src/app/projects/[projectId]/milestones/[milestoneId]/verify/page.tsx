@@ -154,7 +154,7 @@ export default function VerifyMilestonePage() {
         {isExtra ? (
           <div className="card mb-6 bg-[rgba(196,163,90,0.08)] border-[rgba(196,163,90,0.15)]">
             <div className="card-header">
-              <h2 className="text-lg font-semibold text-orange-800">Extra (Outside BOQ)</h2>
+              <h2 className="text-lg font-semibold text-orange-300">Extra (Outside BOQ)</h2>
             </div>
             <div className="card-body">
               <p className="text-[#c4a35a] mb-2">
@@ -249,7 +249,7 @@ export default function VerifyMilestonePage() {
             </div>
 
             <div className="bg-[rgba(196,163,90,0.08)] border border-[rgba(196,163,90,0.15)] rounded-lg p-4">
-              <p className="text-sm text-blue-800">
+              <p className="text-sm text-blue-300">
                 <strong>Note:</strong> Verification will make this milestone eligible for payment
                 and move it to Verified state.
               </p>

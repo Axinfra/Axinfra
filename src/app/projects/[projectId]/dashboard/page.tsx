@@ -67,7 +67,7 @@ export default function DashboardPage() {
       <Navbar projectId={projectId} projectName={projectName} role={myRole} />
 
       <div className="space-y-6">
-        <h1 className="text-2xl font-bold text-gray-900">
+        <h1 className="text-2xl font-bold" style={{ color: '#f5f1e8' }}>
           {myRole} Dashboard
         </h1>
 
@@ -87,48 +87,48 @@ function OwnerDashboard({ data }: { data: any }) {
       <div className="grid gap-4 md:grid-cols-3 lg:grid-cols-6">
         <div className="card">
           <div className="card-body">
-            <p className="text-sm text-gray-500">Verified Value</p>
-            <p className="text-xl font-bold text-gray-900">
+            <p className="text-sm" style={{ color: 'rgba(232, 228, 220, 0.6)' }}>Verified Value</p>
+            <p className="text-xl font-bold" style={{ color: '#f5f1e8' }}>
               {formatCurrency(data.summary.totalVerifiedValue)}
             </p>
           </div>
         </div>
         <div className="card">
           <div className="card-body">
-            <p className="text-sm text-gray-500">Paid Value</p>
-            <p className="text-xl font-bold text-green-600">
+            <p className="text-sm" style={{ color: 'rgba(232, 228, 220, 0.6)' }}>Paid Value</p>
+            <p className="text-xl font-bold text-green-400">
               {formatCurrency(data.summary.totalPaidValue)}
             </p>
           </div>
         </div>
         <div className="card">
           <div className="card-body">
-            <p className="text-sm text-gray-500">Unpaid Value</p>
-            <p className="text-xl font-bold text-orange-600">
+            <p className="text-sm" style={{ color: 'rgba(232, 228, 220, 0.6)' }}>Unpaid Value</p>
+            <p className="text-xl font-bold text-orange-400">
               {formatCurrency(data.summary.totalUnpaidValue)}
             </p>
           </div>
         </div>
         <div className="card">
           <div className="card-body">
-            <p className="text-sm text-gray-500">Blocked Value</p>
-            <p className="text-xl font-bold text-red-600">
+            <p className="text-sm" style={{ color: 'rgba(232, 228, 220, 0.6)' }}>Blocked Value</p>
+            <p className="text-xl font-bold text-red-400">
               {formatCurrency(data.summary.totalBlockedValue)}
             </p>
           </div>
         </div>
         <div className="card">
           <div className="card-body">
-            <p className="text-sm text-gray-500">Advance Exposure</p>
-            <p className="text-xl font-bold text-purple-600">
+            <p className="text-sm" style={{ color: 'rgba(232, 228, 220, 0.6)' }}>Advance Exposure</p>
+            <p className="text-xl font-bold text-purple-400">
               {formatCurrency(data.summary.advanceExposure)}
             </p>
           </div>
         </div>
         <div className="card">
           <div className="card-body">
-            <p className="text-sm text-gray-500">BOQ Overruns</p>
-            <p className="text-xl font-bold text-pink-600">
+            <p className="text-sm" style={{ color: 'rgba(232, 228, 220, 0.6)' }}>BOQ Overruns</p>
+            <p className="text-xl font-bold text-pink-400">
               {data.summary.boqOverrunCount}
             </p>
           </div>
@@ -139,21 +139,21 @@ function OwnerDashboard({ data }: { data: any }) {
       {data.vendorExposures?.length > 0 && (
         <div className="card">
           <div className="card-header">
-            <h2 className="text-lg font-semibold text-red-600">High Risk Vendors</h2>
+            <h2 className="text-lg font-semibold text-red-400">High Risk Vendors</h2>
           </div>
           <div className="card-body">
             <div className="space-y-3">
               {data.vendorExposures.map((v: any, i: number) => (
-                <div key={i} className="flex justify-between items-center p-3 bg-red-50 rounded-lg">
+                <div key={i} className="flex justify-between items-center p-3 bg-[rgba(239,68,68,0.1)] rounded-lg">
                   <div>
                     <p className="font-medium">{v.vendorName}</p>
-                    <p className="text-sm text-gray-600">
+                    <p className="text-sm text-[rgba(232,228,220,0.7)]">
                       Advance: {formatCurrency(v.advancePaid)} | Verified: {formatCurrency(v.verifiedWork)}
                     </p>
                   </div>
                   <div className="text-right">
-                    <p className="text-red-600 font-bold">{formatCurrency(v.exposure)}</p>
-                    <p className="text-xs text-gray-500">Exposure</p>
+                    <p className="text-red-400 font-bold">{formatCurrency(v.exposure)}</p>
+                    <p className="text-xs text-[rgba(232,228,220,0.6)]">Exposure</p>
                   </div>
                 </div>
               ))}
@@ -192,7 +192,7 @@ function OwnerDashboard({ data }: { data: any }) {
           <div className="card-body">
             <div className="space-y-2">
               {data.followUps.slice(0, 5).map((f: any) => (
-                <div key={f.id} className="text-sm p-2 bg-gray-50 rounded">
+                <div key={f.id} className="text-sm p-2 bg-[rgba(255,255,255,0.04)] rounded">
                   {f.description}
                 </div>
               ))}
@@ -218,10 +218,10 @@ function PMCDashboard({ data }: { data: any }) {
           {data.pendingReviews?.length > 0 ? (
             <div className="space-y-3">
               {data.pendingReviews.map((r: any) => (
-                <div key={r.evidenceId} className="flex justify-between items-center p-3 bg-yellow-50 rounded-lg">
+                <div key={r.evidenceId} className="flex justify-between items-center p-3 bg-[rgba(234,179,8,0.1)] rounded-lg">
                   <div>
                     <p className="font-medium">{r.milestoneTitle}</p>
-                    <p className="text-sm text-gray-600">
+                    <p className="text-sm text-[rgba(232,228,220,0.7)]">
                       By {r.vendorName} - {r.daysPending} days pending
                     </p>
                   </div>
@@ -229,7 +229,7 @@ function PMCDashboard({ data }: { data: any }) {
               ))}
             </div>
           ) : (
-            <p className="text-gray-500 text-center py-4">No pending reviews</p>
+            <p className="text-[rgba(232,228,220,0.6)] text-center py-4">No pending reviews</p>
           )}
         </div>
       </div>
@@ -248,14 +248,14 @@ function PMCDashboard({ data }: { data: any }) {
                 <div key={p.milestoneId} className="flex justify-between items-center">
                   <div>
                     <p className="font-medium">{p.milestoneTitle}</p>
-                    <p className="text-sm text-gray-500">Due: {formatDate(p.dueDate)}</p>
+                    <p className="text-sm text-[rgba(232,228,220,0.6)]">Due: {formatDate(p.dueDate)}</p>
                   </div>
                   <span className="font-medium">{formatCurrency(p.amount)}</span>
                 </div>
               ))}
             </div>
           ) : (
-            <p className="text-gray-500 text-center py-4">No payments due</p>
+            <p className="text-[rgba(232,228,220,0.6)] text-center py-4">No payments due</p>
           )}
         </div>
       </div>
@@ -271,14 +271,14 @@ function PMCDashboard({ data }: { data: any }) {
               {data.upcomingDeadlines.map((d: any) => (
                 <div key={d.milestoneId} className="flex justify-between items-center">
                   <span>{d.title}</span>
-                  <span className={`text-sm ${d.daysRemaining <= 3 ? 'text-red-600' : 'text-gray-500'}`}>
+                  <span className={`text-sm ${d.daysRemaining <= 3 ? 'text-red-400' : 'text-[rgba(232,228,220,0.6)]'}`}>
                     {d.daysRemaining} days
                   </span>
                 </div>
               ))}
             </div>
           ) : (
-            <p className="text-gray-500 text-center py-4">No upcoming deadlines</p>
+            <p className="text-[rgba(232,228,220,0.6)] text-center py-4">No upcoming deadlines</p>
           )}
         </div>
       </div>
@@ -294,31 +294,31 @@ function VendorDashboard({ data }: { data: any }) {
         <div className="card">
           <div className="card-body text-center">
             <p className="text-2xl font-bold">{data.milestonesSummary?.total || 0}</p>
-            <p className="text-sm text-gray-500">Total</p>
+            <p className="text-sm text-[rgba(232,228,220,0.6)]">Total</p>
           </div>
         </div>
         <div className="card">
           <div className="card-body text-center">
-            <p className="text-2xl font-bold text-blue-600">{data.milestonesSummary?.inProgress || 0}</p>
-            <p className="text-sm text-gray-500">In Progress</p>
+            <p className="text-2xl font-bold text-blue-400">{data.milestonesSummary?.inProgress || 0}</p>
+            <p className="text-sm text-[rgba(232,228,220,0.6)]">In Progress</p>
           </div>
         </div>
         <div className="card">
           <div className="card-body text-center">
-            <p className="text-2xl font-bold text-yellow-600">{data.milestonesSummary?.submitted || 0}</p>
-            <p className="text-sm text-gray-500">Submitted</p>
+            <p className="text-2xl font-bold text-yellow-400">{data.milestonesSummary?.submitted || 0}</p>
+            <p className="text-sm text-[rgba(232,228,220,0.6)]">Submitted</p>
           </div>
         </div>
         <div className="card">
           <div className="card-body text-center">
-            <p className="text-2xl font-bold text-green-600">{data.milestonesSummary?.verified || 0}</p>
-            <p className="text-sm text-gray-500">Verified</p>
+            <p className="text-2xl font-bold text-green-400">{data.milestonesSummary?.verified || 0}</p>
+            <p className="text-sm text-[rgba(232,228,220,0.6)]">Verified</p>
           </div>
         </div>
         <div className="card">
           <div className="card-body text-center">
-            <p className="text-2xl font-bold text-purple-600">{data.milestonesSummary?.closed || 0}</p>
-            <p className="text-sm text-gray-500">Closed</p>
+            <p className="text-2xl font-bold text-purple-400">{data.milestonesSummary?.closed || 0}</p>
+            <p className="text-sm text-[rgba(232,228,220,0.6)]">Closed</p>
           </div>
         </div>
       </div>
@@ -334,12 +334,12 @@ function VendorDashboard({ data }: { data: any }) {
               {data.pendingApprovals.map((p: any) => (
                 <div key={p.milestoneId} className="flex justify-between items-center">
                   <span>{p.milestoneTitle}</span>
-                  <span className="text-sm text-gray-500">{p.daysPending} days</span>
+                  <span className="text-sm text-[rgba(232,228,220,0.6)]">{p.daysPending} days</span>
                 </div>
               ))}
             </div>
           ) : (
-            <p className="text-gray-500 text-center py-4">No pending approvals</p>
+            <p className="text-[rgba(232,228,220,0.6)] text-center py-4">No pending approvals</p>
           )}
         </div>
       </div>
@@ -348,15 +348,15 @@ function VendorDashboard({ data }: { data: any }) {
       {data.rejections?.length > 0 && (
         <div className="card">
           <div className="card-header">
-            <h2 className="text-lg font-semibold text-red-600">Recent Rejections</h2>
+            <h2 className="text-lg font-semibold text-red-400">Recent Rejections</h2>
           </div>
           <div className="card-body">
             <div className="space-y-3">
               {data.rejections.map((r: any, i: number) => (
-                <div key={i} className="p-3 bg-red-50 rounded-lg">
+                <div key={i} className="p-3 bg-[rgba(239,68,68,0.1)] rounded-lg">
                   <p className="font-medium">{r.milestoneTitle}</p>
-                  <p className="text-sm text-red-600">{r.reason}</p>
-                  <p className="text-xs text-gray-500">{formatDateTime(r.rejectedAt)}</p>
+                  <p className="text-sm text-red-400">{r.reason}</p>
+                  <p className="text-xs text-[rgba(232,228,220,0.6)]">{formatDateTime(r.rejectedAt)}</p>
                 </div>
               ))}
             </div>
@@ -388,7 +388,7 @@ function VendorDashboard({ data }: { data: any }) {
               ))}
             </div>
           ) : (
-            <p className="text-gray-500 text-center py-4">No payment data</p>
+            <p className="text-[rgba(232,228,220,0.6)] text-center py-4">No payment data</p>
           )}
         </div>
       </div>
@@ -407,23 +407,23 @@ function ViewerDashboard({ data }: { data: any }) {
           <div className="grid gap-4 md:grid-cols-5">
             <div className="text-center">
               <p className="text-2xl font-bold">{data.milestoneCounts?.total || 0}</p>
-              <p className="text-sm text-gray-500">Total</p>
+              <p className="text-sm text-[rgba(232,228,220,0.6)]">Total</p>
             </div>
             <div className="text-center">
-              <p className="text-2xl font-bold text-blue-600">{data.milestoneCounts?.inProgress || 0}</p>
-              <p className="text-sm text-gray-500">In Progress</p>
+              <p className="text-2xl font-bold text-blue-400">{data.milestoneCounts?.inProgress || 0}</p>
+              <p className="text-sm text-[rgba(232,228,220,0.6)]">In Progress</p>
             </div>
             <div className="text-center">
-              <p className="text-2xl font-bold text-yellow-600">{data.milestoneCounts?.submitted || 0}</p>
-              <p className="text-sm text-gray-500">Submitted</p>
+              <p className="text-2xl font-bold text-yellow-400">{data.milestoneCounts?.submitted || 0}</p>
+              <p className="text-sm text-[rgba(232,228,220,0.6)]">Submitted</p>
             </div>
             <div className="text-center">
-              <p className="text-2xl font-bold text-green-600">{data.milestoneCounts?.verified || 0}</p>
-              <p className="text-sm text-gray-500">Verified</p>
+              <p className="text-2xl font-bold text-green-400">{data.milestoneCounts?.verified || 0}</p>
+              <p className="text-sm text-[rgba(232,228,220,0.6)]">Verified</p>
             </div>
             <div className="text-center">
-              <p className="text-2xl font-bold text-purple-600">{data.milestoneCounts?.closed || 0}</p>
-              <p className="text-sm text-gray-500">Closed</p>
+              <p className="text-2xl font-bold text-purple-400">{data.milestoneCounts?.closed || 0}</p>
+              <p className="text-sm text-[rgba(232,228,220,0.6)]">Closed</p>
             </div>
           </div>
         </div>
@@ -444,7 +444,7 @@ function ViewerDashboard({ data }: { data: any }) {
               ))}
             </div>
           ) : (
-            <p className="text-gray-500 text-center py-4">No milestones</p>
+            <p className="text-[rgba(232,228,220,0.6)] text-center py-4">No milestones</p>
           )}
         </div>
       </div>

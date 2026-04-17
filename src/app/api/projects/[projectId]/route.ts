@@ -4,7 +4,7 @@ import { requireProjectAuth } from '@/lib/auth';
 import { RoleGuard } from '@/services/RoleGuard';
 import { requireProjectOwner } from '@/lib/guards/requireOwner';
 import { AuditLogger } from '@/services/AuditLogger';
-import { AuditActionTypes } from '@/types';
+import { AuditActionTypes, Role } from '@/types';
 import { z } from 'zod';
 
 const updateProjectSchema = z.object({
@@ -34,38 +34,52 @@ export async function GET(
     const { projectId } = await params;
     const auth = await requireProjectAuth(projectId);
 
-    const project = await prisma.project.findUnique({
-      where: { id: projectId, deletedAt: null },
-      include: {
-        roles: {
+    // Role-based include: Owner/PMC see everything; Vendor/Viewer see only what's scoped to them.
+    const isOwnerOrPMC = auth.role === Role.OWNER || auth.role === Role.PMC;
+
+    const project = isOwnerOrPMC
+      ? await prisma.project.findUnique({
+          where: { id: projectId, deletedAt: null },
           include: {
-            user: {
-              select: {
-                id: true,
-                name: true,
-                email: true,
-              },
-            },
-          },
-        },
-        boqs: {
-          include: {
-            items: true,
-          },
-        },
-        milestones: {
-          include: {
-            boqLinks: {
+            roles: {
               include: {
-                boqItem: true,
+                user: { select: { id: true, name: true, email: true } },
               },
             },
-            paymentEligibility: true,
+            boqs: { include: { items: true } },
+            milestones: {
+              include: {
+                boqLinks: { include: { boqItem: true } },
+                paymentEligibility: true,
+              },
+              orderBy: { createdAt: 'asc' },
+            },
           },
-          orderBy: { createdAt: 'asc' },
-        },
-      },
-    });
+        })
+      : await prisma.project.findUnique({
+          where: { id: projectId, deletedAt: null },
+          include: {
+            roles: {
+              include: {
+                user: { select: { id: true, name: true, email: true } },
+              },
+            },
+            // Vendor/Viewer: milestones scoped to this user only, no BOQ rates leaked.
+            milestones: {
+              where: {
+                OR: [
+                  { vendorUserId: auth.userId },
+                  { evidence: { some: { submittedById: auth.userId } } },
+                ],
+              },
+              include: {
+                boqLinks: { include: { boqItem: true } },
+                paymentEligibility: true,
+              },
+              orderBy: { createdAt: 'asc' },
+            },
+          },
+        });
 
     if (!project) {
       return NextResponse.json(

@@ -212,7 +212,7 @@ export default function MilestoneDetailPage() {
             <div className="flex items-center justify-between">
               <div>
                 <p className={`font-medium ${
-                  milestone.extraApprovedAt ? 'text-[#5cba80]' : 'text-orange-800'
+                  milestone.extraApprovedAt ? 'text-[#5cba80]' : 'text-orange-300'
                 }`}>
                   {milestone.extraApprovedAt
                     ? '✓ Extra Approved'

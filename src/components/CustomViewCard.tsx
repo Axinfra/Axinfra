@@ -41,14 +41,14 @@ export default function CustomViewCard({ milestone, projectId }: CustomViewCardP
       href={`/projects/${projectId}/milestones/${milestone.id}`}
       className="block"
     >
-      <div className="bg-white border border-gray-200 rounded-lg p-4 hover:shadow-md transition-shadow cursor-pointer">
+      <div className="bg-[#141414] border border-[rgba(255,255,255,0.08)] rounded-lg p-4 hover:bg-[#1f1f1f] hover:border-[rgba(255,255,255,0.14)] transition-all cursor-pointer">
         {/* Header */}
         <div className="flex justify-between items-start mb-2">
-          <h4 className="font-medium text-gray-900 text-sm line-clamp-2">
+          <h4 className="font-medium text-[#f5f1e8] text-sm line-clamp-2">
             {milestone.title}
           </h4>
           {milestone.isDelayed && (
-            <span className="flex-shrink-0 ml-2 px-2 py-0.5 text-xs bg-red-100 text-red-700 rounded">
+            <span className="flex-shrink-0 ml-2 px-2 py-0.5 text-xs bg-[rgba(239,68,68,0.15)] text-red-300 rounded">
               Delayed
             </span>
           )}
@@ -61,18 +61,18 @@ export default function CustomViewCard({ milestone, projectId }: CustomViewCardP
 
         {/* Completion Progress */}
         <div className="mb-3">
-          <div className="flex justify-between text-xs text-gray-500 mb-1">
+          <div className="flex justify-between text-xs text-[rgba(232,228,220,0.6)] mb-1">
             <span>Completion</span>
             <span>{milestone.completionPercent}%</span>
           </div>
-          <div className="w-full h-2 bg-gray-200 rounded-full overflow-hidden">
+          <div className="w-full h-2 bg-[rgba(255,255,255,0.06)] rounded-full overflow-hidden">
             <div
               className={`h-full transition-all ${
                 milestone.completionPercent >= 70
                   ? 'bg-green-500'
                   : milestone.completionPercent >= 30
                   ? 'bg-yellow-500'
-                  : 'bg-gray-400'
+                  : 'bg-[rgba(255,255,255,0.25)]'
               }`}
               style={{ width: `${milestone.completionPercent}%` }}
             />
@@ -80,18 +80,18 @@ export default function CustomViewCard({ milestone, projectId }: CustomViewCardP
         </div>
 
         {/* Details */}
-        <div className="space-y-1 text-xs text-gray-500">
+        <div className="space-y-1 text-xs text-[rgba(232,228,220,0.6)]">
           {milestone.plannedEnd && (
             <div className="flex justify-between">
               <span>Due</span>
-              <span className={milestone.isDelayed ? 'text-red-600 font-medium' : ''}>
+              <span className={milestone.isDelayed ? 'text-red-400 font-medium' : ''}>
                 {formatDate(milestone.plannedEnd)}
               </span>
             </div>
           )}
           <div className="flex justify-between">
             <span>Value</span>
-            <span className="font-medium text-gray-700">
+            <span className="font-medium text-[rgba(232,228,220,0.8)]">
               {formatCurrency(milestone.plannedValue)}
             </span>
           </div>
@@ -105,10 +105,10 @@ export default function CustomViewCard({ milestone, projectId }: CustomViewCardP
 
         {/* Payment Status */}
         {milestone.eligibilityState && (
-          <div className="mt-3 pt-3 border-t border-gray-100">
+          <div className="mt-3 pt-3 border-t border-[rgba(255,255,255,0.06)]">
             <div className="flex justify-between items-center">
               <PaymentStatusBadge state={milestone.eligibilityState as any} />
-              <span className="text-xs font-medium text-gray-700">
+              <span className="text-xs font-medium text-[rgba(232,228,220,0.8)]">
                 {formatCurrency(milestone.paymentValue)}
               </span>
             </div>

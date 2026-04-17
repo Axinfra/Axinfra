@@ -69,6 +69,7 @@ async function getOwnerDashboard(projectId: string) {
   let totalVerifiedValue = 0;
   let totalPaidValue = 0;
   let totalBlockedValue = 0;
+  let totalUnpaidValue = 0;
   let advanceExposure = 0;
 
   for (const elig of eligibilities) {
@@ -80,6 +81,13 @@ async function getOwnerDashboard(projectId: string) {
     }
     if (elig.state === EligibilityState.BLOCKED) {
       totalBlockedValue += elig.blockedAmount;
+    }
+    // "Unpaid" = eligible-but-not-yet-paid. Excludes BLOCKED and MARKED_PAID.
+    if (
+      elig.state === EligibilityState.PARTIALLY_ELIGIBLE ||
+      elig.state === EligibilityState.FULLY_ELIGIBLE
+    ) {
+      totalUnpaidValue += elig.eligibleAmount;
     }
     if (elig.milestone.paymentModel === 'ADVANCE' && elig.state === EligibilityState.MARKED_PAID) {
       const verifiedValue = elig.milestone.verifications.reduce(
@@ -107,7 +115,7 @@ async function getOwnerDashboard(projectId: string) {
     summary: {
       totalVerifiedValue,
       totalPaidValue,
-      totalUnpaidValue: totalVerifiedValue - totalPaidValue,
+      totalUnpaidValue,
       totalBlockedValue,
       advanceExposure,
       boqOverrunCount: overruns.length,

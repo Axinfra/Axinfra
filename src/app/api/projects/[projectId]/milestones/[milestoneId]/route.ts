@@ -139,6 +139,22 @@ export async function DELETE(
       );
     }
 
+    // Preserve financial history: cannot delete a paid milestone
+    if (milestone.paymentEligibility?.state === 'MARKED_PAID') {
+      return NextResponse.json(
+        { success: false, error: 'Cannot delete a paid milestone. Archive the project instead.' },
+        { status: 409 }
+      );
+    }
+
+    // Preserve audit integrity: cannot delete verified/closed milestones
+    if (milestone.state === MilestoneState.VERIFIED || milestone.state === MilestoneState.CLOSED) {
+      return NextResponse.json(
+        { success: false, error: 'Cannot delete a verified or closed milestone.' },
+        { status: 409 }
+      );
+    }
+
     // Delete milestone (cascade will handle related records)
     await prisma.milestone.delete({
       where: { id: milestoneId },
