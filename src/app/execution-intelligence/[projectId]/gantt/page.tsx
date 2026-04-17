@@ -106,7 +106,7 @@ export default function GanttPage() {
         {/* Toolbar */}
         <div className="flex flex-wrap items-center gap-3">
           {/* Mode selector */}
-          <div className="flex items-center bg-surface-100 rounded-lg p-0.5">
+          <div className="flex items-center bg-[rgba(255,255,255,0.05)] rounded-lg p-0.5">
             {(['L1', 'L2', 'L3', 'L4'] as GanttMode[]).map((m) => {
               const labels: Record<GanttMode, string> = {
                 L1: 'Timeline',
@@ -122,7 +122,7 @@ export default function GanttPage() {
                   disabled={disabled}
                   title={disabled ? 'Only Owner/PMC can edit planned dates' : undefined}
                   className={`px-3 py-1.5 rounded-md text-[12px] font-medium transition-colors
-                    ${mode === m ? 'bg-white text-surface-900 shadow-xs' : 'text-surface-500 hover:text-surface-700'}
+                    ${mode === m ? 'bg-[rgba(255,255,255,0.03)] text-[#e8e4dc] shadow-xs' : 'text-[rgba(232,228,220,0.55)] hover:text-[#e8e4dc]'}
                     ${disabled ? 'opacity-40 cursor-not-allowed' : ''}`}
                 >
                   {labels[m]}
@@ -137,7 +137,7 @@ export default function GanttPage() {
               <select
                 value={filterVendor}
                 onChange={(e) => setFilterVendor(e.target.value)}
-                className="text-[12px] border border-surface-200 rounded-lg px-3 py-1.5 bg-white text-surface-700 focus:outline-none focus:ring-2 focus:ring-primary-300"
+                className="text-[12px] border border-[rgba(255,255,255,0.07)] rounded-lg px-3 py-1.5 bg-[rgba(255,255,255,0.03)] text-[#e8e4dc] focus:outline-none focus:ring-2 focus:ring-primary-300"
               >
                 <option value="">All Vendors</option>
                 {vendors.map(([id, name]) => (
@@ -145,12 +145,12 @@ export default function GanttPage() {
                 ))}
               </select>
             )}
-            <label className="flex items-center gap-2 text-[12px] text-surface-600 cursor-pointer">
+            <label className="flex items-center gap-2 text-[12px] text-[rgba(232,228,220,0.55)] cursor-pointer">
               <input
                 type="checkbox"
                 checked={showCriticalOnly}
                 onChange={(e) => setShowCriticalOnly(e.target.checked)}
-                className="rounded border-surface-300 text-primary-600"
+                className="rounded border-[rgba(255,255,255,0.1)] text-[#c4a35a]"
               />
               Critical only
             </label>
@@ -181,7 +181,7 @@ export default function GanttPage() {
         )}
 
         {/* Mode legend */}
-        <div className="flex flex-wrap gap-4 text-[11px] text-surface-400">
+        <div className="flex flex-wrap gap-4 text-[11px] text-[rgba(232,228,220,0.35)]">
           <span className="flex items-center gap-1.5">
             <span className="inline-block w-8 h-2 rounded-full bg-primary-200" /> Planned
           </span>
@@ -202,11 +202,11 @@ export default function GanttPage() {
 
 function GanttSkeleton() {
   return (
-    <div className="bg-white border border-surface-200 rounded-xl overflow-hidden">
+    <div className="bg-[rgba(255,255,255,0.03)] border border-[rgba(255,255,255,0.07)] rounded-xl overflow-hidden">
       {[1, 2, 3, 4, 5].map((i) => (
-        <div key={i} className="flex items-center border-b border-surface-100 px-4 py-3 gap-4">
-          <div className="h-3 w-32 rounded bg-surface-100 animate-pulse" />
-          <div className="flex-1 h-5 rounded bg-surface-100 animate-pulse" style={{ width: `${30 + i * 10}%` }} />
+        <div key={i} className="flex items-center border-b border-[rgba(255,255,255,0.07)] px-4 py-3 gap-4">
+          <div className="h-3 w-32 rounded bg-[rgba(255,255,255,0.05)] animate-pulse" />
+          <div className="flex-1 h-5 rounded bg-[rgba(255,255,255,0.05)] animate-pulse" style={{ width: `${30 + i * 10}%` }} />
         </div>
       ))}
     </div>
@@ -215,9 +215,9 @@ function GanttSkeleton() {
 
 function EmptyGantt() {
   return (
-    <div className="bg-white border border-surface-200 rounded-xl py-16 text-center">
-      <p className="text-surface-400 text-sm">No milestones with planned dates found.</p>
-      <p className="text-surface-400 text-xs mt-1">Add planned start/end dates to milestones to see them here.</p>
+    <div className="bg-[rgba(255,255,255,0.03)] border border-[rgba(255,255,255,0.07)] rounded-xl py-16 text-center">
+      <p className="text-[rgba(232,228,220,0.35)] text-sm">No milestones with planned dates found.</p>
+      <p className="text-[rgba(232,228,220,0.35)] text-xs mt-1">Add planned start/end dates to milestones to see them here.</p>
     </div>
   );
 }

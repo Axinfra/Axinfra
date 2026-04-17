@@ -45,15 +45,15 @@ export default function NewProjectPage() {
         <div className="mb-8">
           <Link
             href="/projects"
-            className="inline-flex items-center gap-1.5 text-sm text-surface-500 hover:text-surface-700 transition-colors"
+            className="inline-flex items-center gap-1.5 text-sm text-[rgba(232,228,220,0.55)] hover:text-[#e8e4dc] transition-colors"
           >
             <svg className="w-4 h-4" fill="none" viewBox="0 0 24 24" strokeWidth={1.5} stroke="currentColor">
               <path strokeLinecap="round" strokeLinejoin="round" d="M10.5 19.5 3 12m0 0 7.5-7.5M3 12h18" />
             </svg>
             Back to Projects
           </Link>
-          <h1 className="text-2xl font-bold text-gray-900 mt-3">Create New Project</h1>
-          <p className="text-surface-500 mt-1">
+          <h1 className="text-2xl font-bold text-[#e8e4dc] mt-3">Create New Project</h1>
+          <p className="text-[rgba(232,228,220,0.55)] mt-1">
             Set up a new project to manage milestones, BOQs, and payments.
           </p>
         </div>

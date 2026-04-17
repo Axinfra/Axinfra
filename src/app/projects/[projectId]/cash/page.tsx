@@ -238,7 +238,7 @@ export default function CashModulePage() {
   if (loading) {
     return (
       <Layout>
-        <div className="text-center py-12 text-surface-500">Loading Cash Module...</div>
+        <div className="text-center py-12 text-[rgba(232,228,220,0.55)]">Loading Cash Module...</div>
       </Layout>
     );
   }
@@ -253,11 +253,11 @@ export default function CashModulePage() {
               <path strokeLinecap="round" strokeLinejoin="round" d="M16.5 10.5V6.75a4.5 4.5 0 10-9 0v3.75m-.75 11.25h10.5a2.25 2.25 0 002.25-2.25v-6.75a2.25 2.25 0 00-2.25-2.25H6.75a2.25 2.25 0 00-2.25 2.25v6.75a2.25 2.25 0 002.25 2.25z" />
             </svg>
           </div>
-          <h2 className="text-xl font-semibold text-surface-900 mb-2">Access Denied</h2>
-          <p className="text-sm text-surface-500 mb-6">The Cash Module is restricted to the Builder role.</p>
+          <h2 className="text-xl font-semibold text-[#e8e4dc] mb-2">Access Denied</h2>
+          <p className="text-sm text-[rgba(232,228,220,0.55)] mb-6">The Cash Module is restricted to the Builder role.</p>
           <button
             onClick={() => router.push(`/projects/${projectId}`)}
-            className="px-4 py-2 bg-primary-600 text-white text-sm font-medium rounded-lg hover:bg-primary-700 transition-colors"
+            className="px-4 py-2 bg-[#c4a35a] text-white text-sm font-medium rounded-lg hover:bg-[#b3943f] transition-colors"
           >
             Back to Project
           </button>
@@ -274,8 +274,8 @@ export default function CashModulePage() {
         {/* Header */}
         <div className="flex items-center justify-between">
           <div>
-            <h1 className="text-2xl font-bold text-surface-900">Builder Cash Module</h1>
-            <p className="text-sm text-surface-500 mt-1">Private financial tracking — visible only to you</p>
+            <h1 className="text-2xl font-bold text-[#e8e4dc]">Builder Cash Module</h1>
+            <p className="text-sm text-[rgba(232,228,220,0.55)] mt-1">Private financial tracking — visible only to you</p>
           </div>
         </div>
 
@@ -289,42 +289,42 @@ export default function CashModulePage() {
         {/* Summary Cards */}
         {summary && (
           <div className="grid gap-4 md:grid-cols-4">
-            <div className="bg-white rounded-xl border border-surface-200 p-5">
-              <p className="text-xs font-medium text-surface-400 uppercase tracking-wider">Total Credits</p>
-              <p className="text-2xl font-bold text-green-600 mt-1">{formatCurrency(summary.totalCredits)}</p>
-              <p className="text-xs text-surface-400 mt-1">{summary.adjustmentCount} adjustments</p>
+            <div className="bg-[rgba(255,255,255,0.03)] rounded-xl border border-[rgba(255,255,255,0.07)] p-5">
+              <p className="text-xs font-medium text-[rgba(232,228,220,0.35)] uppercase tracking-wider">Total Credits</p>
+              <p className="text-2xl font-bold text-[#5cba80] mt-1">{formatCurrency(summary.totalCredits)}</p>
+              <p className="text-xs text-[rgba(232,228,220,0.35)] mt-1">{summary.adjustmentCount} adjustments</p>
             </div>
-            <div className="bg-white rounded-xl border border-surface-200 p-5">
-              <p className="text-xs font-medium text-surface-400 uppercase tracking-wider">Total Debits</p>
-              <p className="text-2xl font-bold text-red-600 mt-1">{formatCurrency(summary.totalDebits)}</p>
+            <div className="bg-[rgba(255,255,255,0.03)] rounded-xl border border-[rgba(255,255,255,0.07)] p-5">
+              <p className="text-xs font-medium text-[rgba(232,228,220,0.35)] uppercase tracking-wider">Total Debits</p>
+              <p className="text-2xl font-bold text-[#e06050] mt-1">{formatCurrency(summary.totalDebits)}</p>
             </div>
-            <div className="bg-white rounded-xl border border-surface-200 p-5">
-              <p className="text-xs font-medium text-surface-400 uppercase tracking-wider">Net Cash Position</p>
-              <p className={`text-2xl font-bold mt-1 ${summary.netCashPosition >= 0 ? 'text-green-600' : 'text-red-600'}`}>
+            <div className="bg-[rgba(255,255,255,0.03)] rounded-xl border border-[rgba(255,255,255,0.07)] p-5">
+              <p className="text-xs font-medium text-[rgba(232,228,220,0.35)] uppercase tracking-wider">Net Cash Position</p>
+              <p className={`text-2xl font-bold mt-1 ${summary.netCashPosition >= 0 ? 'text-[#5cba80]' : 'text-[#e06050]'}`}>
                 {formatCurrency(summary.netCashPosition)}
               </p>
             </div>
-            <div className="bg-white rounded-xl border border-surface-200 p-5">
-              <p className="text-xs font-medium text-surface-400 uppercase tracking-wider">Private Costs</p>
-              <p className="text-2xl font-bold text-surface-900 mt-1">{formatCurrency(summary.totalPrivateCosts)}</p>
-              <p className="text-xs text-surface-400 mt-1">{summary.costEntryCount} entries</p>
+            <div className="bg-[rgba(255,255,255,0.03)] rounded-xl border border-[rgba(255,255,255,0.07)] p-5">
+              <p className="text-xs font-medium text-[rgba(232,228,220,0.35)] uppercase tracking-wider">Private Costs</p>
+              <p className="text-2xl font-bold text-[#e8e4dc] mt-1">{formatCurrency(summary.totalPrivateCosts)}</p>
+              <p className="text-xs text-[rgba(232,228,220,0.35)] mt-1">{summary.costEntryCount} entries</p>
             </div>
           </div>
         )}
 
         {/* Tab Switcher */}
-        <div className="border-b border-surface-200">
+        <div className="border-b border-[rgba(255,255,255,0.07)]">
           <div className="flex gap-1">
             <button
               onClick={() => setActiveTab('adjustments')}
               className={`px-5 py-3 text-sm font-medium border-b-2 transition-all duration-200 rounded-t-md ${
                 activeTab === 'adjustments'
-                  ? 'border-primary-600 text-primary-700 bg-primary-50/50'
-                  : 'border-transparent text-surface-500 hover:text-surface-700 hover:border-surface-300'
+                  ? 'border-primary-600 text-[#c4a35a] bg-[rgba(196,163,90,0.08)]/50'
+                  : 'border-transparent text-[rgba(232,228,220,0.55)] hover:text-[#e8e4dc] hover:border-[rgba(255,255,255,0.1)]'
               }`}
             >
               Cash Adjustments
-              <span className="ml-2 text-xs bg-surface-100 text-surface-600 rounded-full px-2 py-0.5">
+              <span className="ml-2 text-xs bg-[rgba(255,255,255,0.05)] text-[rgba(232,228,220,0.55)] rounded-full px-2 py-0.5">
                 {adjustmentsTotal}
               </span>
             </button>
@@ -332,12 +332,12 @@ export default function CashModulePage() {
               onClick={() => setActiveTab('costs')}
               className={`px-5 py-3 text-sm font-medium border-b-2 transition-all duration-200 rounded-t-md ${
                 activeTab === 'costs'
-                  ? 'border-primary-600 text-primary-700 bg-primary-50/50'
-                  : 'border-transparent text-surface-500 hover:text-surface-700 hover:border-surface-300'
+                  ? 'border-primary-600 text-[#c4a35a] bg-[rgba(196,163,90,0.08)]/50'
+                  : 'border-transparent text-[rgba(232,228,220,0.55)] hover:text-[#e8e4dc] hover:border-[rgba(255,255,255,0.1)]'
               }`}
             >
               Private Cost Entries
-              <span className="ml-2 text-xs bg-surface-100 text-surface-600 rounded-full px-2 py-0.5">
+              <span className="ml-2 text-xs bg-[rgba(255,255,255,0.05)] text-[rgba(232,228,220,0.55)] rounded-full px-2 py-0.5">
                 {costsTotal}
               </span>
             </button>
@@ -353,7 +353,7 @@ export default function CashModulePage() {
             <div className="flex justify-end">
               <button
                 onClick={() => setShowAdjustmentForm(true)}
-                className="inline-flex items-center gap-2 px-4 py-2 bg-primary-600 text-white text-sm font-medium rounded-lg hover:bg-primary-700 transition-colors"
+                className="inline-flex items-center gap-2 px-4 py-2 bg-[#c4a35a] text-white text-sm font-medium rounded-lg hover:bg-[#b3943f] transition-colors"
               >
                 <PlusIcon />
                 New Adjustment
@@ -361,47 +361,47 @@ export default function CashModulePage() {
             </div>
 
             {/* Adjustment Table */}
-            <div className="bg-white rounded-xl border border-surface-200 overflow-hidden">
+            <div className="bg-[rgba(255,255,255,0.03)] rounded-xl border border-[rgba(255,255,255,0.07)] overflow-hidden">
               <div className="overflow-x-auto">
                 <table className="w-full">
                   <thead>
-                    <tr className="bg-surface-50 border-b border-surface-200">
-                      <th className="px-4 py-3 text-left text-xs font-semibold text-surface-500 uppercase tracking-wider">Type</th>
-                      <th className="px-4 py-3 text-left text-xs font-semibold text-surface-500 uppercase tracking-wider">Description</th>
-                      <th className="px-4 py-3 text-right text-xs font-semibold text-surface-500 uppercase tracking-wider">Amount</th>
-                      <th className="px-4 py-3 text-left text-xs font-semibold text-surface-500 uppercase tracking-wider">Reason</th>
-                      <th className="px-4 py-3 text-left text-xs font-semibold text-surface-500 uppercase tracking-wider">Created By</th>
-                      <th className="px-4 py-3 text-left text-xs font-semibold text-surface-500 uppercase tracking-wider">Date</th>
+                    <tr className="bg-[rgba(255,255,255,0.03)] border-b border-[rgba(255,255,255,0.07)]">
+                      <th className="px-4 py-3 text-left text-xs font-semibold text-[rgba(232,228,220,0.55)] uppercase tracking-wider">Type</th>
+                      <th className="px-4 py-3 text-left text-xs font-semibold text-[rgba(232,228,220,0.55)] uppercase tracking-wider">Description</th>
+                      <th className="px-4 py-3 text-right text-xs font-semibold text-[rgba(232,228,220,0.55)] uppercase tracking-wider">Amount</th>
+                      <th className="px-4 py-3 text-left text-xs font-semibold text-[rgba(232,228,220,0.55)] uppercase tracking-wider">Reason</th>
+                      <th className="px-4 py-3 text-left text-xs font-semibold text-[rgba(232,228,220,0.55)] uppercase tracking-wider">Created By</th>
+                      <th className="px-4 py-3 text-left text-xs font-semibold text-[rgba(232,228,220,0.55)] uppercase tracking-wider">Date</th>
                     </tr>
                   </thead>
                   <tbody className="divide-y divide-surface-100">
                     {adjustments.length === 0 ? (
                       <tr>
-                        <td colSpan={6} className="px-4 py-12 text-center text-sm text-surface-400">
+                        <td colSpan={6} className="px-4 py-12 text-center text-sm text-[rgba(232,228,220,0.35)]">
                           No cash adjustments yet. Click &quot;New Adjustment&quot; to add one.
                         </td>
                       </tr>
                     ) : (
                       adjustments.map((adj) => (
-                        <tr key={adj.id} className="hover:bg-surface-50/50 transition-colors">
+                        <tr key={adj.id} className="hover:bg-[rgba(255,255,255,0.05)]/50 transition-colors">
                           <td className="px-4 py-3">
                             <span
                               className={`inline-flex items-center gap-1 px-2.5 py-1 rounded-full text-xs font-semibold ${
                                 adj.type === 'CREDIT'
-                                  ? 'bg-green-50 text-green-700 border border-green-200'
-                                  : 'bg-red-50 text-red-700 border border-red-200'
+                                  ? 'bg-[rgba(50,200,120,0.1)] text-[#5cba80] border border-green-200'
+                                  : 'bg-[rgba(220,80,60,0.1)] text-[#e06050] border border-[rgba(224,96,80,0.3)]'
                               }`}
                             >
                               {adj.type === 'CREDIT' ? '+ Credit' : '- Debit'}
                             </span>
                           </td>
-                          <td className="px-4 py-3 text-sm font-medium text-surface-900">{adj.description}</td>
-                          <td className={`px-4 py-3 text-sm font-semibold text-right ${adj.type === 'CREDIT' ? 'text-green-600' : 'text-red-600'}`}>
+                          <td className="px-4 py-3 text-sm font-medium text-[#e8e4dc]">{adj.description}</td>
+                          <td className={`px-4 py-3 text-sm font-semibold text-right ${adj.type === 'CREDIT' ? 'text-[#5cba80]' : 'text-[#e06050]'}`}>
                             {adj.type === 'CREDIT' ? '+' : '-'}{formatCurrency(adj.amount)}
                           </td>
-                          <td className="px-4 py-3 text-sm text-surface-500">{adj.reason || '-'}</td>
-                          <td className="px-4 py-3 text-sm text-surface-500">{adj.createdBy.name}</td>
-                          <td className="px-4 py-3 text-sm text-surface-400">{formatDateTime(adj.createdAt)}</td>
+                          <td className="px-4 py-3 text-sm text-[rgba(232,228,220,0.55)]">{adj.reason || '-'}</td>
+                          <td className="px-4 py-3 text-sm text-[rgba(232,228,220,0.55)]">{adj.createdBy.name}</td>
+                          <td className="px-4 py-3 text-sm text-[rgba(232,228,220,0.35)]">{formatDateTime(adj.createdAt)}</td>
                         </tr>
                       ))
                     )}
@@ -423,9 +423,9 @@ export default function CashModulePage() {
               {summary && Object.keys(summary.costsByCategory).length > 0 && (
                 <div className="flex gap-2 flex-wrap">
                   {Object.entries(summary.costsByCategory).map(([cat, total]) => (
-                    <span key={cat} className="inline-flex items-center gap-1.5 px-3 py-1 bg-surface-50 border border-surface-200 rounded-full text-xs text-surface-600">
+                    <span key={cat} className="inline-flex items-center gap-1.5 px-3 py-1 bg-[rgba(255,255,255,0.03)] border border-[rgba(255,255,255,0.07)] rounded-full text-xs text-[rgba(232,228,220,0.55)]">
                       <span className="font-medium">{PrivateCostCategoryLabels[cat as keyof typeof PrivateCostCategoryLabels] || cat}</span>
-                      <span className="text-surface-400">{formatCurrency(total)}</span>
+                      <span className="text-[rgba(232,228,220,0.35)]">{formatCurrency(total)}</span>
                     </span>
                   ))}
                 </div>
@@ -433,7 +433,7 @@ export default function CashModulePage() {
               {(!summary || Object.keys(summary.costsByCategory).length === 0) && <div />}
               <button
                 onClick={() => setShowCostForm(true)}
-                className="inline-flex items-center gap-2 px-4 py-2 bg-primary-600 text-white text-sm font-medium rounded-lg hover:bg-primary-700 transition-colors shrink-0"
+                className="inline-flex items-center gap-2 px-4 py-2 bg-[#c4a35a] text-white text-sm font-medium rounded-lg hover:bg-[#b3943f] transition-colors shrink-0"
               >
                 <PlusIcon />
                 New Cost Entry
@@ -441,39 +441,39 @@ export default function CashModulePage() {
             </div>
 
             {/* Costs Table */}
-            <div className="bg-white rounded-xl border border-surface-200 overflow-hidden">
+            <div className="bg-[rgba(255,255,255,0.03)] rounded-xl border border-[rgba(255,255,255,0.07)] overflow-hidden">
               <div className="overflow-x-auto">
                 <table className="w-full">
                   <thead>
-                    <tr className="bg-surface-50 border-b border-surface-200">
-                      <th className="px-4 py-3 text-left text-xs font-semibold text-surface-500 uppercase tracking-wider">Category</th>
-                      <th className="px-4 py-3 text-left text-xs font-semibold text-surface-500 uppercase tracking-wider">Description</th>
-                      <th className="px-4 py-3 text-right text-xs font-semibold text-surface-500 uppercase tracking-wider">Amount</th>
-                      <th className="px-4 py-3 text-left text-xs font-semibold text-surface-500 uppercase tracking-wider">Vendor</th>
-                      <th className="px-4 py-3 text-left text-xs font-semibold text-surface-500 uppercase tracking-wider">Incurred</th>
-                      <th className="px-4 py-3 text-left text-xs font-semibold text-surface-500 uppercase tracking-wider">Notes</th>
+                    <tr className="bg-[rgba(255,255,255,0.03)] border-b border-[rgba(255,255,255,0.07)]">
+                      <th className="px-4 py-3 text-left text-xs font-semibold text-[rgba(232,228,220,0.55)] uppercase tracking-wider">Category</th>
+                      <th className="px-4 py-3 text-left text-xs font-semibold text-[rgba(232,228,220,0.55)] uppercase tracking-wider">Description</th>
+                      <th className="px-4 py-3 text-right text-xs font-semibold text-[rgba(232,228,220,0.55)] uppercase tracking-wider">Amount</th>
+                      <th className="px-4 py-3 text-left text-xs font-semibold text-[rgba(232,228,220,0.55)] uppercase tracking-wider">Vendor</th>
+                      <th className="px-4 py-3 text-left text-xs font-semibold text-[rgba(232,228,220,0.55)] uppercase tracking-wider">Incurred</th>
+                      <th className="px-4 py-3 text-left text-xs font-semibold text-[rgba(232,228,220,0.55)] uppercase tracking-wider">Notes</th>
                     </tr>
                   </thead>
                   <tbody className="divide-y divide-surface-100">
                     {costs.length === 0 ? (
                       <tr>
-                        <td colSpan={6} className="px-4 py-12 text-center text-sm text-surface-400">
+                        <td colSpan={6} className="px-4 py-12 text-center text-sm text-[rgba(232,228,220,0.35)]">
                           No private cost entries yet. Click &quot;New Cost Entry&quot; to add one.
                         </td>
                       </tr>
                     ) : (
                       costs.map((cost) => (
-                        <tr key={cost.id} className="hover:bg-surface-50/50 transition-colors">
+                        <tr key={cost.id} className="hover:bg-[rgba(255,255,255,0.05)]/50 transition-colors">
                           <td className="px-4 py-3">
-                            <span className="inline-flex items-center px-2.5 py-1 bg-surface-50 border border-surface-200 rounded-full text-xs font-medium text-surface-700">
+                            <span className="inline-flex items-center px-2.5 py-1 bg-[rgba(255,255,255,0.03)] border border-[rgba(255,255,255,0.07)] rounded-full text-xs font-medium text-[#e8e4dc]">
                               {PrivateCostCategoryLabels[cost.category as keyof typeof PrivateCostCategoryLabels] || cost.category}
                             </span>
                           </td>
-                          <td className="px-4 py-3 text-sm font-medium text-surface-900">{cost.description}</td>
-                          <td className="px-4 py-3 text-sm font-semibold text-right text-surface-900">{formatCurrency(cost.amount)}</td>
-                          <td className="px-4 py-3 text-sm text-surface-500">{cost.vendor || '-'}</td>
-                          <td className="px-4 py-3 text-sm text-surface-400">{cost.incurredAt ? formatDate(cost.incurredAt) : '-'}</td>
-                          <td className="px-4 py-3 text-sm text-surface-400 max-w-[200px] truncate">{cost.notes || '-'}</td>
+                          <td className="px-4 py-3 text-sm font-medium text-[#e8e4dc]">{cost.description}</td>
+                          <td className="px-4 py-3 text-sm font-semibold text-right text-[#e8e4dc]">{formatCurrency(cost.amount)}</td>
+                          <td className="px-4 py-3 text-sm text-[rgba(232,228,220,0.55)]">{cost.vendor || '-'}</td>
+                          <td className="px-4 py-3 text-sm text-[rgba(232,228,220,0.35)]">{cost.incurredAt ? formatDate(cost.incurredAt) : '-'}</td>
+                          <td className="px-4 py-3 text-sm text-[rgba(232,228,220,0.35)] max-w-[200px] truncate">{cost.notes || '-'}</td>
                         </tr>
                       ))
                     )}
@@ -490,24 +490,24 @@ export default function CashModulePage() {
           ═══════════════════════════════════════════════════════════════════ */}
       {showAdjustmentForm && (
         <div className="fixed inset-0 bg-black/40 backdrop-blur-sm flex items-center justify-center z-50">
-          <div className="bg-white rounded-2xl shadow-xl max-w-md w-full mx-4 animate-fade-in">
-            <div className="px-6 py-5 border-b border-surface-100">
-              <h2 className="text-lg font-semibold text-surface-900">New Cash Adjustment</h2>
-              <p className="text-sm text-surface-400 mt-0.5">Record a credit or debit to your cash ledger</p>
+          <div className="bg-[rgba(255,255,255,0.03)] rounded-2xl shadow-none max-w-md w-full mx-4 animate-fade-in">
+            <div className="px-6 py-5 border-b border-[rgba(255,255,255,0.07)]">
+              <h2 className="text-lg font-semibold text-[#e8e4dc]">New Cash Adjustment</h2>
+              <p className="text-sm text-[rgba(232,228,220,0.35)] mt-0.5">Record a credit or debit to your cash ledger</p>
             </div>
 
             <div className="p-6 space-y-4">
               {/* Type toggle */}
               <div>
-                <label className="block text-sm font-medium text-surface-700 mb-2">Type</label>
+                <label className="block text-sm font-medium text-[#e8e4dc] mb-2">Type</label>
                 <div className="flex gap-2">
                   <button
                     type="button"
                     onClick={() => setAdjType('CREDIT')}
                     className={`flex-1 py-2.5 rounded-lg text-sm font-medium border-2 transition-all ${
                       adjType === 'CREDIT'
-                        ? 'border-green-500 bg-green-50 text-green-700'
-                        : 'border-surface-200 bg-white text-surface-500 hover:border-surface-300'
+                        ? 'border-green-500 bg-[rgba(50,200,120,0.1)] text-[#5cba80]'
+                        : 'border-[rgba(255,255,255,0.07)] bg-[rgba(255,255,255,0.03)] text-[rgba(232,228,220,0.55)] hover:border-[rgba(255,255,255,0.1)]'
                     }`}
                   >
                     + Credit
@@ -517,8 +517,8 @@ export default function CashModulePage() {
                     onClick={() => setAdjType('DEBIT')}
                     className={`flex-1 py-2.5 rounded-lg text-sm font-medium border-2 transition-all ${
                       adjType === 'DEBIT'
-                        ? 'border-red-500 bg-red-50 text-red-700'
-                        : 'border-surface-200 bg-white text-surface-500 hover:border-surface-300'
+                        ? 'border-[rgba(224,96,80,0.5)] bg-[rgba(220,80,60,0.1)] text-[#e06050]'
+                        : 'border-[rgba(255,255,255,0.07)] bg-[rgba(255,255,255,0.03)] text-[rgba(232,228,220,0.55)] hover:border-[rgba(255,255,255,0.1)]'
                     }`}
                   >
                     - Debit
@@ -527,10 +527,10 @@ export default function CashModulePage() {
               </div>
 
               <div>
-                <label className="block text-sm font-medium text-surface-700 mb-1">Description *</label>
+                <label className="block text-sm font-medium text-[#e8e4dc] mb-1">Description *</label>
                 <input
                   type="text"
-                  className="w-full px-3 py-2.5 border border-surface-300 rounded-lg text-sm focus:outline-none focus:ring-2 focus:ring-primary-500/20 focus:border-primary-500"
+                  className="w-full px-3 py-2.5 border border-[rgba(255,255,255,0.1)] rounded-lg text-sm focus:outline-none focus:ring-2 focus:ring-[rgba(196,163,90,0.3)]/20 focus:border-[#c4a35a]"
                   value={adjDescription}
                   onChange={(e) => setAdjDescription(e.target.value)}
                   placeholder="e.g., Client payment received"
@@ -538,12 +538,12 @@ export default function CashModulePage() {
               </div>
 
               <div>
-                <label className="block text-sm font-medium text-surface-700 mb-1">Amount *</label>
+                <label className="block text-sm font-medium text-[#e8e4dc] mb-1">Amount *</label>
                 <input
                   type="number"
                   min="0"
                   step="0.01"
-                  className="w-full px-3 py-2.5 border border-surface-300 rounded-lg text-sm focus:outline-none focus:ring-2 focus:ring-primary-500/20 focus:border-primary-500"
+                  className="w-full px-3 py-2.5 border border-[rgba(255,255,255,0.1)] rounded-lg text-sm focus:outline-none focus:ring-2 focus:ring-[rgba(196,163,90,0.3)]/20 focus:border-[#c4a35a]"
                   value={adjAmount}
                   onChange={(e) => setAdjAmount(e.target.value)}
                   placeholder="0.00"
@@ -551,9 +551,9 @@ export default function CashModulePage() {
               </div>
 
               <div>
-                <label className="block text-sm font-medium text-surface-700 mb-1">Reason (optional)</label>
+                <label className="block text-sm font-medium text-[#e8e4dc] mb-1">Reason (optional)</label>
                 <textarea
-                  className="w-full px-3 py-2.5 border border-surface-300 rounded-lg text-sm focus:outline-none focus:ring-2 focus:ring-primary-500/20 focus:border-primary-500"
+                  className="w-full px-3 py-2.5 border border-[rgba(255,255,255,0.1)] rounded-lg text-sm focus:outline-none focus:ring-2 focus:ring-[rgba(196,163,90,0.3)]/20 focus:border-[#c4a35a]"
                   rows={2}
                   value={adjReason}
                   onChange={(e) => setAdjReason(e.target.value)}
@@ -562,7 +562,7 @@ export default function CashModulePage() {
               </div>
             </div>
 
-            <div className="px-6 py-4 border-t border-surface-100 flex justify-end gap-3">
+            <div className="px-6 py-4 border-t border-[rgba(255,255,255,0.07)] flex justify-end gap-3">
               <button
                 onClick={() => {
                   setShowAdjustmentForm(false);
@@ -570,14 +570,14 @@ export default function CashModulePage() {
                   setAdjAmount('');
                   setAdjReason('');
                 }}
-                className="px-4 py-2 text-sm font-medium text-surface-600 hover:text-surface-800 transition-colors"
+                className="px-4 py-2 text-sm font-medium text-[rgba(232,228,220,0.55)] hover:text-[#e8e4dc] transition-colors"
               >
                 Cancel
               </button>
               <button
                 onClick={handleCreateAdjustment}
                 disabled={submitting}
-                className="px-5 py-2 bg-primary-600 text-white text-sm font-medium rounded-lg hover:bg-primary-700 disabled:opacity-50 transition-colors"
+                className="px-5 py-2 bg-[#c4a35a] text-white text-sm font-medium rounded-lg hover:bg-[#b3943f] disabled:opacity-50 transition-colors"
               >
                 {submitting ? 'Saving...' : 'Save Adjustment'}
               </button>
@@ -591,17 +591,17 @@ export default function CashModulePage() {
           ═══════════════════════════════════════════════════════════════════ */}
       {showCostForm && (
         <div className="fixed inset-0 bg-black/40 backdrop-blur-sm flex items-center justify-center z-50">
-          <div className="bg-white rounded-2xl shadow-xl max-w-md w-full mx-4 animate-fade-in">
-            <div className="px-6 py-5 border-b border-surface-100">
-              <h2 className="text-lg font-semibold text-surface-900">New Private Cost Entry</h2>
-              <p className="text-sm text-surface-400 mt-0.5">Track an internal cost not visible to others</p>
+          <div className="bg-[rgba(255,255,255,0.03)] rounded-2xl shadow-none max-w-md w-full mx-4 animate-fade-in">
+            <div className="px-6 py-5 border-b border-[rgba(255,255,255,0.07)]">
+              <h2 className="text-lg font-semibold text-[#e8e4dc]">New Private Cost Entry</h2>
+              <p className="text-sm text-[rgba(232,228,220,0.35)] mt-0.5">Track an internal cost not visible to others</p>
             </div>
 
             <div className="p-6 space-y-4">
               <div>
-                <label className="block text-sm font-medium text-surface-700 mb-1">Category *</label>
+                <label className="block text-sm font-medium text-[#e8e4dc] mb-1">Category *</label>
                 <select
-                  className="w-full px-3 py-2.5 border border-surface-300 rounded-lg text-sm focus:outline-none focus:ring-2 focus:ring-primary-500/20 focus:border-primary-500 bg-white"
+                  className="w-full px-3 py-2.5 border border-[rgba(255,255,255,0.1)] rounded-lg text-sm focus:outline-none focus:ring-2 focus:ring-[rgba(196,163,90,0.3)]/20 focus:border-[#c4a35a] bg-[rgba(255,255,255,0.03)]"
                   value={costCategory}
                   onChange={(e) => setCostCategory(e.target.value)}
                 >
@@ -612,10 +612,10 @@ export default function CashModulePage() {
               </div>
 
               <div>
-                <label className="block text-sm font-medium text-surface-700 mb-1">Description *</label>
+                <label className="block text-sm font-medium text-[#e8e4dc] mb-1">Description *</label>
                 <input
                   type="text"
-                  className="w-full px-3 py-2.5 border border-surface-300 rounded-lg text-sm focus:outline-none focus:ring-2 focus:ring-primary-500/20 focus:border-primary-500"
+                  className="w-full px-3 py-2.5 border border-[rgba(255,255,255,0.1)] rounded-lg text-sm focus:outline-none focus:ring-2 focus:ring-[rgba(196,163,90,0.3)]/20 focus:border-[#c4a35a]"
                   value={costDescription}
                   onChange={(e) => setCostDescription(e.target.value)}
                   placeholder="e.g., Rebar purchase for foundation"
@@ -623,12 +623,12 @@ export default function CashModulePage() {
               </div>
 
               <div>
-                <label className="block text-sm font-medium text-surface-700 mb-1">Amount *</label>
+                <label className="block text-sm font-medium text-[#e8e4dc] mb-1">Amount *</label>
                 <input
                   type="number"
                   min="0"
                   step="0.01"
-                  className="w-full px-3 py-2.5 border border-surface-300 rounded-lg text-sm focus:outline-none focus:ring-2 focus:ring-primary-500/20 focus:border-primary-500"
+                  className="w-full px-3 py-2.5 border border-[rgba(255,255,255,0.1)] rounded-lg text-sm focus:outline-none focus:ring-2 focus:ring-[rgba(196,163,90,0.3)]/20 focus:border-[#c4a35a]"
                   value={costAmount}
                   onChange={(e) => setCostAmount(e.target.value)}
                   placeholder="0.00"
@@ -636,10 +636,10 @@ export default function CashModulePage() {
               </div>
 
               <div>
-                <label className="block text-sm font-medium text-surface-700 mb-1">Vendor (optional)</label>
+                <label className="block text-sm font-medium text-[#e8e4dc] mb-1">Vendor (optional)</label>
                 <input
                   type="text"
-                  className="w-full px-3 py-2.5 border border-surface-300 rounded-lg text-sm focus:outline-none focus:ring-2 focus:ring-primary-500/20 focus:border-primary-500"
+                  className="w-full px-3 py-2.5 border border-[rgba(255,255,255,0.1)] rounded-lg text-sm focus:outline-none focus:ring-2 focus:ring-[rgba(196,163,90,0.3)]/20 focus:border-[#c4a35a]"
                   value={costVendor}
                   onChange={(e) => setCostVendor(e.target.value)}
                   placeholder="e.g., ABC Supplies"
@@ -647,19 +647,19 @@ export default function CashModulePage() {
               </div>
 
               <div>
-                <label className="block text-sm font-medium text-surface-700 mb-1">Date Incurred (optional)</label>
+                <label className="block text-sm font-medium text-[#e8e4dc] mb-1">Date Incurred (optional)</label>
                 <input
                   type="date"
-                  className="w-full px-3 py-2.5 border border-surface-300 rounded-lg text-sm focus:outline-none focus:ring-2 focus:ring-primary-500/20 focus:border-primary-500"
+                  className="w-full px-3 py-2.5 border border-[rgba(255,255,255,0.1)] rounded-lg text-sm focus:outline-none focus:ring-2 focus:ring-[rgba(196,163,90,0.3)]/20 focus:border-[#c4a35a]"
                   value={costIncurredAt}
                   onChange={(e) => setCostIncurredAt(e.target.value)}
                 />
               </div>
 
               <div>
-                <label className="block text-sm font-medium text-surface-700 mb-1">Notes (optional)</label>
+                <label className="block text-sm font-medium text-[#e8e4dc] mb-1">Notes (optional)</label>
                 <textarea
-                  className="w-full px-3 py-2.5 border border-surface-300 rounded-lg text-sm focus:outline-none focus:ring-2 focus:ring-primary-500/20 focus:border-primary-500"
+                  className="w-full px-3 py-2.5 border border-[rgba(255,255,255,0.1)] rounded-lg text-sm focus:outline-none focus:ring-2 focus:ring-[rgba(196,163,90,0.3)]/20 focus:border-[#c4a35a]"
                   rows={2}
                   value={costNotes}
                   onChange={(e) => setCostNotes(e.target.value)}
@@ -668,7 +668,7 @@ export default function CashModulePage() {
               </div>
             </div>
 
-            <div className="px-6 py-4 border-t border-surface-100 flex justify-end gap-3">
+            <div className="px-6 py-4 border-t border-[rgba(255,255,255,0.07)] flex justify-end gap-3">
               <button
                 onClick={() => {
                   setShowCostForm(false);
@@ -679,14 +679,14 @@ export default function CashModulePage() {
                   setCostNotes('');
                   setCostIncurredAt('');
                 }}
-                className="px-4 py-2 text-sm font-medium text-surface-600 hover:text-surface-800 transition-colors"
+                className="px-4 py-2 text-sm font-medium text-[rgba(232,228,220,0.55)] hover:text-[#e8e4dc] transition-colors"
               >
                 Cancel
               </button>
               <button
                 onClick={handleCreateCost}
                 disabled={submitting}
-                className="px-5 py-2 bg-primary-600 text-white text-sm font-medium rounded-lg hover:bg-primary-700 disabled:opacity-50 transition-colors"
+                className="px-5 py-2 bg-[#c4a35a] text-white text-sm font-medium rounded-lg hover:bg-[#b3943f] disabled:opacity-50 transition-colors"
               >
                 {submitting ? 'Saving...' : 'Save Cost Entry'}
               </button>

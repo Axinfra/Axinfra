@@ -18,11 +18,11 @@ export default function HealthGauge({ score, label, size = 'md' }: HealthGaugePr
 
   // Color based on score
   const getColor = (s: number) => {
-    if (s >= 90) return { stroke: '#12B76A', glow: 'rgba(18, 183, 106, 0.3)', text: 'text-success-600' };
-    if (s >= 80) return { stroke: '#12B76A', glow: 'rgba(18, 183, 106, 0.2)', text: 'text-success-600' };
-    if (s >= 60) return { stroke: '#F79009', glow: 'rgba(247, 144, 9, 0.25)', text: 'text-warning-600' };
-    if (s >= 40) return { stroke: '#F79009', glow: 'rgba(247, 144, 9, 0.2)', text: 'text-warning-600' };
-    return { stroke: '#F04438', glow: 'rgba(240, 68, 56, 0.3)', text: 'text-danger-600' };
+    if (s >= 90) return { stroke: '#12B76A', glow: 'rgba(18, 183, 106, 0.3)', text: 'text-[#5cba80]' };
+    if (s >= 80) return { stroke: '#12B76A', glow: 'rgba(18, 183, 106, 0.2)', text: 'text-[#5cba80]' };
+    if (s >= 60) return { stroke: '#F79009', glow: 'rgba(247, 144, 9, 0.25)', text: 'text-[#c4a35a]' };
+    if (s >= 40) return { stroke: '#F79009', glow: 'rgba(247, 144, 9, 0.2)', text: 'text-[#c4a35a]' };
+    return { stroke: '#F04438', glow: 'rgba(240, 68, 56, 0.3)', text: 'text-[#e06050]' };
   };
 
   const color = getColor(score);
@@ -46,7 +46,7 @@ export default function HealthGauge({ score, label, size = 'md' }: HealthGaugePr
         <path
           d={describeArc(cx, cy, radius, 180, 360)}
           fill="none"
-          stroke="#E5E7EB"
+          stroke="rgba(255,255,255,0.1)"
           strokeWidth={strokeWidth}
           strokeLinecap="round"
         />
@@ -89,7 +89,7 @@ export default function HealthGauge({ score, label, size = 'md' }: HealthGaugePr
           y={cy + (size === 'sm' ? 14 : 18)}
           textAnchor="middle"
           className={`${labelSize} font-medium`}
-          fill="#667085"
+          fill="rgba(232,228,220,0.45)"
         >
           {label}
         </text>

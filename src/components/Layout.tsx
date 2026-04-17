@@ -66,35 +66,35 @@ export default function Layout({ children }: LayoutProps) {
     ];
 
   return (
-    <div className="min-h-screen bg-surface-50 flex">
+    <div className="min-h-screen bg-[#0a0c10] flex">
       {/* Mobile sidebar overlay */}
       {sidebarOpen && (
         <div
-          className="fixed inset-0 bg-black/30 z-40 lg:hidden animate-fade-in"
+          className="fixed inset-0 bg-black/60 z-40 lg:hidden animate-fade-in"
           onClick={() => setSidebarOpen(false)}
         />
       )}
 
       {/* Sidebar */}
       <aside
-        className={`fixed inset-y-0 left-0 z-50 w-[260px] bg-white border-r border-surface-200 flex flex-col
+        className={`fixed inset-y-0 left-0 z-50 w-[260px] bg-[#0d0f13] border-r border-[rgba(255,255,255,0.07)] flex flex-col
           transition-transform duration-200 ease-out
           lg:translate-x-0 lg:static lg:z-auto
           ${sidebarOpen ? 'translate-x-0' : '-translate-x-full'}`}
       >
         {/* Logo */}
-        <div className="h-14 flex items-center px-5 border-b border-surface-100 shrink-0">
+        <div className="h-14 flex items-center px-5 border-b border-[rgba(255,255,255,0.07)] shrink-0">
           <Link href="/projects" className="flex items-center gap-2.5" onClick={() => setSidebarOpen(false)}>
-            <div className="w-7 h-7 rounded-lg bg-primary-600 flex items-center justify-center shadow-xs">
-              <span className="text-white text-[10px] font-bold tracking-tight">AX</span>
+            <div className="w-7 h-7 rounded-md flex items-center justify-center" style={{ background: 'linear-gradient(135deg, #c4a35a 0%, #a8893e 100%)' }}>
+              <span className="text-[#0a0c10] text-[10px] font-bold tracking-tight font-display">A</span>
             </div>
-            <span className="text-[15px] font-semibold text-surface-900 tracking-tight">Axinfra</span>
+            <span className="text-[15px] font-semibold text-[#e8e4dc] tracking-tight">Axinfra</span>
           </Link>
         </div>
 
         {/* Navigation */}
         <nav className="flex-1 px-3 py-3 overflow-y-auto scrollbar-thin">
-          <p className="px-3 mb-2 text-[11px] font-medium text-surface-400 uppercase tracking-wider">Menu</p>
+          <p className="px-3 mb-2 text-[10px] font-medium text-[rgba(232,228,220,0.35)] uppercase tracking-wider">Menu</p>
           <div className="space-y-0.5">
             {navItems.map((item) => {
               const isActive = pathname === item.href || pathname.startsWith(item.href + '/');
@@ -105,8 +105,8 @@ export default function Layout({ children }: LayoutProps) {
                   onClick={() => setSidebarOpen(false)}
                   className={`flex items-center gap-2.5 px-3 py-2 rounded-lg text-[13px] font-medium transition-colors duration-100
                     ${isActive
-                      ? 'bg-primary-50 text-primary-700'
-                      : 'text-surface-600 hover:bg-surface-50 hover:text-surface-800'
+                      ? 'bg-[rgba(196,163,90,0.08)] text-[#c4a35a] border-l-2 border-[#c4a35a]'
+                      : 'text-[rgba(232,228,220,0.5)] hover:bg-[rgba(255,255,255,0.05)] hover:text-[#e8e4dc]'
                     }`}
                 >
                   <item.icon className="w-[18px] h-[18px] shrink-0" />
@@ -119,7 +119,7 @@ export default function Layout({ children }: LayoutProps) {
           {/* My Milestones – vendor projects grouped by name */}
           {isVendorOnly && vendorProjects.length > 0 && (
             <>
-              <p className="px-3 mt-5 mb-2 text-[11px] font-medium text-surface-400 uppercase tracking-wider">My Milestones</p>
+              <p className="px-3 mt-5 mb-2 text-[10px] font-medium text-[rgba(232,228,220,0.35)] uppercase tracking-wider">My Milestones</p>
               <div className="space-y-0.5">
                 {vendorProjects.map((vp) => {
                   const milestoneHref = `/projects/${vp.projectId}/milestones`;
@@ -131,8 +131,8 @@ export default function Layout({ children }: LayoutProps) {
                       onClick={() => setSidebarOpen(false)}
                       className={`flex items-center gap-2.5 px-3 py-2 rounded-lg text-[13px] font-medium transition-colors duration-100
                         ${isActive
-                          ? 'bg-primary-50 text-primary-700'
-                          : 'text-surface-600 hover:bg-surface-50 hover:text-surface-800'
+                          ? 'bg-[rgba(196,163,90,0.08)] text-[#c4a35a] border-l-2 border-[#c4a35a]'
+                          : 'text-[rgba(232,228,220,0.5)] hover:bg-[rgba(255,255,255,0.05)] hover:text-[#e8e4dc]'
                         }`}
                     >
                       <FlagIcon className="w-[18px] h-[18px] shrink-0" />
@@ -147,20 +147,20 @@ export default function Layout({ children }: LayoutProps) {
 
         {/* User section */}
         {user && (
-          <div className="border-t border-surface-100 px-3 py-3 shrink-0">
+          <div className="border-t border-[rgba(255,255,255,0.07)] px-3 py-3 shrink-0">
             <div className="flex items-center gap-2.5 px-2">
-              <div className="w-8 h-8 rounded-full bg-primary-50 flex items-center justify-center shrink-0">
-                <span className="text-[11px] font-semibold text-primary-700">
+              <div className="w-8 h-8 rounded-full bg-[rgba(196,163,90,0.12)] flex items-center justify-center shrink-0">
+                <span className="text-[11px] font-semibold text-[#c4a35a]">
                   {user.name.split(' ').map(n => n[0]).join('').toUpperCase()}
                 </span>
               </div>
               <div className="flex-1 min-w-0">
-                <p className="text-[13px] font-medium text-surface-900 truncate">{user.name}</p>
-                <p className="text-[11px] text-surface-400 truncate">{user.email}</p>
+                <p className="text-[13px] font-medium text-[#e8e4dc] truncate">{user.name}</p>
+                <p className="text-[11px] text-[rgba(232,228,220,0.35)] truncate">{user.email}</p>
               </div>
               <button
                 onClick={handleLogout}
-                className="p-1.5 rounded-md text-surface-400 hover:text-danger-600 hover:bg-danger-50 transition-colors"
+                className="p-1.5 rounded-md text-[rgba(232,228,220,0.35)] hover:text-[#e06050] hover:bg-[rgba(220,80,60,0.1)] transition-colors"
                 title="Sign out"
                 aria-label="Sign out"
               >
@@ -174,10 +174,10 @@ export default function Layout({ children }: LayoutProps) {
       {/* Main content area */}
       <div className="flex-1 flex flex-col min-w-0">
         {/* Top bar */}
-        <header className="h-14 bg-white/80 backdrop-blur-sm border-b border-surface-200 flex items-center px-4 lg:px-6 shrink-0 sticky top-0 z-30">
+        <header className="h-14 bg-[#0a0c10]/80 backdrop-blur-sm border-b border-[rgba(255,255,255,0.07)] flex items-center px-4 lg:px-6 shrink-0 sticky top-0 z-30">
           <button
             onClick={() => setSidebarOpen(true)}
-            className="p-2 -ml-2 rounded-lg text-surface-500 hover:bg-surface-100 lg:hidden mr-2"
+            className="p-2 -ml-2 rounded-lg text-[rgba(232,228,220,0.5)] hover:bg-[rgba(255,255,255,0.05)] lg:hidden mr-2"
             aria-label="Open menu"
           >
             <MenuIcon className="w-5 h-5" />
@@ -185,10 +185,10 @@ export default function Layout({ children }: LayoutProps) {
 
           {/* Mobile logo */}
           <div className="lg:hidden flex items-center gap-2 mr-auto">
-            <div className="w-6 h-6 rounded-md bg-primary-600 flex items-center justify-center">
-              <span className="text-white text-[9px] font-bold">AX</span>
+            <div className="w-6 h-6 rounded-md flex items-center justify-center" style={{ background: 'linear-gradient(135deg, #c4a35a 0%, #a8893e 100%)' }}>
+              <span className="text-[#0a0c10] text-[9px] font-bold font-display">A</span>
             </div>
-            <span className="text-sm font-semibold text-surface-900">Axinfra</span>
+            <span className="text-sm font-semibold text-[#e8e4dc]">Axinfra</span>
           </div>
 
           <div className="hidden lg:block flex-1" />
@@ -196,7 +196,7 @@ export default function Layout({ children }: LayoutProps) {
           {/* Right side */}
           <div className="flex items-center gap-3">
             {user && (
-              <span className="text-[13px] text-surface-500 hidden sm:block">{user.name}</span>
+              <span className="text-[13px] text-[rgba(232,228,220,0.55)] hidden sm:block">{user.name}</span>
             )}
           </div>
         </header>

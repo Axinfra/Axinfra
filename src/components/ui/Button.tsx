@@ -5,19 +5,19 @@ import { cva, type VariantProps } from "class-variance-authority"
 import { cn } from "@/lib/utils"
 
 const buttonVariants = cva(
-    "inline-flex items-center justify-center whitespace-nowrap rounded-[10px] text-sm font-medium ring-offset-white transition-all focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-primary-500/30 focus-visible:ring-offset-1 disabled:pointer-events-none disabled:opacity-50 active:scale-[0.98]",
+    "inline-flex items-center justify-center whitespace-nowrap rounded-lg text-sm font-medium transition-all focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-[rgba(196,163,90,0.3)] disabled:pointer-events-none disabled:opacity-50 active:scale-[0.98]",
     {
         variants: {
             variant: {
-                default: "bg-primary-600 text-white hover:bg-primary-700 shadow-sm shadow-primary-500/20 border border-transparent",
+                default: "bg-[#c4a35a] text-[#0a0c10] hover:bg-[#b3943f] font-semibold border border-transparent",
                 destructive:
-                    "bg-danger-600 text-white hover:bg-danger-700 shadow-sm shadow-danger-500/20 border border-transparent",
+                    "bg-[#e06050] text-white hover:bg-[#c8503f] border border-transparent",
                 outline:
-                    "border border-surface-300 bg-white hover:bg-surface-50 hover:text-surface-900 text-surface-700 shadow-xs",
+                    "border border-[rgba(255,255,255,0.12)] bg-transparent hover:bg-[rgba(255,255,255,0.05)] text-[#e8e4dc]",
                 secondary:
-                    "bg-surface-100 text-surface-900 hover:bg-surface-200 border border-transparent",
-                ghost: "hover:bg-surface-100 hover:text-surface-900 text-surface-600",
-                link: "text-primary-600 underline-offset-4 hover:underline",
+                    "bg-[rgba(255,255,255,0.05)] text-[#e8e4dc] hover:bg-[rgba(255,255,255,0.08)] border border-[rgba(255,255,255,0.07)]",
+                ghost: "hover:bg-[rgba(255,255,255,0.05)] text-[rgba(232,228,220,0.55)] hover:text-[#e8e4dc]",
+                link: "text-[#c4a35a] underline-offset-4 hover:underline",
             },
             size: {
                 default: "h-10 px-4 py-2",
@@ -41,11 +41,6 @@ export interface ButtonProps
 
 const Button = React.forwardRef<HTMLButtonElement, ButtonProps>(
     ({ className, variant, size, asChild = false, ...props }, ref) => {
-        // Basic implementation without Radix Slot if package not available, but user plan implied typical shadcn structure. 
-        // To be safe, I'll avoid Slot if Radix isn't strictly requested, but "Stripe-like" often implies generic flexibility.
-        // I'll stick to simple button for now unless I install @radix-ui/react-slot.
-        // The previous plan didn't explicitly ask for Radix. I will use standard button.
-
         return (
             <button
                 className={cn(buttonVariants({ variant, size, className }))}

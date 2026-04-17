@@ -49,11 +49,11 @@ export default function CustomViewBoard({ groups, projectId, viewName }: CustomV
   return (
     <div className="space-y-4">
       {/* Read-only warning banner */}
-      <div className="bg-blue-50 border border-blue-200 rounded-lg p-3">
+      <div className="bg-[rgba(196,163,90,0.08)] border border-[rgba(196,163,90,0.15)] rounded-lg p-3">
         <div className="flex items-center justify-between">
           <div className="flex items-center space-x-2">
             <svg
-              className="w-5 h-5 text-blue-500"
+              className="w-5 h-5 text-[#c4a35a]"
               fill="none"
               stroke="currentColor"
               viewBox="0 0 24 24"
@@ -65,11 +65,11 @@ export default function CustomViewBoard({ groups, projectId, viewName }: CustomV
                 d="M13 16h-1v-4h-1m1-4h.01M21 12a9 9 0 11-18 0 9 9 0 0118 0z"
               />
             </svg>
-            <span className="text-sm text-blue-700">
+            <span className="text-sm text-[#c4a35a]">
               <strong>Read-only View</strong> – Axinfra state enforced. State changes must be done via the main board.
             </span>
           </div>
-          <div className="text-sm text-blue-600">
+          <div className="text-sm text-[rgba(232,228,220,0.55)]">
             {totalMilestones} milestone{totalMilestones !== 1 ? 's' : ''} • {formatCurrency(totalValue)} total
           </div>
         </div>
@@ -77,7 +77,7 @@ export default function CustomViewBoard({ groups, projectId, viewName }: CustomV
 
       {/* Board columns */}
       {groups.length === 0 ? (
-        <div className="text-center py-12 text-gray-500">
+        <div className="text-center py-12 text-[rgba(232,228,220,0.55)]">
           No milestones match the current filters.
         </div>
       ) : groups.length === 1 && groups[0].groupKey === 'all' ? (
@@ -93,27 +93,27 @@ export default function CustomViewBoard({ groups, projectId, viewName }: CustomV
         </div>
       ) : (
         // Grouped Kanban-style view
-        <div className="flex gap-4 overflow-x-auto pb-4">
+        <div className="flex gap-4 overflow-x-auto pb-4 scrollbar-thin">
           {groups.map((group) => (
             <div
               key={group.groupKey}
-              className="flex-shrink-0 w-80 bg-gray-50 rounded-lg"
+              className="flex-shrink-0 w-80 bg-[rgba(255,255,255,0.03)] border border-[rgba(255,255,255,0.07)] rounded-lg"
             >
               {/* Column Header */}
-              <div className="p-3 border-b border-gray-200 bg-gray-100 rounded-t-lg">
+              <div className="p-3 border-b border-[rgba(255,255,255,0.07)] bg-[rgba(255,255,255,0.04)] rounded-t-lg">
                 <div className="flex justify-between items-center">
-                  <h3 className="font-semibold text-gray-700">{group.groupLabel}</h3>
-                  <span className="text-sm text-gray-500">{group.count}</span>
+                  <h3 className="font-semibold text-[#e8e4dc]">{group.groupLabel}</h3>
+                  <span className="text-sm text-[rgba(232,228,220,0.55)]">{group.count}</span>
                 </div>
-                <div className="text-xs text-gray-500 mt-1">
+                <div className="text-xs text-[rgba(232,228,220,0.35)] mt-1">
                   {formatCurrency(group.totalValue)}
                 </div>
               </div>
 
               {/* Column Content - NO DRAG & DROP */}
-              <div className="p-2 space-y-2 max-h-[calc(100vh-300px)] overflow-y-auto">
+              <div className="p-2 space-y-2 max-h-[calc(100vh-300px)] overflow-y-auto scrollbar-thin">
                 {group.milestones.length === 0 ? (
-                  <div className="text-center py-8 text-gray-400 text-sm">
+                  <div className="text-center py-8 text-[rgba(232,228,220,0.35)] text-sm">
                     No milestones
                   </div>
                 ) : (

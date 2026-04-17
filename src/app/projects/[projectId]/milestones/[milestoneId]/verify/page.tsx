@@ -145,24 +145,24 @@ export default function VerifyMilestonePage() {
       <Navbar projectId={projectId} projectName={projectName} role={myRole} />
 
       <div className="max-w-2xl mx-auto">
-        <h1 className="text-2xl font-bold text-gray-900 mb-2">Verify Milestone</h1>
-        <p className="text-gray-600 mb-6">{milestone.title}</p>
+        <h1 className="text-2xl font-bold text-[#e8e4dc] mb-2">Verify Milestone</h1>
+        <p className="text-[rgba(232,228,220,0.55)] mb-6">{milestone.title}</p>
 
         {error && <div className="alert alert-error mb-4">{error}</div>}
 
         {/* Show BOQ table for BOQ-linked milestones, or Extra info */}
         {isExtra ? (
-          <div className="card mb-6 bg-orange-50 border-orange-200">
+          <div className="card mb-6 bg-[rgba(196,163,90,0.08)] border-[rgba(196,163,90,0.15)]">
             <div className="card-header">
               <h2 className="text-lg font-semibold text-orange-800">Extra (Outside BOQ)</h2>
             </div>
             <div className="card-body">
-              <p className="text-orange-700 mb-2">
+              <p className="text-[#c4a35a] mb-2">
                 This milestone is outside the approved BOQ.
               </p>
-              <div className="bg-white rounded-lg p-4 border border-orange-200">
-                <p className="text-sm text-gray-600">Milestone Value</p>
-                <p className="text-2xl font-bold text-orange-700">{formatCurrency(milestone.value)}</p>
+              <div className="bg-[rgba(255,255,255,0.03)] rounded-lg p-4 border border-[rgba(196,163,90,0.15)]">
+                <p className="text-sm text-[rgba(232,228,220,0.55)]">Milestone Value</p>
+                <p className="text-2xl font-bold text-[#c4a35a]">{formatCurrency(milestone.value)}</p>
               </div>
             </div>
           </div>
@@ -192,7 +192,7 @@ export default function VerifyMilestonePage() {
                   ))}
                 </tbody>
                 <tfoot>
-                  <tr className="bg-gray-50 font-semibold">
+                  <tr className="bg-[rgba(255,255,255,0.03)] font-semibold">
                     <td colSpan={2}>Total Planned</td>
                     <td className="text-right">{totalPlannedQty}</td>
                     <td className="text-right">{formatCurrency(milestone.plannedValue)}</td>
@@ -217,21 +217,21 @@ export default function VerifyMilestonePage() {
                   onChange={(e) => setQtyVerified(e.target.value)}
                   required
                 />
-                <p className="text-xs text-gray-500 mt-1">
+                <p className="text-xs text-[rgba(232,228,220,0.55)] mt-1">
                   Enter the actual quantity verified (planned: {totalPlannedQty})
                 </p>
               </div>
             )}
 
-            <div className={`rounded-lg p-4 ${isExtra ? 'bg-orange-50' : 'bg-gray-50'}`}>
-              <p className="text-sm text-gray-600">
+            <div className={`rounded-lg p-4 ${isExtra ? 'bg-[rgba(196,163,90,0.08)]' : 'bg-[rgba(255,255,255,0.03)]'}`}>
+              <p className="text-sm text-[rgba(232,228,220,0.55)]">
                 {isExtra ? 'Value to be Verified:' : 'Estimated Eligible Value:'}
               </p>
-              <p className={`text-2xl font-bold ${isExtra ? 'text-orange-600' : 'text-green-600'}`}>
+              <p className={`text-2xl font-bold ${isExtra ? 'text-[#c4a35a]' : 'text-[#5cba80]'}`}>
                 {formatCurrency(estimatedValue)}
               </p>
               {!isExtra && (
-                <p className="text-xs text-gray-500 mt-1">
+                <p className="text-xs text-[rgba(232,228,220,0.55)] mt-1">
                   {(verifiedRatio * 100).toFixed(1)}% of planned value
                 </p>
               )}
@@ -248,7 +248,7 @@ export default function VerifyMilestonePage() {
               />
             </div>
 
-            <div className="bg-blue-50 border border-blue-200 rounded-lg p-4">
+            <div className="bg-[rgba(196,163,90,0.08)] border border-[rgba(196,163,90,0.15)] rounded-lg p-4">
               <p className="text-sm text-blue-800">
                 <strong>Note:</strong> Verification will make this milestone eligible for payment
                 and move it to Verified state.

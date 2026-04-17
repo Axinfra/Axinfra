@@ -129,14 +129,14 @@ export default function EvidenceReviewPage() {
       <Navbar projectId={projectId} projectName={projectName} role={myRole} />
 
       <div className="space-y-6">
-        <h1 className="text-2xl font-bold text-gray-900">Evidence Review Queue</h1>
+        <h1 className="text-2xl font-bold text-[#e8e4dc]">Evidence Review Queue</h1>
 
         {error && <div className="alert alert-error">{error}</div>}
 
         {pendingEvidence.length === 0 ? (
           <div className="card">
             <div className="card-body text-center py-12">
-              <p className="text-gray-500">No evidence pending review</p>
+              <p className="text-[rgba(232,228,220,0.55)]">No evidence pending review</p>
             </div>
           </div>
         ) : (
@@ -148,11 +148,11 @@ export default function EvidenceReviewPage() {
                     <div>
                       <Link
                         href={`/projects/${projectId}/milestones/${evidence.milestone.id}`}
-                        className="text-lg font-semibold text-primary-600 hover:underline"
+                        className="text-lg font-semibold text-[#c4a35a] hover:underline"
                       >
                         {evidence.milestone.title}
                       </Link>
-                      <p className="text-sm text-gray-600 mt-1">
+                      <p className="text-sm text-[rgba(232,228,220,0.55)] mt-1">
                         Submitted by {evidence.submittedBy.name} on{' '}
                         {formatDateTime(evidence.submittedAt)}
                       </p>
@@ -160,9 +160,9 @@ export default function EvidenceReviewPage() {
                         Completion: <span className="font-medium">{evidence.qtyOrPercent}%</span>
                       </p>
                       {evidence.remarks && (
-                        <p className="text-sm text-gray-500 mt-1">{evidence.remarks}</p>
+                        <p className="text-sm text-[rgba(232,228,220,0.55)] mt-1">{evidence.remarks}</p>
                       )}
-                      <p className="text-sm text-gray-500 mt-2">
+                      <p className="text-sm text-[rgba(232,228,220,0.55)] mt-2">
                         {evidence.files.length} file(s) attached
                       </p>
                     </div>

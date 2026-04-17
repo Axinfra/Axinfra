@@ -122,29 +122,29 @@ export default function EIOverviewPage() {
           </div>
 
           {/* Progress bar */}
-          <div className="bg-white border border-surface-200 rounded-xl p-5">
+          <div className="bg-[rgba(255,255,255,0.03)] border border-[rgba(255,255,255,0.07)] rounded-xl p-5">
             <div className="flex items-center justify-between mb-3">
-              <h3 className="text-[14px] font-semibold text-surface-800">
+              <h3 className="text-[14px] font-semibold text-[#e8e4dc]">
                 Overall Progress
               </h3>
-              <span className="text-[13px] text-surface-500">
+              <span className="text-[13px] text-[rgba(232,228,220,0.55)]">
                 {kpis.completedMilestones} / {kpis.totalMilestones} milestones
               </span>
             </div>
-            <div className="h-2.5 rounded-full bg-surface-100 overflow-hidden">
+            <div className="h-2.5 rounded-full bg-[rgba(255,255,255,0.05)] overflow-hidden">
               <div
-                className="h-full rounded-full bg-primary-600 transition-all duration-500"
+                className="h-full rounded-full bg-[#c4a35a] transition-all duration-500"
                 style={{
                   width: `${kpis.totalMilestones > 0 ? (kpis.completedMilestones / kpis.totalMilestones) * 100 : 0}%`,
                 }}
               />
             </div>
-            <div className="mt-2 flex gap-6 text-[12px] text-surface-400">
+            <div className="mt-2 flex gap-6 text-[12px] text-[rgba(232,228,220,0.35)]">
               <span>
                 <span className="text-success-600 font-medium">{kpis.totalSavedDays}d</span> saved
               </span>
               <span>
-                <span className="text-danger-600 font-medium">{kpis.totalOverrunDays}d</span> overrun
+                <span className="text-[#e06050] font-medium">{kpis.totalOverrunDays}d</span> overrun
               </span>
             </div>
           </div>
@@ -152,21 +152,21 @@ export default function EIOverviewPage() {
           {/* Delay cost + CPM summary row */}
           <div className="grid md:grid-cols-2 gap-4">
             {/* Delay cost */}
-            <div className="bg-white border border-surface-200 rounded-xl p-5">
-              <h3 className="text-[14px] font-semibold text-surface-800 mb-3">
+            <div className="bg-[rgba(255,255,255,0.03)] border border-[rgba(255,255,255,0.07)] rounded-xl p-5">
+              <h3 className="text-[14px] font-semibold text-[#e8e4dc] mb-3">
                 Delay Cost Estimate
               </h3>
               {analytics?.delayCost.isConfigured ? (
                 <div>
-                  <p className="text-2xl font-bold text-surface-900">
+                  <p className="text-2xl font-bold text-[#e8e4dc]">
                     {formatCurrency(analytics.delayCost.totalEstimatedCost)}
                   </p>
-                  <p className="text-[12px] text-surface-400 mt-1">
+                  <p className="text-[12px] text-[rgba(232,228,220,0.35)] mt-1">
                     Based on {analytics.delayCost.totalOverrunDays} overrun days
                   </p>
                 </div>
               ) : (
-                <div className="flex items-center gap-2 text-[13px] text-surface-400">
+                <div className="flex items-center gap-2 text-[13px] text-[rgba(232,228,220,0.35)]">
                   <InfoIcon className="w-4 h-4 shrink-0" />
                   <span>Configure cost parameters in Schedule Config to enable delay cost estimation.</span>
                 </div>
@@ -174,24 +174,24 @@ export default function EIOverviewPage() {
             </div>
 
             {/* CPM summary */}
-            <div className="bg-white border border-surface-200 rounded-xl p-5">
-              <h3 className="text-[14px] font-semibold text-surface-800 mb-3">
+            <div className="bg-[rgba(255,255,255,0.03)] border border-[rgba(255,255,255,0.07)] rounded-xl p-5">
+              <h3 className="text-[14px] font-semibold text-[#e8e4dc] mb-3">
                 Critical Path
               </h3>
               {analytics?.cpm.hasCycle ? (
-                <div className="flex items-center gap-2 text-[13px] text-danger-600">
+                <div className="flex items-center gap-2 text-[13px] text-[#e06050]">
                   <AlertIcon className="w-4 h-4 shrink-0" />
                   <span>Dependency cycle detected. Resolve in Gantt → Level 3.</span>
                 </div>
               ) : (
                 <div>
-                  <p className="text-2xl font-bold text-surface-900">
+                  <p className="text-2xl font-bold text-[#e8e4dc]">
                     {analytics?.cpm.projectDuration ?? 0}d
                   </p>
-                  <p className="text-[12px] text-surface-400 mt-1">
+                  <p className="text-[12px] text-[rgba(232,228,220,0.35)] mt-1">
                     Estimated total project duration
                   </p>
-                  <p className="text-[12px] text-surface-500 mt-2">
+                  <p className="text-[12px] text-[rgba(232,228,220,0.55)] mt-2">
                     {analytics?.cpm.criticalPath.length ?? 0} milestones on critical path
                   </p>
                 </div>
@@ -216,7 +216,7 @@ export default function EIOverviewPage() {
           </div>
         </div>
       ) : (
-        <div className="text-center py-16 text-surface-400 text-sm">
+        <div className="text-center py-16 text-[rgba(232,228,220,0.35)] text-sm">
           No data available.
         </div>
       )}
@@ -239,20 +239,20 @@ function KpiCard({
 }) {
   const accentClass = {
     green: 'text-success-600',
-    red: 'text-danger-600',
-    blue: 'text-primary-600',
+    red: 'text-[#e06050]',
+    blue: 'text-[#c4a35a]',
     orange: 'text-warning-600',
-    purple: 'text-purple-600',
-    gray: 'text-surface-500',
+    purple: 'text-[rgba(232,228,220,0.55)]',
+    gray: 'text-[rgba(232,228,220,0.55)]',
   }[accent];
 
   return (
-    <div className="bg-white border border-surface-200 rounded-xl p-4">
-      <p className="text-[11px] font-medium text-surface-400 uppercase tracking-wide mb-1">
+    <div className="bg-[rgba(255,255,255,0.03)] border border-[rgba(255,255,255,0.07)] rounded-xl p-4">
+      <p className="text-[11px] font-medium text-[rgba(232,228,220,0.35)] uppercase tracking-wide mb-1">
         {label}
       </p>
       <p className={`text-2xl font-bold ${accentClass}`}>{value}</p>
-      <p className="text-[11px] text-surface-400 mt-1">{sub}</p>
+      <p className="text-[11px] text-[rgba(232,228,220,0.35)] mt-1">{sub}</p>
     </div>
   );
 }
@@ -262,10 +262,10 @@ function KPISkeleton() {
     <div className="space-y-6">
       <div className="grid grid-cols-2 md:grid-cols-5 gap-4">
         {[1, 2, 3, 4, 5].map((i) => (
-          <div key={i} className="h-24 rounded-xl bg-surface-100 animate-pulse" />
+          <div key={i} className="h-24 rounded-xl bg-[rgba(255,255,255,0.05)] animate-pulse" />
         ))}
       </div>
-      <div className="h-20 rounded-xl bg-surface-100 animate-pulse" />
+      <div className="h-20 rounded-xl bg-[rgba(255,255,255,0.05)] animate-pulse" />
     </div>
   );
 }
@@ -284,16 +284,16 @@ function QuickNavCard({
   return (
     <a
       href={href}
-      className="flex items-start gap-4 bg-white border border-surface-200 rounded-xl p-5 hover:border-primary-300 hover:shadow-sm transition-all group"
+      className="flex items-start gap-4 bg-[rgba(255,255,255,0.03)] border border-[rgba(255,255,255,0.07)] rounded-xl p-5 hover:border-[rgba(196,163,90,0.3)] hover:shadow-none transition-all group"
     >
-      <div className="w-10 h-10 rounded-lg bg-primary-50 flex items-center justify-center shrink-0 group-hover:bg-primary-100 transition-colors">
+      <div className="w-10 h-10 rounded-lg bg-[rgba(196,163,90,0.08)] flex items-center justify-center shrink-0 group-hover:bg-[rgba(196,163,90,0.12)] transition-colors">
         {icon}
       </div>
       <div>
-        <p className="text-[14px] font-semibold text-surface-800 group-hover:text-primary-700 transition-colors">
+        <p className="text-[14px] font-semibold text-[#e8e4dc] group-hover:text-[#c4a35a] transition-colors">
           {title}
         </p>
-        <p className="text-[12px] text-surface-400 mt-1 leading-relaxed">{description}</p>
+        <p className="text-[12px] text-[rgba(232,228,220,0.35)] mt-1 leading-relaxed">{description}</p>
       </div>
     </a>
   );
@@ -326,7 +326,7 @@ function AlertIcon({ className }: { className?: string }) {
 
 function GanttIcon() {
   return (
-    <svg className="w-5 h-5 text-primary-600" fill="none" viewBox="0 0 24 24" strokeWidth={1.5} stroke="currentColor">
+    <svg className="w-5 h-5 text-[#c4a35a]" fill="none" viewBox="0 0 24 24" strokeWidth={1.5} stroke="currentColor">
       <path strokeLinecap="round" strokeLinejoin="round" d="M3 4.5h14.25M3 9h9.75M3 13.5h9.75m4.5-4.5v12m0 0l-3.75-3.75M17.25 21L21 17.25" />
     </svg>
   );
@@ -334,7 +334,7 @@ function GanttIcon() {
 
 function AnalyticsIcon() {
   return (
-    <svg className="w-5 h-5 text-primary-600" fill="none" viewBox="0 0 24 24" strokeWidth={1.5} stroke="currentColor">
+    <svg className="w-5 h-5 text-[#c4a35a]" fill="none" viewBox="0 0 24 24" strokeWidth={1.5} stroke="currentColor">
       <path strokeLinecap="round" strokeLinejoin="round" d="M3 13.125C3 12.504 3.504 12 4.125 12h2.25c.621 0 1.125.504 1.125 1.125v6.75C7.5 20.496 6.996 21 6.375 21h-2.25A1.125 1.125 0 013 19.875v-6.75zM9.75 8.625c0-.621.504-1.125 1.125-1.125h2.25c.621 0 1.125.504 1.125 1.125v11.25c0 .621-.504 1.125-1.125 1.125h-2.25a1.125 1.125 0 01-1.125-1.125V8.625zM16.5 4.125c0-.621.504-1.125 1.125-1.125h2.25C20.496 3 21 3.504 21 4.125v15.75c0 .621-.504 1.125-1.125 1.125h-2.25a1.125 1.125 0 01-1.125-1.125V4.125z" />
     </svg>
   );

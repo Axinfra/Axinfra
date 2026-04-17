@@ -82,7 +82,7 @@ export default function VendorGanttPage() {
     return (
       <Layout>
         <div className="flex items-center justify-center py-20">
-          <Loader2 className="w-6 h-6 animate-spin text-surface-400" />
+          <Loader2 className="w-6 h-6 animate-spin text-[rgba(232,228,220,0.35)]" />
         </div>
       </Layout>
     );
@@ -91,7 +91,7 @@ export default function VendorGanttPage() {
   if (error) {
     return (
       <Layout>
-        <div className="text-center py-20 text-red-600">{error}</div>
+        <div className="text-center py-20 text-[#e06050]">{error}</div>
       </Layout>
     );
   }
@@ -117,29 +117,29 @@ export default function VendorGanttPage() {
 
       <div className="space-y-4">
         <div className="flex items-center gap-4">
-          <h2 className="text-sm font-semibold text-surface-900">Your Milestones &mdash; Gantt</h2>
-          <div className="flex items-center gap-3 text-[11px] text-surface-500">
+          <h2 className="text-sm font-semibold text-[#e8e4dc]">Your Milestones &mdash; Gantt</h2>
+          <div className="flex items-center gap-3 text-[11px] text-[rgba(232,228,220,0.55)]">
             <span className="flex items-center gap-1">
               <span className="w-3 h-2 rounded-sm bg-teal-400 inline-block" /> Planned
             </span>
             <span className="flex items-center gap-1">
-              <span className="w-3 h-2 rounded-sm bg-blue-500 inline-block" /> Actual
+              <span className="w-3 h-2 rounded-sm bg-[rgba(196,163,90,0.08)]0 inline-block" /> Actual
             </span>
           </div>
         </div>
 
         {milestones.length === 0 ? (
-          <div className="bg-white border border-surface-200 rounded-xl p-10 text-center text-surface-400 text-sm">
+          <div className="bg-[rgba(255,255,255,0.03)] border border-[rgba(255,255,255,0.07)] rounded-xl p-10 text-center text-[rgba(232,228,220,0.35)] text-sm">
             No milestones to display.
           </div>
         ) : (
-          <div className="bg-white border border-surface-200 rounded-xl overflow-hidden">
+          <div className="bg-[rgba(255,255,255,0.03)] border border-[rgba(255,255,255,0.07)] rounded-xl overflow-hidden">
             {/* Month header */}
-            <div className="relative h-8 border-b border-surface-100 bg-surface-50">
+            <div className="relative h-8 border-b border-[rgba(255,255,255,0.07)] bg-[rgba(255,255,255,0.03)]">
               {monthLabels.map((ml, i) => (
                 <span
                   key={i}
-                  className="absolute top-1/2 -translate-y-1/2 text-[10px] text-surface-400 font-medium"
+                  className="absolute top-1/2 -translate-y-1/2 text-[10px] text-[rgba(232,228,220,0.35)] font-medium"
                   style={{ left: ml.left }}
                 >
                   {ml.label}
@@ -153,11 +153,11 @@ export default function VendorGanttPage() {
               const actual = barPosition(m.actualStart, m.actualEnd);
 
               return (
-                <div key={m.id} className="flex items-center border-b border-surface-50 last:border-0 hover:bg-surface-50/50">
+                <div key={m.id} className="flex items-center border-b border-surface-50 last:border-0 hover:bg-[rgba(255,255,255,0.05)]/50">
                   {/* Label */}
                   <div className="w-48 shrink-0 px-4 py-3">
-                    <p className="text-[12px] font-medium text-surface-800 truncate">{m.title}</p>
-                    <p className="text-[10px] text-surface-400">{m.state.replace(/_/g, ' ')}</p>
+                    <p className="text-[12px] font-medium text-[#e8e4dc] truncate">{m.title}</p>
+                    <p className="text-[10px] text-[rgba(232,228,220,0.35)]">{m.state.replace(/_/g, ' ')}</p>
                   </div>
                   {/* Chart area */}
                   <div className="flex-1 relative h-12 min-w-0">
@@ -170,7 +170,7 @@ export default function VendorGanttPage() {
                     )}
                     {actual && (
                       <div
-                        className="absolute top-6 h-3 rounded-sm bg-blue-500"
+                        className="absolute top-6 h-3 rounded-sm bg-[rgba(196,163,90,0.08)]0"
                         style={{ left: actual.left, width: actual.width }}
                         title={`Actual: ${m.actualStart?.slice(0, 10)} → ${m.actualEnd?.slice(0, 10)}`}
                       />

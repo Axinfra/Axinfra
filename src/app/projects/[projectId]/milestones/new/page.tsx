@@ -158,7 +158,7 @@ export default function CreateMilestonePage() {
   if (loading) {
     return (
       <Layout>
-        <div className="text-center py-12 text-surface-400">Loading...</div>
+        <div className="text-center py-12 text-[rgba(232,228,220,0.35)]">Loading...</div>
       </Layout>
     );
   }
@@ -172,15 +172,15 @@ export default function CreateMilestonePage() {
         <div className="mb-8">
           <Link
             href={`/projects/${projectId}/milestones`}
-            className="inline-flex items-center gap-1.5 text-sm text-surface-500 hover:text-surface-700 transition-colors"
+            className="inline-flex items-center gap-1.5 text-sm text-[rgba(232,228,220,0.55)] hover:text-[#e8e4dc] transition-colors"
           >
             <svg className="w-4 h-4" fill="none" viewBox="0 0 24 24" strokeWidth={1.5} stroke="currentColor">
               <path strokeLinecap="round" strokeLinejoin="round" d="M10.5 19.5 3 12m0 0 7.5-7.5M3 12h18" />
             </svg>
             Back to Milestones
           </Link>
-          <h1 className="text-2xl font-bold text-gray-900 mt-3">Create Milestone</h1>
-          <p className="text-surface-500 mt-1">
+          <h1 className="text-2xl font-bold text-[#e8e4dc] mt-3">Create Milestone</h1>
+          <p className="text-[rgba(232,228,220,0.55)] mt-1">
             Add a new milestone to track project progress and payments.
           </p>
         </div>
@@ -235,11 +235,11 @@ export default function CreateMilestonePage() {
             </div>
             <div className="card-body space-y-5">
               {/* Extras toggle */}
-              <div className="rounded-lg border border-surface-200 p-4 bg-surface-50/50">
+              <div className="rounded-lg border border-[rgba(255,255,255,0.07)] p-4 bg-[rgba(255,255,255,0.03)]">
                 <label className="flex items-center gap-2.5 cursor-pointer">
                   <input
                     type="checkbox"
-                    className="h-4 w-4 rounded border-surface-300 text-orange-600 focus:ring-orange-500"
+                    className="h-4 w-4 rounded border-[rgba(255,255,255,0.1)] text-[#c4a35a] focus:ring-[rgba(196,163,90,0.3)]"
                     checked={form.isExtra}
                     onChange={(e) =>
                       updateForm({
@@ -249,14 +249,14 @@ export default function CreateMilestonePage() {
                       })
                     }
                   />
-                  <span className="text-sm font-medium text-orange-700">
+                  <span className="text-sm font-medium text-[#c4a35a]">
                     Mark as Extra (Outside BOQ)
                   </span>
                 </label>
 
                 {form.isExtra && (
-                  <div className="mt-3 bg-orange-50 border border-orange-200 rounded-lg p-3">
-                    <p className="text-sm text-orange-700">
+                  <div className="mt-3 bg-[rgba(196,163,90,0.08)] border border-[rgba(196,163,90,0.15)] rounded-lg p-3">
+                    <p className="text-sm text-[#c4a35a]">
                       This milestone is outside the approved BOQ and will require Owner approval before payments can be processed.
                     </p>
                   </div>
@@ -290,7 +290,7 @@ export default function CreateMilestonePage() {
                       ))}
                     </select>
                     {boqItems.length === 0 && (
-                      <p className="text-xs text-surface-400 mt-1.5">
+                      <p className="text-xs text-[rgba(232,228,220,0.35)] mt-1.5">
                         No approved BOQ items available. Create a BOQ first or mark this milestone as Extra.
                       </p>
                     )}
@@ -316,7 +316,7 @@ export default function CreateMilestonePage() {
                         }}
                       />
                       {form.boqQty && (
-                        <p className="text-xs text-green-600 mt-1.5">
+                        <p className="text-xs text-[#5cba80] mt-1.5">
                           Calculated value:{' '}
                           {formatCurrency(
                             (boqItems.find((i) => i.id === form.selectedBoqItemId)?.rate || 0) *
@@ -341,7 +341,7 @@ export default function CreateMilestonePage() {
                   value={form.value}
                   onChange={(e) => updateForm({ value: e.target.value })}
                 />
-                <p className="text-xs text-surface-400 mt-1.5">
+                <p className="text-xs text-[rgba(232,228,220,0.35)] mt-1.5">
                   {form.selectedBoqItemId
                     ? 'Auto-calculated from BOQ (editable)'
                     : 'Total milestone value'}
@@ -361,7 +361,7 @@ export default function CreateMilestonePage() {
                   value={form.advancePercent}
                   onChange={(e) => updateForm({ advancePercent: e.target.value })}
                 />
-                <p className="text-xs text-surface-400 mt-1.5">
+                <p className="text-xs text-[rgba(232,228,220,0.35)] mt-1.5">
                   {form.value && form.advancePercent ? (
                     <>
                       Advance:{' '}
@@ -402,7 +402,7 @@ export default function CreateMilestonePage() {
                       </option>
                     ))}
                   </select>
-                  <p className="text-xs text-surface-400 mt-1.5">
+                  <p className="text-xs text-[rgba(232,228,220,0.35)] mt-1.5">
                     Assign a vendor responsible for delivering this milestone.
                   </p>
                 </div>
@@ -423,7 +423,7 @@ export default function CreateMilestonePage() {
               disabled={submitting || !form.title.trim()}
               className={`btn ${
                 form.isExtra
-                  ? 'bg-orange-600 hover:bg-orange-700 text-white'
+                  ? 'bg-[#c4a35a] hover:bg-[#b3943f] text-white'
                   : 'btn-primary'
               } disabled:opacity-50`}
             >

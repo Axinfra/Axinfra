@@ -18,12 +18,12 @@ interface PaymentIndicatorBadgeProps {
 }
 
 const indicatorStyles: Record<PaymentIndicator['indicator'], { bg: string; text: string; border?: string }> = {
-  ELIGIBLE_DUE: { bg: 'bg-green-100', text: 'text-green-800', border: 'border-green-300' },
-  ELIGIBLE_NOT_DUE: { bg: 'bg-yellow-100', text: 'text-yellow-800' },
-  BLOCKED: { bg: 'bg-red-100', text: 'text-red-800', border: 'border-red-300' },
-  OVERDUE: { bg: 'bg-red-100', text: 'text-red-800', border: 'border-red-500' },
-  NOT_DUE: { bg: 'bg-gray-100', text: 'text-gray-600' },
-  PAID: { bg: 'bg-purple-100', text: 'text-purple-800' },
+  ELIGIBLE_DUE: { bg: 'bg-[rgba(50,200,120,0.1)]', text: 'text-[#5cba80]', border: 'border-[rgba(92,186,128,0.3)]' },
+  ELIGIBLE_NOT_DUE: { bg: 'bg-[rgba(196,163,90,0.12)]', text: 'text-[#c4a35a]' },
+  BLOCKED: { bg: 'bg-[rgba(220,80,60,0.1)]', text: 'text-[#e06050]', border: 'border-[rgba(224,96,80,0.3)]' },
+  OVERDUE: { bg: 'bg-[rgba(220,80,60,0.1)]', text: 'text-[#e06050]', border: 'border-[rgba(224,96,80,0.5)]' },
+  NOT_DUE: { bg: 'bg-[rgba(255,255,255,0.03)]', text: 'text-[rgba(232,228,220,0.55)]' },
+  PAID: { bg: 'bg-[rgba(50,200,120,0.1)]', text: 'text-[#5cba80]' },
 };
 
 const sizeClasses = {
@@ -43,7 +43,7 @@ export default function PaymentIndicatorBadge({
   return (
     <div className="flex items-center gap-2">
       <span
-        className={`inline-flex items-center rounded-full font-medium ${style.bg} ${style.text} ${borderClass} ${sizeClasses[size]}`}
+        className={`inline-flex items-center rounded-[4px] font-medium ${style.bg} ${style.text} ${borderClass} ${sizeClasses[size]}`}
       >
         {/* Urgency pulse indicator */}
         {indicator.isUrgent && (
@@ -57,14 +57,14 @@ export default function PaymentIndicatorBadge({
 
       {/* Amount display */}
       {showAmount && indicator.eligibleAmount > 0 && (
-        <span className="text-sm text-gray-600">
+        <span className="text-sm text-[rgba(232,228,220,0.55)]">
           {formatCurrency(indicator.eligibleAmount)}
         </span>
       )}
 
       {/* Blocked amount indicator */}
       {showAmount && indicator.blockedAmount > 0 && (
-        <span className="text-sm text-red-600">
+        <span className="text-sm text-[#e06050]">
           ({formatCurrency(indicator.blockedAmount)} blocked)
         </span>
       )}

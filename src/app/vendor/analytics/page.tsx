@@ -88,7 +88,7 @@ export default function VendorAnalyticsPage() {
     return (
       <Layout>
         <div className="flex items-center justify-center py-20">
-          <Loader2 className="w-6 h-6 animate-spin text-surface-400" />
+          <Loader2 className="w-6 h-6 animate-spin text-[rgba(232,228,220,0.35)]" />
         </div>
       </Layout>
     );
@@ -97,7 +97,7 @@ export default function VendorAnalyticsPage() {
   if (error) {
     return (
       <Layout>
-        <div className="text-center py-20 text-red-600">{error}</div>
+        <div className="text-center py-20 text-[#e06050]">{error}</div>
       </Layout>
     );
   }
@@ -125,15 +125,15 @@ export default function VendorAnalyticsPage() {
         )}
 
         {/* Sub-tabs */}
-        <div className="flex items-center gap-1 bg-surface-50 p-1 rounded-lg w-fit">
+        <div className="flex items-center gap-1 bg-[rgba(255,255,255,0.03)] p-1 rounded-lg w-fit">
           {tabs.map((tab) => (
             <button
               key={tab.id}
               onClick={() => setActiveTab(tab.id)}
               className={`px-3 py-1.5 text-[12px] font-medium rounded-md transition-colors
                 ${activeTab === tab.id
-                  ? 'bg-white text-surface-900 shadow-sm'
-                  : 'text-surface-500 hover:text-surface-700'
+                  ? 'bg-[rgba(255,255,255,0.03)] text-[#e8e4dc] shadow-none'
+                  : 'text-[rgba(232,228,220,0.55)] hover:text-[#e8e4dc]'
                 }`}
             >
               {tab.label}
@@ -142,16 +142,16 @@ export default function VendorAnalyticsPage() {
         </div>
 
         {/* Chart area */}
-        <div className="bg-white border border-surface-200 rounded-xl p-6">
+        <div className="bg-[rgba(255,255,255,0.03)] border border-[rgba(255,255,255,0.07)] rounded-xl p-6">
           {activeTab === 'scurve' && (
             <div>
-              <h3 className="text-sm font-semibold text-surface-900 mb-4">S-Curve (Cumulative Value)</h3>
+              <h3 className="text-sm font-semibold text-[#e8e4dc] mb-4">S-Curve (Cumulative Value)</h3>
               {sCurve.length === 0 ? (
-                <p className="text-sm text-surface-400 text-center py-10">No data available</p>
+                <p className="text-sm text-[rgba(232,228,220,0.35)] text-center py-10">No data available</p>
               ) : (
                 <ResponsiveContainer width="100%" height={320}>
                   <AreaChart data={sCurve}>
-                    <CartesianGrid strokeDasharray="3 3" stroke="#e5e7eb" />
+                    <CartesianGrid strokeDasharray="3 3" stroke="rgba(255,255,255,0.07)" />
                     <XAxis dataKey="date" tick={{ fontSize: 11 }} />
                     <YAxis tick={{ fontSize: 11 }} />
                     <Tooltip />
@@ -166,13 +166,13 @@ export default function VendorAnalyticsPage() {
 
           {activeTab === 'delay' && (
             <div>
-              <h3 className="text-sm font-semibold text-surface-900 mb-4">Delay Distribution</h3>
+              <h3 className="text-sm font-semibold text-[#e8e4dc] mb-4">Delay Distribution</h3>
               {delayHistogram.length === 0 ? (
-                <p className="text-sm text-surface-400 text-center py-10">No data available</p>
+                <p className="text-sm text-[rgba(232,228,220,0.35)] text-center py-10">No data available</p>
               ) : (
                 <ResponsiveContainer width="100%" height={320}>
                   <BarChart data={delayHistogram}>
-                    <CartesianGrid strokeDasharray="3 3" stroke="#e5e7eb" />
+                    <CartesianGrid strokeDasharray="3 3" stroke="rgba(255,255,255,0.07)" />
                     <XAxis dataKey="bucket" tick={{ fontSize: 11 }} />
                     <YAxis tick={{ fontSize: 11 }} allowDecimals={false} />
                     <Tooltip />
@@ -185,11 +185,11 @@ export default function VendorAnalyticsPage() {
 
           {activeTab === 'payment' && (
             <div>
-              <h3 className="text-sm font-semibold text-surface-900 mb-4">Payment Cycle Days</h3>
+              <h3 className="text-sm font-semibold text-[#e8e4dc] mb-4">Payment Cycle Days</h3>
               <div className="flex items-center justify-center py-12">
                 <div className="text-center">
                   <p className="text-4xl font-bold text-teal-600">{paymentCycleDays.avg}</p>
-                  <p className="text-sm text-surface-500 mt-2">Avg days from evidence to payment eligibility</p>
+                  <p className="text-sm text-[rgba(232,228,220,0.55)] mt-2">Avg days from evidence to payment eligibility</p>
                 </div>
               </div>
             </div>
@@ -197,13 +197,13 @@ export default function VendorAnalyticsPage() {
 
           {activeTab === 'ontime' && (
             <div>
-              <h3 className="text-sm font-semibold text-surface-900 mb-4">On-time % Trend (6 months)</h3>
+              <h3 className="text-sm font-semibold text-[#e8e4dc] mb-4">On-time % Trend (6 months)</h3>
               {onTimeTrend.length === 0 ? (
-                <p className="text-sm text-surface-400 text-center py-10">No data available</p>
+                <p className="text-sm text-[rgba(232,228,220,0.35)] text-center py-10">No data available</p>
               ) : (
                 <ResponsiveContainer width="100%" height={320}>
                   <LineChart data={onTimeTrend}>
-                    <CartesianGrid strokeDasharray="3 3" stroke="#e5e7eb" />
+                    <CartesianGrid strokeDasharray="3 3" stroke="rgba(255,255,255,0.07)" />
                     <XAxis dataKey="month" tick={{ fontSize: 11 }} />
                     <YAxis tick={{ fontSize: 11 }} domain={[0, 100]} />
                     <Tooltip />
@@ -221,9 +221,9 @@ export default function VendorAnalyticsPage() {
 
 function MiniKpi({ label, value }: { label: string; value: string }) {
   return (
-    <div className="bg-white border border-surface-200 rounded-xl p-4">
-      <p className="text-[11px] font-medium text-surface-500 uppercase tracking-wider mb-1">{label}</p>
-      <p className="text-lg font-semibold text-surface-900">{value}</p>
+    <div className="bg-[rgba(255,255,255,0.03)] border border-[rgba(255,255,255,0.07)] rounded-xl p-4">
+      <p className="text-[11px] font-medium text-[rgba(232,228,220,0.55)] uppercase tracking-wider mb-1">{label}</p>
+      <p className="text-lg font-semibold text-[#e8e4dc]">{value}</p>
     </div>
   );
 }

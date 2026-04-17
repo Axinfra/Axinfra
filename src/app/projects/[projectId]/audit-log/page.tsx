@@ -128,7 +128,7 @@ export default function AuditLogPage() {
 
       <div className="space-y-6">
         <div className="flex justify-between items-center">
-          <h1 className="text-2xl font-bold text-gray-900">Audit Log</h1>
+          <h1 className="text-2xl font-bold text-[#e8e4dc]">Audit Log</h1>
           <button
             onClick={handleExport}
             disabled={exporting}
@@ -185,7 +185,7 @@ export default function AuditLogPage() {
         {/* Logs */}
         <div className="card">
           <div className="card-header flex justify-between items-center">
-            <span className="text-sm text-gray-500">
+            <span className="text-sm text-[rgba(232,228,220,0.55)]">
               Showing {logs.length} of {total} entries
             </span>
           </div>
@@ -209,7 +209,7 @@ export default function AuditLogPage() {
                       <td>
                         <div>
                           <p className="font-medium">{log.actor.name}</p>
-                          <p className="text-xs text-gray-500">{log.actor.email}</p>
+                          <p className="text-xs text-[rgba(232,228,220,0.55)]">{log.actor.email}</p>
                         </div>
                       </td>
                       <td>
@@ -217,17 +217,17 @@ export default function AuditLogPage() {
                       </td>
                       <td className="font-medium">{log.actionType}</td>
                       <td>
-                        <span className="text-gray-600">{log.entityType}</span>
+                        <span className="text-[rgba(232,228,220,0.55)]">{log.entityType}</span>
                       </td>
                       <td>
-                        <button className="text-primary-600 text-sm">
+                        <button className="text-[#c4a35a] text-sm">
                           {expandedId === log.id ? 'Hide' : 'View'}
                         </button>
                       </td>
                     </tr>
                     {expandedId === log.id && (
                       <tr>
-                        <td colSpan={6} className="bg-gray-50">
+                        <td colSpan={6} className="bg-[rgba(255,255,255,0.03)]">
                           <div className="p-4 space-y-2">
                             <p className="text-sm">
                               <strong>Entity ID:</strong> {log.entityId}
@@ -240,7 +240,7 @@ export default function AuditLogPage() {
                             {log.beforeJson && (
                               <div className="text-sm">
                                 <strong>Before:</strong>
-                                <pre className="mt-1 p-2 bg-white rounded text-xs overflow-auto max-h-32">
+                                <pre className="mt-1 p-2 bg-[rgba(255,255,255,0.03)] rounded text-xs overflow-auto max-h-32">
                                   {JSON.stringify(log.beforeJson, null, 2)}
                                 </pre>
                               </div>
@@ -248,7 +248,7 @@ export default function AuditLogPage() {
                             {log.afterJson && (
                               <div className="text-sm">
                                 <strong>After:</strong>
-                                <pre className="mt-1 p-2 bg-white rounded text-xs overflow-auto max-h-32">
+                                <pre className="mt-1 p-2 bg-[rgba(255,255,255,0.03)] rounded text-xs overflow-auto max-h-32">
                                   {JSON.stringify(log.afterJson, null, 2)}
                                 </pre>
                               </div>
@@ -274,7 +274,7 @@ export default function AuditLogPage() {
             >
               Previous
             </button>
-            <span className="py-2 px-4 text-sm text-gray-600">
+            <span className="py-2 px-4 text-sm text-[rgba(232,228,220,0.55)]">
               Page {Math.floor(filters.offset / filters.limit) + 1} of{' '}
               {Math.ceil(total / filters.limit)}
             </span>

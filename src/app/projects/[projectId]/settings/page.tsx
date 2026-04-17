@@ -161,11 +161,11 @@ export default function ProjectSettingsPage() {
 
       <div className="max-w-3xl mx-auto space-y-6">
         <div className="flex justify-between items-center">
-          <h1 className="text-2xl font-bold text-gray-900">Project Settings</h1>
+          <h1 className="text-2xl font-bold text-[#e8e4dc]">Project Settings</h1>
           <div className={`px-3 py-1 rounded-full text-sm font-medium ${
             status === 'COMPLETED'
-              ? 'bg-green-100 text-green-800'
-              : 'bg-blue-100 text-blue-800'
+              ? 'bg-[rgba(50,200,120,0.1)] text-[#5cba80]'
+              : 'bg-[rgba(196,163,90,0.08)] text-blue-800'
           }`}>
             {status === 'COMPLETED' ? 'Completed' : 'Ongoing'}
           </div>
@@ -216,7 +216,7 @@ export default function ProjectSettingsPage() {
             <h2 className="font-semibold">Project Status</h2>
           </div>
           <div className="card-body">
-            <p className="text-sm text-gray-600 mb-4">
+            <p className="text-sm text-[rgba(232,228,220,0.55)] mb-4">
               Change the project status. Marking as completed indicates that all work is finished.
             </p>
             <div className="flex items-center space-x-4">
@@ -226,7 +226,7 @@ export default function ProjectSettingsPage() {
                 className={`px-4 py-2 rounded-lg font-medium transition-colors ${
                   status === 'ONGOING'
                     ? 'bg-blue-600 text-white'
-                    : 'bg-gray-100 text-gray-700 hover:bg-gray-200'
+                    : 'bg-[rgba(255,255,255,0.05)] text-[rgba(232,228,220,0.55)] hover:bg-[rgba(255,255,255,0.06)]'
                 }`}
               >
                 Ongoing
@@ -237,7 +237,7 @@ export default function ProjectSettingsPage() {
                 className={`px-4 py-2 rounded-lg font-medium transition-colors ${
                   status === 'COMPLETED'
                     ? 'bg-green-600 text-white'
-                    : 'bg-gray-100 text-gray-700 hover:bg-gray-200'
+                    : 'bg-[rgba(255,255,255,0.05)] text-[rgba(232,228,220,0.55)] hover:bg-[rgba(255,255,255,0.06)]'
                 }`}
               >
                 Completed
@@ -247,21 +247,21 @@ export default function ProjectSettingsPage() {
         </div>
 
         {/* Danger Zone */}
-        <div className="card border-red-200">
-          <div className="card-header bg-red-50">
-            <h2 className="font-semibold text-red-700">Danger Zone</h2>
+        <div className="card border-[rgba(224,96,80,0.3)]">
+          <div className="card-header bg-[rgba(220,80,60,0.1)]">
+            <h2 className="font-semibold text-[#e06050]">Danger Zone</h2>
           </div>
           <div className="card-body">
             <div className="flex items-center justify-between">
               <div>
-                <p className="font-medium text-gray-900">Delete this project</p>
-                <p className="text-sm text-gray-500">
+                <p className="font-medium text-[#e8e4dc]">Delete this project</p>
+                <p className="text-sm text-[rgba(232,228,220,0.55)]">
                   Once deleted, this project and all its data cannot be recovered.
                 </p>
               </div>
               <button
                 onClick={() => setShowDeleteConfirm(true)}
-                className="btn bg-red-600 text-white hover:bg-red-700"
+                className="btn bg-[#e06050] text-white hover:bg-[#c8503f]"
               >
                 Delete Project
               </button>
@@ -272,11 +272,11 @@ export default function ProjectSettingsPage() {
 
       {/* Delete Confirmation Modal */}
       {showDeleteConfirm && (
-        <div className="fixed inset-0 bg-black bg-opacity-50 flex items-center justify-center z-50">
-          <div className="bg-white rounded-lg shadow-xl max-w-md w-full mx-4">
+        <div className="fixed inset-0 bg-black/70 flex items-center justify-center z-50">
+          <div className="bg-[#13151a] border border-[rgba(255,255,255,0.1)] rounded-xl max-w-md w-full mx-4">
             <div className="p-6">
-              <h2 className="text-lg font-semibold mb-2 text-red-600">Delete Project</h2>
-              <p className="text-gray-600 mb-4">
+              <h2 className="text-lg font-semibold mb-2 text-[#e06050]">Delete Project</h2>
+              <p className="text-[rgba(232,228,220,0.55)] mb-4">
                 This action <strong>cannot be undone</strong>. This will permanently delete the
                 project <strong>{project?.name}</strong> and all associated data including
                 milestones, BOQs, evidence, and audit logs.
@@ -306,7 +306,7 @@ export default function ProjectSettingsPage() {
                 <button
                   onClick={handleDelete}
                   disabled={saving || deleteConfirmText !== project?.name}
-                  className="btn bg-red-600 text-white hover:bg-red-700 disabled:opacity-50"
+                  className="btn bg-[#e06050] text-white hover:bg-[#c8503f] disabled:opacity-50"
                 >
                   {saving ? 'Deleting...' : 'Delete Project'}
                 </button>

@@ -62,7 +62,7 @@ export default function VendorOverviewPage() {
     return (
       <Layout>
         <div className="flex items-center justify-center py-20">
-          <Loader2 className="w-6 h-6 animate-spin text-surface-400" />
+          <Loader2 className="w-6 h-6 animate-spin text-[rgba(232,228,220,0.35)]" />
         </div>
       </Layout>
     );
@@ -71,17 +71,17 @@ export default function VendorOverviewPage() {
   if (error) {
     return (
       <Layout>
-        <div className="text-center py-20 text-red-600">{error}</div>
+        <div className="text-center py-20 text-[#e06050]">{error}</div>
       </Layout>
     );
   }
 
   const stateColors: Record<string, string> = {
-    DRAFT: 'bg-surface-100 text-surface-600',
-    IN_PROGRESS: 'bg-blue-50 text-blue-700',
-    SUBMITTED: 'bg-yellow-50 text-yellow-700',
-    VERIFIED: 'bg-green-50 text-green-700',
-    CLOSED: 'bg-purple-50 text-purple-700',
+    DRAFT: 'bg-[rgba(255,255,255,0.05)] text-[rgba(232,228,220,0.55)]',
+    IN_PROGRESS: 'bg-[rgba(196,163,90,0.08)] text-[#c4a35a]',
+    SUBMITTED: 'bg-[rgba(196,163,90,0.08)] text-[#c4a35a]',
+    VERIFIED: 'bg-[rgba(50,200,120,0.1)] text-[#5cba80]',
+    CLOSED: 'bg-[rgba(196,163,90,0.08)] text-[#c4a35a]',
   };
 
   return (
@@ -95,12 +95,12 @@ export default function VendorOverviewPage() {
             <KpiCard
               label="Total Milestones"
               value={kpis.totalMilestones}
-              icon={<Clock className="w-4 h-4 text-surface-400" />}
+              icon={<Clock className="w-4 h-4 text-[rgba(232,228,220,0.35)]" />}
             />
             <KpiCard
               label="Completed"
               value={kpis.completedMilestones}
-              icon={<CheckCircle2 className="w-4 h-4 text-green-500" />}
+              icon={<CheckCircle2 className="w-4 h-4 text-[#5cba80]" />}
             />
             <KpiCard
               label="On-time %"
@@ -111,12 +111,12 @@ export default function VendorOverviewPage() {
             <KpiCard
               label="Avg Delay"
               value={kpis.avgDelayDays > 0 ? `${kpis.avgDelayDays}d` : '0d'}
-              icon={<AlertTriangle className="w-4 h-4 text-yellow-500" />}
+              icon={<AlertTriangle className="w-4 h-4 text-[#c4a35a]" />}
             />
             <KpiCard
               label="Approval Cycle"
               value={`${kpis.avgApprovalCycleDays}d`}
-              icon={<Timer className="w-4 h-4 text-blue-500" />}
+              icon={<Timer className="w-4 h-4 text-[#c4a35a]" />}
             />
             <KpiCard
               label="Escalations (30d)"
@@ -127,51 +127,51 @@ export default function VendorOverviewPage() {
         )}
 
         {/* Milestones Table */}
-        <div className="bg-white border border-surface-200 rounded-xl p-6">
-          <h2 className="text-sm font-semibold text-surface-900 mb-4">Your Milestones</h2>
+        <div className="bg-[rgba(255,255,255,0.03)] border border-[rgba(255,255,255,0.07)] rounded-xl p-6">
+          <h2 className="text-sm font-semibold text-[#e8e4dc] mb-4">Your Milestones</h2>
           {milestones.length === 0 ? (
-            <p className="text-sm text-surface-400 py-8 text-center">
+            <p className="text-sm text-[rgba(232,228,220,0.35)] py-8 text-center">
               No milestones assigned to you yet.
             </p>
           ) : (
             <div className="overflow-x-auto">
               <table className="w-full text-sm">
                 <thead>
-                  <tr className="border-b border-surface-100">
-                    <th className="text-left py-2.5 px-3 text-xs font-medium text-surface-500 uppercase tracking-wider">Title</th>
-                    <th className="text-left py-2.5 px-3 text-xs font-medium text-surface-500 uppercase tracking-wider">Status</th>
-                    <th className="text-left py-2.5 px-3 text-xs font-medium text-surface-500 uppercase tracking-wider">Planned End</th>
-                    <th className="text-right py-2.5 px-3 text-xs font-medium text-surface-500 uppercase tracking-wider">Value</th>
-                    <th className="text-right py-2.5 px-3 text-xs font-medium text-surface-500 uppercase tracking-wider">Actions</th>
+                  <tr className="border-b border-[rgba(255,255,255,0.07)]">
+                    <th className="text-left py-2.5 px-3 text-xs font-medium text-[rgba(232,228,220,0.55)] uppercase tracking-wider">Title</th>
+                    <th className="text-left py-2.5 px-3 text-xs font-medium text-[rgba(232,228,220,0.55)] uppercase tracking-wider">Status</th>
+                    <th className="text-left py-2.5 px-3 text-xs font-medium text-[rgba(232,228,220,0.55)] uppercase tracking-wider">Planned End</th>
+                    <th className="text-right py-2.5 px-3 text-xs font-medium text-[rgba(232,228,220,0.55)] uppercase tracking-wider">Value</th>
+                    <th className="text-right py-2.5 px-3 text-xs font-medium text-[rgba(232,228,220,0.55)] uppercase tracking-wider">Actions</th>
                   </tr>
                 </thead>
                 <tbody>
                   {milestones.map((m) => (
-                    <tr key={m.id} className="border-b border-surface-50 last:border-0 hover:bg-surface-50/50">
+                    <tr key={m.id} className="border-b border-surface-50 last:border-0 hover:bg-[rgba(255,255,255,0.05)]/50">
                       <td className="py-3 px-3 font-medium">
                         <Link
                           href={`/projects/${projectId}/milestones/${m.id}`}
-                          className="text-primary-600 hover:underline"
+                          className="text-[#c4a35a] hover:underline"
                         >
                           {m.title}
                         </Link>
                       </td>
                       <td className="py-3 px-3">
-                        <span className={`px-2 py-0.5 rounded-full text-xs font-medium ${stateColors[m.state] || 'bg-surface-100 text-surface-600'}`}>
+                        <span className={`px-2 py-0.5 rounded-full text-xs font-medium ${stateColors[m.state] || 'bg-[rgba(255,255,255,0.05)] text-[rgba(232,228,220,0.55)]'}`}>
                           {m.state.replace(/_/g, ' ')}
                         </span>
                       </td>
-                      <td className="py-3 px-3 text-surface-500">
+                      <td className="py-3 px-3 text-[rgba(232,228,220,0.55)]">
                         {m.plannedEnd ? new Date(m.plannedEnd).toLocaleDateString() : '—'}
                       </td>
-                      <td className="py-3 px-3 text-right text-surface-600 font-mono">
+                      <td className="py-3 px-3 text-right text-[rgba(232,228,220,0.55)] font-mono">
                         {m.value.toLocaleString()}
                       </td>
                       <td className="py-3 px-3 text-right">
                         {m.state === 'IN_PROGRESS' && (
                           <Link
                             href={`/projects/${projectId}/milestones/${m.id}/evidence`}
-                            className="text-xs font-medium text-primary-600 hover:underline"
+                            className="text-xs font-medium text-[#c4a35a] hover:underline"
                           >
                             Submit Evidence
                           </Link>
@@ -179,7 +179,7 @@ export default function VendorOverviewPage() {
                         {m.state === 'DRAFT' && (
                           <Link
                             href={`/projects/${projectId}/milestones/${m.id}`}
-                            className="text-xs font-medium text-surface-500 hover:underline"
+                            className="text-xs font-medium text-[rgba(232,228,220,0.55)] hover:underline"
                           >
                             View
                           </Link>
@@ -187,7 +187,7 @@ export default function VendorOverviewPage() {
                         {(m.state === 'SUBMITTED' || m.state === 'VERIFIED' || m.state === 'CLOSED') && (
                           <Link
                             href={`/projects/${projectId}/milestones/${m.id}`}
-                            className="text-xs font-medium text-surface-500 hover:underline"
+                            className="text-xs font-medium text-[rgba(232,228,220,0.55)] hover:underline"
                           >
                             View Status
                           </Link>
@@ -217,12 +217,12 @@ function KpiCard({
   highlight?: boolean;
 }) {
   return (
-    <div className="bg-white border border-surface-200 rounded-xl p-4">
+    <div className="bg-[rgba(255,255,255,0.03)] border border-[rgba(255,255,255,0.07)] rounded-xl p-4">
       <div className="flex items-center gap-2 mb-2">
         {icon}
-        <span className="text-[11px] font-medium text-surface-500 uppercase tracking-wider">{label}</span>
+        <span className="text-[11px] font-medium text-[rgba(232,228,220,0.55)] uppercase tracking-wider">{label}</span>
       </div>
-      <p className={`text-xl font-semibold ${highlight ? 'text-teal-600' : 'text-surface-900'}`}>
+      <p className={`text-xl font-semibold ${highlight ? 'text-teal-600' : 'text-[#e8e4dc]'}`}>
         {value}
       </p>
     </div>

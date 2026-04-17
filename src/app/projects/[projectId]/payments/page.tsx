@@ -164,7 +164,7 @@ export default function PaymentsPage() {
       <Navbar projectId={projectId} projectName={projectName} role={myRole} />
 
       <div className="space-y-6">
-        <h1 className="text-2xl font-bold text-gray-900">Payment Eligibility</h1>
+        <h1 className="text-2xl font-bold text-[#e8e4dc]">Payment Eligibility</h1>
 
         {error && <div className="alert alert-error">{error}</div>}
 
@@ -172,23 +172,23 @@ export default function PaymentsPage() {
         <div className="grid gap-4 md:grid-cols-3">
           <div className="card">
             <div className="card-body">
-              <p className="text-sm text-gray-500">Eligible for Payment</p>
-              <p className="text-2xl font-bold text-green-600">{formatCurrency(totalEligible)}</p>
-              <p className="text-xs text-gray-500">{summary.eligible.length} items</p>
+              <p className="text-sm text-[rgba(232,228,220,0.55)]">Eligible for Payment</p>
+              <p className="text-2xl font-bold text-[#5cba80]">{formatCurrency(totalEligible)}</p>
+              <p className="text-xs text-[rgba(232,228,220,0.55)]">{summary.eligible.length} items</p>
             </div>
           </div>
           <div className="card">
             <div className="card-body">
-              <p className="text-sm text-gray-500">Blocked</p>
-              <p className="text-2xl font-bold text-red-600">{formatCurrency(totalBlocked)}</p>
-              <p className="text-xs text-gray-500">{summary.blocked.length} items</p>
+              <p className="text-sm text-[rgba(232,228,220,0.55)]">Blocked</p>
+              <p className="text-2xl font-bold text-[#e06050]">{formatCurrency(totalBlocked)}</p>
+              <p className="text-xs text-[rgba(232,228,220,0.55)]">{summary.blocked.length} items</p>
             </div>
           </div>
           <div className="card">
             <div className="card-body">
-              <p className="text-sm text-gray-500">Marked as Paid</p>
+              <p className="text-sm text-[rgba(232,228,220,0.55)]">Marked as Paid</p>
               <p className="text-2xl font-bold text-emerald-600">{formatCurrency(totalPaid)}</p>
-              <p className="text-xs text-gray-500">{summary.paid.length} items</p>
+              <p className="text-xs text-[rgba(232,228,220,0.55)]">{summary.paid.length} items</p>
             </div>
           </div>
         </div>
@@ -217,7 +217,7 @@ export default function PaymentsPage() {
                     <td>
                       <MilestoneStateBadge state={item.milestone.state as any} />
                     </td>
-                    <td className="text-gray-500">
+                    <td className="text-[rgba(232,228,220,0.55)]">
                       {item.milestone.paymentModel.replace('_', ' ')}
                     </td>
                     <td>
@@ -278,15 +278,15 @@ export default function PaymentsPage() {
         {summary.blocked.length > 0 && (
           <div className="card">
             <div className="card-header">
-              <h2 className="text-lg font-semibold text-red-600">Blocked Payments</h2>
+              <h2 className="text-lg font-semibold text-[#e06050]">Blocked Payments</h2>
             </div>
             <div className="card-body space-y-4">
               {summary.blocked.map((item) => (
-                <div key={item.id} className="border border-red-200 rounded-lg p-4 bg-red-50">
+                <div key={item.id} className="border border-[rgba(224,96,80,0.3)] rounded-lg p-4 bg-[rgba(220,80,60,0.1)]">
                   <div className="flex justify-between items-start">
                     <div>
                       <p className="font-medium">{item.milestone.title}</p>
-                      <p className="text-sm text-gray-600">
+                      <p className="text-sm text-[rgba(232,228,220,0.55)]">
                         {formatCurrency(item.blockedAmount)}
                       </p>
                     </div>
@@ -297,10 +297,10 @@ export default function PaymentsPage() {
                     </span>
                   </div>
                   {item.blockExplanation && (
-                    <div className="mt-2 text-sm text-gray-600">
+                    <div className="mt-2 text-sm text-[rgba(232,228,220,0.55)]">
                       <p>{item.blockExplanation}</p>
                       {item.blockedAt && (
-                        <p className="text-xs text-gray-500 mt-1">
+                        <p className="text-xs text-[rgba(232,228,220,0.55)] mt-1">
                           Blocked on {formatDateTime(item.blockedAt)}
                         </p>
                       )}
@@ -315,8 +315,8 @@ export default function PaymentsPage() {
 
       {/* Action Modal */}
       {actionItem && actionType && (
-        <div className="fixed inset-0 bg-black bg-opacity-50 flex items-center justify-center z-50">
-          <div className="bg-white rounded-lg shadow-xl max-w-md w-full mx-4">
+        <div className="fixed inset-0 bg-black/70 flex items-center justify-center z-50">
+          <div className="bg-[#13151a] border border-[rgba(255,255,255,0.1)] rounded-xl max-w-md w-full mx-4">
             <div className="p-6">
               <h2 className="text-lg font-semibold mb-4">
                 {actionType === 'block'
@@ -326,7 +326,7 @@ export default function PaymentsPage() {
                   : 'Mark as Paid'}
               </h2>
 
-              <p className="text-sm text-gray-600 mb-4">
+              <p className="text-sm text-[rgba(232,228,220,0.55)] mb-4">
                 {actionItem.milestone.title} - {formatCurrency(actionItem.eligibleAmount)}
               </p>
 

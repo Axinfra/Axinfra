@@ -128,7 +128,7 @@ export default function GanttChart({
       case 'VERIFIED': case 'CLOSED': return '#22c55e'; // green-500
       case 'SUBMITTED': return '#f59e0b'; // amber-500
       case 'IN_PROGRESS': return '#3b82f6'; // blue-500
-      default: return '#94a3b8'; // slate-400
+      default: return 'rgba(232,228,220,0.4)'; // muted
     }
   };
 
@@ -163,29 +163,29 @@ export default function GanttChart({
   }
 
   return (
-    <div className="bg-white border border-surface-200 rounded-xl overflow-hidden">
+    <div className="bg-[rgba(255,255,255,0.03)] border border-[rgba(255,255,255,0.07)] rounded-xl overflow-hidden">
       {/* Inline date editor */}
       {editingCell && (
-        <div className="flex items-center gap-2 px-4 py-2 bg-primary-50 border-b border-primary-200">
-          <span className="text-[12px] text-primary-700 font-medium">
+        <div className="flex items-center gap-2 px-4 py-2 bg-[rgba(196,163,90,0.08)] border-b border-[rgba(196,163,90,0.2)]">
+          <span className="text-[12px] text-[#c4a35a] font-medium">
             Editing {editingCell.field === 'plannedStart' ? 'planned start' : 'planned end'}
           </span>
           <input
             type="date"
             value={editValue}
             onChange={(e) => setEditValue(e.target.value)}
-            className="text-[12px] border border-primary-300 rounded-md px-2 py-1 bg-white focus:outline-none focus:ring-2 focus:ring-primary-400"
+            className="text-[12px] border border-[rgba(196,163,90,0.3)] rounded-md px-2 py-1 bg-[#1a1c22] text-[#e8e4dc] focus:outline-none focus:ring-2 focus:ring-[rgba(196,163,90,0.4)]"
             autoFocus
           />
           <button
             onClick={commitEdit}
-            className="text-[12px] px-3 py-1 bg-primary-600 text-white rounded-md hover:bg-primary-700"
+            className="text-[12px] px-3 py-1 bg-[#c4a35a] text-[#0a0c10] rounded-md hover:bg-[#b3943f]"
           >
             Save
           </button>
           <button
             onClick={() => setEditingCell(null)}
-            className="text-[12px] px-3 py-1 text-surface-500 hover:text-surface-700"
+            className="text-[12px] px-3 py-1 text-[rgba(232,228,220,0.55)] hover:text-[#e8e4dc]"
           >
             Cancel
           </button>
@@ -195,42 +195,42 @@ export default function GanttChart({
       <div ref={containerRef} className="overflow-x-auto">
         <div style={{ display: 'flex', minWidth: LABEL_WIDTH + chartWidth }}>
           {/* Left: row labels */}
-          <div style={{ width: LABEL_WIDTH, flexShrink: 0 }} className="border-r border-surface-200">
+          <div style={{ width: LABEL_WIDTH, flexShrink: 0 }} className="border-r border-[rgba(255,255,255,0.07)]">
             {/* Header spacer */}
-            <div style={{ height: HEADER_HEIGHT }} className="border-b border-surface-200 bg-surface-50" />
+            <div style={{ height: HEADER_HEIGHT }} className="border-b border-[rgba(255,255,255,0.07)] bg-[rgba(255,255,255,0.03)]" />
             {milestones.map((m) => (
               <div
                 key={m.id}
                 style={{ height: ROW_HEIGHT }}
-                className="flex items-center px-3 border-b border-surface-100"
+                className="flex items-center px-3 border-b border-[rgba(255,255,255,0.07)]"
               >
                 <div className="min-w-0">
                   <p
                     className={`text-[12px] font-medium truncate ${
-                      m.isCritical && mode === 'L3' ? 'text-danger-600' : 'text-surface-800'
+                      m.isCritical && mode === 'L3' ? 'text-[#e06050]' : 'text-[#e8e4dc]'
                     }`}
                     title={m.title}
                   >
                     {m.isCritical && mode === 'L3' && (
-                      <span className="mr-1 text-danger-500">●</span>
+                      <span className="mr-1 text-[#e06050]">●</span>
                     )}
                     {m.title}
                   </p>
                   {mode === 'L3' && m.totalFloat !== null && (
-                    <p className="text-[10px] text-surface-400">
+                    <p className="text-[10px] text-[rgba(232,228,220,0.35)]">
                       Float: {m.totalFloat}d
                     </p>
                   )}
                   {mode === 'L4' && (() => {
                     const s = spi(m);
                     return s !== null ? (
-                      <p className={`text-[10px] ${s >= 1 ? 'text-success-600' : 'text-danger-600'}`}>
+                      <p className={`text-[10px] ${s >= 1 ? 'text-[#5cba80]' : 'text-[#e06050]'}`}>
                         SPI: {s}
                       </p>
                     ) : null;
                   })()}
                   {m.vendorName && (
-                    <p className="text-[10px] text-surface-400 truncate">{m.vendorName}</p>
+                    <p className="text-[10px] text-[rgba(232,228,220,0.35)] truncate">{m.vendorName}</p>
                   )}
                 </div>
               </div>
@@ -245,14 +245,14 @@ export default function GanttChart({
               style={{ display: 'block' }}
             >
               {/* Header background */}
-              <rect x={0} y={0} width={chartWidth} height={HEADER_HEIGHT} fill="#f8fafc" />
-              <line x1={0} y1={HEADER_HEIGHT} x2={chartWidth} y2={HEADER_HEIGHT} stroke="#e2e8f0" />
+              <rect x={0} y={0} width={chartWidth} height={HEADER_HEIGHT} fill="#13151a" />
+              <line x1={0} y1={HEADER_HEIGHT} x2={chartWidth} y2={HEADER_HEIGHT} stroke="rgba(255,255,255,0.07)" />
 
               {/* Month ticks */}
               {ticks.map((tick) => (
                 <g key={tick.x}>
-                  <line x1={tick.x} y1={0} x2={tick.x} y2={svgHeight} stroke="#e2e8f0" strokeWidth={1} />
-                  <text x={tick.x + 4} y={HEADER_HEIGHT - 8} fontSize={10} fill="#94a3b8">
+                  <line x1={tick.x} y1={0} x2={tick.x} y2={svgHeight} stroke="rgba(255,255,255,0.07)" strokeWidth={1} />
+                  <text x={tick.x + 4} y={HEADER_HEIGHT - 8} fontSize={10} fill="rgba(232,228,220,0.45)">
                     {tick.label}
                   </text>
                 </g>
@@ -274,7 +274,7 @@ export default function GanttChart({
               {/* Rows */}
               {milestones.map((m, idx) => {
                 const y = HEADER_HEIGHT + idx * ROW_HEIGHT;
-                const rowBg = idx % 2 === 0 ? 'transparent' : '#f8fafc';
+                const rowBg = idx % 2 === 0 ? 'transparent' : 'rgba(255,255,255,0.02)';
 
                 // Planned bar
                 const ps = toDate(m.plannedStart);
@@ -300,7 +300,7 @@ export default function GanttChart({
                   <g key={m.id}>
                     {/* Row background */}
                     <rect x={0} y={y} width={chartWidth} height={ROW_HEIGHT} fill={rowBg} />
-                    <line x1={0} y1={y + ROW_HEIGHT} x2={chartWidth} y2={y + ROW_HEIGHT} stroke="#f1f5f9" />
+                    <line x1={0} y1={y + ROW_HEIGHT} x2={chartWidth} y2={y + ROW_HEIGHT} stroke="rgba(255,255,255,0.05)" />
 
                     {/* Baseline bar (L4 only) */}
                     {mode === 'L4' && bs && be && (
@@ -309,7 +309,7 @@ export default function GanttChart({
                         y={barY1}
                         width={Math.max(4, xFromDate(be) - xFromDate(bs))}
                         height={BAR_HEIGHT}
-                        fill="#cbd5e1"
+                        fill="rgba(232,228,220,0.15)"
                         rx={3}
                         opacity={0.5}
                       />
@@ -369,7 +369,7 @@ export default function GanttChart({
                           <g key={dep.predecessorId}>
                             <path
                               d={`M ${x1} ${HEADER_HEIGHT + predIdx * ROW_HEIGHT + BAR_Y_OFFSET + BAR_HEIGHT / 2} L ${x2} ${barY1 + BAR_HEIGHT / 2}`}
-                              stroke={dep.predecessorId === m.id ? '#ef4444' : '#94a3b8'}
+                              stroke={dep.predecessorId === m.id ? '#ef4444' : 'rgba(232,228,220,0.3)'}
                               strokeWidth={1}
                               fill="none"
                               strokeDasharray="3 2"
@@ -385,7 +385,7 @@ export default function GanttChart({
               {/* Arrow marker def */}
               <defs>
                 <marker id="arrow" viewBox="0 0 10 10" refX={10} refY={5} markerWidth={6} markerHeight={6} orient="auto">
-                  <path d="M 0 0 L 10 5 L 0 10 z" fill="#94a3b8" />
+                  <path d="M 0 0 L 10 5 L 0 10 z" fill="rgba(232,228,220,0.3)" />
                 </marker>
               </defs>
             </svg>
@@ -394,20 +394,20 @@ export default function GanttChart({
       </div>
 
       {/* Footer: state legend */}
-      <div className="flex items-center flex-wrap gap-4 px-4 py-2.5 border-t border-surface-100 bg-surface-50">
+      <div className="flex items-center flex-wrap gap-4 px-4 py-2.5 border-t border-[rgba(255,255,255,0.07)] bg-[rgba(255,255,255,0.03)]">
         {[
-          { color: '#94a3b8', label: 'Draft' },
+          { color: 'rgba(232,228,220,0.4)', label: 'Draft' },
           { color: '#3b82f6', label: 'In Progress' },
           { color: '#f59e0b', label: 'Submitted' },
           { color: '#22c55e', label: 'Verified/Closed' },
           ...(mode === 'L3' || mode === 'L4' ? [{ color: '#ef4444', label: 'Critical' }] : []),
         ].map((item) => (
-          <span key={item.label} className="flex items-center gap-1.5 text-[11px] text-surface-500">
+          <span key={item.label} className="flex items-center gap-1.5 text-[11px] text-[rgba(232,228,220,0.55)]">
             <span className="inline-block w-3 h-3 rounded-sm" style={{ background: item.color }} />
             {item.label}
           </span>
         ))}
-        <span className="text-[11px] text-surface-400 ml-auto">
+        <span className="text-[11px] text-[rgba(232,228,220,0.35)] ml-auto">
           Top bar = Planned &nbsp; Bottom bar = Actual
           {mode === 'L4' && ' &nbsp; Gray = Baseline'}
         </span>

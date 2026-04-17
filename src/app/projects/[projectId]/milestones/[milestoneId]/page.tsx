@@ -188,13 +188,13 @@ export default function MilestoneDetailPage() {
           <div>
             <Link
               href={`/projects/${projectId}/milestones`}
-              className="text-sm text-gray-500 hover:text-gray-700"
+              className="text-sm text-[rgba(232,228,220,0.55)] hover:text-[rgba(232,228,220,0.55)]"
             >
               Back to Milestones
             </Link>
-            <h1 className="text-2xl font-bold text-gray-900 mt-2">{milestone.title}</h1>
+            <h1 className="text-2xl font-bold text-[#e8e4dc] mt-2">{milestone.title}</h1>
             {milestone.description && (
-              <p className="text-gray-600 mt-1">{milestone.description}</p>
+              <p className="text-[rgba(232,228,220,0.55)] mt-1">{milestone.description}</p>
             )}
           </div>
           <MilestoneStateBadge state={milestone.state as any} />
@@ -206,20 +206,20 @@ export default function MilestoneDetailPage() {
         {milestone.isExtra && (
           <div className={`border rounded-lg p-4 ${
             milestone.extraApprovedAt
-              ? 'bg-green-50 border-green-200'
-              : 'bg-orange-50 border-orange-200'
+              ? 'bg-[rgba(50,200,120,0.1)] border-green-200'
+              : 'bg-[rgba(196,163,90,0.08)] border-[rgba(196,163,90,0.15)]'
           }`}>
             <div className="flex items-center justify-between">
               <div>
                 <p className={`font-medium ${
-                  milestone.extraApprovedAt ? 'text-green-800' : 'text-orange-800'
+                  milestone.extraApprovedAt ? 'text-[#5cba80]' : 'text-orange-800'
                 }`}>
                   {milestone.extraApprovedAt
                     ? '✓ Extra Approved'
                     : '⚠️ Extra (Outside BOQ) - Pending Approval'}
                 </p>
                 <p className={`text-sm ${
-                  milestone.extraApprovedAt ? 'text-green-600' : 'text-orange-600'
+                  milestone.extraApprovedAt ? 'text-[#5cba80]' : 'text-[#c4a35a]'
                 }`}>
                   {milestone.extraApprovedAt
                     ? `Approved on ${formatDateTime(milestone.extraApprovedAt)}`
@@ -230,7 +230,7 @@ export default function MilestoneDetailPage() {
                 <button
                   onClick={handleApproveExtra}
                   disabled={transitioning}
-                  className="btn bg-orange-600 text-white hover:bg-orange-700"
+                  className="btn bg-[#c4a35a] text-white hover:bg-[#b3943f]"
                 >
                   {transitioning ? 'Approving...' : 'Approve Extra'}
                 </button>
@@ -243,19 +243,19 @@ export default function MilestoneDetailPage() {
         <div className="grid gap-4 md:grid-cols-3">
           <div className="card">
             <div className="card-body">
-              <p className="text-sm text-gray-500">Payment Model</p>
+              <p className="text-sm text-[rgba(232,228,220,0.55)]">Payment Model</p>
               <p className="text-lg font-semibold">{milestone.paymentModel.replace('_', ' ')}</p>
             </div>
           </div>
           <div className="card">
             <div className="card-body">
-              <p className="text-sm text-gray-500">Planned Value</p>
+              <p className="text-sm text-[rgba(232,228,220,0.55)]">Planned Value</p>
               <p className="text-lg font-semibold">{formatCurrency(milestone.plannedValue)}</p>
             </div>
           </div>
           <div className="card">
             <div className="card-body">
-              <p className="text-sm text-gray-500">Due Date</p>
+              <p className="text-sm text-[rgba(232,228,220,0.55)]">Due Date</p>
               <p className="text-lg font-semibold">{formatDate(milestone.plannedEnd)}</p>
             </div>
           </div>
@@ -330,11 +330,11 @@ export default function MilestoneDetailPage() {
           </div>
           <div className="card-body">
             {milestone.evidence.length === 0 ? (
-              <p className="text-gray-500 text-center py-4">No evidence submitted yet</p>
+              <p className="text-[rgba(232,228,220,0.55)] text-center py-4">No evidence submitted yet</p>
             ) : (
               <div className="space-y-4">
                 {milestone.evidence.map((ev) => (
-                  <div key={ev.id} className="border border-gray-200 rounded-lg p-4">
+                  <div key={ev.id} className="border border-[rgba(255,255,255,0.07)] rounded-lg p-4">
                     <div className="flex justify-between items-start">
                       <div>
                         <span
@@ -348,27 +348,27 @@ export default function MilestoneDetailPage() {
                         >
                           {ev.status}
                         </span>
-                        <p className="text-sm text-gray-600 mt-2">
+                        <p className="text-sm text-[rgba(232,228,220,0.55)] mt-2">
                           Submitted by {ev.submittedBy.name} on {formatDateTime(ev.submittedAt)}
                         </p>
                         <p className="text-sm mt-1">
                           Qty/Percent: <span className="font-medium">{ev.qtyOrPercent}%</span>
                         </p>
-                        {ev.remarks && <p className="text-sm text-gray-500 mt-1">{ev.remarks}</p>}
+                        {ev.remarks && <p className="text-sm text-[rgba(232,228,220,0.55)] mt-1">{ev.remarks}</p>}
                         {ev.reviewNote && (
-                          <p className="text-sm text-red-600 mt-1">
+                          <p className="text-sm text-[#e06050] mt-1">
                             Review note: {ev.reviewNote}
                           </p>
                         )}
                       </div>
                       <div className="text-right">
-                        <p className="text-xs text-gray-500">{ev.files.length} file(s)</p>
+                        <p className="text-xs text-[rgba(232,228,220,0.55)]">{ev.files.length} file(s)</p>
                       </div>
                     </div>
                     {/* File List */}
                     {ev.files.length > 0 && (
-                      <div className="mt-3 pt-3 border-t border-gray-100">
-                        <p className="text-xs text-gray-500 mb-2">Attached Files:</p>
+                      <div className="mt-3 pt-3 border-t border-[rgba(255,255,255,0.07)]">
+                        <p className="text-xs text-[rgba(232,228,220,0.55)] mb-2">Attached Files:</p>
                         <div className="flex flex-wrap gap-2">
                           {ev.files.map((file) => (
                             <a
@@ -376,7 +376,7 @@ export default function MilestoneDetailPage() {
                               href={`/api/files/${file.id}`}
                               target="_blank"
                               rel="noopener noreferrer"
-                              className="inline-flex items-center px-2 py-1 text-xs bg-gray-100 hover:bg-gray-200 rounded text-primary-600"
+                              className="inline-flex items-center px-2 py-1 text-xs bg-[rgba(255,255,255,0.05)] hover:bg-[rgba(255,255,255,0.06)] rounded text-[#c4a35a]"
                             >
                               {file.fileName}
                             </a>
@@ -425,12 +425,12 @@ export default function MilestoneDetailPage() {
             <div className="space-y-3">
               {milestone.transitions.map((t, i) => (
                 <div key={i} className="flex items-start space-x-3 text-sm">
-                  <div className="w-32 text-gray-500">{formatDateTime(t.createdAt)}</div>
+                  <div className="w-32 text-[rgba(232,228,220,0.55)]">{formatDateTime(t.createdAt)}</div>
                   <div>
                     <span className="font-medium">{t.actor.name}</span>
-                    <span className="text-gray-500"> moved to </span>
+                    <span className="text-[rgba(232,228,220,0.55)]"> moved to </span>
                     <span className="font-medium">{t.toState}</span>
-                    {t.reason && <span className="text-gray-500"> - {t.reason}</span>}
+                    {t.reason && <span className="text-[rgba(232,228,220,0.55)]"> - {t.reason}</span>}
                   </div>
                 </div>
               ))}

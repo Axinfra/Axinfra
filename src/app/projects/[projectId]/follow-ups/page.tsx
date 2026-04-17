@@ -26,11 +26,11 @@ const typeLabels: Record<string, string> = {
 };
 
 const typeColors: Record<string, string> = {
-  PENDING_EVIDENCE_REVIEW: 'bg-yellow-100 text-yellow-800',
-  PENDING_VERIFICATION: 'bg-blue-100 text-blue-800',
-  PAYMENT_DUE_SOON: 'bg-orange-100 text-orange-800',
-  PAYMENT_BLOCKED_TOO_LONG: 'bg-red-100 text-red-800',
-  HIGH_VENDOR_EXPOSURE: 'bg-purple-100 text-purple-800',
+  PENDING_EVIDENCE_REVIEW: 'bg-[rgba(196,163,90,0.08)] text-[#c4a35a]',
+  PENDING_VERIFICATION: 'bg-[rgba(196,163,90,0.08)] text-blue-800',
+  PAYMENT_DUE_SOON: 'bg-[rgba(196,163,90,0.08)] text-orange-800',
+  PAYMENT_BLOCKED_TOO_LONG: 'bg-[rgba(220,80,60,0.1)] text-[#e06050]',
+  HIGH_VENDOR_EXPOSURE: 'bg-[rgba(196,163,90,0.08)] text-[#c4a35a]',
   BOQ_OVERRUN: 'bg-pink-100 text-pink-800',
 };
 
@@ -134,8 +134,8 @@ export default function FollowUpsPage() {
 
       <div className="space-y-6">
         <div className="flex justify-between items-center">
-          <h1 className="text-2xl font-bold text-gray-900">Follow-ups</h1>
-          <span className="text-gray-500">
+          <h1 className="text-2xl font-bold text-[#e8e4dc]">Follow-ups</h1>
+          <span className="text-[rgba(232,228,220,0.55)]">
             {followUps.length} open item{followUps.length !== 1 ? 's' : ''}
           </span>
         </div>
@@ -145,7 +145,7 @@ export default function FollowUpsPage() {
         {followUps.length === 0 ? (
           <div className="card">
             <div className="card-body text-center py-12">
-              <p className="text-gray-500">No open follow-ups</p>
+              <p className="text-[rgba(232,228,220,0.55)]">No open follow-ups</p>
             </div>
           </div>
         ) : (
@@ -156,19 +156,19 @@ export default function FollowUpsPage() {
                   <span className={`badge ${typeColors[type] || 'badge-draft'}`}>
                     {typeLabels[type] || type}
                   </span>
-                  <span className="text-sm text-gray-500">({items.length})</span>
+                  <span className="text-sm text-[rgba(232,228,220,0.55)]">({items.length})</span>
                 </div>
               </div>
               <div className="card-body space-y-4">
                 {items.map((fu) => (
                   <div
                     key={fu.id}
-                    className="border border-gray-200 rounded-lg p-4"
+                    className="border border-[rgba(255,255,255,0.07)] rounded-lg p-4"
                   >
                     <div className="flex justify-between items-start">
                       <div>
-                        <p className="text-gray-900">{fu.description}</p>
-                        <p className="text-xs text-gray-500 mt-1">
+                        <p className="text-[#e8e4dc]">{fu.description}</p>
+                        <p className="text-xs text-[rgba(232,228,220,0.55)] mt-1">
                           Created {formatDateTime(fu.createdAt)}
                         </p>
                       </div>

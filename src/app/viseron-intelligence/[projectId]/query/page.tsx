@@ -121,7 +121,7 @@ export default function ViseronQueryPage() {
       />
 
       {pageLoading ? (
-        <div className="h-96 rounded-xl bg-surface-100 animate-pulse" />
+        <div className="h-96 rounded-xl bg-[rgba(255,255,255,0.05)] animate-pulse" />
       ) : (
         <div className="flex flex-col h-[calc(100vh-240px)] min-h-[400px] animate-fade-in">
           {/* Chat area */}
@@ -143,7 +143,7 @@ export default function ViseronQueryPage() {
                     <div className="w-7 h-7 rounded-lg bg-gradient-to-br from-primary-500 to-primary-700 flex items-center justify-center shrink-0 mt-0.5">
                       <ViseronMark className="w-3.5 h-3.5 text-white" />
                     </div>
-                    <div className="bg-white border border-surface-200 rounded-xl rounded-tl-sm px-4 py-3">
+                    <div className="bg-[rgba(255,255,255,0.03)] border border-[rgba(255,255,255,0.07)] rounded-xl rounded-tl-sm px-4 py-3">
                       <div className="flex items-center gap-1.5">
                         <span className="w-1.5 h-1.5 rounded-full bg-surface-400 animate-bounce" style={{ animationDelay: '0ms' }} />
                         <span className="w-1.5 h-1.5 rounded-full bg-surface-400 animate-bounce" style={{ animationDelay: '150ms' }} />
@@ -157,7 +157,7 @@ export default function ViseronQueryPage() {
           </div>
 
           {/* Input area */}
-          <div className="shrink-0 border-t border-surface-200 pt-4 pb-2">
+          <div className="shrink-0 border-t border-[rgba(255,255,255,0.07)] pt-4 pb-2">
             {/* Quick suggestions when chat has messages */}
             {messages.length > 0 && !isLoading && (
               <div className="flex flex-wrap gap-1.5 mb-3">
@@ -165,7 +165,7 @@ export default function ViseronQueryPage() {
                   <button
                     key={q}
                     onClick={() => sendQuery(q)}
-                    className="px-3 py-1.5 rounded-full bg-surface-100 text-[11px] font-medium text-surface-600 hover:bg-surface-200 hover:text-surface-800 transition-colors"
+                    className="px-3 py-1.5 rounded-full bg-[rgba(255,255,255,0.05)] text-[11px] font-medium text-[rgba(232,228,220,0.55)] hover:bg-surface-200 hover:text-[#e8e4dc] transition-colors"
                   >
                     {q}
                   </button>
@@ -181,14 +181,14 @@ export default function ViseronQueryPage() {
                   value={input}
                   onChange={(e) => setInput(e.target.value)}
                   placeholder="Ask about your project... (e.g., Why is vendor X delayed?)"
-                  className="w-full bg-white border border-surface-300 rounded-xl px-4 py-3 pr-10 text-[13px] text-surface-900 placeholder:text-surface-400 focus:border-primary-500 focus:ring-4 focus:ring-primary-500/10 focus:outline-none transition-all"
+                  className="w-full bg-[rgba(255,255,255,0.03)] border border-[rgba(255,255,255,0.1)] rounded-xl px-4 py-3 pr-10 text-[13px] text-[#e8e4dc] placeholder:text-[rgba(232,228,220,0.35)] focus:border-[#c4a35a] focus:ring-4 focus:ring-[rgba(196,163,90,0.3)]/10 focus:outline-none transition-all"
                   disabled={isLoading}
                   autoFocus
                 />
                 {input.trim() && !isLoading && (
                   <button
                     type="submit"
-                    className="absolute right-2 top-1/2 -translate-y-1/2 w-7 h-7 rounded-lg bg-primary-600 text-white flex items-center justify-center hover:bg-primary-700 transition-colors"
+                    className="absolute right-2 top-1/2 -translate-y-1/2 w-7 h-7 rounded-lg bg-[#c4a35a] text-white flex items-center justify-center hover:bg-[#b3943f] transition-colors"
                   >
                     <SendIcon className="w-3.5 h-3.5" />
                   </button>
@@ -214,7 +214,7 @@ function ChatBubble({ message }: { message: QueryMessage }) {
   if (isUser) {
     return (
       <div className="flex justify-end">
-        <div className="max-w-[75%] bg-primary-600 text-white rounded-xl rounded-tr-sm px-4 py-2.5">
+        <div className="max-w-[75%] bg-[#c4a35a] text-white rounded-xl rounded-tr-sm px-4 py-2.5">
           <p className="text-[13px] leading-relaxed">{message.content}</p>
         </div>
       </div>
@@ -227,8 +227,8 @@ function ChatBubble({ message }: { message: QueryMessage }) {
         <ViseronMark className="w-3.5 h-3.5 text-white" />
       </div>
       <div className="max-w-[85%]">
-        <div className="bg-white border border-surface-200 rounded-xl rounded-tl-sm px-4 py-3">
-          <p className="text-[13px] text-surface-700 leading-relaxed">{message.content}</p>
+        <div className="bg-[rgba(255,255,255,0.03)] border border-[rgba(255,255,255,0.07)] rounded-xl rounded-tl-sm px-4 py-3">
+          <p className="text-[13px] text-[#e8e4dc] leading-relaxed">{message.content}</p>
 
           {/* Expandable details for vendor delay / risky milestones */}
           {message.details && message.details.length > 0 && message.type !== 'fallback' && (
@@ -249,7 +249,7 @@ function ChatBubble({ message }: { message: QueryMessage }) {
                 />
               ))}
             </div>
-            <span className="text-[10px] text-surface-400">
+            <span className="text-[10px] text-[rgba(232,228,220,0.35)]">
               {Math.round((message.confidence ?? 0) * 100)}% confidence
             </span>
           </div>
@@ -267,10 +267,10 @@ function DetailsPanel({ type, details }: { type?: string; details: Record<string
   if (details.length === 0) return null;
 
   return (
-    <div className="mt-3 border-t border-surface-100 pt-3">
+    <div className="mt-3 border-t border-[rgba(255,255,255,0.07)] pt-3">
       <button
         onClick={() => setExpanded(!expanded)}
-        className="flex items-center gap-1 text-[11px] font-medium text-primary-600 hover:text-primary-700 transition-colors"
+        className="flex items-center gap-1 text-[11px] font-medium text-[#c4a35a] hover:text-[#c4a35a] transition-colors"
       >
         <ChevronIcon className={`w-3 h-3 transition-transform ${expanded ? 'rotate-90' : ''}`} />
         {expanded ? 'Hide' : 'Show'} details ({details.length} item{details.length !== 1 ? 's' : ''})
@@ -281,19 +281,19 @@ function DetailsPanel({ type, details }: { type?: string; details: Record<string
           {details.slice(0, 6).map((item, i) => (
             <div
               key={i}
-              className="px-3 py-2 rounded-lg bg-surface-50 text-[12px]"
+              className="px-3 py-2 rounded-lg bg-[rgba(255,255,255,0.03)] text-[12px]"
             >
               {type === 'vendor_delay' && (
                 <>
-                  <p className="font-medium text-surface-800">{String(item.title ?? '')}</p>
-                  <p className="text-surface-500 mt-0.5">
+                  <p className="font-medium text-[#e8e4dc]">{String(item.title ?? '')}</p>
+                  <p className="text-[rgba(232,228,220,0.55)] mt-0.5">
                     {String(item.state ?? '').replace(/_/g, ' ')} &middot;{' '}
                     {Number(item.daysOverdue) > 0
                       ? `${item.daysOverdue} days overdue`
                       : 'On track'}
                   </p>
                   {Array.isArray(item.reasons) && item.reasons.length > 0 && (
-                    <ul className="mt-1 text-surface-400 list-disc list-inside">
+                    <ul className="mt-1 text-[rgba(232,228,220,0.35)] list-disc list-inside">
                       {(item.reasons as string[]).map((r, j) => (
                         <li key={j}>{r}</li>
                       ))}
@@ -314,9 +314,9 @@ function DetailsPanel({ type, details }: { type?: string; details: Record<string
                             : 'bg-primary-400'
                       }`}
                     />
-                    <p className="font-medium text-surface-800">{String(item.title ?? '')}</p>
+                    <p className="font-medium text-[#e8e4dc]">{String(item.title ?? '')}</p>
                   </div>
-                  <p className="text-surface-500 mt-0.5">
+                  <p className="text-[rgba(232,228,220,0.55)] mt-0.5">
                     {String(item.riskLevel ?? '')} risk &middot;{' '}
                     {item.vendorName ? String(item.vendorName) : 'No vendor'} &middot;{' '}
                     {Number(item.daysRemaining) < 0
@@ -328,7 +328,7 @@ function DetailsPanel({ type, details }: { type?: string; details: Record<string
 
               {type === 'vendor_reliability' && (
                 <div className="flex items-center justify-between">
-                  <p className="font-medium text-surface-800">{String(item.vendorName ?? '')}</p>
+                  <p className="font-medium text-[#e8e4dc]">{String(item.vendorName ?? '')}</p>
                   <div className="flex items-center gap-2">
                     <div className="w-12 h-1.5 bg-surface-200 rounded-full overflow-hidden">
                       <div
@@ -344,7 +344,7 @@ function DetailsPanel({ type, details }: { type?: string; details: Record<string
                         }}
                       />
                     </div>
-                    <span className="text-[11px] font-semibold text-surface-700 tabular-nums">
+                    <span className="text-[11px] font-semibold text-[#e8e4dc] tabular-nums">
                       {String(item.reliability ?? 0)}%
                     </span>
                   </div>
@@ -360,8 +360,8 @@ function DetailsPanel({ type, details }: { type?: string; details: Record<string
                     ['Blocked', String(item.blocked ?? 0)],
                   ].map(([label, value]) => (
                     <div key={label}>
-                      <span className="text-surface-400">{label}: </span>
-                      <span className="font-medium text-surface-700">{value}</span>
+                      <span className="text-[rgba(232,228,220,0.35)]">{label}: </span>
+                      <span className="font-medium text-[#e8e4dc]">{value}</span>
                     </div>
                   ))}
                 </div>
@@ -379,16 +379,16 @@ function DetailsPanel({ type, details }: { type?: string; details: Record<string
 function EmptyState({ onQuerySelect }: { onQuerySelect: (q: string) => void }) {
   return (
     <div className="flex flex-col items-center justify-center py-16 px-4">
-      <div className="w-14 h-14 rounded-2xl bg-gradient-to-br from-primary-500 to-primary-700 flex items-center justify-center shadow-lg shadow-primary-500/20 mb-5">
+      <div className="w-14 h-14 rounded-2xl bg-gradient-to-br from-primary-500 to-primary-700 flex items-center justify-center shadow-none shadow-primary-500/20 mb-5">
         <ViseronMark className="w-7 h-7 text-white" />
       </div>
-      <h2 className="text-[18px] font-semibold text-surface-900 mb-1">Viseron Query Engine</h2>
-      <p className="text-[13px] text-surface-500 text-center max-w-sm mb-8">
+      <h2 className="text-[18px] font-semibold text-[#e8e4dc] mb-1">Viseron Query Engine</h2>
+      <p className="text-[13px] text-[rgba(232,228,220,0.55)] text-center max-w-sm mb-8">
         Ask questions about your project in plain English. Viseron will analyze your data and provide insights.
       </p>
 
       <div className="w-full max-w-md space-y-2">
-        <p className="text-[11px] font-medium text-surface-400 uppercase tracking-wider text-center mb-3">
+        <p className="text-[11px] font-medium text-[rgba(232,228,220,0.35)] uppercase tracking-wider text-center mb-3">
           Try asking
         </p>
         {[
@@ -405,8 +405,8 @@ function EmptyState({ onQuerySelect }: { onQuerySelect: (q: string) => void }) {
             }}
             className={`w-full flex items-center gap-3 px-4 py-3 rounded-xl border transition-all text-left group ${
               item.query === 'Why is vendor X delayed?'
-                ? 'bg-surface-50 border-surface-200 text-surface-400 cursor-default'
-                : 'bg-white border-surface-200 hover:border-primary-300 hover:shadow-sm'
+                ? 'bg-[rgba(255,255,255,0.03)] border-[rgba(255,255,255,0.07)] text-[rgba(232,228,220,0.35)] cursor-default'
+                : 'bg-[rgba(255,255,255,0.03)] border-[rgba(255,255,255,0.07)] hover:border-[rgba(196,163,90,0.3)] hover:shadow-none'
             }`}
           >
             <span className={`text-sm ${item.query === 'Why is vendor X delayed?' ? 'text-surface-300' : 'text-primary-500'}`}>
@@ -414,8 +414,8 @@ function EmptyState({ onQuerySelect }: { onQuerySelect: (q: string) => void }) {
             </span>
             <span className={`text-[13px] font-medium ${
               item.query === 'Why is vendor X delayed?'
-                ? 'text-surface-400'
-                : 'text-surface-700 group-hover:text-primary-700'
+                ? 'text-[rgba(232,228,220,0.35)]'
+                : 'text-[#e8e4dc] group-hover:text-[#c4a35a]'
             }`}>
               {item.query}
             </span>

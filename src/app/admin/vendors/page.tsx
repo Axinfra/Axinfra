@@ -140,7 +140,7 @@ export default function VendorOnboardingPage() {
     return (
       <Layout>
         <div className="flex items-center justify-center py-20">
-          <Loader2 className="w-6 h-6 animate-spin text-surface-400" />
+          <Loader2 className="w-6 h-6 animate-spin text-[rgba(232,228,220,0.35)]" />
         </div>
       </Layout>
     );
@@ -150,7 +150,7 @@ export default function VendorOnboardingPage() {
     return (
       <Layout>
         <div className="flex items-center justify-center py-20">
-          <p className="text-sm text-surface-500">Redirecting...</p>
+          <p className="text-sm text-[rgba(232,228,220,0.55)]">Redirecting...</p>
         </div>
       </Layout>
     );
@@ -165,10 +165,10 @@ export default function VendorOnboardingPage() {
         {/* Header */}
         <div>
           <div className="flex items-center gap-2 mb-1">
-            <Users className="w-5 h-5 text-primary-600" />
-            <h1 className="text-xl font-semibold text-surface-900">Vendor Onboarding</h1>
+            <Users className="w-5 h-5 text-[#c4a35a]" />
+            <h1 className="text-xl font-semibold text-[#e8e4dc]">Vendor Onboarding</h1>
           </div>
-          <p className="text-sm text-surface-500">
+          <p className="text-sm text-[rgba(232,228,220,0.55)]">
             Create vendor accounts and assign them to projects.
           </p>
         </div>
@@ -176,12 +176,12 @@ export default function VendorOnboardingPage() {
         {/* Project selector */}
         {projects.length > 1 && (
           <div className="max-w-xs">
-            <label className="block text-sm font-medium text-surface-700 mb-1.5">
+            <label className="block text-sm font-medium text-[#e8e4dc] mb-1.5">
               Project
             </label>
             <select
-              className="w-full h-10 rounded-[10px] border border-surface-300 bg-white px-3 text-sm
-                focus:outline-none focus:ring-4 focus:ring-primary-500/10 focus:border-primary-500
+              className="w-full h-10 rounded-[10px] border border-[rgba(255,255,255,0.1)] bg-[rgba(255,255,255,0.03)] px-3 text-sm
+                focus:outline-none focus:ring-4 focus:ring-[rgba(196,163,90,0.3)]/10 focus:border-[#c4a35a]
                 transition-all duration-200"
               value={selectedProject}
               onChange={(e) => setSelectedProject(e.target.value)}
@@ -198,28 +198,28 @@ export default function VendorOnboardingPage() {
         <div className="grid grid-cols-1 lg:grid-cols-5 gap-8">
           {/* ─── Create Vendor Form ─── */}
           <div className="lg:col-span-2">
-            <div className="bg-white border border-surface-200 rounded-xl p-6">
+            <div className="bg-[rgba(255,255,255,0.03)] border border-[rgba(255,255,255,0.07)] rounded-xl p-6">
               <div className="flex items-center gap-2 mb-5">
-                <Plus className="w-4 h-4 text-primary-600" />
-                <h2 className="text-sm font-semibold text-surface-900">New Vendor</h2>
+                <Plus className="w-4 h-4 text-[#c4a35a]" />
+                <h2 className="text-sm font-semibold text-[#e8e4dc]">New Vendor</h2>
               </div>
 
               <form onSubmit={handleCreate} className="space-y-4">
                 {formError && (
-                  <div className="bg-red-50 border border-red-100 rounded-lg p-3 flex items-start gap-2 text-sm text-red-700">
+                  <div className="bg-[rgba(220,80,60,0.1)] border border-red-100 rounded-lg p-3 flex items-start gap-2 text-sm text-[#e06050]">
                     <AlertCircle className="h-4 w-4 mt-0.5 shrink-0" />
                     <p>{formError}</p>
                   </div>
                 )}
                 {formSuccess && (
-                  <div className="bg-green-50 border border-green-100 rounded-lg p-3 flex items-start gap-2 text-sm text-green-700">
+                  <div className="bg-[rgba(50,200,120,0.1)] border border-green-100 rounded-lg p-3 flex items-start gap-2 text-sm text-[#5cba80]">
                     <Check className="h-4 w-4 mt-0.5 shrink-0" />
                     <p>{formSuccess}</p>
                   </div>
                 )}
 
                 <div>
-                  <label className="block text-sm font-medium text-surface-700 mb-1">
+                  <label className="block text-sm font-medium text-[#e8e4dc] mb-1">
                     Display Name *
                   </label>
                   <Input
@@ -231,7 +231,7 @@ export default function VendorOnboardingPage() {
                 </div>
 
                 <div>
-                  <label className="block text-sm font-medium text-surface-700 mb-1">
+                  <label className="block text-sm font-medium text-[#e8e4dc] mb-1">
                     Username *
                   </label>
                   <Input
@@ -240,13 +240,13 @@ export default function VendorOnboardingPage() {
                     placeholder="e.g. apex_construction"
                     required
                   />
-                  <p className="text-xs text-surface-400 mt-1">
+                  <p className="text-xs text-[rgba(232,228,220,0.35)] mt-1">
                     Login email will be <span className="font-mono">{username || 'username'}@vendor.local</span>
                   </p>
                 </div>
 
                 <div>
-                  <label className="block text-sm font-medium text-surface-700 mb-1">
+                  <label className="block text-sm font-medium text-[#e8e4dc] mb-1">
                     Password *
                   </label>
                   <div className="relative">
@@ -262,7 +262,7 @@ export default function VendorOnboardingPage() {
                     <button
                       type="button"
                       onClick={() => setShowPassword(!showPassword)}
-                      className="absolute right-3 top-1/2 -translate-y-1/2 text-surface-400 hover:text-surface-600"
+                      className="absolute right-3 top-1/2 -translate-y-1/2 text-[rgba(232,228,220,0.35)] hover:text-[rgba(232,228,220,0.55)]"
                       tabIndex={-1}
                     >
                       {showPassword ? <EyeOff className="w-4 h-4" /> : <Eye className="w-4 h-4" />}
@@ -271,9 +271,9 @@ export default function VendorOnboardingPage() {
                 </div>
 
                 <div className="pt-1">
-                  <p className="text-xs text-surface-500 mb-3">
-                    Assigning to: <span className="font-medium text-surface-700">{currentProjectName}</span>
-                    {' '}as <span className="font-medium text-primary-600">VENDOR</span>
+                  <p className="text-xs text-[rgba(232,228,220,0.55)] mb-3">
+                    Assigning to: <span className="font-medium text-[#e8e4dc]">{currentProjectName}</span>
+                    {' '}as <span className="font-medium text-[#c4a35a]">VENDOR</span>
                   </p>
                   <Button
                     type="submit"
@@ -299,37 +299,37 @@ export default function VendorOnboardingPage() {
 
           {/* ─── Vendor List ─── */}
           <div className="lg:col-span-3">
-            <div className="bg-white border border-surface-200 rounded-xl p-6">
+            <div className="bg-[rgba(255,255,255,0.03)] border border-[rgba(255,255,255,0.07)] rounded-xl p-6">
               <div className="flex items-center justify-between mb-5">
-                <h2 className="text-sm font-semibold text-surface-900">
+                <h2 className="text-sm font-semibold text-[#e8e4dc]">
                   Vendors in {currentProjectName}
                 </h2>
-                <span className="text-xs text-surface-400">
+                <span className="text-xs text-[rgba(232,228,220,0.35)]">
                   {vendors.length} vendor{vendors.length !== 1 ? 's' : ''}
                 </span>
               </div>
 
               {vendorsLoading ? (
                 <div className="flex justify-center py-10">
-                  <Loader2 className="w-5 h-5 animate-spin text-surface-400" />
+                  <Loader2 className="w-5 h-5 animate-spin text-[rgba(232,228,220,0.35)]" />
                 </div>
               ) : vendors.length === 0 ? (
                 <div className="text-center py-10">
                   <Users className="w-8 h-8 text-surface-300 mx-auto mb-2" />
-                  <p className="text-sm text-surface-400">No vendors assigned yet</p>
+                  <p className="text-sm text-[rgba(232,228,220,0.35)]">No vendors assigned yet</p>
                 </div>
               ) : (
                 <div className="overflow-x-auto">
                   <table className="w-full text-sm">
                     <thead>
-                      <tr className="border-b border-surface-100">
-                        <th className="text-left py-2.5 px-3 text-xs font-medium text-surface-500 uppercase tracking-wider">
+                      <tr className="border-b border-[rgba(255,255,255,0.07)]">
+                        <th className="text-left py-2.5 px-3 text-xs font-medium text-[rgba(232,228,220,0.55)] uppercase tracking-wider">
                           Name
                         </th>
-                        <th className="text-left py-2.5 px-3 text-xs font-medium text-surface-500 uppercase tracking-wider">
+                        <th className="text-left py-2.5 px-3 text-xs font-medium text-[rgba(232,228,220,0.55)] uppercase tracking-wider">
                           Email
                         </th>
-                        <th className="text-left py-2.5 px-3 text-xs font-medium text-surface-500 uppercase tracking-wider">
+                        <th className="text-left py-2.5 px-3 text-xs font-medium text-[rgba(232,228,220,0.55)] uppercase tracking-wider">
                           Assigned
                         </th>
                       </tr>
@@ -338,12 +338,12 @@ export default function VendorOnboardingPage() {
                       {vendors.map((v) => (
                         <tr
                           key={v.userId}
-                          className="border-b border-surface-50 last:border-0 hover:bg-surface-50/50"
+                          className="border-b border-surface-50 last:border-0 hover:bg-[rgba(255,255,255,0.05)]/50"
                         >
                           <td className="py-3 px-3">
                             <div className="flex items-center gap-2.5">
-                              <div className="w-7 h-7 rounded-full bg-teal-50 flex items-center justify-center shrink-0">
-                                <span className="text-[10px] font-semibold text-teal-700">
+                              <div className="w-7 h-7 rounded-full bg-[rgba(50,200,120,0.1)] flex items-center justify-center shrink-0">
+                                <span className="text-[10px] font-semibold text-[#5cba80]">
                                   {v.name
                                     .split(' ')
                                     .map((n) => n[0])
@@ -352,13 +352,13 @@ export default function VendorOnboardingPage() {
                                     .slice(0, 2)}
                                 </span>
                               </div>
-                              <span className="font-medium text-surface-800">{v.name}</span>
+                              <span className="font-medium text-[#e8e4dc]">{v.name}</span>
                             </div>
                           </td>
-                          <td className="py-3 px-3 text-surface-500 font-mono text-xs">
+                          <td className="py-3 px-3 text-[rgba(232,228,220,0.55)] font-mono text-xs">
                             {v.email}
                           </td>
-                          <td className="py-3 px-3 text-surface-400 text-xs">
+                          <td className="py-3 px-3 text-[rgba(232,228,220,0.35)] text-xs">
                             {new Date(v.assignedAt).toLocaleDateString()}
                           </td>
                         </tr>

@@ -138,20 +138,20 @@ export default function CreateViewModal({
   if (!isOpen) return null;
 
   return (
-    <div className="fixed inset-0 bg-black bg-opacity-50 flex items-center justify-center z-50 p-4">
-      <div className="bg-white rounded-lg shadow-xl max-w-2xl w-full max-h-[90vh] overflow-y-auto">
+    <div className="fixed inset-0 bg-black/70 flex items-center justify-center z-50 p-4">
+      <div className="bg-[#13151a] border border-[rgba(255,255,255,0.1)] rounded-xl max-w-2xl w-full max-h-[90vh] overflow-y-auto scrollbar-thin">
         <div className="p-6">
-          <h2 className="text-xl font-semibold mb-4">Create Custom View</h2>
+          <h2 className="text-xl font-semibold text-[#e8e4dc] mb-4">Create Custom View</h2>
 
           {/* Quick Start with Templates */}
           <div className="mb-6">
-            <h3 className="text-sm font-medium text-gray-700 mb-2">Quick Start Templates</h3>
+            <h3 className="text-xs font-medium text-[rgba(232,228,220,0.55)] uppercase tracking-wider mb-2">Quick Start Templates</h3>
             <div className="grid grid-cols-2 gap-2">
               {templates.map((template, i) => (
                 <button
                   key={i}
                   onClick={() => handleTemplateSelect(template)}
-                  className="p-2 text-left text-sm border border-gray-200 rounded hover:bg-gray-50 hover:border-primary-300"
+                  className="p-2 text-left text-sm border border-[rgba(255,255,255,0.07)] rounded-lg text-[rgba(232,228,220,0.55)] hover:bg-[rgba(255,255,255,0.05)] hover:border-[rgba(196,163,90,0.3)] hover:text-[#c4a35a] transition-colors"
                 >
                   {template.name}
                 </button>
@@ -159,7 +159,7 @@ export default function CreateViewModal({
             </div>
           </div>
 
-          <hr className="my-4" />
+          <hr className="border-[rgba(255,255,255,0.07)] my-4" />
 
           {/* View Name */}
           <div className="mb-4">
@@ -205,23 +205,23 @@ export default function CreateViewModal({
           <div className="mb-4">
             <label className="label">Sort Order</label>
             <div className="flex space-x-4">
-              <label className="flex items-center">
+              <label className="flex items-center text-[#e8e4dc] text-sm">
                 <input
                   type="radio"
                   name="sortOrder"
                   checked={config.sortOrder !== 'desc'}
                   onChange={() => setConfig({ ...config, sortOrder: 'asc' })}
-                  className="mr-2"
+                  className="mr-2 accent-[#c4a35a]"
                 />
                 Ascending
               </label>
-              <label className="flex items-center">
+              <label className="flex items-center text-[#e8e4dc] text-sm">
                 <input
                   type="radio"
                   name="sortOrder"
                   checked={config.sortOrder === 'desc'}
                   onChange={() => setConfig({ ...config, sortOrder: 'desc' })}
-                  className="mr-2"
+                  className="mr-2 accent-[#c4a35a]"
                 />
                 Descending
               </label>
@@ -232,14 +232,14 @@ export default function CreateViewModal({
           <button
             type="button"
             onClick={() => setShowAdvanced(!showAdvanced)}
-            className="text-primary-600 text-sm mb-4"
+            className="text-[#c4a35a] text-sm mb-4"
           >
             {showAdvanced ? '▼ Hide Advanced Filters' : '▶ Show Advanced Filters'}
           </button>
 
           {/* Advanced Filters */}
           {showAdvanced && (
-            <div className="space-y-4 border-t pt-4">
+            <div className="space-y-4 border-t border-[rgba(255,255,255,0.07)] pt-4">
               {/* Milestone States */}
               <div>
                 <label className="label">Filter by Milestone State</label>
@@ -249,10 +249,10 @@ export default function CreateViewModal({
                       key={state.value}
                       type="button"
                       onClick={() => toggleState(state.value)}
-                      className={`px-3 py-1 text-sm rounded border ${
+                      className={`px-3 py-1 text-sm rounded-lg border transition-colors ${
                         config.filters.milestoneState?.includes(state.value)
-                          ? 'bg-primary-100 border-primary-500 text-primary-700'
-                          : 'border-gray-300 text-gray-600 hover:bg-gray-50'
+                          ? 'bg-[rgba(196,163,90,0.12)] border-[rgba(196,163,90,0.3)] text-[#c4a35a]'
+                          : 'border-[rgba(255,255,255,0.07)] text-[rgba(232,228,220,0.55)] hover:bg-[rgba(255,255,255,0.05)]'
                       }`}
                     >
                       {state.label}
@@ -270,10 +270,10 @@ export default function CreateViewModal({
                       key={status.value}
                       type="button"
                       onClick={() => togglePaymentStatus(status.value)}
-                      className={`px-3 py-1 text-sm rounded border ${
+                      className={`px-3 py-1 text-sm rounded-lg border transition-colors ${
                         config.filters.paymentStatus?.includes(status.value)
-                          ? 'bg-primary-100 border-primary-500 text-primary-700'
-                          : 'border-gray-300 text-gray-600 hover:bg-gray-50'
+                          ? 'bg-[rgba(196,163,90,0.12)] border-[rgba(196,163,90,0.3)] text-[#c4a35a]'
+                          : 'border-[rgba(255,255,255,0.07)] text-[rgba(232,228,220,0.55)] hover:bg-[rgba(255,255,255,0.05)]'
                       }`}
                     >
                       {status.label}
@@ -284,7 +284,7 @@ export default function CreateViewModal({
 
               {/* Delayed Only */}
               <div>
-                <label className="flex items-center">
+                <label className="flex items-center text-[#e8e4dc] text-sm">
                   <input
                     type="checkbox"
                     checked={config.filters.isDelayed === true}
@@ -297,7 +297,7 @@ export default function CreateViewModal({
                         },
                       })
                     }
-                    className="mr-2"
+                    className="mr-2 accent-[#c4a35a]"
                   />
                   Only show delayed milestones
                 </label>
@@ -408,7 +408,7 @@ export default function CreateViewModal({
           )}
 
           {/* Actions */}
-          <div className="flex justify-end space-x-3 mt-6 pt-4 border-t">
+          <div className="flex justify-end space-x-3 mt-6 pt-4 border-t border-[rgba(255,255,255,0.07)]">
             <button onClick={handleClose} className="btn btn-secondary">
               Cancel
             </button>

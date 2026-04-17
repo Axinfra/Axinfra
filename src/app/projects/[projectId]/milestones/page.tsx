@@ -115,7 +115,7 @@ export default function MilestonesPage() {
 
       <div className="space-y-6">
         <div className="flex justify-between items-center">
-          <h1 className="text-2xl font-bold text-gray-900">Milestones</h1>
+          <h1 className="text-2xl font-bold text-[#e8e4dc]">Milestones</h1>
           {permissions.canEditMilestones && (
             <Link
               href={`/projects/${projectId}/milestones/new`}
@@ -133,7 +133,7 @@ export default function MilestonesPage() {
         {searchActive ? null : milestones.length === 0 ? (
           <div className="card">
             <div className="card-body text-center py-12">
-              <p className="text-gray-500">No milestones created yet</p>
+              <p className="text-[rgba(232,228,220,0.55)]">No milestones created yet</p>
             </div>
           </div>
         ) : (
@@ -161,22 +161,22 @@ export default function MilestonesPage() {
                         <div className="flex items-center gap-2">
                           <Link
                             href={`/projects/${projectId}/milestones/${milestone.id}`}
-                            className="text-primary-600 hover:underline font-medium"
+                            className="text-[#c4a35a] hover:underline font-medium"
                           >
                             {milestone.title}
                           </Link>
                           {milestone.isExtra && (
                             <span className={`text-xs px-2 py-0.5 rounded-full ${
                               milestone.extraApprovedAt
-                                ? 'bg-green-100 text-green-700'
-                                : 'bg-orange-100 text-orange-700'
+                                ? 'bg-[rgba(50,200,120,0.1)] text-[#5cba80]'
+                                : 'bg-[rgba(196,163,90,0.08)] text-[#c4a35a]'
                             }`}>
                               {milestone.extraApprovedAt ? 'Extra \u2713' : 'Extra (Pending)'}
                             </span>
                           )}
                         </div>
                         {milestone.description && (
-                          <p className="text-xs text-gray-500 mt-1 truncate max-w-xs">
+                          <p className="text-xs text-[rgba(232,228,220,0.55)] mt-1 truncate max-w-xs">
                             {milestone.description}
                           </p>
                         )}
@@ -184,21 +184,21 @@ export default function MilestonesPage() {
                       {(myRole === 'OWNER' || myRole === 'PMC') && (
                         <td>
                           {milestone.vendorUser ? (
-                            <span className="inline-flex items-center gap-1 px-2 py-0.5 rounded-full bg-teal-50 text-teal-700 text-xs font-medium">
+                            <span className="inline-flex items-center gap-1 px-2 py-0.5 rounded-full bg-[rgba(50,200,120,0.1)] text-[#5cba80] text-xs font-medium">
                               <svg className="w-3 h-3" fill="none" stroke="currentColor" viewBox="0 0 24 24">
                                 <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M16 7a4 4 0 11-8 0 4 4 0 018 0zM12 14a7 7 0 00-7 7h14a7 7 0 00-7-7z" />
                               </svg>
                               {milestone.vendorUser.name}
                             </span>
                           ) : (
-                            <span className="text-xs text-gray-400">&mdash;</span>
+                            <span className="text-xs text-[rgba(232,228,220,0.35)]">&mdash;</span>
                           )}
                         </td>
                       )}
                       <td>
                         <MilestoneStateBadge state={milestone.state as any} />
                       </td>
-                      <td className="text-gray-500">{formatDate(milestone.plannedEnd)}</td>
+                      <td className="text-[rgba(232,228,220,0.55)]">{formatDate(milestone.plannedEnd)}</td>
                       <td>
                         {milestone.paymentEligibility ? (
                           <PaymentStatusBadge state={milestone.paymentEligibility.state as any} />
@@ -210,21 +210,21 @@ export default function MilestonesPage() {
                         {formatCurrency(milestone.value || 0)}
                       </td>
                       <td className={`font-medium ${
-                        (milestone.paymentEligibility?.eligibleAmount ?? 0) > 0 ? 'text-green-600' : 'text-gray-400'
+                        (milestone.paymentEligibility?.eligibleAmount ?? 0) > 0 ? 'text-[#5cba80]' : 'text-[rgba(232,228,220,0.35)]'
                       }`}>
                         {milestone.paymentEligibility
                           ? formatCurrency(milestone.paymentEligibility.eligibleAmount)
                           : '-'}
                       </td>
-                      <td className="text-gray-600">
+                      <td className="text-[rgba(232,228,220,0.55)]">
                         {milestone.paymentEligibility?.advanceAmount
                           ? formatCurrency(milestone.paymentEligibility.advanceAmount)
                           : '-'}
                         {milestone.advancePercent > 0 && (
-                          <span className="text-xs text-gray-400 ml-1">({milestone.advancePercent}%)</span>
+                          <span className="text-xs text-[rgba(232,228,220,0.35)] ml-1">({milestone.advancePercent}%)</span>
                         )}
                       </td>
-                      <td className="font-medium text-orange-600">
+                      <td className="font-medium text-[#c4a35a]">
                         {milestone.paymentEligibility?.remainingAmount
                           ? formatCurrency(milestone.paymentEligibility.remainingAmount)
                           : '-'}
@@ -233,7 +233,7 @@ export default function MilestonesPage() {
                         <td>
                           <button
                             onClick={() => setDeleteConfirm(milestone.id)}
-                            className="text-red-600 hover:text-red-800 text-sm font-medium"
+                            className="text-[#e06050] hover:text-[#e06050] text-sm font-medium"
                           >
                             Delete
                           </button>
@@ -250,11 +250,11 @@ export default function MilestonesPage() {
 
       {/* Delete Confirmation Modal — kept as modal (destructive action confirmation) */}
       {deleteConfirm && (
-        <div className="fixed inset-0 bg-black bg-opacity-50 flex items-center justify-center z-50">
-          <div className="bg-white rounded-lg shadow-xl max-w-sm w-full mx-4">
+        <div className="fixed inset-0 bg-black/70 flex items-center justify-center z-50">
+          <div className="bg-[#13151a] border border-[rgba(255,255,255,0.1)] rounded-xl max-w-sm w-full mx-4">
             <div className="p-6">
-              <h2 className="text-lg font-semibold mb-2 text-red-600">Delete Milestone</h2>
-              <p className="text-gray-600 mb-4">
+              <h2 className="text-lg font-semibold mb-2 text-[#e06050]">Delete Milestone</h2>
+              <p className="text-[rgba(232,228,220,0.55)] mb-4">
                 Are you sure you want to delete this milestone? This action cannot be undone.
               </p>
               <div className="flex justify-end space-x-3">
@@ -263,7 +263,7 @@ export default function MilestonesPage() {
                 </button>
                 <button
                   onClick={() => handleDelete(deleteConfirm)}
-                  className="btn bg-red-600 text-white hover:bg-red-700"
+                  className="btn bg-[#e06050] text-white hover:bg-[#c8503f]"
                 >
                   Delete
                 </button>

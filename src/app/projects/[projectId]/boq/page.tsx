@@ -144,7 +144,7 @@ export default function BOQPage() {
 
       <div className="space-y-6">
         <div className="flex justify-between items-center">
-          <h1 className="text-2xl font-bold text-gray-900">Bill of Quantities</h1>
+          <h1 className="text-2xl font-bold text-[#e8e4dc]">Bill of Quantities</h1>
           {!currentBOQ && permissions.canEditBOQ && (
             <button onClick={handleCreateBOQ} className="btn btn-primary">
               Create BOQ
@@ -157,7 +157,7 @@ export default function BOQPage() {
         {!currentBOQ ? (
           <div className="card">
             <div className="card-body text-center py-12">
-              <p className="text-gray-500">No BOQ created yet</p>
+              <p className="text-[rgba(232,228,220,0.55)]">No BOQ created yet</p>
             </div>
           </div>
         ) : (
@@ -171,14 +171,14 @@ export default function BOQPage() {
                       {currentBOQ.status}
                     </span>
                     {currentBOQ.revisions.length > 0 && (
-                      <span className="ml-2 text-sm text-gray-500">
+                      <span className="ml-2 text-sm text-[rgba(232,228,220,0.55)]">
                         (Revision {currentBOQ.revisions.length})
                       </span>
                     )}
                   </div>
                   <div className="text-right">
-                    <p className="text-sm text-gray-500">Total Value</p>
-                    <p className="text-2xl font-bold text-gray-900">{formatCurrency(totalValue)}</p>
+                    <p className="text-sm text-[rgba(232,228,220,0.55)]">Total Value</p>
+                    <p className="text-2xl font-bold text-[#e8e4dc]">{formatCurrency(totalValue)}</p>
                   </div>
                 </div>
               </div>
@@ -217,7 +217,7 @@ export default function BOQPage() {
                     ))}
                     {currentBOQ.items.length === 0 && (
                       <tr>
-                        <td colSpan={5} className="text-center text-gray-500 py-8">
+                        <td colSpan={5} className="text-center text-[rgba(232,228,220,0.55)] py-8">
                           No items added yet
                         </td>
                       </tr>
@@ -225,7 +225,7 @@ export default function BOQPage() {
                   </tbody>
                   {currentBOQ.items.length > 0 && (
                     <tfoot>
-                      <tr className="bg-gray-50 font-semibold">
+                      <tr className="bg-[rgba(255,255,255,0.03)] font-semibold">
                         <td colSpan={4} className="text-right">Total</td>
                         <td className="text-right">{formatCurrency(totalValue)}</td>
                       </tr>
@@ -255,7 +255,7 @@ export default function BOQPage() {
                     {currentBOQ.revisions.map((rev) => (
                       <li key={rev.revisionNumber} className="text-sm">
                         <span className="font-medium">Revision {rev.revisionNumber}:</span>{' '}
-                        <span className="text-gray-600">{rev.reason}</span>
+                        <span className="text-[rgba(232,228,220,0.55)]">{rev.reason}</span>
                       </li>
                     ))}
                   </ul>
@@ -268,8 +268,8 @@ export default function BOQPage() {
 
       {/* Add Item Modal */}
       {showAddItem && currentBOQ && (
-        <div className="fixed inset-0 bg-black bg-opacity-50 flex items-center justify-center z-50">
-          <div className="bg-white rounded-lg shadow-xl max-w-md w-full mx-4">
+        <div className="fixed inset-0 bg-black/70 flex items-center justify-center z-50">
+          <div className="bg-[#13151a] border border-[rgba(255,255,255,0.1)] rounded-xl max-w-md w-full mx-4">
             <div className="p-6">
               <h2 className="text-lg font-semibold mb-4">Add BOQ Item</h2>
               <div className="space-y-4">

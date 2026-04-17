@@ -177,16 +177,16 @@ export default function ProjectsPage() {
     <Layout>
       {/* Toast notification */}
       {toast && (
-        <div className="fixed top-4 right-4 z-50 bg-success-50 border border-success-200 text-success-700 px-4 py-3 rounded-lg shadow-lg flex items-center gap-2 animate-in fade-in slide-in-from-top-2">
+        <div className="fixed top-4 right-4 z-50 bg-[rgba(50,200,120,0.1)] border border-[rgba(92,186,128,0.3)] text-[#5cba80] px-4 py-3 rounded-lg shadow-none flex items-center gap-2 animate-in fade-in slide-in-from-top-2">
           <span className="text-sm font-medium">{toast}</span>
-          <button onClick={() => setToast('')} className="text-success-500 hover:text-success-700">
+          <button onClick={() => setToast('')} className="text-[#5cba80] hover:text-[#5cba80]">
             <X className="w-4 h-4" />
           </button>
         </div>
       )}
 
       <div className="flex justify-between items-center mb-6">
-        <h1 className="text-2xl font-bold text-gray-900">Projects</h1>
+        <h1 className="text-2xl font-bold text-[#e8e4dc]">Projects</h1>
         <OwnerOnly role={userRole}>
           <button onClick={openCreateModal} className="btn btn-primary flex items-center gap-2">
             <Plus className="w-4 h-4" />
@@ -200,7 +200,7 @@ export default function ProjectsPage() {
       {projects.length === 0 ? (
         <div className="card">
           <div className="card-body text-center py-12">
-            <p className="text-gray-500">No projects yet</p>
+            <p className="text-[rgba(232,228,220,0.55)]">No projects yet</p>
             <OwnerOnly role={userRole}>
               <button onClick={openCreateModal} className="btn btn-primary mt-4">
                 Create your first project
@@ -213,26 +213,26 @@ export default function ProjectsPage() {
           {projects.map((project) => (
             <div
               key={project.id}
-              className="card hover:shadow-md transition-shadow relative group"
+              className="card hover:shadow-none transition-shadow relative group"
             >
               <Link href={`/projects/${project.id}`} className="card-body block">
                 <div className="flex items-start justify-between">
                   <div className="flex items-center gap-2 flex-wrap">
-                    <h3 className="text-lg font-semibold text-gray-900">
+                    <h3 className="text-lg font-semibold text-[#e8e4dc]">
                       {project.name}
                     </h3>
                     {project.isExampleProject && (
-                      <span className="px-2 py-0.5 text-xs rounded-full bg-purple-100 text-purple-700">
+                      <span className="px-2 py-0.5 text-xs rounded-full bg-[rgba(196,163,90,0.08)] text-[#c4a35a]">
                         Example
                       </span>
                     )}
                     {project.status === 'COMPLETED' && (
-                      <span className="px-2 py-0.5 text-xs rounded-full bg-green-100 text-green-700">
+                      <span className="px-2 py-0.5 text-xs rounded-full bg-[rgba(50,200,120,0.1)] text-[#5cba80]">
                         Completed
                       </span>
                     )}
                     {project.status === 'ONGOING' && (
-                      <span className="px-2 py-0.5 text-xs rounded-full bg-blue-100 text-blue-700">
+                      <span className="px-2 py-0.5 text-xs rounded-full bg-[rgba(196,163,90,0.08)] text-[#c4a35a]">
                         Ongoing
                       </span>
                     )}
@@ -240,9 +240,9 @@ export default function ProjectsPage() {
                   <span className="badge badge-draft">{project.myRole}</span>
                 </div>
                 {project.description && (
-                  <p className="text-sm text-gray-500 mt-2 line-clamp-2">{project.description}</p>
+                  <p className="text-sm text-[rgba(232,228,220,0.55)] mt-2 line-clamp-2">{project.description}</p>
                 )}
-                <div className="mt-4 flex items-center justify-between text-sm text-gray-500">
+                <div className="mt-4 flex items-center justify-between text-sm text-[rgba(232,228,220,0.55)]">
                   <span>{project.milestoneCount} milestones</span>
                   <span>{formatDate(project.createdAt)}</span>
                 </div>
@@ -252,14 +252,14 @@ export default function ProjectsPage() {
                 <div className="absolute top-3 right-12 flex gap-1 opacity-0 group-hover:opacity-100 transition-opacity">
                   <button
                     onClick={(e) => { e.preventDefault(); e.stopPropagation(); openEditModal(project); }}
-                    className="p-1.5 rounded-md bg-white border border-surface-200 hover:bg-surface-50 text-surface-500 hover:text-primary-600 shadow-sm"
+                    className="p-1.5 rounded-md bg-[rgba(255,255,255,0.03)] border border-[rgba(255,255,255,0.07)] hover:bg-[rgba(255,255,255,0.05)] text-[rgba(232,228,220,0.55)] hover:text-[#c4a35a] shadow-none"
                     title="Edit project"
                   >
                     <Pencil className="w-3.5 h-3.5" />
                   </button>
                   <button
                     onClick={(e) => { e.preventDefault(); e.stopPropagation(); setDeleteTarget(project); }}
-                    className="p-1.5 rounded-md bg-white border border-surface-200 hover:bg-red-50 text-surface-500 hover:text-red-600 shadow-sm"
+                    className="p-1.5 rounded-md bg-[rgba(255,255,255,0.03)] border border-[rgba(255,255,255,0.07)] hover:bg-[rgba(220,80,60,0.1)] text-[rgba(232,228,220,0.55)] hover:text-[#e06050] shadow-none"
                     title="Archive project"
                   >
                     <Trash2 className="w-3.5 h-3.5" />
@@ -273,60 +273,60 @@ export default function ProjectsPage() {
 
       {/* Create/Edit Modal */}
       {showModal && (
-        <div className="fixed inset-0 z-50 flex items-center justify-center bg-black/50" onClick={() => !submitting && setShowModal(false)}>
-          <div className="bg-white rounded-xl shadow-xl w-full max-w-lg mx-4 overflow-hidden" onClick={(e) => e.stopPropagation()}>
-            <div className="flex items-center justify-between px-6 py-4 border-b border-surface-100">
-              <h2 className="text-lg font-semibold text-surface-900">
+        <div className="fixed inset-0 z-50 flex items-center justify-center bg-black/70" onClick={() => !submitting && setShowModal(false)}>
+          <div className="bg-[#13151a] border border-[rgba(255,255,255,0.1)] rounded-xl w-full max-w-lg mx-4 overflow-hidden" onClick={(e) => e.stopPropagation()}>
+            <div className="flex items-center justify-between px-6 py-4 border-b border-[rgba(255,255,255,0.07)]">
+              <h2 className="text-lg font-semibold text-[#e8e4dc]">
                 {editingProject ? 'Edit Project' : 'Create Project'}
               </h2>
-              <button onClick={() => !submitting && setShowModal(false)} className="text-surface-400 hover:text-surface-600">
+              <button onClick={() => !submitting && setShowModal(false)} className="text-[rgba(232,228,220,0.35)] hover:text-[rgba(232,228,220,0.55)]">
                 <X className="w-5 h-5" />
               </button>
             </div>
             <form onSubmit={handleSubmit} className="p-6 space-y-4">
               {modalError && (
-                <div className="p-3 bg-red-50 border border-red-200 text-red-700 text-sm rounded-lg">
+                <div className="p-3 bg-[rgba(220,80,60,0.1)] border border-[rgba(224,96,80,0.3)] text-[#e06050] text-sm rounded-lg">
                   {modalError}
                 </div>
               )}
               <div>
-                <label className="block text-sm font-medium text-surface-700 mb-1">Project Name *</label>
+                <label className="block text-sm font-medium text-[#e8e4dc] mb-1">Project Name *</label>
                 <input
                   type="text"
                   value={form.name}
                   onChange={(e) => setForm({ ...form, name: e.target.value })}
                   required
-                  className="w-full py-2 px-3 text-sm border border-surface-200 rounded-lg focus:outline-none focus:ring-2 focus:ring-primary-500"
+                  className="w-full py-2 px-3 text-sm bg-[#1a1c22] text-[#e8e4dc] placeholder:text-[rgba(232,228,220,0.35)] border border-[rgba(255,255,255,0.07)] rounded-lg focus:outline-none focus:ring-2 focus:ring-[rgba(196,163,90,0.3)]"
                   placeholder="e.g. Downtown Office Building"
                 />
               </div>
               <div>
-                <label className="block text-sm font-medium text-surface-700 mb-1">Description</label>
+                <label className="block text-sm font-medium text-[#e8e4dc] mb-1">Description</label>
                 <textarea
                   value={form.description}
                   onChange={(e) => setForm({ ...form, description: e.target.value })}
                   rows={2}
-                  className="w-full py-2 px-3 text-sm border border-surface-200 rounded-lg focus:outline-none focus:ring-2 focus:ring-primary-500"
+                  className="w-full py-2 px-3 text-sm bg-[#1a1c22] text-[#e8e4dc] placeholder:text-[rgba(232,228,220,0.35)] border border-[rgba(255,255,255,0.07)] rounded-lg focus:outline-none focus:ring-2 focus:ring-[rgba(196,163,90,0.3)]"
                   placeholder="Brief project description..."
                 />
               </div>
               <div>
-                <label className="block text-sm font-medium text-surface-700 mb-1">Location</label>
+                <label className="block text-sm font-medium text-[#e8e4dc] mb-1">Location</label>
                 <input
                   type="text"
                   value={form.location}
                   onChange={(e) => setForm({ ...form, location: e.target.value })}
-                  className="w-full py-2 px-3 text-sm border border-surface-200 rounded-lg focus:outline-none focus:ring-2 focus:ring-primary-500"
+                  className="w-full py-2 px-3 text-sm bg-[#1a1c22] text-[#e8e4dc] placeholder:text-[rgba(232,228,220,0.35)] border border-[rgba(255,255,255,0.07)] rounded-lg focus:outline-none focus:ring-2 focus:ring-[rgba(196,163,90,0.3)]"
                   placeholder="e.g. Dubai Marina, UAE"
                 />
               </div>
               <div>
-                <label className="block text-sm font-medium text-surface-700 mb-1">Contract Value (AED)</label>
+                <label className="block text-sm font-medium text-[#e8e4dc] mb-1">Contract Value (AED)</label>
                 <input
                   type="number"
                   value={form.contractValue}
                   onChange={(e) => setForm({ ...form, contractValue: e.target.value })}
-                  className="w-full py-2 px-3 text-sm border border-surface-200 rounded-lg focus:outline-none focus:ring-2 focus:ring-primary-500"
+                  className="w-full py-2 px-3 text-sm bg-[#1a1c22] text-[#e8e4dc] placeholder:text-[rgba(232,228,220,0.35)] border border-[rgba(255,255,255,0.07)] rounded-lg focus:outline-none focus:ring-2 focus:ring-[rgba(196,163,90,0.3)]"
                   placeholder="e.g. 45000000"
                   min="0"
                   step="1000"
@@ -334,21 +334,21 @@ export default function ProjectsPage() {
               </div>
               <div className="grid grid-cols-2 gap-4">
                 <div>
-                  <label className="block text-sm font-medium text-surface-700 mb-1">Start Date</label>
+                  <label className="block text-sm font-medium text-[#e8e4dc] mb-1">Start Date</label>
                   <input
                     type="date"
                     value={form.startDate}
                     onChange={(e) => setForm({ ...form, startDate: e.target.value })}
-                    className="w-full py-2 px-3 text-sm border border-surface-200 rounded-lg focus:outline-none focus:ring-2 focus:ring-primary-500"
+                    className="w-full py-2 px-3 text-sm bg-[#1a1c22] text-[#e8e4dc] placeholder:text-[rgba(232,228,220,0.35)] border border-[rgba(255,255,255,0.07)] rounded-lg focus:outline-none focus:ring-2 focus:ring-[rgba(196,163,90,0.3)]"
                   />
                 </div>
                 <div>
-                  <label className="block text-sm font-medium text-surface-700 mb-1">End Date</label>
+                  <label className="block text-sm font-medium text-[#e8e4dc] mb-1">End Date</label>
                   <input
                     type="date"
                     value={form.endDate}
                     onChange={(e) => setForm({ ...form, endDate: e.target.value })}
-                    className="w-full py-2 px-3 text-sm border border-surface-200 rounded-lg focus:outline-none focus:ring-2 focus:ring-primary-500"
+                    className="w-full py-2 px-3 text-sm bg-[#1a1c22] text-[#e8e4dc] placeholder:text-[rgba(232,228,220,0.35)] border border-[rgba(255,255,255,0.07)] rounded-lg focus:outline-none focus:ring-2 focus:ring-[rgba(196,163,90,0.3)]"
                   />
                 </div>
               </div>
@@ -357,14 +357,14 @@ export default function ProjectsPage() {
                   type="button"
                   onClick={() => setShowModal(false)}
                   disabled={submitting}
-                  className="px-4 py-2 text-sm text-surface-600 hover:text-surface-800"
+                  className="px-4 py-2 text-sm text-[rgba(232,228,220,0.55)] hover:text-[#e8e4dc]"
                 >
                   Cancel
                 </button>
                 <button
                   type="submit"
                   disabled={submitting || !form.name.trim()}
-                  className="px-4 py-2 text-sm bg-primary-600 text-white rounded-lg hover:bg-primary-700 disabled:opacity-50 flex items-center gap-2"
+                  className="px-4 py-2 text-sm bg-[#c4a35a] text-[#0a0c10] rounded-lg hover:bg-[#b3943f] disabled:opacity-50 flex items-center gap-2"
                 >
                   {submitting && <Loader2 className="w-4 h-4 animate-spin" />}
                   {submitting
@@ -380,26 +380,26 @@ export default function ProjectsPage() {
 
       {/* Delete Confirmation Modal */}
       {deleteTarget && (
-        <div className="fixed inset-0 z-50 flex items-center justify-center bg-black/50" onClick={() => !deleting && setDeleteTarget(null)}>
-          <div className="bg-white rounded-xl shadow-xl w-full max-w-md mx-4 overflow-hidden" onClick={(e) => e.stopPropagation()}>
+        <div className="fixed inset-0 z-50 flex items-center justify-center bg-black/70" onClick={() => !deleting && setDeleteTarget(null)}>
+          <div className="bg-[#13151a] border border-[rgba(255,255,255,0.1)] rounded-xl w-full max-w-md mx-4 overflow-hidden" onClick={(e) => e.stopPropagation()}>
             <div className="px-6 py-5">
-              <h2 className="text-lg font-semibold text-surface-900 mb-2">Archive Project</h2>
-              <p className="text-sm text-surface-600">
+              <h2 className="text-lg font-semibold text-[#e8e4dc] mb-2">Archive Project</h2>
+              <p className="text-sm text-[rgba(232,228,220,0.55)]">
                 Are you sure you want to archive <strong>{deleteTarget.name}</strong>? This action cannot be undone.
               </p>
             </div>
-            <div className="flex justify-end gap-3 px-6 py-4 bg-surface-50 border-t border-surface-100">
+            <div className="flex justify-end gap-3 px-6 py-4 bg-[rgba(255,255,255,0.03)] border-t border-[rgba(255,255,255,0.07)]">
               <button
                 onClick={() => setDeleteTarget(null)}
                 disabled={deleting}
-                className="px-4 py-2 text-sm text-surface-600 hover:text-surface-800"
+                className="px-4 py-2 text-sm text-[rgba(232,228,220,0.55)] hover:text-[#e8e4dc]"
               >
                 Cancel
               </button>
               <button
                 onClick={handleDelete}
                 disabled={deleting}
-                className="px-4 py-2 text-sm bg-red-600 text-white rounded-lg hover:bg-red-700 disabled:opacity-50 flex items-center gap-2"
+                className="px-4 py-2 text-sm bg-[#e06050] text-white rounded-lg hover:bg-[#c8503f] disabled:opacity-50 flex items-center gap-2"
               >
                 {deleting && <Loader2 className="w-4 h-4 animate-spin" />}
                 {deleting ? 'Archiving...' : 'Archive Project'}

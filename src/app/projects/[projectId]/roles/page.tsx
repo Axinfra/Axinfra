@@ -126,7 +126,7 @@ export default function RolesPage() {
 
       <div className="space-y-6">
         <div className="flex justify-between items-center">
-          <h1 className="text-2xl font-bold text-gray-900">Project Roles</h1>
+          <h1 className="text-2xl font-bold text-[#e8e4dc]">Project Roles</h1>
           {myRole === 'OWNER' && (
             <button onClick={() => setShowAddModal(true)} className="btn btn-primary">
               Add User
@@ -152,16 +152,16 @@ export default function RolesPage() {
                 {roles.map((role) => (
                   <tr key={role.userId}>
                     <td className="font-medium">{role.name}</td>
-                    <td className="text-gray-500">{role.email}</td>
+                    <td className="text-[rgba(232,228,220,0.55)]">{role.email}</td>
                     <td>
                       <span className="badge badge-draft">{role.role}</span>
                     </td>
-                    <td className="text-gray-500">{formatDate(role.createdAt)}</td>
+                    <td className="text-[rgba(232,228,220,0.55)]">{formatDate(role.createdAt)}</td>
                     {myRole === 'OWNER' && (
                       <td>
                         <button
                           onClick={() => handleRemoveRole(role.userId)}
-                          className="text-red-600 hover:text-red-800 text-sm"
+                          className="text-[#e06050] hover:text-[#e06050] text-sm"
                         >
                           Remove
                         </button>
@@ -181,8 +181,8 @@ export default function RolesPage() {
           <div className="card-body">
             <div className="grid gap-4 md:grid-cols-2">
               <div>
-                <h3 className="font-medium text-gray-900 mb-2">OWNER</h3>
-                <ul className="text-sm text-gray-600 space-y-1">
+                <h3 className="font-medium text-[#e8e4dc] mb-2">OWNER</h3>
+                <ul className="text-sm text-[rgba(232,228,220,0.55)] space-y-1">
                   <li>Full project access</li>
                   <li>Manage roles</li>
                   <li>Approve BOQ</li>
@@ -191,8 +191,8 @@ export default function RolesPage() {
                 </ul>
               </div>
               <div>
-                <h3 className="font-medium text-gray-900 mb-2">PMC</h3>
-                <ul className="text-sm text-gray-600 space-y-1">
+                <h3 className="font-medium text-[#e8e4dc] mb-2">PMC</h3>
+                <ul className="text-sm text-[rgba(232,228,220,0.55)] space-y-1">
                   <li>Edit BOQ (cannot approve)</li>
                   <li>Review evidence</li>
                   <li>Verify milestones</li>
@@ -200,16 +200,16 @@ export default function RolesPage() {
                 </ul>
               </div>
               <div>
-                <h3 className="font-medium text-gray-900 mb-2">VENDOR</h3>
-                <ul className="text-sm text-gray-600 space-y-1">
+                <h3 className="font-medium text-[#e8e4dc] mb-2">VENDOR</h3>
+                <ul className="text-sm text-[rgba(232,228,220,0.55)] space-y-1">
                   <li>Submit evidence</li>
                   <li>View payment status (read-only)</li>
                   <li>Cannot approve own work</li>
                 </ul>
               </div>
               <div>
-                <h3 className="font-medium text-gray-900 mb-2">VIEWER</h3>
-                <ul className="text-sm text-gray-600 space-y-1">
+                <h3 className="font-medium text-[#e8e4dc] mb-2">VIEWER</h3>
+                <ul className="text-sm text-[rgba(232,228,220,0.55)] space-y-1">
                   <li>Read-only access</li>
                   <li>No control actions</li>
                 </ul>
@@ -221,8 +221,8 @@ export default function RolesPage() {
 
       {/* Add User Modal */}
       {showAddModal && (
-        <div className="fixed inset-0 bg-black bg-opacity-50 flex items-center justify-center z-50">
-          <div className="bg-white rounded-lg shadow-xl max-w-md w-full mx-4">
+        <div className="fixed inset-0 bg-black/70 flex items-center justify-center z-50">
+          <div className="bg-[#13151a] border border-[rgba(255,255,255,0.1)] rounded-xl max-w-md w-full mx-4">
             <div className="p-6">
               <h2 className="text-lg font-semibold mb-4">Add User to Project</h2>
               <form onSubmit={handleAddRole} className="space-y-4">

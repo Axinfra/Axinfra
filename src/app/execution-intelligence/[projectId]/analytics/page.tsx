@@ -74,17 +74,17 @@ export default function AnalyticsPage() {
       {loading ? (
         <AnalyticsSkeleton />
       ) : !data ? (
-        <div className="text-center py-16 text-surface-400 text-sm">No analytics data available.</div>
+        <div className="text-center py-16 text-[rgba(232,228,220,0.35)] text-sm">No analytics data available.</div>
       ) : (
         <div className="space-y-5">
           {/* Tab bar */}
-          <div className="flex items-center gap-1 bg-surface-100 rounded-lg p-1 w-fit">
+          <div className="flex items-center gap-1 bg-[rgba(255,255,255,0.05)] rounded-lg p-1 w-fit">
             {TABS.map((t) => (
               <button
                 key={t.id}
                 onClick={() => setTab(t.id)}
                 className={`px-4 py-1.5 rounded-md text-[12px] font-medium transition-colors
-                  ${tab === t.id ? 'bg-white text-surface-900 shadow-xs' : 'text-surface-500 hover:text-surface-700'}`}
+                  ${tab === t.id ? 'bg-[rgba(255,255,255,0.03)] text-[#e8e4dc] shadow-xs' : 'text-[rgba(232,228,220,0.55)] hover:text-[#e8e4dc]'}`}
               >
                 {t.label}
               </button>
@@ -124,12 +124,12 @@ function SCurveTab({ data }: { data: AnalyticsData }) {
         ) : (
           <ResponsiveContainer width="100%" height={280}>
             <LineChart data={sCurve} margin={{ top: 4, right: 12, left: -20, bottom: 0 }}>
-              <CartesianGrid strokeDasharray="3 3" stroke="#f1f5f9" />
-              <XAxis dataKey="date" tick={{ fontSize: 10, fill: '#94a3b8' }} tickFormatter={(v) => v.slice(5)} />
-              <YAxis tick={{ fontSize: 10, fill: '#94a3b8' }} unit="%" domain={[0, 100]} />
+              <CartesianGrid strokeDasharray="3 3" stroke="rgba(255,255,255,0.05)" />
+              <XAxis dataKey="date" tick={{ fontSize: 10, fill: 'rgba(232,228,220,0.45)' }} tickFormatter={(v) => v.slice(5)} />
+              <YAxis tick={{ fontSize: 10, fill: 'rgba(232,228,220,0.45)' }} unit="%" domain={[0, 100]} />
               <Tooltip formatter={(v: number) => `${v}%`} labelFormatter={(l) => `Date: ${l}`} />
               <Legend wrapperStyle={{ fontSize: 11 }} />
-              <Line type="monotone" dataKey="plannedCumulative" name="Planned" stroke="#94a3b8" strokeWidth={1.5} dot={false} />
+              <Line type="monotone" dataKey="plannedCumulative" name="Planned" stroke="rgba(232,228,220,0.3)" strokeWidth={1.5} dot={false} />
               <Line type="monotone" dataKey="actualCumulative" name="Actual" stroke="#3b82f6" strokeWidth={2} dot={false} />
             </LineChart>
           </ResponsiveContainer>
@@ -143,12 +143,12 @@ function SCurveTab({ data }: { data: AnalyticsData }) {
         ) : (
           <ResponsiveContainer width="100%" height={280}>
             <LineChart data={burndown} margin={{ top: 4, right: 12, left: -20, bottom: 0 }}>
-              <CartesianGrid strokeDasharray="3 3" stroke="#f1f5f9" />
-              <XAxis dataKey="date" tick={{ fontSize: 10, fill: '#94a3b8' }} tickFormatter={(v) => v.slice(5)} />
-              <YAxis tick={{ fontSize: 10, fill: '#94a3b8' }} unit="%" domain={[0, 100]} />
+              <CartesianGrid strokeDasharray="3 3" stroke="rgba(255,255,255,0.05)" />
+              <XAxis dataKey="date" tick={{ fontSize: 10, fill: 'rgba(232,228,220,0.45)' }} tickFormatter={(v) => v.slice(5)} />
+              <YAxis tick={{ fontSize: 10, fill: 'rgba(232,228,220,0.45)' }} unit="%" domain={[0, 100]} />
               <Tooltip formatter={(v: number) => `${v}%`} />
               <Legend wrapperStyle={{ fontSize: 11 }} />
-              <Line type="monotone" dataKey="plannedRemaining" name="Planned" stroke="#94a3b8" strokeWidth={1.5} dot={false} />
+              <Line type="monotone" dataKey="plannedRemaining" name="Planned" stroke="rgba(232,228,220,0.3)" strokeWidth={1.5} dot={false} />
               <Line type="monotone" dataKey="actualRemaining" name="Actual" stroke="#f59e0b" strokeWidth={2} dot={false} />
             </LineChart>
           </ResponsiveContainer>
@@ -162,9 +162,9 @@ function SCurveTab({ data }: { data: AnalyticsData }) {
         ) : (
           <ResponsiveContainer width="100%" height={220}>
             <BarChart data={data.escalationTrend} margin={{ top: 4, right: 12, left: -20, bottom: 0 }}>
-              <CartesianGrid strokeDasharray="3 3" stroke="#f1f5f9" />
-              <XAxis dataKey="week" tick={{ fontSize: 10, fill: '#94a3b8' }} tickFormatter={(v) => v.slice(5)} />
-              <YAxis tick={{ fontSize: 10, fill: '#94a3b8' }} allowDecimals={false} />
+              <CartesianGrid strokeDasharray="3 3" stroke="rgba(255,255,255,0.05)" />
+              <XAxis dataKey="week" tick={{ fontSize: 10, fill: 'rgba(232,228,220,0.45)' }} tickFormatter={(v) => v.slice(5)} />
+              <YAxis tick={{ fontSize: 10, fill: 'rgba(232,228,220,0.45)' }} allowDecimals={false} />
               <Tooltip />
               <Bar dataKey="count" name="Escalations" fill="#ef4444" radius={[3, 3, 0, 0]} />
             </BarChart>
@@ -176,26 +176,26 @@ function SCurveTab({ data }: { data: AnalyticsData }) {
       <ChartCard title="Delay Cost Estimate" subtitle="Based on configured project parameters">
         {!data.delayCost.isConfigured ? (
           <div className="flex flex-col items-center justify-center h-40 gap-2">
-            <p className="text-[13px] text-surface-400">Configure to enable</p>
+            <p className="text-[13px] text-[rgba(232,228,220,0.35)]">Configure to enable</p>
             <p className="text-[12px] text-surface-300">Set daily overhead cost in Schedule Config</p>
           </div>
         ) : (
           <div className="space-y-3 py-4">
             {[
               { label: 'Overhead Cost', value: data.delayCost.overheadCost, color: 'text-warning-600' },
-              { label: 'Penalty Cost', value: data.delayCost.penaltyCost, color: 'text-danger-600' },
-              { label: 'Opportunity Cost', value: data.delayCost.opportunityCost, color: 'text-purple-600' },
+              { label: 'Penalty Cost', value: data.delayCost.penaltyCost, color: 'text-[#e06050]' },
+              { label: 'Opportunity Cost', value: data.delayCost.opportunityCost, color: 'text-[rgba(232,228,220,0.55)]' },
             ].map((row) => (
-              <div key={row.label} className="flex justify-between items-center py-2 border-b border-surface-100">
-                <span className="text-[13px] text-surface-600">{row.label}</span>
+              <div key={row.label} className="flex justify-between items-center py-2 border-b border-[rgba(255,255,255,0.07)]">
+                <span className="text-[13px] text-[rgba(232,228,220,0.55)]">{row.label}</span>
                 <span className={`text-[13px] font-semibold ${row.color}`}>{formatCurrency(row.value)}</span>
               </div>
             ))}
             <div className="flex justify-between items-center pt-1">
-              <span className="text-[14px] font-semibold text-surface-800">Total Estimate</span>
-              <span className="text-[16px] font-bold text-danger-600">{formatCurrency(data.delayCost.totalEstimatedCost)}</span>
+              <span className="text-[14px] font-semibold text-[#e8e4dc]">Total Estimate</span>
+              <span className="text-[16px] font-bold text-[#e06050]">{formatCurrency(data.delayCost.totalEstimatedCost)}</span>
             </div>
-            <p className="text-[11px] text-surface-400">Based on {data.delayCost.totalOverrunDays} overrun days. Model assumptions apply.</p>
+            <p className="text-[11px] text-[rgba(232,228,220,0.35)]">Based on {data.delayCost.totalOverrunDays} overrun days. Model assumptions apply.</p>
           </div>
         )}
       </ChartCard>
@@ -207,7 +207,7 @@ function SCurveTab({ data }: { data: AnalyticsData }) {
 function VendorTab({ data, role }: { data: AnalyticsData; role: string }) {
   const vendors = data.vendorScorecards;
   if (vendors.length === 0) {
-    return <div className="text-center py-16 text-surface-400 text-sm">No vendor data available.</div>;
+    return <div className="text-center py-16 text-[rgba(232,228,220,0.35)] text-sm">No vendor data available.</div>;
   }
 
   return (
@@ -216,40 +216,40 @@ function VendorTab({ data, role }: { data: AnalyticsData; role: string }) {
         <div className="overflow-x-auto">
           <table className="w-full text-[12px]">
             <thead>
-              <tr className="border-b border-surface-200">
+              <tr className="border-b border-[rgba(255,255,255,0.07)]">
                 {['Rank', 'Vendor', 'Milestones', 'On-Time %', 'Avg Delay', 'Approval Cycle', 'Escalations'].map((h) => (
-                  <th key={h} className="text-left py-2 px-3 text-surface-500 font-medium">{h}</th>
+                  <th key={h} className="text-left py-2 px-3 text-[rgba(232,228,220,0.55)] font-medium">{h}</th>
                 ))}
               </tr>
             </thead>
             <tbody>
               {vendors.map((v) => (
-                <tr key={v.vendorId} className="border-b border-surface-100 hover:bg-surface-50">
+                <tr key={v.vendorId} className="border-b border-[rgba(255,255,255,0.07)] hover:bg-[rgba(255,255,255,0.05)]">
                   <td className="py-2.5 px-3">
                     <span className={`inline-flex items-center justify-center w-6 h-6 rounded-full text-[11px] font-bold
-                      ${v.rank === 1 ? 'bg-yellow-100 text-yellow-700' : v.rank === 2 ? 'bg-surface-100 text-surface-600' : 'bg-surface-50 text-surface-400'}`}>
+                      ${v.rank === 1 ? 'bg-[rgba(196,163,90,0.08)] text-[#c4a35a]' : v.rank === 2 ? 'bg-[rgba(255,255,255,0.05)] text-[rgba(232,228,220,0.55)]' : 'bg-[rgba(255,255,255,0.03)] text-[rgba(232,228,220,0.35)]'}`}>
                       {v.rank}
                     </span>
                   </td>
-                  <td className="py-2.5 px-3 font-medium text-surface-800">{v.vendorName}</td>
-                  <td className="py-2.5 px-3 text-surface-600">{v.totalMilestones}</td>
+                  <td className="py-2.5 px-3 font-medium text-[#e8e4dc]">{v.vendorName}</td>
+                  <td className="py-2.5 px-3 text-[rgba(232,228,220,0.55)]">{v.totalMilestones}</td>
                   <td className="py-2.5 px-3">
                     <div className="flex items-center gap-2">
-                      <div className="h-1.5 w-16 bg-surface-100 rounded-full overflow-hidden">
-                        <div className="h-full bg-success-500 rounded-full" style={{ width: `${v.onTimePct}%` }} />
+                      <div className="h-1.5 w-16 bg-[rgba(255,255,255,0.05)] rounded-full overflow-hidden">
+                        <div className="h-full bg-[rgba(50,200,120,0.1)]0 rounded-full" style={{ width: `${v.onTimePct}%` }} />
                       </div>
-                      <span className={v.onTimePct >= 80 ? 'text-success-600' : v.onTimePct >= 60 ? 'text-warning-600' : 'text-danger-600'}>
+                      <span className={v.onTimePct >= 80 ? 'text-success-600' : v.onTimePct >= 60 ? 'text-warning-600' : 'text-[#e06050]'}>
                         {v.onTimePct}%
                       </span>
                     </div>
                   </td>
-                  <td className="py-2.5 px-3 text-surface-600">{v.avgDelayDays}d</td>
-                  <td className="py-2.5 px-3 text-surface-600">{v.avgApprovalCycleDays}d</td>
+                  <td className="py-2.5 px-3 text-[rgba(232,228,220,0.55)]">{v.avgDelayDays}d</td>
+                  <td className="py-2.5 px-3 text-[rgba(232,228,220,0.55)]">{v.avgApprovalCycleDays}d</td>
                   <td className="py-2.5 px-3">
                     {v.escalationCount > 0 ? (
-                      <span className="text-danger-600 font-medium">{v.escalationCount}</span>
+                      <span className="text-[#e06050] font-medium">{v.escalationCount}</span>
                     ) : (
-                      <span className="text-surface-400">0</span>
+                      <span className="text-[rgba(232,228,220,0.35)]">0</span>
                     )}
                   </td>
                 </tr>
@@ -263,9 +263,9 @@ function VendorTab({ data, role }: { data: AnalyticsData; role: string }) {
       <ChartCard title="On-Time % by Vendor" subtitle="">
         <ResponsiveContainer width="100%" height={220}>
           <BarChart data={vendors} layout="vertical" margin={{ top: 4, right: 24, left: 80, bottom: 0 }}>
-            <CartesianGrid strokeDasharray="3 3" stroke="#f1f5f9" horizontal={false} />
-            <XAxis type="number" domain={[0, 100]} tick={{ fontSize: 10, fill: '#94a3b8' }} unit="%" />
-            <YAxis dataKey="vendorName" type="category" tick={{ fontSize: 11, fill: '#64748b' }} width={76} />
+            <CartesianGrid strokeDasharray="3 3" stroke="rgba(255,255,255,0.05)" horizontal={false} />
+            <XAxis type="number" domain={[0, 100]} tick={{ fontSize: 10, fill: 'rgba(232,228,220,0.45)' }} unit="%" />
+            <YAxis dataKey="vendorName" type="category" tick={{ fontSize: 11, fill: 'rgba(232,228,220,0.55)' }} width={76} />
             <Tooltip formatter={(v: number) => `${v}%`} />
             <ReferenceLine x={80} stroke="#22c55e" strokeDasharray="3 2" label={{ value: '80%', fontSize: 9, fill: '#22c55e' }} />
             <Bar dataKey="onTimePct" name="On-Time %" radius={[0, 3, 3, 0]}>
@@ -288,9 +288,9 @@ function DelayTab({ data }: { data: AnalyticsData }) {
       <ChartCard title="Milestone Delay Distribution" subtitle="Days early (negative) or late (positive)">
         <ResponsiveContainer width="100%" height={260}>
           <BarChart data={data.delayHistogram} margin={{ top: 4, right: 12, left: -20, bottom: 20 }}>
-            <CartesianGrid strokeDasharray="3 3" stroke="#f1f5f9" />
-            <XAxis dataKey="bucket" tick={{ fontSize: 10, fill: '#94a3b8' }} angle={-30} textAnchor="end" />
-            <YAxis tick={{ fontSize: 10, fill: '#94a3b8' }} allowDecimals={false} />
+            <CartesianGrid strokeDasharray="3 3" stroke="rgba(255,255,255,0.05)" />
+            <XAxis dataKey="bucket" tick={{ fontSize: 10, fill: 'rgba(232,228,220,0.45)' }} angle={-30} textAnchor="end" />
+            <YAxis tick={{ fontSize: 10, fill: 'rgba(232,228,220,0.45)' }} allowDecimals={false} />
             <Tooltip />
             <Bar dataKey="count" name="Milestones" radius={[3, 3, 0, 0]}>
               {data.delayHistogram.map((d) => {
@@ -307,9 +307,9 @@ function DelayTab({ data }: { data: AnalyticsData }) {
       <ChartCard title="Approval Time Distribution" subtitle="Days from evidence submission to PMC verification">
         <ResponsiveContainer width="100%" height={260}>
           <BarChart data={data.approvalHistogram} margin={{ top: 4, right: 12, left: -20, bottom: 0 }}>
-            <CartesianGrid strokeDasharray="3 3" stroke="#f1f5f9" />
-            <XAxis dataKey="bucket" tick={{ fontSize: 10, fill: '#94a3b8' }} />
-            <YAxis tick={{ fontSize: 10, fill: '#94a3b8' }} allowDecimals={false} />
+            <CartesianGrid strokeDasharray="3 3" stroke="rgba(255,255,255,0.05)" />
+            <XAxis dataKey="bucket" tick={{ fontSize: 10, fill: 'rgba(232,228,220,0.45)' }} />
+            <YAxis tick={{ fontSize: 10, fill: 'rgba(232,228,220,0.45)' }} allowDecimals={false} />
             <Tooltip formatter={(v: number) => `${v} milestones`} />
             <Bar dataKey="count" name="Milestones" fill="#8b5cf6" radius={[3, 3, 0, 0]} />
           </BarChart>
@@ -324,21 +324,21 @@ function PaymentTab({ data }: { data: AnalyticsData }) {
   const { paymentCycleDays } = data;
   return (
     <div className="space-y-4">
-      <div className="bg-white border border-surface-200 rounded-xl p-5">
-        <h3 className="text-[14px] font-semibold text-surface-800 mb-1">Average Days to Payment Eligibility</h3>
-        <p className="text-[12px] text-surface-400 mb-4">From evidence submitted to payment fully eligible</p>
+      <div className="bg-[rgba(255,255,255,0.03)] border border-[rgba(255,255,255,0.07)] rounded-xl p-5">
+        <h3 className="text-[14px] font-semibold text-[#e8e4dc] mb-1">Average Days to Payment Eligibility</h3>
+        <p className="text-[12px] text-[rgba(232,228,220,0.35)] mb-4">From evidence submitted to payment fully eligible</p>
         <div className="flex items-baseline gap-2 mb-6">
-          <span className="text-4xl font-bold text-surface-900">{paymentCycleDays.avg}</span>
-          <span className="text-[14px] text-surface-400">days avg</span>
+          <span className="text-4xl font-bold text-[#e8e4dc]">{paymentCycleDays.avg}</span>
+          <span className="text-[14px] text-[rgba(232,228,220,0.35)]">days avg</span>
         </div>
         {paymentCycleDays.byVendor.length > 0 && (
           <div>
-            <p className="text-[11px] font-medium text-surface-400 uppercase tracking-wide mb-2">By Vendor</p>
+            <p className="text-[11px] font-medium text-[rgba(232,228,220,0.35)] uppercase tracking-wide mb-2">By Vendor</p>
             <div className="space-y-2">
               {paymentCycleDays.byVendor.map((v) => (
-                <div key={v.vendorId} className="flex items-center justify-between py-2 border-b border-surface-100">
-                  <span className="text-[13px] text-surface-700">{v.vendorName}</span>
-                  <span className="text-[13px] font-semibold text-surface-800">{v.avgDays}d</span>
+                <div key={v.vendorId} className="flex items-center justify-between py-2 border-b border-[rgba(255,255,255,0.07)]">
+                  <span className="text-[13px] text-[#e8e4dc]">{v.vendorName}</span>
+                  <span className="text-[13px] font-semibold text-[#e8e4dc]">{v.avgDays}d</span>
                 </div>
               ))}
             </div>
@@ -362,29 +362,29 @@ function HeatmapTab({ data }: { data: AnalyticsData }) {
         <div className="overflow-x-auto">
           <table className="w-full text-[12px]">
             <thead>
-              <tr className="border-b border-surface-200">
-                <th className="text-left py-2 px-3 text-surface-500 font-medium">Milestone</th>
-                <th className="text-left py-2 px-3 text-surface-500 font-medium">Duration</th>
-                <th className="text-left py-2 px-3 text-surface-500 font-medium">Float</th>
-                <th className="text-left py-2 px-3 text-surface-500 font-medium">Criticality</th>
+              <tr className="border-b border-[rgba(255,255,255,0.07)]">
+                <th className="text-left py-2 px-3 text-[rgba(232,228,220,0.55)] font-medium">Milestone</th>
+                <th className="text-left py-2 px-3 text-[rgba(232,228,220,0.55)] font-medium">Duration</th>
+                <th className="text-left py-2 px-3 text-[rgba(232,228,220,0.55)] font-medium">Float</th>
+                <th className="text-left py-2 px-3 text-[rgba(232,228,220,0.55)] font-medium">Criticality</th>
               </tr>
             </thead>
             <tbody>
               {sorted.map((n) => {
                 const pct = n.isCritical ? 100 : Math.max(0, 100 - (n.totalFloat / maxFloat) * 100);
                 return (
-                  <tr key={n.milestoneId} className="border-b border-surface-100">
+                  <tr key={n.milestoneId} className="border-b border-[rgba(255,255,255,0.07)]">
                     <td className="py-2 px-3">
-                      <span className={`font-medium ${n.isCritical ? 'text-danger-600' : 'text-surface-800'}`}>
+                      <span className={`font-medium ${n.isCritical ? 'text-[#e06050]' : 'text-[#e8e4dc]'}`}>
                         {n.isCritical && <span className="mr-1">●</span>}
                         {n.title}
                       </span>
                     </td>
-                    <td className="py-2 px-3 text-surface-600">{n.duration}d</td>
-                    <td className="py-2 px-3 text-surface-600">{n.totalFloat}d</td>
+                    <td className="py-2 px-3 text-[rgba(232,228,220,0.55)]">{n.duration}d</td>
+                    <td className="py-2 px-3 text-[rgba(232,228,220,0.55)]">{n.totalFloat}d</td>
                     <td className="py-2 px-3">
                       <div className="flex items-center gap-2">
-                        <div className="h-1.5 flex-1 max-w-[80px] bg-surface-100 rounded-full overflow-hidden">
+                        <div className="h-1.5 flex-1 max-w-[80px] bg-[rgba(255,255,255,0.05)] rounded-full overflow-hidden">
                           <div
                             className="h-full rounded-full transition-all"
                             style={{
@@ -393,7 +393,7 @@ function HeatmapTab({ data }: { data: AnalyticsData }) {
                             }}
                           />
                         </div>
-                        <span className={`text-[11px] ${n.isCritical ? 'text-danger-600 font-bold' : 'text-surface-400'}`}>
+                        <span className={`text-[11px] ${n.isCritical ? 'text-[#e06050] font-bold' : 'text-[rgba(232,228,220,0.35)]'}`}>
                           {n.isCritical ? 'Critical' : `${Math.round(pct)}%`}
                         </span>
                       </div>
@@ -413,9 +413,9 @@ function HeatmapTab({ data }: { data: AnalyticsData }) {
 
 function ChartCard({ title, subtitle, children }: { title: string; subtitle: string; children: React.ReactNode }) {
   return (
-    <div className="bg-white border border-surface-200 rounded-xl p-5">
-      <h3 className="text-[14px] font-semibold text-surface-800">{title}</h3>
-      {subtitle && <p className="text-[11px] text-surface-400 mt-0.5 mb-4">{subtitle}</p>}
+    <div className="bg-[rgba(255,255,255,0.03)] border border-[rgba(255,255,255,0.07)] rounded-xl p-5">
+      <h3 className="text-[14px] font-semibold text-[#e8e4dc]">{title}</h3>
+      {subtitle && <p className="text-[11px] text-[rgba(232,228,220,0.35)] mt-0.5 mb-4">{subtitle}</p>}
       {!subtitle && <div className="mb-4" />}
       {children}
     </div>
@@ -424,7 +424,7 @@ function ChartCard({ title, subtitle, children }: { title: string; subtitle: str
 
 function EmptyChart({ message = 'No data available' }: { message?: string }) {
   return (
-    <div className="flex items-center justify-center h-40 text-[13px] text-surface-400">{message}</div>
+    <div className="flex items-center justify-center h-40 text-[13px] text-[rgba(232,228,220,0.35)]">{message}</div>
   );
 }
 
@@ -432,7 +432,7 @@ function AnalyticsSkeleton() {
   return (
     <div className="grid md:grid-cols-2 gap-4">
       {[1, 2, 3, 4].map((i) => (
-        <div key={i} className="h-64 rounded-xl bg-surface-100 animate-pulse" />
+        <div key={i} className="h-64 rounded-xl bg-[rgba(255,255,255,0.05)] animate-pulse" />
       ))}
     </div>
   );

@@ -36,11 +36,11 @@ export default function ViseronIntelligenceLandingPage() {
         {/* Header with Viseron branding */}
         <div className="mb-10">
           <div className="flex items-center gap-3 mb-3">
-            <div className="w-10 h-10 rounded-xl bg-gradient-to-br from-primary-600 to-primary-800 flex items-center justify-center shadow-md shadow-primary-500/20">
+            <div className="w-10 h-10 rounded-xl bg-gradient-to-br from-primary-600 to-primary-800 flex items-center justify-center shadow-none shadow-primary-500/20">
               <ViseronIcon className="w-5 h-5 text-white" />
             </div>
             <div>
-              <h1 className="text-2xl font-semibold text-surface-900 tracking-tight">
+              <h1 className="text-2xl font-semibold text-[#e8e4dc] tracking-tight">
                 Viseron Intelligence
               </h1>
               <p className="text-[12px] text-primary-500 font-medium tracking-wide uppercase">
@@ -48,7 +48,7 @@ export default function ViseronIntelligenceLandingPage() {
               </p>
             </div>
           </div>
-          <p className="text-[15px] text-surface-500 leading-relaxed mt-4">
+          <p className="text-[15px] text-[rgba(232,228,220,0.55)] leading-relaxed mt-4">
             AI-powered project intelligence with natural language queries, health monitoring,
             vendor performance tracking, and risk assessment — all in one place.
           </p>
@@ -63,11 +63,11 @@ export default function ViseronIntelligenceLandingPage() {
           ].map((f) => (
             <div
               key={f.label}
-              className="bg-white border border-surface-200 rounded-xl p-4 text-center"
+              className="bg-[rgba(255,255,255,0.03)] border border-[rgba(255,255,255,0.07)] rounded-xl p-4 text-center"
             >
               <span className="text-primary-500 text-lg">{f.icon}</span>
-              <p className="text-[12px] font-semibold text-surface-800 mt-1.5">{f.label}</p>
-              <p className="text-[11px] text-surface-400 mt-0.5">{f.desc}</p>
+              <p className="text-[12px] font-semibold text-[#e8e4dc] mt-1.5">{f.label}</p>
+              <p className="text-[11px] text-[rgba(232,228,220,0.35)] mt-0.5">{f.desc}</p>
             </div>
           ))}
         </div>
@@ -75,29 +75,29 @@ export default function ViseronIntelligenceLandingPage() {
         {loading ? (
           <div className="space-y-3">
             {[1, 2, 3].map((i) => (
-              <div key={i} className="h-16 rounded-xl bg-surface-100 animate-pulse" />
+              <div key={i} className="h-16 rounded-xl bg-[rgba(255,255,255,0.05)] animate-pulse" />
             ))}
           </div>
         ) : projects.length === 0 ? (
-          <div className="text-center py-12 text-surface-400 text-sm">
+          <div className="text-center py-12 text-[rgba(232,228,220,0.35)] text-sm">
             No projects found. Create a project first.
           </div>
         ) : (
           <div className="space-y-2">
-            <p className="text-[12px] font-medium text-surface-400 uppercase tracking-wider mb-3">
+            <p className="text-[12px] font-medium text-[rgba(232,228,220,0.35)] uppercase tracking-wider mb-3">
               Select a project
             </p>
             {projects.map((p) => (
               <button
                 key={p.id}
                 onClick={() => router.push(`/viseron-intelligence/${p.id}/dashboard`)}
-                className="w-full flex items-center justify-between px-5 py-4 rounded-xl bg-white border border-surface-200 hover:border-primary-300 hover:shadow-sm transition-all group text-left"
+                className="w-full flex items-center justify-between px-5 py-4 rounded-xl bg-[rgba(255,255,255,0.03)] border border-[rgba(255,255,255,0.07)] hover:border-[rgba(196,163,90,0.3)] hover:shadow-none transition-all group text-left"
               >
                 <div>
-                  <p className="text-[14px] font-medium text-surface-900 group-hover:text-primary-700 transition-colors">
+                  <p className="text-[14px] font-medium text-[#e8e4dc] group-hover:text-[#c4a35a] transition-colors">
                     {p.name}
                   </p>
-                  <p className="text-[12px] text-surface-400 mt-0.5">
+                  <p className="text-[12px] text-[rgba(232,228,220,0.35)] mt-0.5">
                     {p.myRole} &middot; {p.status}
                   </p>
                 </div>

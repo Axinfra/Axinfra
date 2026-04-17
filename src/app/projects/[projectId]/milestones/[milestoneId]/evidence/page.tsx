@@ -121,8 +121,8 @@ export default function SubmitEvidencePage() {
       <Navbar projectId={projectId} projectName={projectName} role={myRole} />
 
       <div className="max-w-2xl mx-auto">
-        <h1 className="text-2xl font-bold text-gray-900 mb-2">Submit Evidence</h1>
-        <p className="text-gray-600 mb-6">Milestone: {milestoneTitle}</p>
+        <h1 className="text-2xl font-bold text-[#e8e4dc] mb-2">Submit Evidence</h1>
+        <p className="text-[rgba(232,228,220,0.55)] mb-6">Milestone: {milestoneTitle}</p>
 
         {error && <div className="alert alert-error mb-4">{error}</div>}
 
@@ -140,7 +140,7 @@ export default function SubmitEvidencePage() {
                 onChange={(e) => setQtyOrPercent(e.target.value)}
                 required
               />
-              <p className="text-xs text-gray-500 mt-1">
+              <p className="text-xs text-[rgba(232,228,220,0.55)] mt-1">
                 Enter the percentage of work completed (0-100)
               </p>
             </div>
@@ -158,7 +158,7 @@ export default function SubmitEvidencePage() {
 
             <div>
               <label className="label">Evidence Files *</label>
-              <div className="border-2 border-dashed border-gray-300 rounded-lg p-6 text-center">
+              <div className="border-2 border-dashed border-[rgba(255,255,255,0.1)] rounded-lg p-6 text-center">
                 <input
                   type="file"
                   multiple
@@ -169,11 +169,11 @@ export default function SubmitEvidencePage() {
                 />
                 <label
                   htmlFor="file-upload"
-                  className="cursor-pointer text-primary-600 hover:text-primary-700"
+                  className="cursor-pointer text-[#c4a35a] hover:text-[#c4a35a]"
                 >
                   Click to upload files
                 </label>
-                <p className="text-xs text-gray-500 mt-1">
+                <p className="text-xs text-[rgba(232,228,220,0.55)] mt-1">
                   Images, PDFs, or documents up to 10MB each
                 </p>
               </div>
@@ -183,13 +183,13 @@ export default function SubmitEvidencePage() {
                   {files.map((file, index) => (
                     <li
                       key={index}
-                      className="flex items-center justify-between bg-gray-50 rounded p-2"
+                      className="flex items-center justify-between bg-[rgba(255,255,255,0.03)] rounded p-2"
                     >
                       <span className="text-sm truncate">{file.name}</span>
                       <button
                         type="button"
                         onClick={() => removeFile(index)}
-                        className="text-red-600 hover:text-red-800 text-sm"
+                        className="text-[#e06050] hover:text-[#e06050] text-sm"
                       >
                         Remove
                       </button>
@@ -199,8 +199,8 @@ export default function SubmitEvidencePage() {
               )}
             </div>
 
-            <div className="bg-yellow-50 border border-yellow-200 rounded-lg p-4">
-              <p className="text-sm text-yellow-800">
+            <div className="bg-[rgba(196,163,90,0.08)] border border-[rgba(196,163,90,0.15)] rounded-lg p-4">
+              <p className="text-sm text-[#c4a35a]">
                 <strong>Important:</strong> Evidence will be frozen after submission and cannot be edited.
                 Make sure all files are correct before submitting.
               </p>
