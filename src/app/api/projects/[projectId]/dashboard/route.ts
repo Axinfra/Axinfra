@@ -18,7 +18,7 @@ export async function GET(
 
     let dashboardData: unknown;
 
-    const TTL = 30_000; // 30s cache
+    const TTL = 120_000; // 120s cache
     switch (auth.role) {
       case Role.OWNER:
         dashboardData = await cached(`dash:owner:${projectId}`, TTL, () => getOwnerDashboard(projectId));
@@ -51,12 +51,38 @@ export async function GET(
 }
 
 async function getOwnerDashboard(projectId: string) {
-  // Get all payment eligibility data + verifications in a single query (no N+1)
+  // Get payment eligibility data — push the filter to the DB.
+  // An eligibility contributes to the owner summary if EITHER the milestone is
+  // VERIFIED/CLOSED (feeds totalVerifiedValue) OR the eligibility is in one of
+  // the tracked payment states (feeds totalPaidValue / totalBlockedValue / totalUnpaidValue).
+  // The two gates are independent, so we OR them to preserve existing semantics.
   const eligibilities = await prisma.paymentEligibility.findMany({
-    where: { milestone: { projectId } },
-    include: {
+    where: {
+      milestone: { projectId },
+      OR: [
+        { milestone: { state: { in: [MilestoneState.VERIFIED, MilestoneState.CLOSED] } } },
+        {
+          state: {
+            in: [
+              EligibilityState.MARKED_PAID,
+              EligibilityState.BLOCKED,
+              EligibilityState.PARTIALLY_ELIGIBLE,
+              EligibilityState.FULLY_ELIGIBLE,
+            ],
+          },
+        },
+      ],
+    },
+    select: {
+      eligibleAmount: true,
+      blockedAmount: true,
+      state: true,
+      blockReasonCode: true,
       milestone: {
-        include: {
+        select: {
+          title: true,
+          state: true,
+          paymentModel: true,
           verifications: {
             select: { valueEligibleComputed: true },
           },
@@ -99,11 +125,11 @@ async function getOwnerDashboard(projectId: string) {
     }
   }
 
-  // Get BOQ overruns
-  const overruns = await PaymentEligibilityEngine.detectBOQOverruns(projectId);
-
-  // Get vendor exposures
-  const vendorExposures = await PaymentEligibilityEngine.detectVendorExposure(projectId);
+  // Get BOQ overruns and vendor exposures in parallel (independent reads)
+  const [overruns, vendorExposures] = await Promise.all([
+    PaymentEligibilityEngine.detectBOQOverruns(projectId),
+    PaymentEligibilityEngine.detectVendorExposure(projectId),
+  ]);
 
   // Get blocked summary
   const blockedItems = eligibilities.filter((e) => e.state === EligibilityState.BLOCKED);

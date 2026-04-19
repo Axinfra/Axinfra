@@ -22,8 +22,7 @@ import {
   estimateDelayCost,
 } from '@/lib/scheduleMetrics';
 import { computeCPM, milestonesCpmInputs } from '@/lib/cpm';
-
-export const dynamic = 'force-dynamic';
+import { cached } from '@/lib/cache';
 
 export async function GET(request: NextRequest) {
   try {
@@ -47,6 +46,19 @@ export async function GET(request: NextRequest) {
     const projectRole = vendorRoles[0];
     const projectId = projectRole.projectId;
     const projectName = projectRole.project.name;
+
+    // Validate view up-front so we don't cache a 400.
+    if (view !== 'overview' && view !== 'gantt' && view !== 'analytics') {
+      return NextResponse.json(
+        { success: false, error: `Unknown view: ${view}` },
+        { status: 400 },
+      );
+    }
+
+    // Cache the computed payload per-vendor-per-project-per-view for 60s.
+    // Auth and VENDOR role check stay fresh above the cache.
+    const cacheKey = `vendor:${auth.userId}:portal:${projectId}:${view}`;
+    const payload = await cached(cacheKey, 60_000, async () => {
     const today = new Date();
 
     // ── Load vendor's milestones directly via vendorUserId (with fallback to evidence) ──
@@ -158,7 +170,7 @@ export async function GET(request: NextRequest) {
           ? Math.round((delays.reduce((s, d) => s + d, 0) / delays.length) * 10) / 10
           : 0;
 
-      return NextResponse.json({
+      return {
         success: true,
         data: {
           projectId,
@@ -183,7 +195,7 @@ export async function GET(request: NextRequest) {
             value: m.value,
           })),
         },
-      });
+      };
     }
 
     if (view === 'gantt') {
@@ -243,7 +255,7 @@ export async function GET(request: NextRequest) {
         };
       });
 
-      return NextResponse.json({
+      return {
         success: true,
         data: {
           projectId,
@@ -258,7 +270,7 @@ export async function GET(request: NextRequest) {
           },
           scheduleConfig: scheduleConfig ?? null,
         },
-      });
+      };
     }
 
     if (view === 'analytics') {
@@ -320,7 +332,7 @@ export async function GET(request: NextRequest) {
       // On-time trend (monthly for last 6 months)
       const onTimeTrend = buildOnTimeTrend(rawMilestones, today);
 
-      return NextResponse.json({
+      return {
         success: true,
         data: {
           projectId,
@@ -334,14 +346,15 @@ export async function GET(request: NextRequest) {
           paymentCycleDays,
           onTimeTrend,
         },
-      });
+      };
     }
 
-    // Default fallback
-    return NextResponse.json(
-      { success: false, error: `Unknown view: ${view}` },
-      { status: 400 },
-    );
+    // Unreachable: view was validated before the cache call, but the compiler
+    // needs a total return — return an empty payload to satisfy the closure.
+    return { success: false, error: 'Unknown view' };
+    });
+
+    return NextResponse.json(payload);
   } catch (err: unknown) {
     const msg = err instanceof Error ? err.message : 'Unknown error';
     if (msg === 'UNAUTHORIZED') {

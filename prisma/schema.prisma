@@ -27,6 +27,8 @@ model AuditLog {
   @@index([createdAt])
   @@index([entityType, entityId])
   @@index([projectId])
+  @@index([projectId, actionType])
+  @@index([projectId, createdAt])
 }
 
 model BOQ {
@@ -127,6 +129,8 @@ model Evidence {
   @@index([milestoneId])
   @@index([status])
   @@index([submittedById])
+  @@index([milestoneId, status])
+  @@index([submittedById, status])
 }
 
 model EvidenceFile {
@@ -161,6 +165,8 @@ model FollowUp {
   @@index([projectId])
   @@index([status])
   @@index([type])
+  @@index([projectId, status, type])
+  @@index([projectId, type])
 }
 
 model Milestone {
@@ -204,6 +210,8 @@ model Milestone {
   @@index([vendorUserId])
   @@index([title])
   @@index([plannedEnd])
+  @@index([projectId, state])
+  @@index([vendorUserId, state])
 }
 
 model MilestoneBOQLink {
@@ -261,6 +269,7 @@ model PaymentEligibility {
 
   @@index([dueDate])
   @@index([state])
+  @@index([state, dueDate])
 }
 
 model Project {
@@ -332,6 +341,7 @@ model ProjectRole {
   @@unique([projectId, userId])
   @@index([projectId])
   @@index([userId])
+  @@index([projectId, role])
 }
 
 model User {

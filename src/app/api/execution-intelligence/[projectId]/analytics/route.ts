@@ -29,7 +29,7 @@ export async function GET(
 
     const data = await cached(
       `analytics:${params.projectId}:${auth.role}:${auth.userId}`,
-      60_000, // 60s TTL — analytics data changes infrequently
+      180_000, // 180s TTL — analytics data changes infrequently
       () => computeAnalytics(params.projectId, auth),
     );
 
@@ -46,23 +46,40 @@ export async function GET(
 
 async function computeAnalytics(projectId: string, auth: { role: string; userId: string }) {
     const today = new Date();
+    const thirtyDaysAgo = subDays(today, 30);
 
-    // --- Load milestones with evidence + transitions ---
-    const milestones = await prisma.milestone.findMany({
-      where: { projectId },
-      include: {
-        evidence: {
-          orderBy: { submittedAt: 'asc' },
-          include: { submittedBy: { select: { id: true, name: true } } },
+    // --- Parallelize all 5 independent DB-bound operations ---
+    // None of these consume another's output; only `projectId` and pure Date math feed them.
+    const [milestones, scheduleConfig, escalations, escalationTrend, paymentCycleDays] = await Promise.all([
+      prisma.milestone.findMany({
+        where: { projectId },
+        include: {
+          evidence: {
+            orderBy: { submittedAt: 'asc' },
+            include: { submittedBy: { select: { id: true, name: true } } },
+          },
+          verifications: { orderBy: { verifiedAt: 'asc' }, take: 1 },
+          vendorUser: { select: { id: true, name: true } },
+          predecessorDependencies: {
+            select: { predecessorId: true, successorId: true, lagDays: true },
+          },
         },
-        verifications: { orderBy: { verifiedAt: 'asc' }, take: 1 },
-        vendorUser: { select: { id: true, name: true } },
-        predecessorDependencies: {
-          select: { predecessorId: true, successorId: true, lagDays: true },
+        orderBy: [{ sortOrder: 'asc' }, { plannedStart: 'asc' }],
+      }),
+      prisma.projectScheduleConfig.findUnique({
+        where: { projectId },
+      }),
+      prisma.followUp.findMany({
+        where: {
+          projectId,
+          status: 'ESCALATED',
+          createdAt: { gte: thirtyDaysAgo },
         },
-      },
-      orderBy: [{ sortOrder: 'asc' }, { plannedStart: 'asc' }],
-    });
+        select: { id: true, createdAt: true },
+      }),
+      buildEscalationTrend(projectId, today),
+      buildPaymentCycleDays(projectId),
+    ]);
 
     // Role filter: vendor sees milestones assigned via vendorUserId,
     // falling back to evidence-based ownership for legacy data
@@ -70,22 +87,6 @@ async function computeAnalytics(projectId: string, auth: { role: string; userId:
       auth.role === 'VENDOR'
         ? milestones.filter((m) => m.vendorUserId === auth.userId || m.evidence[0]?.submittedById === auth.userId)
         : milestones;
-
-    // --- Schedule config ---
-    const scheduleConfig = await prisma.projectScheduleConfig.findUnique({
-      where: { projectId },
-    });
-
-    // --- Follow-ups / escalations (last 30 days) ---
-    const thirtyDaysAgo = subDays(today, 30);
-    const escalations = await prisma.followUp.findMany({
-      where: {
-        projectId,
-        status: 'ESCALATED',
-        createdAt: { gte: thirtyDaysAgo },
-      },
-      select: { id: true, createdAt: true },
-    });
 
     // --- CPM ---
     const projectStartDate = scheduleConfig?.projectStartDate ?? new Date();
@@ -228,11 +229,7 @@ async function computeAnalytics(projectId: string, auth: { role: string; userId:
     // --- Approval time histogram ---
     const approvalHistogram = buildApprovalHistogram(rawMilestones);
 
-    // --- Escalation trend (weekly for last 12 weeks) ---
-    const escalationTrend = await buildEscalationTrend(projectId, today);
-
-    // --- Payment to eligibility ---
-    const paymentCycleDays = await buildPaymentCycleDays(projectId);
+    // (escalationTrend and paymentCycleDays were fetched earlier in Promise.all)
 
     // --- Delay cost estimation ---
     const totalProjectValue = filtered.reduce((s, m) => s + (m.value || 0), 0);

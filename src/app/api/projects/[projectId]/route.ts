@@ -5,6 +5,7 @@ import { RoleGuard } from '@/services/RoleGuard';
 import { requireProjectOwner } from '@/lib/guards/requireOwner';
 import { AuditLogger } from '@/services/AuditLogger';
 import { AuditActionTypes, Role } from '@/types';
+import { cached } from '@/lib/cache';
 import { z } from 'zod';
 
 const updateProjectSchema = z.object({
@@ -37,49 +38,54 @@ export async function GET(
     // Role-based include: Owner/PMC see everything; Vendor/Viewer see only what's scoped to them.
     const isOwnerOrPMC = auth.role === Role.OWNER || auth.role === Role.PMC;
 
-    const project = isOwnerOrPMC
-      ? await prisma.project.findUnique({
-          where: { id: projectId, deletedAt: null },
-          include: {
-            roles: {
-              include: {
-                user: { select: { id: true, name: true, email: true } },
+    // Cache key includes userId because Vendor/Viewer queries are scoped to auth.userId,
+    // so two vendors on the same project must not share cache entries.
+    const cacheKey = `project:${projectId}:detail:${auth.role}:${auth.userId}`;
+    const project = await cached(cacheKey, 60_000, () =>
+      isOwnerOrPMC
+        ? prisma.project.findUnique({
+            where: { id: projectId, deletedAt: null },
+            include: {
+              roles: {
+                include: {
+                  user: { select: { id: true, name: true, email: true } },
+                },
+              },
+              boqs: { include: { items: true } },
+              milestones: {
+                include: {
+                  boqLinks: { include: { boqItem: true } },
+                  paymentEligibility: true,
+                },
+                orderBy: { createdAt: 'asc' },
               },
             },
-            boqs: { include: { items: true } },
-            milestones: {
-              include: {
-                boqLinks: { include: { boqItem: true } },
-                paymentEligibility: true,
+          })
+        : prisma.project.findUnique({
+            where: { id: projectId, deletedAt: null },
+            include: {
+              roles: {
+                include: {
+                  user: { select: { id: true, name: true, email: true } },
+                },
               },
-              orderBy: { createdAt: 'asc' },
+              // Vendor/Viewer: milestones scoped to this user only, no BOQ rates leaked.
+              milestones: {
+                where: {
+                  OR: [
+                    { vendorUserId: auth.userId },
+                    { evidence: { some: { submittedById: auth.userId } } },
+                  ],
+                },
+                include: {
+                  boqLinks: { include: { boqItem: true } },
+                  paymentEligibility: true,
+                },
+                orderBy: { createdAt: 'asc' },
+              },
             },
-          },
-        })
-      : await prisma.project.findUnique({
-          where: { id: projectId, deletedAt: null },
-          include: {
-            roles: {
-              include: {
-                user: { select: { id: true, name: true, email: true } },
-              },
-            },
-            // Vendor/Viewer: milestones scoped to this user only, no BOQ rates leaked.
-            milestones: {
-              where: {
-                OR: [
-                  { vendorUserId: auth.userId },
-                  { evidence: { some: { submittedById: auth.userId } } },
-                ],
-              },
-              include: {
-                boqLinks: { include: { boqItem: true } },
-                paymentEligibility: true,
-              },
-              orderBy: { createdAt: 'asc' },
-            },
-          },
-        });
+          })
+    );
 
     if (!project) {
       return NextResponse.json(

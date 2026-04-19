@@ -12,6 +12,7 @@ import { requireProjectAuth } from '@/lib/auth';
 import { RoleGuard } from '@/services/RoleGuard';
 import { PaymentEligibilityEngine } from '@/services/PaymentEligibilityEngine';
 import { EligibilityState } from '@/types';
+import { cached } from '@/lib/cache';
 
 /**
  * GET /api/projects/[projectId]/payment-eligibility
@@ -34,64 +35,68 @@ export async function GET(
       );
     }
 
-    // Get all eligibilities for project
-    const eligibilities = await PaymentEligibilityEngine.getProjectEligibilities(projectId);
+    // Cache the role-agnostic eligibilities + summary (same for all roles per route governance).
+    // Role-specific `permissions` are built fresh below, outside the cache.
+    const cacheKey = `project:${projectId}:eligibility:${auth.role}`;
+    const { eligibilitiesWithIndicators, summary } = await cached(cacheKey, 30_000, async () => {
+      const eligibilities = await PaymentEligibilityEngine.getProjectEligibilities(projectId);
 
-    // Add derived indicators for each eligibility
-    const eligibilitiesWithIndicators = eligibilities.map((e) => ({
-      id: e.id,
-      milestoneId: e.milestoneId,
-      milestone: e.milestone,
-      state: e.state,
-      boqValueCompleted: e.boqValueCompleted,
-      deductions: e.deductions,
-      eligibleAmount: e.eligibleAmount,
-      blockedAmount: e.blockedAmount,
-      dueDate: e.dueDate,
-      lastCalculatedAt: e.lastCalculatedAt,
-      // Derived indicator - same for all roles
-      indicator: PaymentEligibilityEngine.derivePaymentIndicator({
-        state: e.state as EligibilityState,
+      const eligibilitiesWithIndicators = eligibilities.map((e) => ({
+        id: e.id,
+        milestoneId: e.milestoneId,
+        milestone: e.milestone,
+        state: e.state,
+        boqValueCompleted: e.boqValueCompleted,
+        deductions: e.deductions,
         eligibleAmount: e.eligibleAmount,
         blockedAmount: e.blockedAmount,
         dueDate: e.dueDate,
-      }),
-    }));
+        lastCalculatedAt: e.lastCalculatedAt,
+        // Derived indicator - same for all roles
+        indicator: PaymentEligibilityEngine.derivePaymentIndicator({
+          state: e.state as EligibilityState,
+          eligibleAmount: e.eligibleAmount,
+          blockedAmount: e.blockedAmount,
+          dueDate: e.dueDate,
+        }),
+      }));
 
-    // Calculate summary stats
-    const summary = {
-      totalEligible: eligibilitiesWithIndicators.reduce(
-        (sum, e) => sum + e.eligibleAmount,
-        0
-      ),
-      totalBlocked: eligibilitiesWithIndicators.reduce(
-        (sum, e) => sum + e.blockedAmount,
-        0
-      ),
-      totalPaid: eligibilitiesWithIndicators
-        .filter((e) => e.state === 'MARKED_PAID')
-        .reduce((sum, e) => sum + e.eligibleAmount, 0),
-      countByState: {
-        NOT_DUE: eligibilitiesWithIndicators.filter((e) => e.state === 'NOT_DUE').length,
-        DUE_PENDING_VERIFICATION: eligibilitiesWithIndicators.filter(
-          (e) => e.state === 'DUE_PENDING_VERIFICATION'
-        ).length,
-        VERIFIED_NOT_ELIGIBLE: eligibilitiesWithIndicators.filter(
-          (e) => e.state === 'VERIFIED_NOT_ELIGIBLE'
-        ).length,
-        PARTIALLY_ELIGIBLE: eligibilitiesWithIndicators.filter(
-          (e) => e.state === 'PARTIALLY_ELIGIBLE'
-        ).length,
-        FULLY_ELIGIBLE: eligibilitiesWithIndicators.filter(
-          (e) => e.state === 'FULLY_ELIGIBLE'
-        ).length,
-        BLOCKED: eligibilitiesWithIndicators.filter((e) => e.state === 'BLOCKED').length,
-        MARKED_PAID: eligibilitiesWithIndicators.filter((e) => e.state === 'MARKED_PAID')
-          .length,
-      },
-      // Urgent items (due soon or overdue)
-      urgentCount: eligibilitiesWithIndicators.filter((e) => e.indicator.isUrgent).length,
-    };
+      const summary = {
+        totalEligible: eligibilitiesWithIndicators.reduce(
+          (sum, e) => sum + e.eligibleAmount,
+          0
+        ),
+        totalBlocked: eligibilitiesWithIndicators.reduce(
+          (sum, e) => sum + e.blockedAmount,
+          0
+        ),
+        totalPaid: eligibilitiesWithIndicators
+          .filter((e) => e.state === 'MARKED_PAID')
+          .reduce((sum, e) => sum + e.eligibleAmount, 0),
+        countByState: {
+          NOT_DUE: eligibilitiesWithIndicators.filter((e) => e.state === 'NOT_DUE').length,
+          DUE_PENDING_VERIFICATION: eligibilitiesWithIndicators.filter(
+            (e) => e.state === 'DUE_PENDING_VERIFICATION'
+          ).length,
+          VERIFIED_NOT_ELIGIBLE: eligibilitiesWithIndicators.filter(
+            (e) => e.state === 'VERIFIED_NOT_ELIGIBLE'
+          ).length,
+          PARTIALLY_ELIGIBLE: eligibilitiesWithIndicators.filter(
+            (e) => e.state === 'PARTIALLY_ELIGIBLE'
+          ).length,
+          FULLY_ELIGIBLE: eligibilitiesWithIndicators.filter(
+            (e) => e.state === 'FULLY_ELIGIBLE'
+          ).length,
+          BLOCKED: eligibilitiesWithIndicators.filter((e) => e.state === 'BLOCKED').length,
+          MARKED_PAID: eligibilitiesWithIndicators.filter((e) => e.state === 'MARKED_PAID')
+            .length,
+        },
+        // Urgent items (due soon or overdue)
+        urgentCount: eligibilitiesWithIndicators.filter((e) => e.indicator.isUrgent).length,
+      };
+
+      return { eligibilitiesWithIndicators, summary };
+    });
 
     return NextResponse.json({
       success: true,

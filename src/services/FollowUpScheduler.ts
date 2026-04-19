@@ -37,23 +37,29 @@ export class FollowUpScheduler {
       [FollowUpType.BOQ_OVERRUN]: 0,
     };
 
-    // Check pending evidence reviews
-    results[FollowUpType.PENDING_EVIDENCE_REVIEW] = await this.checkPendingEvidenceReview(projectId);
+    // All six checks are independent (each writes a disjoint set of FollowUp rows keyed by type)
+    const [
+      pendingEvidenceReview,
+      pendingVerification,
+      paymentDueSoon,
+      paymentBlockedTooLong,
+      highVendorExposure,
+      boqOverrun,
+    ] = await Promise.all([
+      this.checkPendingEvidenceReview(projectId),
+      this.checkPendingVerification(projectId),
+      this.checkPaymentDueSoon(projectId),
+      this.checkBlockedTooLong(projectId),
+      this.checkVendorExposure(projectId),
+      this.checkBOQOverruns(projectId),
+    ]);
 
-    // Check pending verifications
-    results[FollowUpType.PENDING_VERIFICATION] = await this.checkPendingVerification(projectId);
-
-    // Check payments due soon
-    results[FollowUpType.PAYMENT_DUE_SOON] = await this.checkPaymentDueSoon(projectId);
-
-    // Check blocked payments
-    results[FollowUpType.PAYMENT_BLOCKED_TOO_LONG] = await this.checkBlockedTooLong(projectId);
-
-    // Check vendor exposure
-    results[FollowUpType.HIGH_VENDOR_EXPOSURE] = await this.checkVendorExposure(projectId);
-
-    // Check BOQ overruns
-    results[FollowUpType.BOQ_OVERRUN] = await this.checkBOQOverruns(projectId);
+    results[FollowUpType.PENDING_EVIDENCE_REVIEW] = pendingEvidenceReview;
+    results[FollowUpType.PENDING_VERIFICATION] = pendingVerification;
+    results[FollowUpType.PAYMENT_DUE_SOON] = paymentDueSoon;
+    results[FollowUpType.PAYMENT_BLOCKED_TOO_LONG] = paymentBlockedTooLong;
+    results[FollowUpType.HIGH_VENDOR_EXPOSURE] = highVendorExposure;
+    results[FollowUpType.BOQ_OVERRUN] = boqOverrun;
 
     const created = Object.values(results).reduce((a, b) => a + b, 0);
 
@@ -78,38 +84,43 @@ export class FollowUpScheduler {
       },
     });
 
-    let created = 0;
+    if (pendingEvidence.length === 0) return 0;
 
-    for (const evidence of pendingEvidence) {
-      const existing = await prisma.followUp.findFirst({
-        where: {
-          projectId,
-          type: FollowUpType.PENDING_EVIDENCE_REVIEW,
-          targetEntityId: evidence.id,
-          status: FollowUpStatus.OPEN,
-        },
-      });
+    const existing = await prisma.followUp.findMany({
+      where: {
+        projectId,
+        type: FollowUpType.PENDING_EVIDENCE_REVIEW,
+        status: FollowUpStatus.OPEN,
+        targetEntityId: { in: pendingEvidence.map(e => e.id) },
+      },
+      select: { targetEntityId: true },
+    });
+    const existingSet = new Set(existing.map(f => f.targetEntityId));
 
-      if (!existing) {
+    const toCreate = pendingEvidence
+      .filter(evidence => !existingSet.has(evidence.id))
+      .map(evidence => {
         const daysPending = Math.ceil(
           (Date.now() - evidence.submittedAt.getTime()) / (1000 * 60 * 60 * 24)
         );
+        return {
+          projectId,
+          type: FollowUpType.PENDING_EVIDENCE_REVIEW,
+          targetEntity: 'Evidence',
+          targetEntityId: evidence.id,
+          description: `Evidence for milestone "${evidence.milestone.title}" pending review for ${daysPending} days`,
+          status: FollowUpStatus.OPEN,
+        };
+      });
 
-        await prisma.followUp.create({
-          data: {
-            projectId,
-            type: FollowUpType.PENDING_EVIDENCE_REVIEW,
-            targetEntity: 'Evidence',
-            targetEntityId: evidence.id,
-            description: `Evidence for milestone "${evidence.milestone.title}" pending review for ${daysPending} days`,
-            status: FollowUpStatus.OPEN,
-          },
-        });
-        created++;
-      }
-    }
+    if (toCreate.length === 0) return 0;
 
-    return created;
+    await prisma.followUp.createMany({
+      data: toCreate,
+      skipDuplicates: true,
+    });
+
+    return toCreate.length;
   }
 
   /**
@@ -133,34 +144,38 @@ export class FollowUpScheduler {
       },
     });
 
-    let created = 0;
+    if (pendingMilestones.length === 0) return 0;
 
-    for (const milestone of pendingMilestones) {
-      const existing = await prisma.followUp.findFirst({
-        where: {
-          projectId,
-          type: FollowUpType.PENDING_VERIFICATION,
-          targetEntityId: milestone.id,
-          status: FollowUpStatus.OPEN,
-        },
-      });
+    const existing = await prisma.followUp.findMany({
+      where: {
+        projectId,
+        type: FollowUpType.PENDING_VERIFICATION,
+        status: FollowUpStatus.OPEN,
+        targetEntityId: { in: pendingMilestones.map(m => m.id) },
+      },
+      select: { targetEntityId: true },
+    });
+    const existingSet = new Set(existing.map(f => f.targetEntityId));
 
-      if (!existing) {
-        await prisma.followUp.create({
-          data: {
-            projectId,
-            type: FollowUpType.PENDING_VERIFICATION,
-            targetEntity: 'Milestone',
-            targetEntityId: milestone.id,
-            description: `Milestone "${milestone.title}" has approved evidence but pending verification`,
-            status: FollowUpStatus.OPEN,
-          },
-        });
-        created++;
-      }
-    }
+    const toCreate = pendingMilestones
+      .filter(milestone => !existingSet.has(milestone.id))
+      .map(milestone => ({
+        projectId,
+        type: FollowUpType.PENDING_VERIFICATION,
+        targetEntity: 'Milestone',
+        targetEntityId: milestone.id,
+        description: `Milestone "${milestone.title}" has approved evidence but pending verification`,
+        status: FollowUpStatus.OPEN,
+      }));
 
-    return created;
+    if (toCreate.length === 0) return 0;
+
+    await prisma.followUp.createMany({
+      data: toCreate,
+      skipDuplicates: true,
+    });
+
+    return toCreate.length;
   }
 
   /**
@@ -181,38 +196,43 @@ export class FollowUpScheduler {
       },
     });
 
-    let created = 0;
+    if (dueSoon.length === 0) return 0;
 
-    for (const item of dueSoon) {
-      const existing = await prisma.followUp.findFirst({
-        where: {
-          projectId,
-          type: FollowUpType.PAYMENT_DUE_SOON,
-          targetEntityId: item.id,
-          status: FollowUpStatus.OPEN,
-        },
-      });
+    const existing = await prisma.followUp.findMany({
+      where: {
+        projectId,
+        type: FollowUpType.PAYMENT_DUE_SOON,
+        status: FollowUpStatus.OPEN,
+        targetEntityId: { in: dueSoon.map(i => i.id) },
+      },
+      select: { targetEntityId: true },
+    });
+    const existingSet = new Set(existing.map(f => f.targetEntityId));
 
-      if (!existing) {
+    const toCreate = dueSoon
+      .filter(item => !existingSet.has(item.id))
+      .map(item => {
         const daysUntilDue = item.dueDate
           ? Math.ceil((item.dueDate.getTime() - Date.now()) / (1000 * 60 * 60 * 24))
           : 0;
+        return {
+          projectId,
+          type: FollowUpType.PAYMENT_DUE_SOON,
+          targetEntity: 'PaymentEligibility',
+          targetEntityId: item.id,
+          description: `Payment for "${item.milestone.title}" due in ${daysUntilDue} days ($${item.eligibleAmount.toFixed(2)})`,
+          status: FollowUpStatus.OPEN,
+        };
+      });
 
-        await prisma.followUp.create({
-          data: {
-            projectId,
-            type: FollowUpType.PAYMENT_DUE_SOON,
-            targetEntity: 'PaymentEligibility',
-            targetEntityId: item.id,
-            description: `Payment for "${item.milestone.title}" due in ${daysUntilDue} days ($${item.eligibleAmount.toFixed(2)})`,
-            status: FollowUpStatus.OPEN,
-          },
-        });
-        created++;
-      }
-    }
+    if (toCreate.length === 0) return 0;
 
-    return created;
+    await prisma.followUp.createMany({
+      data: toCreate,
+      skipDuplicates: true,
+    });
+
+    return toCreate.length;
   }
 
   /**
@@ -233,40 +253,47 @@ export class FollowUpScheduler {
       },
     });
 
-    let created = 0;
+    // Preserve the original `if (item.blockedAt)` null guard by filtering up-front
+    const withBlockedAt = blocked.filter(item => item.blockedAt !== null);
 
-    for (const item of blocked) {
-      if (item.blockedAt) {
-        const existing = await prisma.followUp.findFirst({
-          where: {
-            projectId,
-            type: FollowUpType.PAYMENT_BLOCKED_TOO_LONG,
-            targetEntityId: item.id,
-            status: FollowUpStatus.OPEN,
-          },
-        });
+    if (withBlockedAt.length === 0) return 0;
 
-        if (!existing) {
-          const daysBlocked = Math.ceil(
-            (Date.now() - item.blockedAt.getTime()) / (1000 * 60 * 60 * 24)
-          );
+    const existing = await prisma.followUp.findMany({
+      where: {
+        projectId,
+        type: FollowUpType.PAYMENT_BLOCKED_TOO_LONG,
+        status: FollowUpStatus.OPEN,
+        targetEntityId: { in: withBlockedAt.map(i => i.id) },
+      },
+      select: { targetEntityId: true },
+    });
+    const existingSet = new Set(existing.map(f => f.targetEntityId));
 
-          await prisma.followUp.create({
-            data: {
-              projectId,
-              type: FollowUpType.PAYMENT_BLOCKED_TOO_LONG,
-              targetEntity: 'PaymentEligibility',
-              targetEntityId: item.id,
-              description: `Payment for "${item.milestone.title}" blocked for ${daysBlocked} days. Reason: ${item.blockReasonCode || 'Unknown'}`,
-              status: FollowUpStatus.OPEN,
-            },
-          });
-          created++;
-        }
-      }
-    }
+    const toCreate = withBlockedAt
+      .filter(item => !existingSet.has(item.id))
+      .map(item => {
+        const blockedAt = item.blockedAt!;
+        const daysBlocked = Math.ceil(
+          (Date.now() - blockedAt.getTime()) / (1000 * 60 * 60 * 24)
+        );
+        return {
+          projectId,
+          type: FollowUpType.PAYMENT_BLOCKED_TOO_LONG,
+          targetEntity: 'PaymentEligibility',
+          targetEntityId: item.id,
+          description: `Payment for "${item.milestone.title}" blocked for ${daysBlocked} days. Reason: ${item.blockReasonCode || 'Unknown'}`,
+          status: FollowUpStatus.OPEN,
+        };
+      });
 
-    return created;
+    if (toCreate.length === 0) return 0;
+
+    await prisma.followUp.createMany({
+      data: toCreate,
+      skipDuplicates: true,
+    });
+
+    return toCreate.length;
   }
 
   /**
@@ -275,34 +302,38 @@ export class FollowUpScheduler {
   private static async checkVendorExposure(projectId: string): Promise<number> {
     const exposures = await PaymentEligibilityEngine.detectVendorExposure(projectId);
 
-    let created = 0;
+    if (exposures.length === 0) return 0;
 
-    for (const exposure of exposures) {
-      const existing = await prisma.followUp.findFirst({
-        where: {
-          projectId,
-          type: FollowUpType.HIGH_VENDOR_EXPOSURE,
-          targetEntityId: exposure.vendorId,
-          status: FollowUpStatus.OPEN,
-        },
-      });
+    const existing = await prisma.followUp.findMany({
+      where: {
+        projectId,
+        type: FollowUpType.HIGH_VENDOR_EXPOSURE,
+        status: FollowUpStatus.OPEN,
+        targetEntityId: { in: exposures.map(e => e.vendorId) },
+      },
+      select: { targetEntityId: true },
+    });
+    const existingSet = new Set(existing.map(f => f.targetEntityId));
 
-      if (!existing) {
-        await prisma.followUp.create({
-          data: {
-            projectId,
-            type: FollowUpType.HIGH_VENDOR_EXPOSURE,
-            targetEntity: 'User',
-            targetEntityId: exposure.vendorId,
-            description: `Vendor "${exposure.vendorName}" has exposure of $${exposure.exposure.toFixed(2)} (Advance: $${exposure.advancePaid.toFixed(2)}, Verified: $${exposure.verifiedWork.toFixed(2)})`,
-            status: FollowUpStatus.OPEN,
-          },
-        });
-        created++;
-      }
-    }
+    const toCreate = exposures
+      .filter(exposure => !existingSet.has(exposure.vendorId))
+      .map(exposure => ({
+        projectId,
+        type: FollowUpType.HIGH_VENDOR_EXPOSURE,
+        targetEntity: 'User',
+        targetEntityId: exposure.vendorId,
+        description: `Vendor "${exposure.vendorName}" has exposure of $${exposure.exposure.toFixed(2)} (Advance: $${exposure.advancePaid.toFixed(2)}, Verified: $${exposure.verifiedWork.toFixed(2)})`,
+        status: FollowUpStatus.OPEN,
+      }));
 
-    return created;
+    if (toCreate.length === 0) return 0;
+
+    await prisma.followUp.createMany({
+      data: toCreate,
+      skipDuplicates: true,
+    });
+
+    return toCreate.length;
   }
 
   /**
@@ -311,34 +342,38 @@ export class FollowUpScheduler {
   private static async checkBOQOverruns(projectId: string): Promise<number> {
     const overruns = await PaymentEligibilityEngine.detectBOQOverruns(projectId);
 
-    let created = 0;
+    if (overruns.length === 0) return 0;
 
-    for (const overrun of overruns) {
-      const existing = await prisma.followUp.findFirst({
-        where: {
-          projectId,
-          type: FollowUpType.BOQ_OVERRUN,
-          targetEntityId: overrun.boqItemId,
-          status: FollowUpStatus.OPEN,
-        },
-      });
+    const existing = await prisma.followUp.findMany({
+      where: {
+        projectId,
+        type: FollowUpType.BOQ_OVERRUN,
+        status: FollowUpStatus.OPEN,
+        targetEntityId: { in: overruns.map(o => o.boqItemId) },
+      },
+      select: { targetEntityId: true },
+    });
+    const existingSet = new Set(existing.map(f => f.targetEntityId));
 
-      if (!existing) {
-        await prisma.followUp.create({
-          data: {
-            projectId,
-            type: FollowUpType.BOQ_OVERRUN,
-            targetEntity: 'BOQItem',
-            targetEntityId: overrun.boqItemId,
-            description: `BOQ item "${overrun.description}" overrun: ${overrun.verifiedQty} verified vs ${overrun.plannedQty} planned`,
-            status: FollowUpStatus.OPEN,
-          },
-        });
-        created++;
-      }
-    }
+    const toCreate = overruns
+      .filter(overrun => !existingSet.has(overrun.boqItemId))
+      .map(overrun => ({
+        projectId,
+        type: FollowUpType.BOQ_OVERRUN,
+        targetEntity: 'BOQItem',
+        targetEntityId: overrun.boqItemId,
+        description: `BOQ item "${overrun.description}" overrun: ${overrun.verifiedQty} verified vs ${overrun.plannedQty} planned`,
+        status: FollowUpStatus.OPEN,
+      }));
 
-    return created;
+    if (toCreate.length === 0) return 0;
+
+    await prisma.followUp.createMany({
+      data: toCreate,
+      skipDuplicates: true,
+    });
+
+    return toCreate.length;
   }
 
   /**

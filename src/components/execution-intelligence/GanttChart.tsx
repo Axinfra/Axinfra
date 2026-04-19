@@ -1,6 +1,6 @@
 'use client';
 
-import { useRef, useMemo, useState } from 'react';
+import { memo, useRef, useMemo, useState } from 'react';
 import { format, parseISO, differenceInDays, addDays, startOfDay } from 'date-fns';
 
 type GanttMode = 'L1' | 'L2' | 'L3' | 'L4';
@@ -46,7 +46,7 @@ function clampToRange(x: number, min: number, max: number) {
   return Math.max(min, Math.min(max, x));
 }
 
-export default function GanttChart({
+function GanttChart({
   milestones,
   mode,
   hasCycle,
@@ -116,10 +116,24 @@ export default function GanttChart({
     return marks;
   }, [chartStart, chartEnd, chartWidth, dayWidth]);
 
-  const svgHeight = HEADER_HEIGHT + milestones.length * ROW_HEIGHT + 20;
+  const svgHeight = useMemo(
+    () => HEADER_HEIGHT + milestones.length * ROW_HEIGHT + 20,
+    [milestones.length]
+  );
 
-  // Today line
-  const todayX = xFromDate(new Date());
+  // Today line — stable for a given chart domain (avoids re-parsing Date on every render)
+  const todayX = useMemo(
+    () => differenceInDays(startOfDay(new Date()), chartStart) * dayWidth,
+    [chartStart, dayWidth]
+  );
+
+  // O(1) predecessor lookup — replaces O(n) findIndex inside the per-row render,
+  // avoiding O(n*m) cost when many milestones have dependencies.
+  const milestoneIndexById = useMemo(() => {
+    const map = new Map<string, number>();
+    milestones.forEach((m, i) => map.set(m.id, i));
+    return map;
+  }, [milestones]);
 
   // State color
   const stateColor = (state: string, isCritical: boolean) => {
@@ -356,8 +370,8 @@ export default function GanttChart({
                     {/* Dependency arrows (L3 / L4) */}
                     {(mode === 'L3' || mode === 'L4') &&
                       m.predecessors.map((dep) => {
-                        const predIdx = milestones.findIndex((x) => x.id === dep.predecessorId);
-                        if (predIdx === -1) return null;
+                        const predIdx = milestoneIndexById.get(dep.predecessorId);
+                        if (predIdx === undefined) return null;
                         const pred = milestones[predIdx];
                         const predPe = toDate(pred.plannedEnd);
                         if (!predPe || !ps) return null;
@@ -415,3 +429,5 @@ export default function GanttChart({
     </div>
   );
 }
+
+export default memo(GanttChart);
