@@ -31,29 +31,34 @@ export async function GET(
     const { projectId } = await params;
     await requireProjectAuth(projectId);
 
-    const milestones = await prisma.milestone.findMany({
-      where: { projectId },
-      include: {
-        boqLinks: {
-          include: {
-            boqItem: true,
-          },
-        },
-        evidence: {
-          orderBy: { submittedAt: 'desc' },
-          take: 1,
-        },
-        verifications: {
-          orderBy: { verifiedAt: 'desc' },
-          take: 1,
-        },
-        paymentEligibility: true,
-        vendorUser: {
-          select: { id: true, name: true, email: true },
-        },
+const milestones = await prisma.milestone.findMany({
+  where: { projectId },
+
+  select: {
+    id: true,
+    title: true,
+    state: true,
+    plannedEnd: true,
+
+    paymentEligibility: {
+      select: {
+        state: true,
+        eligibleAmount: true,
       },
-      orderBy: { createdAt: 'asc' },
-    });
+    },
+
+    vendorUser: {
+      select: {
+        id: true,
+        name: true,
+      },
+    },
+  },
+
+  orderBy: { createdAt: 'asc' },
+
+  take: 50,
+});
 
     return NextResponse.json({ success: true, data: milestones });
   } catch (error) {

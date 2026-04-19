@@ -27,63 +27,65 @@ const updateProjectSchema = z.object({
 
 // GET /api/projects/[projectId] - Get project details
 export async function GET(
-  request: NextRequest,
-  { params }: { params: Promise<{ projectId: string }> }
+  req: Request,
+  { params }: { params: { projectId: string } }
 ) {
   try {
-    const { projectId } = await params;
+    const projectId = params.projectId;
+
+    // Auth (keep as is)
     const auth = await requireProjectAuth(projectId);
+    const isOwnerOrPMC =
+      auth.role === Role.OWNER || auth.role === Role.PMC;
 
-    // Role-based include: Owner/PMC see everything; Vendor/Viewer see only what's scoped to them.
-    const isOwnerOrPMC = auth.role === Role.OWNER || auth.role === Role.PMC;
+    // Single optimized query
+    const project = await prisma.project.findUnique({
+      where: { id: projectId, deletedAt: null },
 
-    const project = isOwnerOrPMC
-      ? await prisma.project.findUnique({
-          where: { id: projectId, deletedAt: null },
+      include: {
+        roles: {
           include: {
-            roles: {
-              include: {
-                user: { select: { id: true, name: true, email: true } },
-              },
-            },
-            boqs: { include: { items: true } },
-            milestones: {
-              include: {
-                boqLinks: { include: { boqItem: true } },
-                paymentEligibility: true,
-              },
-              orderBy: { createdAt: 'asc' },
+            user: {
+              select: { id: true, name: true, email: true },
             },
           },
-        })
-      : await prisma.project.findUnique({
-          where: { id: projectId, deletedAt: null },
-          include: {
-            roles: {
-              include: {
-                user: { select: { id: true, name: true, email: true } },
-              },
-            },
-            // Vendor/Viewer: milestones scoped to this user only, no BOQ rates leaked.
-            milestones: {
-              where: {
+        },
+
+        milestones: {
+          where: isOwnerOrPMC
+            ? undefined
+            : {
                 OR: [
                   { vendorUserId: auth.userId },
-                  { evidence: { some: { submittedById: auth.userId } } },
+                  {
+                    evidence: {
+                      some: { submittedById: auth.userId },
+                    },
+                  },
                 ],
               },
-              include: {
-                boqLinks: { include: { boqItem: true } },
-                paymentEligibility: true,
+
+          select: {
+            id: true,
+            title: true,
+            state: true,
+            plannedEnd: true,
+            paymentEligibility: {
+              select: {
+                state: true,
+                eligibleAmount: true,
               },
-              orderBy: { createdAt: 'asc' },
             },
           },
-        });
+
+          orderBy: { createdAt: "asc" },
+        },
+      },
+    });
 
     if (!project) {
       return NextResponse.json(
-        { success: false, error: 'Project not found' },
+        { success: false, error: "Project not found" },
         { status: 404 }
       );
     }
@@ -97,15 +99,9 @@ export async function GET(
       },
     });
   } catch (error) {
-    if (error instanceof Error && error.message === 'UNAUTHORIZED') {
-      return NextResponse.json(
-        { success: false, error: 'Unauthorized' },
-        { status: 401 }
-      );
-    }
-    console.error('Project get error:', error);
+    console.error(error);
     return NextResponse.json(
-      { success: false, error: 'Internal server error' },
+      { success: false, error: "Internal Server Error" },
       { status: 500 }
     );
   }
