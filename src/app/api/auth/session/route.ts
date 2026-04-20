@@ -1,6 +1,7 @@
 import { NextResponse } from 'next/server';
 import { getSession } from '@/lib/auth';
 import { prisma } from '@/lib/db';
+import { cached } from '@/lib/cache';
 
 export const dynamic = 'force-dynamic';
 
@@ -15,18 +16,19 @@ export async function GET() {
       );
     }
 
-    // Get user's project roles
-    const projectRoles = await prisma.projectRole.findMany({
-      where: { userId: session.userId },
-      include: {
-        project: {
+    const projectRoles = await cached(
+      `session:roles:${session.userId}`,
+      120_000,
+      () =>
+        prisma.projectRole.findMany({
+          where: { userId: session.userId },
           select: {
-            id: true,
-            name: true,
+            projectId: true,
+            role: true,
+            project: { select: { id: true, name: true } },
           },
-        },
-      },
-    });
+        })
+    );
 
     return NextResponse.json({
       success: true,

@@ -4,7 +4,53 @@ import { requireProjectAuth } from '@/lib/auth';
 import { RoleGuard } from '@/services/RoleGuard';
 import { AuditLogger } from '@/services/AuditLogger';
 import { AuditActionTypes, PaymentModel, EligibilityState } from '@/types';
+import { cached, invalidatePrefix } from '@/lib/cache';
 import { z } from 'zod';
+
+const milestoneListSelect = {
+  id: true,
+  title: true,
+  description: true,
+  state: true,
+  paymentModel: true,
+  plannedStart: true,
+  plannedEnd: true,
+  actualStart: true,
+  value: true,
+  advancePercent: true,
+  isExtra: true,
+  extraApprovedAt: true,
+  vendorUserId: true,
+  createdAt: true,
+  vendorUser: { select: { id: true, name: true, email: true } },
+  boqLinks: {
+    select: {
+      id: true,
+      plannedQty: true,
+      boqItem: { select: { id: true, description: true, unit: true, rate: true } },
+    },
+  },
+  evidence: {
+    orderBy: { submittedAt: 'desc' as const },
+    take: 1,
+    select: { id: true, status: true, submittedAt: true },
+  },
+  verifications: {
+    orderBy: { verifiedAt: 'desc' as const },
+    take: 1,
+    select: { id: true, state: true, verifiedAt: true },
+  },
+  paymentEligibility: {
+    select: {
+      id: true,
+      state: true,
+      eligibleAmount: true,
+      advanceAmount: true,
+      remainingAmount: true,
+      dueDate: true,
+    },
+  },
+} as const;
 
 const createMilestoneSchema = z.object({
   title: z.string().min(1).max(200),
@@ -29,33 +75,39 @@ export async function GET(
 ) {
   try {
     const { projectId } = await params;
-    await requireProjectAuth(projectId);
+    const auth = await requireProjectAuth(projectId);
 
-    const milestones = await prisma.milestone.findMany({
-      where: { projectId },
-      include: {
-        boqLinks: {
-          include: {
-            boqItem: true,
-          },
-        },
-        evidence: {
-          orderBy: { submittedAt: 'desc' },
-          take: 1,
-        },
-        verifications: {
-          orderBy: { verifiedAt: 'desc' },
-          take: 1,
-        },
-        paymentEligibility: true,
-        vendorUser: {
-          select: { id: true, name: true, email: true },
-        },
-      },
-      orderBy: { createdAt: 'asc' },
+    const url = new URL(request.url);
+    const all = url.searchParams.get('all') === 'true';
+    const rawPage = Number(url.searchParams.get('page') ?? '1');
+    const rawLimit = Number(url.searchParams.get('limit') ?? '50');
+    const page = Number.isFinite(rawPage) && rawPage > 0 ? Math.floor(rawPage) : 1;
+    const limit = Number.isFinite(rawLimit) && rawLimit > 0 ? Math.min(Math.floor(rawLimit), 500) : 50;
+    const skip = all ? 0 : (page - 1) * limit;
+    const take = all ? undefined : limit;
+
+    const cacheKey = `milestone:${projectId}:list:${auth.role}:${auth.userId}:page:${all ? 'all' : page}:limit:${all ? 'all' : limit}`;
+
+    const { milestones, total } = await cached(cacheKey, 60_000, async () => {
+      const [rows, count] = await Promise.all([
+        prisma.milestone.findMany({
+          where: { projectId },
+          select: milestoneListSelect,
+          orderBy: { createdAt: 'asc' },
+          ...(take !== undefined ? { take, skip } : {}),
+        }),
+        prisma.milestone.count({ where: { projectId } }),
+      ]);
+      return { milestones: rows, total: count };
     });
 
-    return NextResponse.json({ success: true, data: milestones });
+    return NextResponse.json({
+      success: true,
+      data: milestones,
+      total,
+      page: all ? 1 : page,
+      limit: all ? total : limit,
+    });
   } catch (error) {
     if (error instanceof Error && error.message === 'UNAUTHORIZED') {
       return NextResponse.json(
@@ -133,6 +185,8 @@ export async function POST(
 
       return milestone;
     });
+
+    await invalidatePrefix(`milestone:${projectId}:list:`);
 
     await AuditLogger.log({
       projectId,

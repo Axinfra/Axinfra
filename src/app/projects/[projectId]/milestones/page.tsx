@@ -62,7 +62,7 @@ export default function MilestonesPage() {
     try {
       const [projectRes, milestonesRes] = await Promise.all([
         fetch(`/api/projects/${projectId}`),
-        fetch(`/api/projects/${projectId}/milestones`),
+        fetch(`/api/projects/${projectId}/milestones?all=true`),
       ]);
 
       const [projectData, milestonesData] = await Promise.all([
