@@ -35,7 +35,9 @@ function getRedis(): Redis | null {
   }
 
   try {
-    redisClient = new Redis({ url, token });
+    // automaticDeserialization: false forces the SDK to return raw strings on GET
+    // so our dateReviver can rehydrate ISO-8601 strings back into Date objects.
+    redisClient = new Redis({ url, token, automaticDeserialization: false });
   } catch (err) {
     console.error('[cache] Failed to initialize Upstash client, falling back to in-memory:', err);
     redisClient = null;

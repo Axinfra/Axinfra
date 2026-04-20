@@ -115,7 +115,12 @@ export async function GET(
         { status: 401 }
       );
     }
-    console.error('Milestones list error:', error);
+    const err = error as Error;
+    console.error('Milestones list error:', {
+      name: err?.name,
+      message: err?.message,
+      stack: err?.stack,
+    });
     return NextResponse.json(
       { success: false, error: 'Internal server error' },
       { status: 500 }
