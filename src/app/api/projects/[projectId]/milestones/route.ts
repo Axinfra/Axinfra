@@ -38,7 +38,7 @@ const milestoneListSelect = {
   verifications: {
     orderBy: { verifiedAt: 'desc' as const },
     take: 1,
-    select: { id: true, state: true, verifiedAt: true },
+    select: { id: true, verifiedAt: true },
   },
   paymentEligibility: {
     select: {
