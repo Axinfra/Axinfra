@@ -24,6 +24,8 @@ import {
 import { computeCPM, milestonesCpmInputs } from '@/lib/cpm';
 import { cached } from '@/lib/cache';
 
+export const dynamic = 'force-dynamic';
+
 export async function GET(request: NextRequest) {
   try {
     const auth = await requireAuth();
