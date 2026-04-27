@@ -60,18 +60,22 @@ export default function ProjectDetailPage() {
     );
   }
 
-  const totalBOQValue = project.boqs.reduce(
-    (sum, boq) => sum + boq.items.reduce((s, i) => s + i.plannedValue, 0),
+  // VENDOR/VIEWER responses don't include `boqs`; default to empty list.
+  const boqs = project.boqs ?? [];
+  const milestones = project.milestones ?? [];
+
+  const totalBOQValue = boqs.reduce(
+    (sum, boq) => sum + (boq.items ?? []).reduce((s, i) => s + i.plannedValue, 0),
     0
   );
 
   const milestoneStats = {
-    total: project.milestones.length,
-    draft: project.milestones.filter((m) => m.state === 'DRAFT').length,
-    inProgress: project.milestones.filter((m) => m.state === 'IN_PROGRESS').length,
-    submitted: project.milestones.filter((m) => m.state === 'SUBMITTED').length,
-    verified: project.milestones.filter((m) => m.state === 'VERIFIED').length,
-    closed: project.milestones.filter((m) => m.state === 'CLOSED').length,
+    total: milestones.length,
+    draft: milestones.filter((m) => m.state === 'DRAFT').length,
+    inProgress: milestones.filter((m) => m.state === 'IN_PROGRESS').length,
+    submitted: milestones.filter((m) => m.state === 'SUBMITTED').length,
+    verified: milestones.filter((m) => m.state === 'VERIFIED').length,
+    closed: milestones.filter((m) => m.state === 'CLOSED').length,
   };
 
   return (
@@ -121,17 +125,17 @@ export default function ProjectDetailPage() {
             <h2 className="text-lg font-semibold">Quick Actions</h2>
           </div>
           <div className="card-body flex flex-wrap gap-3">
-            {project.permissions.canEditBOQ && (
+            {project.permissions?.canEditBOQ && (
               <Link href={`/projects/${projectId}/boq`} className="btn btn-secondary">
                 Manage BOQ
               </Link>
             )}
-            {project.permissions.canEditMilestones && (
+            {project.permissions?.canEditMilestones && (
               <Link href={`/projects/${projectId}/milestones`} className="btn btn-secondary">
                 Manage Milestones
               </Link>
             )}
-            {project.permissions.canReviewEvidence && (
+            {project.permissions?.canReviewEvidence && (
               <Link href={`/projects/${projectId}/evidence-review`} className="btn btn-secondary">
                 Review Evidence
               </Link>
@@ -162,7 +166,7 @@ export default function ProjectDetailPage() {
                 </tr>
               </thead>
               <tbody>
-                {project.milestones.slice(0, 5).map((milestone) => (
+                {milestones.slice(0, 5).map((milestone) => (
                   <tr key={milestone.id}>
                     <td>
                       <Link

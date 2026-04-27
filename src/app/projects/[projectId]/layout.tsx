@@ -1,17 +1,17 @@
 'use client';
 
-import { use } from 'react';
+import { useParams } from 'next/navigation';
 import { ProjectProvider } from '@/lib/contexts/ProjectContext';
 
 export default function ProjectWorkspaceLayout({
   children,
-  params,
 }: {
   children: React.ReactNode;
-  params: Promise<{ projectId: string }>;
 }) {
-  // Next.js 14 App Router passes params as a Promise to layouts/pages;
-  // unwrap with React.use() since this is a client component.
-  const { projectId } = use(params);
+  // useParams() is the safe client-side way to read route params; it always
+  // returns synchronous data and never depends on the (Promise vs sync) params
+  // prop typing that varies between Next 14.x patch versions.
+  const params = useParams();
+  const projectId = params?.projectId as string;
   return <ProjectProvider projectId={projectId}>{children}</ProjectProvider>;
 }

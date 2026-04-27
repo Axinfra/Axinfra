@@ -1,15 +1,14 @@
 'use client';
 
-import { use } from 'react';
+import { useParams } from 'next/navigation';
 import { ProjectProvider } from '@/lib/contexts/ProjectContext';
 
 export default function ViseronIntelligenceProjectLayout({
   children,
-  params,
 }: {
   children: React.ReactNode;
-  params: Promise<{ projectId: string }>;
 }) {
-  const { projectId } = use(params);
+  const params = useParams();
+  const projectId = params?.projectId as string;
   return <ProjectProvider projectId={projectId}>{children}</ProjectProvider>;
 }
