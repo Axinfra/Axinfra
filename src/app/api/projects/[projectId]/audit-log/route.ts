@@ -3,6 +3,36 @@ import { requireProjectAuth } from '@/lib/auth';
 import { AuditLogger } from '@/services/AuditLogger';
 import { RoleGuard } from '@/services/RoleGuard';
 import { AuditActionTypes } from '@/types';
+import { cached } from '@/lib/cache';
+
+function buildAuditCacheKey(
+  projectId: string,
+  role: string,
+  options: {
+    entityType?: string;
+    entityId?: string;
+    actorId?: string;
+    actionType?: string;
+    startDate?: Date;
+    endDate?: Date;
+    limit: number;
+    offset: number;
+  },
+): string {
+  return [
+    'auditlog',
+    projectId,
+    role, // Role affects excludeActionTypes filter — must scope cache by role
+    options.entityType ?? '',
+    options.entityId ?? '',
+    options.actorId ?? '',
+    options.actionType ?? '',
+    options.startDate?.toISOString() ?? '',
+    options.endDate?.toISOString() ?? '',
+    options.limit,
+    options.offset,
+  ].join(':');
+}
 
 /**
  * SECURITY: Cash-module audit action types are PRIVATE to OWNER role.
@@ -39,17 +69,24 @@ export async function GET(
         : undefined,
     };
 
-    const { logs, total } = await AuditLogger.getProjectLogs(projectId, options);
+    // Audit logs are append-only — cache for 120s.
+    const cacheKey = buildAuditCacheKey(projectId, auth.role, options);
+    const { logs, total } = await cached(cacheKey, 120_000, () =>
+      AuditLogger.getProjectLogs(projectId, options),
+    );
 
-    return NextResponse.json({
-      success: true,
-      data: {
-        logs,
-        total,
-        limit: options.limit,
-        offset: options.offset,
+    return NextResponse.json(
+      {
+        success: true,
+        data: {
+          logs,
+          total,
+          limit: options.limit,
+          offset: options.offset,
+        },
       },
-    });
+      { headers: { 'Cache-Control': 's-maxage=60, stale-while-revalidate=300' } },
+    );
   } catch (error) {
     if (error instanceof Error && error.message === 'UNAUTHORIZED') {
       return NextResponse.json(

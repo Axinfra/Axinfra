@@ -1,6 +1,6 @@
 import { NextRequest, NextResponse } from 'next/server';
 import { prisma } from '@/lib/db';
-import { requireProjectAuth } from '@/lib/auth';
+import { requireProjectAuth, invalidateProjectAuthForProject } from '@/lib/auth';
 import { RoleGuard } from '@/services/RoleGuard';
 import { requireProjectOwner } from '@/lib/guards/requireOwner';
 import { AuditLogger } from '@/services/AuditLogger';
@@ -242,6 +242,10 @@ export async function DELETE(
       // Cascade soft-delete to milestones (we don't have deletedAt on Milestone,
       // but the project-level deletedAt filter ensures they're excluded from queries)
     });
+
+    // Drop every cached auth entry for this project so revoked users
+    // can't keep using a stale cache to access dashboard/milestones routes.
+    await invalidateProjectAuthForProject(projectId);
 
     // Audit log (project still exists for audit purposes)
     await AuditLogger.log({

@@ -2,10 +2,13 @@
 
 import { useState, useEffect } from 'react';
 import { useParams } from 'next/navigation';
+import useSWR from 'swr';
 import Layout from '@/components/Layout';
 import Navbar from '@/components/Navbar';
 import CustomViewBoard from '@/components/CustomViewBoard';
 import CreateViewModal from '@/components/CreateViewModal';
+import { useProject } from '@/lib/contexts/ProjectContext';
+import { jsonFetcher } from '@/lib/fetcher';
 
 interface ViewConfig {
   filters: Record<string, unknown>;
@@ -62,82 +65,64 @@ export default function CustomViewsPage() {
   const params = useParams();
   const projectId = params.projectId as string;
 
-  const [projectName, setProjectName] = useState('');
-  const [myRole, setMyRole] = useState('');
-  const [loading, setLoading] = useState(true);
   const [error, setError] = useState('');
-
-  const [views, setViews] = useState<CustomView[]>([]);
-  const [templates, setTemplates] = useState<Template[]>([]);
   const [selectedViewId, setSelectedViewId] = useState<string | null>(null);
   const [groups, setGroups] = useState<GroupedMilestones[]>([]);
   const [viewLoading, setViewLoading] = useState(false);
-
   const [showCreateModal, setShowCreateModal] = useState(false);
 
+  // Project metadata via shared context (one fetch per workspace).
+  const { project, isLoading: projectLoading } = useProject();
+  const projectName = project?.name ?? '';
+  const myRole = project?.myRole ?? '';
+
+  // Views list — stable data, 60s dedupe.
+  const viewsKey = projectId ? `/api/projects/${projectId}/views` : null;
+  const {
+    data: viewsPayload,
+    isLoading: viewsLoading,
+    mutate: refetchViews,
+  } = useSWR<{ views: CustomView[]; templates: Template[] }>(viewsKey, jsonFetcher, {
+    revalidateOnFocus: false,
+    dedupingInterval: 60_000,
+  });
+
+  const views: CustomView[] = viewsPayload?.views ?? [];
+  const templates: Template[] = viewsPayload?.templates ?? [];
+  const loading = projectLoading || viewsLoading;
+
+  // Pick default selection on first load of views payload.
   useEffect(() => {
-    loadInitialData();
-  }, [projectId]);
+    if (selectedViewId || views.length === 0) return;
+    const defaultView = views.find((v) => v.isDefault);
+    setSelectedViewId(defaultView ? defaultView.id : views[0].id);
+  }, [views, selectedViewId]);
 
+  // Load grouped milestones whenever the selected view changes.
   useEffect(() => {
-    if (selectedViewId) {
-      loadViewData(selectedViewId);
+    if (!selectedViewId) {
+      setGroups([]);
+      return;
     }
-  }, [selectedViewId]);
-
-  const loadInitialData = async () => {
-    try {
-      const [projectRes, viewsRes] = await Promise.all([
-        fetch(`/api/projects/${projectId}`),
-        fetch(`/api/projects/${projectId}/views`),
-      ]);
-
-      const [projectData, viewsData] = await Promise.all([
-        projectRes.json(),
-        viewsRes.json(),
-      ]);
-
-      if (projectData.success) {
-        setProjectName(projectData.data.name);
-        setMyRole(projectData.data.myRole);
-      }
-
-      if (viewsData.success) {
-        setViews(viewsData.data.views);
-        setTemplates(viewsData.data.templates);
-
-        // Load default view or first view
-        const defaultView = viewsData.data.views.find((v: CustomView) => v.isDefault);
-        if (defaultView) {
-          setSelectedViewId(defaultView.id);
-        } else if (viewsData.data.views.length > 0) {
-          setSelectedViewId(viewsData.data.views[0].id);
-        }
-      }
-    } catch {
-      setError('Failed to load data');
-    } finally {
-      setLoading(false);
-    }
-  };
-
-  const loadViewData = async (viewId: string) => {
+    let cancelled = false;
     setViewLoading(true);
-    try {
-      const res = await fetch(`/api/projects/${projectId}/views/${viewId}`);
-      const data = await res.json();
-
-      if (data.success) {
-        setGroups(data.data.groups);
-      } else {
-        setError(data.error);
+    (async () => {
+      try {
+        const res = await fetch(`/api/projects/${projectId}/views/${selectedViewId}`);
+        const data = await res.json();
+        if (cancelled) return;
+        if (data.success) setGroups(data.data.groups);
+        else setError(data.error);
+      } catch {
+        if (!cancelled) setError('Failed to load view data');
+      } finally {
+        if (!cancelled) setViewLoading(false);
       }
-    } catch {
-      setError('Failed to load view data');
-    } finally {
-      setViewLoading(false);
-    }
-  };
+    })();
+    return () => {
+      cancelled = true;
+    };
+  }, [selectedViewId, projectId]);
 
   const handleCreateView = async (name: string, config: ViewConfig) => {
     try {
@@ -150,7 +135,7 @@ export default function CustomViewsPage() {
       const data = await res.json();
 
       if (data.success) {
-        setViews([...views, data.data]);
+        await refetchViews();
         setSelectedViewId(data.data.id);
         setShowCreateModal(false);
       } else {
@@ -172,11 +157,10 @@ export default function CustomViewsPage() {
       const data = await res.json();
 
       if (data.success) {
-        const newViews = views.filter(v => v.id !== viewId);
-        setViews(newViews);
-
+        const remaining = views.filter((v) => v.id !== viewId);
+        await refetchViews();
         if (selectedViewId === viewId) {
-          setSelectedViewId(newViews[0]?.id || null);
+          setSelectedViewId(remaining[0]?.id || null);
           setGroups([]);
         }
       } else {

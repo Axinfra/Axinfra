@@ -3,6 +3,7 @@ import { prisma } from '@/lib/db';
 import { requireProjectAuth } from '@/lib/auth';
 import { RoleGuard } from '@/services/RoleGuard';
 import { BOQService } from '@/services/BOQService';
+import { cached, invalidatePrefix } from '@/lib/cache';
 
 // GET /api/projects/[projectId]/boq - List BOQs for project
 export async function GET(
@@ -13,20 +14,26 @@ export async function GET(
     const { projectId } = await params;
     await requireProjectAuth(projectId);
 
-    const boqs = await prisma.bOQ.findMany({
-      where: { projectId },
-      include: {
-        items: {
-          orderBy: { createdAt: 'asc' },
+    // BOQ data is rarely changed once approved — 120s TTL.
+    const boqs = await cached(`boq:${projectId}:list`, 120_000, () =>
+      prisma.bOQ.findMany({
+        where: { projectId },
+        include: {
+          items: {
+            orderBy: { createdAt: 'asc' },
+          },
+          revisions: {
+            orderBy: { revisionNumber: 'desc' },
+          },
         },
-        revisions: {
-          orderBy: { revisionNumber: 'desc' },
-        },
-      },
-      orderBy: { createdAt: 'desc' },
-    });
+        orderBy: { createdAt: 'desc' },
+      }),
+    );
 
-    return NextResponse.json({ success: true, data: boqs });
+    return NextResponse.json(
+      { success: true, data: boqs },
+      { headers: { 'Cache-Control': 's-maxage=60, stale-while-revalidate=300' } },
+    );
   } catch (error) {
     if (error instanceof Error && error.message === 'UNAUTHORIZED') {
       return NextResponse.json(
@@ -62,6 +69,9 @@ export async function POST(
         { status: 400 }
       );
     }
+
+    // Invalidate the BOQ list cache so the new entry shows up immediately.
+    await invalidatePrefix(`boq:${projectId}:`);
 
     return NextResponse.json({
       success: true,

@@ -105,8 +105,14 @@ export async function POST(request: NextRequest) {
     // Build email from username (demo convention)
     const email = username.includes('@') ? username : `${username}@vendor.local`;
 
-    // Check project exists
-    const project = await prisma.project.findUnique({ where: { id: projectId } });
+    // Project existence + caller-role check are independent — fan out.
+    const [project, callerRole] = await Promise.all([
+      prisma.project.findUnique({ where: { id: projectId } }),
+      prisma.projectRole.findUnique({
+        where: { projectId_userId: { projectId, userId: auth.userId } },
+      }),
+    ]);
+
     if (!project) {
       return NextResponse.json(
         { success: false, error: 'Project not found' },
@@ -114,10 +120,6 @@ export async function POST(request: NextRequest) {
       );
     }
 
-    // Verify caller has OWNER or PMC role in THIS project
-    const callerRole = await prisma.projectRole.findUnique({
-      where: { projectId_userId: { projectId, userId: auth.userId } },
-    });
     if (!callerRole || (callerRole.role !== Role.OWNER && callerRole.role !== Role.PMC)) {
       return NextResponse.json(
         { success: false, error: 'You must be Owner or PMC of this project' },

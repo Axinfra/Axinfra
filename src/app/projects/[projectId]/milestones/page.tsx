@@ -1,14 +1,17 @@
 'use client';
 
-import { useState, useEffect } from 'react';
+import { useState } from 'react';
 import { useParams } from 'next/navigation';
 import Link from 'next/link';
+import useSWR from 'swr';
 import Layout from '@/components/Layout';
 import Navbar from '@/components/Navbar';
 import MilestoneStateBadge from '@/components/MilestoneStateBadge';
 import PaymentStatusBadge from '@/components/PaymentStatusBadge';
 import MilestoneSearch from '@/components/milestones/MilestoneSearch';
 import { formatCurrency, formatDate } from '@/lib/utils';
+import { useProject } from '@/lib/contexts/ProjectContext';
+import { jsonFetcher } from '@/lib/fetcher';
 
 interface Milestone {
   id: string;
@@ -45,46 +48,27 @@ interface Milestone {
 export default function MilestonesPage() {
   const params = useParams();
   const projectId = params.projectId as string;
-  const [milestones, setMilestones] = useState<Milestone[]>([]);
-  const [projectName, setProjectName] = useState('');
-  const [myRole, setMyRole] = useState('');
-  const [permissions, setPermissions] = useState<Record<string, boolean>>({});
-  const [loading, setLoading] = useState(true);
   const [error, setError] = useState('');
   const [deleteConfirm, setDeleteConfirm] = useState<string | null>(null);
   const [searchActive, setSearchActive] = useState(false);
 
-  useEffect(() => {
-    loadData();
-  }, [projectId]);
+  const { project, isLoading: projectLoading } = useProject();
 
-  const loadData = async () => {
-    try {
-      const [projectRes, milestonesRes] = await Promise.all([
-        fetch(`/api/projects/${projectId}`),
-        fetch(`/api/projects/${projectId}/milestones?all=true`),
-      ]);
+  // Milestones list — high-change data, 30s dedupe.
+  const milestonesKey = projectId ? `/api/projects/${projectId}/milestones?all=true` : null;
+  const {
+    data: milestones = [],
+    isLoading: milestonesLoading,
+    mutate: refetchMilestones,
+  } = useSWR<Milestone[]>(milestonesKey, jsonFetcher, {
+    revalidateOnFocus: false,
+    dedupingInterval: 30_000,
+  });
 
-      const [projectData, milestonesData] = await Promise.all([
-        projectRes.json(),
-        milestonesRes.json(),
-      ]);
-
-      if (projectData.success) {
-        setProjectName(projectData.data.name);
-        setMyRole(projectData.data.myRole);
-        setPermissions(projectData.data.permissions);
-      }
-
-      if (milestonesData.success) {
-        setMilestones(milestonesData.data);
-      }
-    } catch {
-      setError('Failed to load data');
-    } finally {
-      setLoading(false);
-    }
-  };
+  const projectName = project?.name ?? '';
+  const myRole = project?.myRole ?? '';
+  const permissions = (project?.permissions ?? {}) as Record<string, boolean>;
+  const loading = projectLoading || milestonesLoading;
 
   const handleDelete = async (milestoneId: string) => {
     const res = await fetch(`/api/projects/${projectId}/milestones/${milestoneId}`, {
@@ -94,7 +78,7 @@ export default function MilestonesPage() {
     const data = await res.json();
     if (data.success) {
       setDeleteConfirm(null);
-      loadData();
+      void refetchMilestones();
     } else {
       setError(data.error);
       setDeleteConfirm(null);

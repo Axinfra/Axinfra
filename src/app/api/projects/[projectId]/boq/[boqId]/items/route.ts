@@ -3,6 +3,7 @@ import { requireProjectAuth } from '@/lib/auth';
 import { validateBOQOwnership } from '@/lib/validate-ownership';
 import { RoleGuard } from '@/services/RoleGuard';
 import { BOQService } from '@/services/BOQService';
+import { invalidatePrefix } from '@/lib/cache';
 import { z } from 'zod';
 
 const addItemSchema = z.object({
@@ -57,6 +58,8 @@ export async function POST(
         { status: 400 }
       );
     }
+
+    await invalidatePrefix(`boq:${projectId}:`);
 
     return NextResponse.json({
       success: true,
@@ -121,6 +124,8 @@ export async function PATCH(
       );
     }
 
+    await invalidatePrefix(`boq:${projectId}:`);
+
     return NextResponse.json({ success: true });
   } catch (error) {
     if (error instanceof Error && error.message === 'UNAUTHORIZED') {
@@ -180,6 +185,8 @@ export async function DELETE(
         { status: 400 }
       );
     }
+
+    await invalidatePrefix(`boq:${projectId}:`);
 
     return NextResponse.json({ success: true });
   } catch (error) {

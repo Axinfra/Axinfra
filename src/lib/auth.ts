@@ -1,6 +1,7 @@
 import { SignJWT, jwtVerify } from 'jose';
 import { cookies } from 'next/headers';
 import { prisma } from './db';
+import { cached, invalidate, invalidatePrefix } from './cache';
 import { Role } from '@/types';
 
 if (!process.env.JWT_SECRET) {
@@ -82,33 +83,60 @@ export async function getProjectAuth(projectId: string): Promise<ProjectAuthCont
     return null;
   }
 
-  // Reject access to soft-deleted projects at the auth boundary
-  // so every child route (dashboard, boq, milestones, etc.) is protected.
-  // Run both lookups in parallel — they're independent of each other.
-  const [project, projectRole] = await Promise.all([
-    prisma.project.findFirst({
-      where: { id: projectId, deletedAt: null },
-      select: { id: true },
-    }),
-    prisma.projectRole.findUnique({
-      where: {
-        projectId_userId: {
-          projectId,
-          userId: session.userId,
+  // Cache the project-existence + role-membership combo for 60s.
+  // Hits Redis (Upstash) when configured; in-memory fallback otherwise.
+  // Invalidated on role mutations via projectAuthCacheKey() + invalidate().
+  const cacheKey = projectAuthCacheKey(projectId, session.userId);
+  const cachedRole = await cached<{ role: Role } | null>(cacheKey, 60_000, async () => {
+    // Reject access to soft-deleted projects at the auth boundary
+    // so every child route (dashboard, boq, milestones, etc.) is protected.
+    // Run both lookups in parallel — they're independent of each other.
+    const [project, projectRole] = await Promise.all([
+      prisma.project.findFirst({
+        where: { id: projectId, deletedAt: null },
+        select: { id: true },
+      }),
+      prisma.projectRole.findUnique({
+        where: {
+          projectId_userId: {
+            projectId,
+            userId: session.userId,
+          },
         },
-      },
-    }),
-  ]);
+        select: { role: true },
+      }),
+    ]);
 
-  if (!project || !projectRole) {
+    if (!project || !projectRole) {
+      return null;
+    }
+    return { role: projectRole.role as Role };
+  });
+
+  if (!cachedRole) {
     return null;
   }
 
   return {
     ...session,
     projectId,
-    role: projectRole.role as Role,
+    role: cachedRole.role,
   };
+}
+
+/** Cache-key generator for getProjectAuth. Used by role-mutation routes to invalidate. */
+export function projectAuthCacheKey(projectId: string, userId: string): string {
+  return `auth:project:${projectId}:user:${userId}`;
+}
+
+/** Invalidate the cached auth for a single (project, user) pair. */
+export async function invalidateProjectAuth(projectId: string, userId: string): Promise<void> {
+  await invalidate(projectAuthCacheKey(projectId, userId));
+}
+
+/** Invalidate every cached auth entry for a project (e.g. on project delete). */
+export async function invalidateProjectAuthForProject(projectId: string): Promise<void> {
+  await invalidatePrefix(`auth:project:${projectId}:user:`);
 }
 
 export async function requireAuth(): Promise<AuthContext> {

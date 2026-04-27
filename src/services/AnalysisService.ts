@@ -480,21 +480,22 @@ export class AnalysisService {
    * Answer: "Which vendors are risky, slow, or over-exposed?"
    */
   static async getVendorAnalysis(projectId: string): Promise<VendorAnalysis> {
-    // Get all project roles to identify vendors
-    const vendorRoles = await prisma.projectRole.findMany({
-      where: { projectId, role: Role.VENDOR },
-      include: { user: true },
-    });
-
-    const milestones = await prisma.milestone.findMany({
-      where: { projectId },
-      include: {
-        paymentEligibility: true,
-        boqLinks: { include: { boqItem: true } },
-        evidence: { include: { submittedBy: true } },
-        transitions: true,
-      },
-    });
+    // Independent reads — fan out in parallel.
+    const [vendorRoles, milestones] = await Promise.all([
+      prisma.projectRole.findMany({
+        where: { projectId, role: Role.VENDOR },
+        include: { user: true },
+      }),
+      prisma.milestone.findMany({
+        where: { projectId },
+        include: {
+          paymentEligibility: true,
+          boqLinks: { include: { boqItem: true } },
+          evidence: { include: { submittedBy: true } },
+          transitions: true,
+        },
+      }),
+    ]);
 
     // Since milestone doesn't have direct vendor assignment, we derive from evidence submission
     // OR from state transitions (vendor starts work)
@@ -682,22 +683,24 @@ export class AnalysisService {
   static async getDelayRiskAnalysis(projectId: string): Promise<DelayRiskAnalysis> {
     const now = new Date();
 
-    const milestones = await prisma.milestone.findMany({
-      where: { projectId },
-      include: {
-        paymentEligibility: true,
-        boqLinks: { include: { boqItem: true } },
-      },
-    });
-
-    const boqItems = await prisma.bOQItem.findMany({
-      where: { boq: { projectId } },
-      include: {
-        milestoneLinks: {
-          include: { milestone: { include: { verifications: true } } },
+    // Independent reads — fan out in parallel.
+    const [milestones, boqItems] = await Promise.all([
+      prisma.milestone.findMany({
+        where: { projectId },
+        include: {
+          paymentEligibility: true,
+          boqLinks: { include: { boqItem: true } },
         },
-      },
-    });
+      }),
+      prisma.bOQItem.findMany({
+        where: { boq: { projectId } },
+        include: {
+          milestoneLinks: {
+            include: { milestone: { include: { verifications: true } } },
+          },
+        },
+      }),
+    ]);
 
     // Delayed milestones
     const delayedMilestones: DelayRiskAnalysis['delayedMilestones'] = [];
@@ -820,15 +823,17 @@ export class AnalysisService {
    * Answer: "Are procedures being followed, and by whom?"
    */
   static async getComplianceAuditAnalysis(projectId: string): Promise<ComplianceAuditAnalysis> {
-    const evidence = await prisma.evidence.findMany({
-      where: { milestone: { projectId } },
-      include: { submittedBy: true },
-    });
-
-    const auditLogs = await prisma.auditLog.findMany({
-      where: { projectId },
-      orderBy: { createdAt: 'desc' },
-    });
+    // Independent reads — fan out in parallel.
+    const [evidence, auditLogs] = await Promise.all([
+      prisma.evidence.findMany({
+        where: { milestone: { projectId } },
+        include: { submittedBy: true },
+      }),
+      prisma.auditLog.findMany({
+        where: { projectId },
+        orderBy: { createdAt: 'desc' },
+      }),
+    ]);
 
     // Evidence SLA
     const reviewedEvidence = evidence.filter(e => e.reviewedAt);

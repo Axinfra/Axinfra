@@ -29,6 +29,7 @@ model AuditLog {
   @@index([projectId])
   @@index([projectId, actionType])
   @@index([projectId, createdAt])
+  @@index([projectId, actorId, createdAt])
 }
 
 model BOQ {
@@ -42,6 +43,7 @@ model BOQ {
   revisions   BOQRevision[]
 
   @@index([projectId])
+  @@index([projectId, createdAt])
 }
 
 model BOQItem {
@@ -58,6 +60,7 @@ model BOQItem {
   milestoneLinks MilestoneBOQLink[]
 
   @@index([boqId])
+  @@index([boqId, createdAt])
 }
 
 model BOQRevision {
@@ -70,6 +73,7 @@ model BOQRevision {
   boq            BOQ      @relation(fields: [boqId], references: [id], onDelete: Cascade)
 
   @@index([boqId])
+  @@index([boqId, revisionNumber])
 }
 
 model CustomView {
@@ -246,6 +250,7 @@ model MilestoneStateTransition {
 
   @@index([actorId])
   @@index([milestoneId])
+  @@index([milestoneId, createdAt])
 }
 
 model PaymentEligibility {
@@ -382,6 +387,7 @@ model Verification {
   verifiedBy            User      @relation(fields: [verifiedById], references: [id])
 
   @@index([milestoneId])
+  @@index([milestoneId, verifiedAt])
   @@index([verifiedById])
 }
 

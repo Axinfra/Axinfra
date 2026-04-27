@@ -1,50 +1,34 @@
 'use client';
 
-import { useState, useEffect } from 'react';
 import { useParams } from 'next/navigation';
+import useSWR from 'swr';
 import Layout from '@/components/Layout';
 import Navbar from '@/components/Navbar';
 import { formatCurrency, formatDate, formatDateTime } from '@/lib/utils';
+import { useProject } from '@/lib/contexts/ProjectContext';
+import { jsonFetcher } from '@/lib/fetcher';
 
 export default function DashboardPage() {
   const params = useParams();
   const projectId = params.projectId as string;
-  const [dashboard, setDashboard] = useState<any>(null);
-  const [projectName, setProjectName] = useState('');
-  const [myRole, setMyRole] = useState('');
-  const [loading, setLoading] = useState(true);
-  const [error, setError] = useState('');
 
-  useEffect(() => {
-    loadData();
-  }, [projectId]);
+  // Project metadata is hoisted to the workspace layout; one fetch per session.
+  const { project, isLoading: projectLoading } = useProject();
 
-  const loadData = async () => {
-    try {
-      const [projectRes, dashboardRes] = await Promise.all([
-        fetch(`/api/projects/${projectId}`),
-        fetch(`/api/projects/${projectId}/dashboard`),
-      ]);
+  // Dashboard payload — high-change data, 30s dedupe.
+  const {
+    data: dashboard,
+    error,
+    isLoading: dashboardLoading,
+  } = useSWR<any>(
+    projectId ? `/api/projects/${projectId}/dashboard` : null,
+    jsonFetcher,
+    { revalidateOnFocus: false, dedupingInterval: 30_000 },
+  );
 
-      const [projectData, dashboardData] = await Promise.all([
-        projectRes.json(),
-        dashboardRes.json(),
-      ]);
-
-      if (projectData.success) {
-        setProjectName(projectData.data.name);
-        setMyRole(projectData.data.myRole);
-      }
-
-      if (dashboardData.success) {
-        setDashboard(dashboardData.data);
-      }
-    } catch {
-      setError('Failed to load dashboard');
-    } finally {
-      setLoading(false);
-    }
-  };
+  const projectName = project?.name ?? '';
+  const myRole = project?.myRole ?? '';
+  const loading = projectLoading || dashboardLoading;
 
   if (loading) {
     return (
@@ -57,7 +41,7 @@ export default function DashboardPage() {
   if (!dashboard) {
     return (
       <Layout>
-        <div className="alert alert-error">{error || 'Dashboard not available'}</div>
+        <div className="alert alert-error">{error?.message || 'Dashboard not available'}</div>
       </Layout>
     );
   }

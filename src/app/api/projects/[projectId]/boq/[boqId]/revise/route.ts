@@ -3,6 +3,7 @@ import { requireProjectAuth } from '@/lib/auth';
 import { validateBOQOwnership } from '@/lib/validate-ownership';
 import { RoleGuard } from '@/services/RoleGuard';
 import { BOQService } from '@/services/BOQService';
+import { invalidatePrefix } from '@/lib/cache';
 import { z } from 'zod';
 
 const reviseSchema = z.object({
@@ -65,6 +66,8 @@ export async function POST(
         { status: 400 }
       );
     }
+
+    await invalidatePrefix(`boq:${projectId}:`);
 
     return NextResponse.json({
       success: true,
