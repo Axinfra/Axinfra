@@ -51,45 +51,50 @@ export async function GET(
 }
 
 async function getOwnerDashboard(projectId: string) {
-  // Get payment eligibility data — push the filter to the DB.
+  // All four reads are independent — fan out in parallel.
   // An eligibility contributes to the owner summary if EITHER the milestone is
   // VERIFIED/CLOSED (feeds totalVerifiedValue) OR the eligibility is in one of
   // the tracked payment states (feeds totalPaidValue / totalBlockedValue / totalUnpaidValue).
   // The two gates are independent, so we OR them to preserve existing semantics.
-  const eligibilities = await prisma.paymentEligibility.findMany({
-    where: {
-      milestone: { projectId },
-      OR: [
-        { milestone: { state: { in: [MilestoneState.VERIFIED, MilestoneState.CLOSED] } } },
-        {
-          state: {
-            in: [
-              EligibilityState.MARKED_PAID,
-              EligibilityState.BLOCKED,
-              EligibilityState.PARTIALLY_ELIGIBLE,
-              EligibilityState.FULLY_ELIGIBLE,
-            ],
+  const [eligibilities, overruns, vendorExposures, followUps] = await Promise.all([
+    prisma.paymentEligibility.findMany({
+      where: {
+        milestone: { projectId },
+        OR: [
+          { milestone: { state: { in: [MilestoneState.VERIFIED, MilestoneState.CLOSED] } } },
+          {
+            state: {
+              in: [
+                EligibilityState.MARKED_PAID,
+                EligibilityState.BLOCKED,
+                EligibilityState.PARTIALLY_ELIGIBLE,
+                EligibilityState.FULLY_ELIGIBLE,
+              ],
+            },
           },
-        },
-      ],
-    },
-    select: {
-      eligibleAmount: true,
-      blockedAmount: true,
-      state: true,
-      blockReasonCode: true,
-      milestone: {
-        select: {
-          title: true,
-          state: true,
-          paymentModel: true,
-          verifications: {
-            select: { valueEligibleComputed: true },
+        ],
+      },
+      select: {
+        eligibleAmount: true,
+        blockedAmount: true,
+        state: true,
+        blockReasonCode: true,
+        milestone: {
+          select: {
+            title: true,
+            state: true,
+            paymentModel: true,
+            verifications: {
+              select: { valueEligibleComputed: true },
+            },
           },
         },
       },
-    },
-  });
+    }),
+    PaymentEligibilityEngine.detectBOQOverruns(projectId),
+    PaymentEligibilityEngine.detectVendorExposure(projectId),
+    FollowUpScheduler.getOpenFollowUps(projectId),
+  ]);
 
   // Calculate totals
   let totalVerifiedValue = 0;
@@ -125,17 +130,8 @@ async function getOwnerDashboard(projectId: string) {
     }
   }
 
-  // Get BOQ overruns and vendor exposures in parallel (independent reads)
-  const [overruns, vendorExposures] = await Promise.all([
-    PaymentEligibilityEngine.detectBOQOverruns(projectId),
-    PaymentEligibilityEngine.detectVendorExposure(projectId),
-  ]);
-
   // Get blocked summary
   const blockedItems = eligibilities.filter((e) => e.state === EligibilityState.BLOCKED);
-
-  // Get follow-ups
-  const followUps = await FollowUpScheduler.getOpenFollowUps(projectId);
 
   return {
     summary: {
@@ -159,53 +155,47 @@ async function getOwnerDashboard(projectId: string) {
 }
 
 async function getPMCDashboard(projectId: string) {
-  // Get pending evidence reviews
-  const pendingEvidence = await EvidenceService.getPendingReviews(projectId);
-
-  // Get due payments (eligible states)
-  const duePayments = await prisma.paymentEligibility.findMany({
-    where: {
-      milestone: { projectId },
-      state: { in: [EligibilityState.PARTIALLY_ELIGIBLE, EligibilityState.FULLY_ELIGIBLE] },
-    },
-    include: {
-      milestone: {
-        select: {
-          id: true,
-          title: true,
-          plannedEnd: true,
+  // All five reads are independent — fan out in parallel.
+  const [pendingEvidence, duePayments, blockedItems, upcomingDeadlines, followUps] = await Promise.all([
+    EvidenceService.getPendingReviews(projectId),
+    prisma.paymentEligibility.findMany({
+      where: {
+        milestone: { projectId },
+        state: { in: [EligibilityState.PARTIALLY_ELIGIBLE, EligibilityState.FULLY_ELIGIBLE] },
+      },
+      include: {
+        milestone: {
+          select: {
+            id: true,
+            title: true,
+            plannedEnd: true,
+          },
         },
       },
-    },
-    orderBy: { dueDate: 'asc' },
-  });
-
-  // Get blocked items
-  const blockedItems = await prisma.paymentEligibility.findMany({
-    where: {
-      milestone: { projectId },
-      state: EligibilityState.BLOCKED,
-    },
-    include: {
-      milestone: { select: { title: true } },
-    },
-  });
-
-  // Get upcoming deadlines
-  const upcomingDeadlines = await prisma.milestone.findMany({
-    where: {
-      projectId,
-      plannedEnd: {
-        gte: new Date(),
-        lte: new Date(Date.now() + 14 * 24 * 60 * 60 * 1000), // Next 14 days
+      orderBy: { dueDate: 'asc' },
+    }),
+    prisma.paymentEligibility.findMany({
+      where: {
+        milestone: { projectId },
+        state: EligibilityState.BLOCKED,
       },
-      state: { in: [MilestoneState.DRAFT, MilestoneState.IN_PROGRESS, MilestoneState.SUBMITTED] },
-    },
-    orderBy: { plannedEnd: 'asc' },
-  });
-
-  // Get follow-ups
-  const followUps = await FollowUpScheduler.getOpenFollowUps(projectId);
+      include: {
+        milestone: { select: { title: true } },
+      },
+    }),
+    prisma.milestone.findMany({
+      where: {
+        projectId,
+        plannedEnd: {
+          gte: new Date(),
+          lte: new Date(Date.now() + 14 * 24 * 60 * 60 * 1000), // Next 14 days
+        },
+        state: { in: [MilestoneState.DRAFT, MilestoneState.IN_PROGRESS, MilestoneState.SUBMITTED] },
+      },
+      orderBy: { plannedEnd: 'asc' },
+    }),
+    FollowUpScheduler.getOpenFollowUps(projectId),
+  ]);
 
   return {
     pendingReviews: pendingEvidence.map((e) => ({
@@ -243,51 +233,49 @@ async function getPMCDashboard(projectId: string) {
 }
 
 async function getVendorDashboard(projectId: string, vendorId: string) {
-  // Get milestones — scoped to vendor's assigned milestones or those with their evidence
-  const milestones = await prisma.milestone.findMany({
-    where: {
-      projectId,
-      OR: [
-        { vendorUserId: vendorId },
-        { evidence: { some: { submittedById: vendorId } } },
-      ],
-    },
-    include: {
-      evidence: {
-        where: { submittedById: vendorId },
-        orderBy: { submittedAt: 'desc' },
+  // Milestones, rejected evidence, pending evidence are independent — fan out.
+  const [milestones, rejectedEvidence, pendingEvidence] = await Promise.all([
+    prisma.milestone.findMany({
+      where: {
+        projectId,
+        OR: [
+          { vendorUserId: vendorId },
+          { evidence: { some: { submittedById: vendorId } } },
+        ],
       },
-      paymentEligibility: true,
-    },
-    orderBy: { createdAt: 'asc' },
-  });
-
-  // Get rejections
-  const rejectedEvidence = await prisma.evidence.findMany({
-    where: {
-      submittedById: vendorId,
-      status: EvidenceStatus.REJECTED,
-      milestone: { projectId },
-    },
-    include: {
-      milestone: { select: { title: true } },
-    },
-    orderBy: { reviewedAt: 'desc' },
-    take: 10,
-  });
-
-  // Get pending approvals
-  const pendingEvidence = await prisma.evidence.findMany({
-    where: {
-      submittedById: vendorId,
-      status: EvidenceStatus.SUBMITTED,
-      milestone: { projectId },
-    },
-    include: {
-      milestone: { select: { id: true, title: true } },
-    },
-    orderBy: { submittedAt: 'desc' },
-  });
+      include: {
+        evidence: {
+          where: { submittedById: vendorId },
+          orderBy: { submittedAt: 'desc' },
+        },
+        paymentEligibility: true,
+      },
+      orderBy: { createdAt: 'asc' },
+    }),
+    prisma.evidence.findMany({
+      where: {
+        submittedById: vendorId,
+        status: EvidenceStatus.REJECTED,
+        milestone: { projectId },
+      },
+      include: {
+        milestone: { select: { title: true } },
+      },
+      orderBy: { reviewedAt: 'desc' },
+      take: 10,
+    }),
+    prisma.evidence.findMany({
+      where: {
+        submittedById: vendorId,
+        status: EvidenceStatus.SUBMITTED,
+        milestone: { projectId },
+      },
+      include: {
+        milestone: { select: { id: true, title: true } },
+      },
+      orderBy: { submittedAt: 'desc' },
+    }),
+  ]);
 
   // Get payment status — ONLY for milestones assigned to or submitted by this vendor
   const vendorMilestoneIds = milestones

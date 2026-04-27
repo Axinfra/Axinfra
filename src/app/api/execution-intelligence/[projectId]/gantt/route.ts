@@ -17,38 +17,43 @@ export async function GET(
   try {
     const auth = await requireProjectAuth(params.projectId);
 
-    // Fetch milestones with dependency edges
-    const milestones = await prisma.milestone.findMany({
-      where: { projectId: params.projectId },
-      include: {
-        predecessorDependencies: {
-          select: {
-            id: true,
-            predecessorId: true,
-            successorId: true,
-            dependencyType: true,
-            lagDays: true,
+    // Fetch milestones (with dependency edges) and schedule config in parallel — independent reads.
+    const [milestones, scheduleConfig] = await Promise.all([
+      prisma.milestone.findMany({
+        where: { projectId: params.projectId },
+        include: {
+          predecessorDependencies: {
+            select: {
+              id: true,
+              predecessorId: true,
+              successorId: true,
+              dependencyType: true,
+              lagDays: true,
+            },
+          },
+          successorDependencies: {
+            select: {
+              id: true,
+              predecessorId: true,
+              successorId: true,
+              dependencyType: true,
+              lagDays: true,
+            },
+          },
+          // Vendor info: prefer explicit FK, fallback to first evidence submitter
+          vendorUser: { select: { id: true, name: true } },
+          evidence: {
+            orderBy: { submittedAt: 'asc' },
+            take: 1,
+            include: { submittedBy: { select: { id: true, name: true } } },
           },
         },
-        successorDependencies: {
-          select: {
-            id: true,
-            predecessorId: true,
-            successorId: true,
-            dependencyType: true,
-            lagDays: true,
-          },
-        },
-        // Vendor info: prefer explicit FK, fallback to first evidence submitter
-        vendorUser: { select: { id: true, name: true } },
-        evidence: {
-          orderBy: { submittedAt: 'asc' },
-          take: 1,
-          include: { submittedBy: { select: { id: true, name: true } } },
-        },
-      },
-      orderBy: [{ sortOrder: 'asc' }, { plannedStart: 'asc' }, { createdAt: 'asc' }],
-    });
+        orderBy: [{ sortOrder: 'asc' }, { plannedStart: 'asc' }, { createdAt: 'asc' }],
+      }),
+      prisma.projectScheduleConfig.findUnique({
+        where: { projectId: params.projectId },
+      }),
+    ]);
 
     // Role-based filtering: vendor sees milestones assigned via vendorUserId,
     // falling back to evidence-based ownership for legacy data
@@ -58,11 +63,6 @@ export async function GET(
         (m) => m.vendorUserId === auth.userId || m.evidence[0]?.submittedById === auth.userId,
       );
     }
-
-    // Fetch schedule config for project start date
-    const scheduleConfig = await prisma.projectScheduleConfig.findUnique({
-      where: { projectId: params.projectId },
-    });
 
     // Build CPM inputs
     const projectStartDate = scheduleConfig?.projectStartDate ?? new Date();

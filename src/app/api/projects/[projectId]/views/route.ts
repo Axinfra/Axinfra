@@ -47,13 +47,20 @@ export async function GET(
     const views = await CustomViewService.getViewsForUser(projectId, auth.userId);
     const templates = CustomViewService.getPredefinedTemplates();
 
-    return NextResponse.json({
-      success: true,
-      data: {
-        views,
-        templates,
+    return NextResponse.json(
+      {
+        success: true,
+        data: {
+          views,
+          templates,
+        },
       },
-    });
+      {
+        headers: {
+          'Cache-Control': 's-maxage=30, stale-while-revalidate=300',
+        },
+      }
+    );
   } catch (error) {
     if (error instanceof Error && error.message === 'UNAUTHORIZED') {
       return NextResponse.json(

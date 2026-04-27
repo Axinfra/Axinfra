@@ -105,6 +105,7 @@ model EligibilityEvent {
   actor                User               @relation(fields: [actorId], references: [id])
   paymentEligibility   PaymentEligibility @relation(fields: [paymentEligibilityId], references: [id], onDelete: Cascade)
 
+  @@index([actorId])
   @@index([createdAt])
   @@index([eventType])
   @@index([paymentEligibilityId])
@@ -163,6 +164,7 @@ model FollowUp {
   resolvedBy     User?     @relation(fields: [resolvedById], references: [id])
 
   @@index([projectId])
+  @@index([resolvedById])
   @@index([status])
   @@index([type])
   @@index([projectId, status, type])
@@ -208,9 +210,11 @@ model Milestone {
   @@index([projectId])
   @@index([state])
   @@index([vendorUserId])
+  @@index([extraApprovedById])
   @@index([title])
   @@index([plannedEnd])
   @@index([projectId, state])
+  @@index([projectId, createdAt])
   @@index([vendorUserId, state])
 }
 
@@ -240,6 +244,7 @@ model MilestoneStateTransition {
   actor       User      @relation(fields: [actorId], references: [id])
   milestone   Milestone @relation(fields: [milestoneId], references: [id], onDelete: Cascade)
 
+  @@index([actorId])
   @@index([milestoneId])
 }
 
@@ -377,6 +382,7 @@ model Verification {
   verifiedBy            User      @relation(fields: [verifiedById], references: [id])
 
   @@index([milestoneId])
+  @@index([verifiedById])
 }
 
 /// Vendor-level metrics snapshot for a project (computed periodically)

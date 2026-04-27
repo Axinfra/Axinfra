@@ -84,24 +84,23 @@ export async function getProjectAuth(projectId: string): Promise<ProjectAuthCont
 
   // Reject access to soft-deleted projects at the auth boundary
   // so every child route (dashboard, boq, milestones, etc.) is protected.
-  const project = await prisma.project.findFirst({
-    where: { id: projectId, deletedAt: null },
-    select: { id: true },
-  });
-  if (!project) {
-    return null;
-  }
-
-  const projectRole = await prisma.projectRole.findUnique({
-    where: {
-      projectId_userId: {
-        projectId,
-        userId: session.userId,
+  // Run both lookups in parallel — they're independent of each other.
+  const [project, projectRole] = await Promise.all([
+    prisma.project.findFirst({
+      where: { id: projectId, deletedAt: null },
+      select: { id: true },
+    }),
+    prisma.projectRole.findUnique({
+      where: {
+        projectId_userId: {
+          projectId,
+          userId: session.userId,
+        },
       },
-    },
-  });
+    }),
+  ]);
 
-  if (!projectRole) {
+  if (!project || !projectRole) {
     return null;
   }
 

@@ -101,13 +101,20 @@ export async function GET(
       return { milestones: rows, total: count };
     });
 
-    return NextResponse.json({
-      success: true,
-      data: milestones,
-      total,
-      page: all ? 1 : page,
-      limit: all ? total : limit,
-    });
+    return NextResponse.json(
+      {
+        success: true,
+        data: milestones,
+        total,
+        page: all ? 1 : page,
+        limit: all ? total : limit,
+      },
+      {
+        headers: {
+          'Cache-Control': 's-maxage=30, stale-while-revalidate=300',
+        },
+      }
+    );
   } catch (error) {
     if (error instanceof Error && error.message === 'UNAUTHORIZED') {
       return NextResponse.json(

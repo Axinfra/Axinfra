@@ -12,7 +12,7 @@ export async function GET() {
     if (!session) {
       return NextResponse.json(
         { success: false, error: 'Not authenticated' },
-        { status: 401 }
+        { status: 401, headers: { 'Cache-Control': 'no-store' } }
       );
     }
 
@@ -30,21 +30,26 @@ export async function GET() {
         })
     );
 
-    return NextResponse.json({
-      success: true,
-      data: {
-        user: {
-          id: session.userId,
-          name: session.name,
-          email: session.email,
+    return NextResponse.json(
+      {
+        success: true,
+        data: {
+          user: {
+            id: session.userId,
+            name: session.name,
+            email: session.email,
+          },
+          projectRoles: projectRoles.map((pr) => ({
+            projectId: pr.projectId,
+            projectName: pr.project.name,
+            role: pr.role,
+          })),
         },
-        projectRoles: projectRoles.map((pr) => ({
-          projectId: pr.projectId,
-          projectName: pr.project.name,
-          role: pr.role,
-        })),
       },
-    });
+      {
+        headers: { 'Cache-Control': 'no-store' },
+      }
+    );
   } catch (error) {
     console.error('Session error:', error);
     return NextResponse.json(
