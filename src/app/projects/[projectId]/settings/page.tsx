@@ -4,52 +4,39 @@ import { useState, useEffect } from 'react';
 import { useParams, useRouter } from 'next/navigation';
 import Layout from '@/components/Layout';
 import Navbar from '@/components/Navbar';
+import { useProject } from '@/lib/contexts/ProjectContext';
 
 export default function ProjectSettingsPage() {
   const params = useParams();
   const router = useRouter();
   const projectId = params.projectId as string;
 
-  const [project, setProject] = useState<any>(null);
-  const [myRole, setMyRole] = useState('');
-  const [loading, setLoading] = useState(true);
+  const { project: ctxProject, isLoading: loading, refetch } = useProject();
+  const project = ctxProject as unknown as any;
+  const myRole = project?.myRole ?? '';
+
   const [saving, setSaving] = useState(false);
   const [error, setError] = useState('');
   const [success, setSuccess] = useState('');
 
-  // Form state
+  // Form state — initialize from context once it arrives.
   const [name, setName] = useState('');
   const [description, setDescription] = useState('');
   const [status, setStatus] = useState('ONGOING');
+  const [hydrated, setHydrated] = useState(false);
+
+  useEffect(() => {
+    if (project && !hydrated) {
+      setName(project.name);
+      setDescription(project.description || '');
+      setStatus(project.status || 'ONGOING');
+      setHydrated(true);
+    }
+  }, [project, hydrated]);
 
   // Delete confirmation
   const [showDeleteConfirm, setShowDeleteConfirm] = useState(false);
   const [deleteConfirmText, setDeleteConfirmText] = useState('');
-
-  useEffect(() => {
-    loadProject();
-  }, [projectId]);
-
-  const loadProject = async () => {
-    try {
-      const res = await fetch(`/api/projects/${projectId}`);
-      const data = await res.json();
-
-      if (data.success) {
-        setProject(data.data);
-        setMyRole(data.data.myRole);
-        setName(data.data.name);
-        setDescription(data.data.description || '');
-        setStatus(data.data.status || 'ONGOING');
-      } else {
-        setError(data.error);
-      }
-    } catch {
-      setError('Failed to load project');
-    } finally {
-      setLoading(false);
-    }
-  };
 
   const handleSave = async () => {
     setError('');
@@ -67,7 +54,7 @@ export default function ProjectSettingsPage() {
 
       if (data.success) {
         setSuccess('Project updated successfully');
-        setProject({ ...project, ...data.data });
+        refetch();
       } else {
         setError(data.error);
       }
@@ -95,7 +82,7 @@ export default function ProjectSettingsPage() {
       if (data.success) {
         setStatus(newStatus);
         setSuccess(`Project marked as ${newStatus.toLowerCase()}`);
-        setProject({ ...project, status: newStatus });
+        refetch();
       } else {
         setError(data.error);
       }

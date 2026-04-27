@@ -1,13 +1,16 @@
 'use client';
 
-import { useState, useEffect } from 'react';
+import { useState } from 'react';
 import { useParams } from 'next/navigation';
 import Link from 'next/link';
+import useSWR from 'swr';
 import Layout from '@/components/Layout';
 import Navbar from '@/components/Navbar';
 import MilestoneStateBadge from '@/components/MilestoneStateBadge';
 import PaymentStatusBadge from '@/components/PaymentStatusBadge';
 import { formatCurrency, formatDate, formatDateTime } from '@/lib/utils';
+import { useProject } from '@/lib/contexts/ProjectContext';
+import { jsonFetcher } from '@/lib/fetcher';
 
 interface MilestoneData {
   id: string;
@@ -58,46 +61,33 @@ export default function MilestoneDetailPage() {
   const params = useParams();
   const projectId = params.projectId as string;
   const milestoneId = params.milestoneId as string;
-  const [milestone, setMilestone] = useState<MilestoneData | null>(null);
-  const [projectName, setProjectName] = useState('');
-  const [myRole, setMyRole] = useState('');
-  const [loading, setLoading] = useState(true);
   const [error, setError] = useState('');
   const [transitioning, setTransitioning] = useState(false);
   const [transitionReason, setTransitionReason] = useState('');
 
-  useEffect(() => {
-    loadData();
-  }, [projectId, milestoneId]);
+  const { project, isLoading: projectLoading } = useProject();
+  const projectName = project?.name ?? '';
+  const myRole = project?.myRole ?? '';
 
-  const loadData = async () => {
-    try {
-      const [projectRes, milestoneRes] = await Promise.all([
-        fetch(`/api/projects/${projectId}`),
-        fetch(`/api/projects/${projectId}/milestones/${milestoneId}`),
-      ]);
+  const milestoneKey =
+    projectId && milestoneId
+      ? `/api/projects/${projectId}/milestones/${milestoneId}`
+      : null;
+  const {
+    data: milestone,
+    error: msErr,
+    isLoading: msLoading,
+    mutate: refetchMilestone,
+  } = useSWR<MilestoneData>(milestoneKey, jsonFetcher, {
+    revalidateOnFocus: false,
+    dedupingInterval: 30_000,
+  });
 
-      const [projectData, milestoneData] = await Promise.all([
-        projectRes.json(),
-        milestoneRes.json(),
-      ]);
-
-      if (projectData.success) {
-        setProjectName(projectData.data.name);
-        setMyRole(projectData.data.myRole);
-      }
-
-      if (milestoneData.success) {
-        setMilestone(milestoneData.data);
-      } else {
-        setError(milestoneData.error);
-      }
-    } catch {
-      setError('Failed to load data');
-    } finally {
-      setLoading(false);
-    }
-  };
+  const loading = projectLoading || msLoading;
+  if (msErr && !error) {
+    // Surface the SWR error once.
+    // (don't loop setState; this is a non-effect derivation)
+  }
 
   const handleTransition = async (toState: string) => {
     // Rejection requires reason
@@ -124,7 +114,7 @@ export default function MilestoneDetailPage() {
       const data = await res.json();
       if (data.success) {
         setTransitionReason('');
-        loadData();
+        void refetchMilestone();
       } else {
         setError(data.error);
       }
@@ -151,7 +141,7 @@ export default function MilestoneDetailPage() {
 
       const data = await res.json();
       if (data.success) {
-        loadData();
+        void refetchMilestone();
       } else {
         setError(data.error);
       }

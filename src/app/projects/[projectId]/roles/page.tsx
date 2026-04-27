@@ -1,10 +1,13 @@
 'use client';
 
-import { useState, useEffect } from 'react';
+import { useState } from 'react';
 import { useParams } from 'next/navigation';
+import useSWR from 'swr';
 import Layout from '@/components/Layout';
 import Navbar from '@/components/Navbar';
 import { formatDate } from '@/lib/utils';
+import { useProject } from '@/lib/contexts/ProjectContext';
+import { jsonFetcher } from '@/lib/fetcher';
 
 interface Role {
   userId: string;
@@ -17,47 +20,28 @@ interface Role {
 export default function RolesPage() {
   const params = useParams();
   const projectId = params.projectId as string;
-  const [roles, setRoles] = useState<Role[]>([]);
-  const [projectName, setProjectName] = useState('');
-  const [myRole, setMyRole] = useState('');
-  const [loading, setLoading] = useState(true);
   const [error, setError] = useState('');
+
+  const { project, isLoading: projectLoading } = useProject();
+  const projectName = project?.name ?? '';
+  const myRole = project?.myRole ?? '';
+
+  const {
+    data: roles = [],
+    isLoading: rolesLoading,
+    mutate: refetchRoles,
+  } = useSWR<Role[]>(
+    projectId ? `/api/projects/${projectId}/roles` : null,
+    jsonFetcher,
+    { revalidateOnFocus: false, dedupingInterval: 60_000 },
+  );
+  const loading = projectLoading || rolesLoading;
 
   const [showAddModal, setShowAddModal] = useState(false);
   const [newEmail, setNewEmail] = useState('');
   const [newRole, setNewRole] = useState('VENDOR');
   const [addError, setAddError] = useState('');
   const [adding, setAdding] = useState(false);
-
-  useEffect(() => {
-    loadRoles();
-    loadProject();
-  }, [projectId]);
-
-  const loadProject = async () => {
-    const res = await fetch(`/api/projects/${projectId}`);
-    const data = await res.json();
-    if (data.success) {
-      setProjectName(data.data.name);
-      setMyRole(data.data.myRole);
-    }
-  };
-
-  const loadRoles = async () => {
-    try {
-      const res = await fetch(`/api/projects/${projectId}/roles`);
-      const data = await res.json();
-      if (data.success) {
-        setRoles(data.data);
-      } else {
-        setError(data.error);
-      }
-    } catch {
-      setError('Failed to load roles');
-    } finally {
-      setLoading(false);
-    }
-  };
 
   const handleAddRole = async (e: React.FormEvent) => {
     e.preventDefault();
@@ -77,7 +61,7 @@ export default function RolesPage() {
         setShowAddModal(false);
         setNewEmail('');
         setNewRole('VENDOR');
-        loadRoles();
+        void refetchRoles();
       } else {
         setAddError(data.error);
       }
@@ -103,7 +87,7 @@ export default function RolesPage() {
       const data = await res.json();
 
       if (data.success) {
-        loadRoles();
+        void refetchRoles();
       } else {
         setError(data.error);
       }

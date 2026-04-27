@@ -1,10 +1,13 @@
 'use client';
 
-import { useState, useEffect } from 'react';
+import { useState } from 'react';
 import { useParams } from 'next/navigation';
+import useSWR from 'swr';
 import Layout from '@/components/Layout';
 import Navbar from '@/components/Navbar';
 import { formatCurrency } from '@/lib/utils';
+import { useProject } from '@/lib/contexts/ProjectContext';
+import { jsonFetcher } from '@/lib/fetcher';
 
 interface BOQItem {
   id: string;
@@ -29,11 +32,6 @@ interface BOQ {
 export default function BOQPage() {
   const params = useParams();
   const projectId = params.projectId as string;
-  const [boqs, setBoqs] = useState<BOQ[]>([]);
-  const [projectName, setProjectName] = useState('');
-  const [myRole, setMyRole] = useState('');
-  const [permissions, setPermissions] = useState<Record<string, boolean>>({});
-  const [loading, setLoading] = useState(true);
   const [error, setError] = useState('');
 
   const [showAddItem, setShowAddItem] = useState(false);
@@ -44,37 +42,21 @@ export default function BOQPage() {
     rate: '',
   });
 
-  useEffect(() => {
-    loadData();
-  }, [projectId]);
+  const { project, isLoading: projectLoading } = useProject();
+  const projectName = project?.name ?? '';
+  const myRole = project?.myRole ?? '';
+  const permissions = (project?.permissions ?? {}) as Record<string, boolean>;
 
-  const loadData = async () => {
-    try {
-      const [projectRes, boqRes] = await Promise.all([
-        fetch(`/api/projects/${projectId}`),
-        fetch(`/api/projects/${projectId}/boq`),
-      ]);
-
-      const [projectData, boqData] = await Promise.all([
-        projectRes.json(),
-        boqRes.json(),
-      ]);
-
-      if (projectData.success) {
-        setProjectName(projectData.data.name);
-        setMyRole(projectData.data.myRole);
-        setPermissions(projectData.data.permissions);
-      }
-
-      if (boqData.success) {
-        setBoqs(boqData.data);
-      }
-    } catch {
-      setError('Failed to load data');
-    } finally {
-      setLoading(false);
-    }
-  };
+  const {
+    data: boqs = [],
+    isLoading: boqLoading,
+    mutate: refetchBoqs,
+  } = useSWR<BOQ[]>(
+    projectId ? `/api/projects/${projectId}/boq` : null,
+    jsonFetcher,
+    { revalidateOnFocus: false, dedupingInterval: 60_000 },
+  );
+  const loading = projectLoading || boqLoading;
 
   const handleCreateBOQ = async () => {
     const res = await fetch(`/api/projects/${projectId}/boq`, {
@@ -82,7 +64,7 @@ export default function BOQPage() {
     });
     const data = await res.json();
     if (data.success) {
-      loadData();
+      void refetchBoqs();
     } else {
       setError(data.error);
     }
@@ -104,7 +86,7 @@ export default function BOQPage() {
     if (data.success) {
       setShowAddItem(false);
       setNewItem({ description: '', unit: '', plannedQty: '', rate: '' });
-      loadData();
+      void refetchBoqs();
     } else {
       setError(data.error);
     }
@@ -121,7 +103,7 @@ export default function BOQPage() {
 
     const data = await res.json();
     if (data.success) {
-      loadData();
+      void refetchBoqs();
     } else {
       setError(data.error);
     }

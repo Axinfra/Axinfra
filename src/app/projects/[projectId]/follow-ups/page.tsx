@@ -1,10 +1,13 @@
 'use client';
 
-import { useState, useEffect } from 'react';
+import { useState } from 'react';
 import { useParams } from 'next/navigation';
+import useSWR from 'swr';
 import Layout from '@/components/Layout';
 import Navbar from '@/components/Navbar';
 import { formatDateTime } from '@/lib/utils';
+import { useProject } from '@/lib/contexts/ProjectContext';
+import { jsonFetcher } from '@/lib/fetcher';
 
 interface FollowUp {
   id: string;
@@ -37,46 +40,26 @@ const typeColors: Record<string, string> = {
 export default function FollowUpsPage() {
   const params = useParams();
   const projectId = params.projectId as string;
-  const [followUps, setFollowUps] = useState<FollowUp[]>([]);
-  const [projectName, setProjectName] = useState('');
-  const [myRole, setMyRole] = useState('');
-  const [loading, setLoading] = useState(true);
   const [error, setError] = useState('');
 
   const [resolvingId, setResolvingId] = useState<string | null>(null);
   const [resolutionNote, setResolutionNote] = useState('');
   const [processing, setProcessing] = useState(false);
 
-  useEffect(() => {
-    loadData();
-  }, [projectId]);
+  const { project, isLoading: projectLoading } = useProject();
+  const projectName = project?.name ?? '';
+  const myRole = project?.myRole ?? '';
 
-  const loadData = async () => {
-    try {
-      const [projectRes, followUpsRes] = await Promise.all([
-        fetch(`/api/projects/${projectId}`),
-        fetch(`/api/projects/${projectId}/follow-ups`),
-      ]);
-
-      const [projectData, followUpsData] = await Promise.all([
-        projectRes.json(),
-        followUpsRes.json(),
-      ]);
-
-      if (projectData.success) {
-        setProjectName(projectData.data.name);
-        setMyRole(projectData.data.myRole);
-      }
-
-      if (followUpsData.success) {
-        setFollowUps(followUpsData.data);
-      }
-    } catch {
-      setError('Failed to load data');
-    } finally {
-      setLoading(false);
-    }
-  };
+  const {
+    data: followUps = [],
+    isLoading: followUpsLoading,
+    mutate: refetchFollowUps,
+  } = useSWR<FollowUp[]>(
+    projectId ? `/api/projects/${projectId}/follow-ups` : null,
+    jsonFetcher,
+    { revalidateOnFocus: false, dedupingInterval: 30_000 },
+  );
+  const loading = projectLoading || followUpsLoading;
 
   const handleResolve = async (followUpId: string) => {
     if (!resolutionNote.trim()) {
@@ -102,7 +85,7 @@ export default function FollowUpsPage() {
       if (data.success) {
         setResolvingId(null);
         setResolutionNote('');
-        loadData();
+        void refetchFollowUps();
       } else {
         setError(data.error);
       }

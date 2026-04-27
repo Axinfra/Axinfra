@@ -1,11 +1,13 @@
 'use client';
 
-import { useState, useEffect } from 'react';
+import { useState } from 'react';
 import { useParams } from 'next/navigation';
 import Link from 'next/link';
+import useSWR from 'swr';
 import Layout from '@/components/Layout';
 import Navbar from '@/components/Navbar';
 import { formatDateTime } from '@/lib/utils';
+import { useProject } from '@/lib/contexts/ProjectContext';
 
 interface PendingEvidence {
   id: string;
@@ -20,60 +22,58 @@ interface PendingEvidence {
 export default function EvidenceReviewPage() {
   const params = useParams();
   const projectId = params.projectId as string;
-  const [pendingEvidence, setPendingEvidence] = useState<PendingEvidence[]>([]);
-  const [projectName, setProjectName] = useState('');
-  const [myRole, setMyRole] = useState('');
-  const [loading, setLoading] = useState(true);
   const [error, setError] = useState('');
 
   const [reviewingId, setReviewingId] = useState<string | null>(null);
   const [reviewNote, setReviewNote] = useState('');
   const [processing, setProcessing] = useState(false);
 
-  useEffect(() => {
-    loadData();
-  }, [projectId]);
+  const { project, isLoading: projectLoading } = useProject();
+  const projectName = project?.name ?? '';
+  const myRole = project?.myRole ?? '';
+  const projectMilestones = ((project as any)?.milestones ?? []) as Array<{
+    id: string;
+    title: string;
+  }>;
 
-  const loadData = async () => {
-    try {
-      const projectRes = await fetch(`/api/projects/${projectId}`);
-      const projectData = await projectRes.json();
+  // Stable SWR key built from milestone IDs.
+  const milestoneIds = projectMilestones.map((m) => m.id);
+  const swrKey =
+    projectId && milestoneIds.length > 0
+      ? ['evidence-review', projectId, milestoneIds.join(',')]
+      : null;
 
-      if (projectData.success) {
-        setProjectName(projectData.data.name);
-        setMyRole(projectData.data.myRole);
-
-        // Get pending evidence from milestones
-        const milestones = projectData.data.milestones || [];
-        const pending: PendingEvidence[] = [];
-
-        for (const ms of milestones) {
-          const evidenceRes = await fetch(
-            `/api/projects/${projectId}/milestones/${ms.id}/evidence`
-          );
-          const evidenceData = await evidenceRes.json();
-
-          if (evidenceData.success) {
-            const submitted = evidenceData.data.filter(
-              (e: { status: string }) => e.status === 'SUBMITTED'
+  const {
+    data: pendingEvidence = [],
+    isLoading: evidenceLoading,
+    mutate: refetchEvidence,
+  } = useSWR<PendingEvidence[]>(
+    swrKey,
+    async () => {
+      // Parallel per-milestone evidence fetch (was sequential — N requests
+      // wall-time before).
+      const results = await Promise.all(
+        projectMilestones.map(async (ms) => {
+          try {
+            const res = await fetch(
+              `/api/projects/${projectId}/milestones/${ms.id}/evidence`,
             );
-            submitted.forEach((e: PendingEvidence) => {
-              pending.push({
-                ...e,
-                milestone: { id: ms.id, title: ms.title },
-              });
-            });
+            const data = await res.json();
+            if (!data.success) return [] as PendingEvidence[];
+            return (data.data as Array<PendingEvidence & { status: string }>)
+              .filter((e) => e.status === 'SUBMITTED')
+              .map((e) => ({ ...e, milestone: { id: ms.id, title: ms.title } }));
+          } catch {
+            return [] as PendingEvidence[];
           }
-        }
+        }),
+      );
+      return results.flat();
+    },
+    { revalidateOnFocus: false, dedupingInterval: 30_000 },
+  );
 
-        setPendingEvidence(pending);
-      }
-    } catch {
-      setError('Failed to load data');
-    } finally {
-      setLoading(false);
-    }
-  };
+  const loading = projectLoading || evidenceLoading;
 
   const handleReview = async (evidenceId: string, action: 'APPROVE' | 'REJECT') => {
     if (action === 'REJECT' && !reviewNote.trim()) {
@@ -105,7 +105,7 @@ export default function EvidenceReviewPage() {
       if (data.success) {
         setReviewingId(null);
         setReviewNote('');
-        loadData();
+        void refetchEvidence();
       } else {
         setError(data.error);
       }

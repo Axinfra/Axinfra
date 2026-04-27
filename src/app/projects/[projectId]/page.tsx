@@ -1,6 +1,5 @@
 'use client';
 
-import { useState, useEffect } from 'react';
 import Layout from '@/components/Layout';
 import Navbar from '@/components/Navbar';
 import MilestoneStateBadge from '@/components/MilestoneStateBadge';
@@ -8,6 +7,7 @@ import PaymentStatusBadge from '@/components/PaymentStatusBadge';
 import { formatCurrency, formatDate } from '@/lib/utils';
 import Link from 'next/link';
 import { useParams } from 'next/navigation';
+import { useProject } from '@/lib/contexts/ProjectContext';
 
 interface ProjectData {
   id: string;
@@ -40,23 +40,9 @@ interface ProjectData {
 export default function ProjectDetailPage() {
   const params = useParams();
   const projectId = params.projectId as string;
-  const [project, setProject] = useState<ProjectData | null>(null);
-  const [loading, setLoading] = useState(true);
-  const [error, setError] = useState('');
-
-  useEffect(() => {
-    fetch(`/api/projects/${projectId}`)
-      .then((res) => res.json())
-      .then((data) => {
-        if (data.success) {
-          setProject(data.data);
-        } else {
-          setError(data.error);
-        }
-      })
-      .catch(() => setError('Failed to load project'))
-      .finally(() => setLoading(false));
-  }, [projectId]);
+  const { project: ctxProject, isLoading: loading, error } = useProject();
+  // Cast to the rich shape this page expects (boqs, milestones, permissions).
+  const project = ctxProject as unknown as ProjectData | null;
 
   if (loading) {
     return (
@@ -69,7 +55,7 @@ export default function ProjectDetailPage() {
   if (error || !project) {
     return (
       <Layout>
-        <div className="alert alert-error">{error || 'Project not found'}</div>
+        <div className="alert alert-error">{error?.message || 'Project not found'}</div>
       </Layout>
     );
   }

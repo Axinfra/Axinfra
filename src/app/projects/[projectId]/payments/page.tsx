@@ -1,13 +1,15 @@
 'use client';
 
-import { useState, useEffect } from 'react';
+import { useState } from 'react';
 import { useParams } from 'next/navigation';
+import useSWR from 'swr';
 import Layout from '@/components/Layout';
 import Navbar from '@/components/Navbar';
 import MilestoneStateBadge from '@/components/MilestoneStateBadge';
 import PaymentStatusBadge from '@/components/PaymentStatusBadge';
 import { formatCurrency, formatDateTime } from '@/lib/utils';
 import { BlockingReasonLabels } from '@/types';
+import { useProject } from '@/lib/contexts/ProjectContext';
 
 interface PaymentEligibilityItem {
   id: string;
@@ -39,11 +41,6 @@ interface PaymentEligibilityItem {
 export default function PaymentsPage() {
   const params = useParams();
   const projectId = params.projectId as string;
-  const [eligibilityItems, setEligibilityItems] = useState<PaymentEligibilityItem[]>([]);
-  const [projectName, setProjectName] = useState('');
-  const [myRole, setMyRole] = useState('');
-  const [permissions, setPermissions] = useState<Record<string, boolean>>({});
-  const [loading, setLoading] = useState(true);
   const [error, setError] = useState('');
 
   const [actionItem, setActionItem] = useState<PaymentEligibilityItem | null>(null);
@@ -52,41 +49,54 @@ export default function PaymentsPage() {
   const [explanation, setExplanation] = useState('');
   const [processing, setProcessing] = useState(false);
 
-  useEffect(() => {
-    loadData();
-  }, [projectId]);
+  const { project, isLoading: projectLoading } = useProject();
+  const projectName = project?.name ?? '';
+  const myRole = project?.myRole ?? '';
+  const permissions = (project?.permissions ?? {}) as Record<string, boolean>;
+  const projectMilestones = ((project as any)?.milestones ?? []) as Array<{
+    id: string;
+    paymentEligibility?: unknown;
+  }>;
 
-  const loadData = async () => {
-    try {
-      const projectRes = await fetch(`/api/projects/${projectId}`);
-      const projectData = await projectRes.json();
+  // Build the list of milestone IDs that have a payment eligibility row.
+  // SWR key is stable for the same milestone set so it dedupes correctly.
+  const eligibleMilestoneIds = projectMilestones
+    .filter((m) => m.paymentEligibility)
+    .map((m) => m.id);
+  const swrKey = projectId && eligibleMilestoneIds.length > 0
+    ? ['payments', projectId, eligibleMilestoneIds.join(',')]
+    : null;
 
-      if (projectData.success) {
-        setProjectName(projectData.data.name);
-        setMyRole(projectData.data.myRole);
-        setPermissions(projectData.data.permissions);
-
-        // Extract payment eligibility items from milestones
-        const items: PaymentEligibilityItem[] = [];
-        for (const ms of projectData.data.milestones || []) {
-          if (ms.paymentEligibility) {
-            const paymentRes = await fetch(
-              `/api/projects/${projectId}/milestones/${ms.id}/payment`
+  const {
+    data: eligibilityItems = [],
+    isLoading: paymentsLoading,
+    mutate: refetchPayments,
+  } = useSWR<PaymentEligibilityItem[]>(
+    swrKey,
+    async () => {
+      // Parallel per-milestone fetch (was sequential — major win for projects
+      // with many milestones).
+      const results = await Promise.all(
+        eligibleMilestoneIds.map(async (id) => {
+          try {
+            const res = await fetch(
+              `/api/projects/${projectId}/milestones/${id}/payment`,
             );
-            const paymentData = await paymentRes.json();
-            if (paymentData.success) {
-              items.push(paymentData.data);
-            }
+            const data = await res.json();
+            return data.success ? (data.data as PaymentEligibilityItem) : null;
+          } catch {
+            return null;
           }
-        }
-        setEligibilityItems(items);
-      }
-    } catch {
-      setError('Failed to load data');
-    } finally {
-      setLoading(false);
-    }
-  };
+        }),
+      );
+      return results.filter(
+        (r): r is PaymentEligibilityItem => r !== null,
+      );
+    },
+    { revalidateOnFocus: false, dedupingInterval: 30_000 },
+  );
+
+  const loading = projectLoading || paymentsLoading;
 
   const handleAction = async () => {
     if (!actionItem || !actionType) return;
@@ -127,7 +137,7 @@ export default function PaymentsPage() {
         setActionItem(null);
         setActionType(null);
         setExplanation('');
-        loadData();
+        void refetchPayments();
       } else {
         setError(data.error);
       }

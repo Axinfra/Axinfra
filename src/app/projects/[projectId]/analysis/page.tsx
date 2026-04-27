@@ -1,10 +1,13 @@
 'use client';
 
-import { useState, useEffect } from 'react';
+import { useState } from 'react';
 import { useParams } from 'next/navigation';
+import useSWR from 'swr';
 import Layout from '@/components/Layout';
 import Navbar from '@/components/Navbar';
 import { formatCurrency, formatDate } from '@/lib/utils';
+import { useProject } from '@/lib/contexts/ProjectContext';
+import { jsonFetcher } from '@/lib/fetcher';
 
 /**
  * Project Analysis Panel - READ-ONLY intelligence dashboard.
@@ -31,62 +34,32 @@ export default function AnalysisPage() {
   const params = useParams();
   const projectId = params.projectId as string;
 
-  const [projectName, setProjectName] = useState('');
-  const [myRole, setMyRole] = useState('');
-  const [loading, setLoading] = useState(true);
   const [error, setError] = useState('');
   const [activeTab, setActiveTab] = useState<TabId>('execution');
-  const [tabData, setTabData] = useState<Record<string, any>>({});
-  const [tabLoading, setTabLoading] = useState(false);
 
-  useEffect(() => {
-    loadProjectInfo();
-  }, [projectId]);
+  const { project, isLoading: projectLoading } = useProject();
+  const projectName = project?.name ?? '';
+  const myRole = project?.myRole ?? '';
+  const hasAccess = ['OWNER', 'PMC'].includes(myRole);
 
-  useEffect(() => {
-    if (projectName) {
-      loadTabData(activeTab);
-    }
-  }, [activeTab, projectName]);
+  // SWR per-tab — each tab data is keyed by tab id, so flipping tabs is
+  // instant after first load. dedupingInterval matches the route's 120s
+  // server cache to avoid double work.
+  const tabKey =
+    projectId && hasAccess
+      ? `/api/projects/${projectId}/analysis?tab=${activeTab}`
+      : null;
+  const {
+    data: tabPayload,
+    isLoading: tabLoading,
+  } = useSWR<Record<string, unknown>>(tabKey, jsonFetcher, {
+    revalidateOnFocus: false,
+    dedupingInterval: 120_000,
+    keepPreviousData: false,
+  });
+  const tabData: Record<string, any> = (tabPayload ?? {}) as Record<string, any>;
 
-  const loadProjectInfo = async () => {
-    try {
-      const res = await fetch(`/api/projects/${projectId}`);
-      const data = await res.json();
-      if (data.success) {
-        setProjectName(data.data.name);
-        setMyRole(data.data.myRole);
-
-        // Check access
-        if (!['OWNER', 'PMC'].includes(data.data.myRole)) {
-          setError('Access denied. Analysis is available to Owner and PMC only.');
-        }
-      }
-    } catch {
-      setError('Failed to load project');
-    } finally {
-      setLoading(false);
-    }
-  };
-
-  const loadTabData = async (tab: TabId) => {
-    if (tabData[tab]) return; // Already loaded
-
-    setTabLoading(true);
-    try {
-      const res = await fetch(`/api/projects/${projectId}/analysis?tab=${tab}`);
-      const data = await res.json();
-      if (data.success) {
-        setTabData(prev => ({ ...prev, ...data.data }));
-      } else {
-        setError(data.error);
-      }
-    } catch {
-      setError('Failed to load analysis');
-    } finally {
-      setTabLoading(false);
-    }
-  };
+  const loading = projectLoading;
 
   if (loading) {
     return (
@@ -96,11 +69,13 @@ export default function AnalysisPage() {
     );
   }
 
-  if (error && !['OWNER', 'PMC'].includes(myRole)) {
+  if (myRole && !hasAccess) {
     return (
       <Layout>
         <Navbar projectId={projectId} projectName={projectName} role={myRole} />
-        <div className="alert alert-error">{error}</div>
+        <div className="alert alert-error">
+          Access denied. Analysis is available to Owner and PMC only.
+        </div>
       </Layout>
     );
   }

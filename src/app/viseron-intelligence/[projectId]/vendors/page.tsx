@@ -1,15 +1,12 @@
 'use client';
 
-import { useEffect, useState, useCallback } from 'react';
 import { useParams } from 'next/navigation';
+import useSWR from 'swr';
 import Layout from '@/components/Layout';
 import ViseronNav from '@/components/viseron/ViseronNav';
 import VendorRankings from '@/components/viseron/VendorRankings';
-
-interface ProjectInfo {
-  name: string;
-  myRole: string;
-}
+import { useProject } from '@/lib/contexts/ProjectContext';
+import { jsonFetcher } from '@/lib/fetcher';
 
 interface DashboardData {
   vendorScores: Array<{
@@ -25,29 +22,24 @@ interface DashboardData {
 export default function ViseronVendorsPage() {
   const params = useParams();
   const projectId = params.projectId as string;
-  const [projectInfo, setProjectInfo] = useState<ProjectInfo | null>(null);
-  const [data, setData] = useState<DashboardData | null>(null);
-  const [loading, setLoading] = useState(true);
 
-  const load = useCallback(async () => {
-    const [projRes, dashRes] = await Promise.all([
-      fetch(`/api/projects/${projectId}`),
-      fetch(`/api/viseron-intelligence/${projectId}/dashboard`),
-    ]);
-    const [projData, dashData] = await Promise.all([projRes.json(), dashRes.json()]);
-    if (projData.success) setProjectInfo({ name: projData.data.name, myRole: projData.data.myRole });
-    if (dashData.success) setData(dashData.data);
-    setLoading(false);
-  }, [projectId]);
+  const { project, isLoading: projectLoading } = useProject();
+  const projectName = project?.name ?? '...';
+  const myRole = project?.myRole ?? '';
 
-  useEffect(() => { load(); }, [load]);
+  const { data, isLoading: dashLoading } = useSWR<DashboardData>(
+    projectId ? `/api/viseron-intelligence/${projectId}/dashboard` : null,
+    jsonFetcher,
+    { revalidateOnFocus: false, dedupingInterval: 60_000 },
+  );
+  const loading = projectLoading || dashLoading;
 
   return (
     <Layout>
       <ViseronNav
         projectId={projectId}
-        projectName={projectInfo?.name ?? '...'}
-        role={projectInfo?.myRole ?? ''}
+        projectName={projectName}
+        role={myRole}
       />
 
       {loading ? (

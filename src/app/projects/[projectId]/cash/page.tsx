@@ -1,11 +1,14 @@
 'use client';
 
-import { useState, useEffect, useCallback } from 'react';
+import { useState } from 'react';
 import { useParams, useRouter } from 'next/navigation';
+import useSWR from 'swr';
 import Layout from '@/components/Layout';
 import Navbar from '@/components/Navbar';
 import { formatCurrency, formatDate, formatDateTime } from '@/lib/utils';
 import { PrivateCostCategoryLabels, CashSummary } from '@/types';
+import { useProject } from '@/lib/contexts/ProjectContext';
+import { jsonFetcher } from '@/lib/fetcher';
 
 // ─── Interfaces ─────────────────────────────────────────────────────────────
 
@@ -40,23 +43,51 @@ export default function CashModulePage() {
   const router = useRouter();
   const projectId = params.projectId as string;
 
-  // Project info
-  const [projectName, setProjectName] = useState('');
-  const [myRole, setMyRole] = useState('');
-  const [accessDenied, setAccessDenied] = useState(false);
+  // Project info via shared context
+  const { project, isLoading: projectLoading } = useProject();
+  const projectName = project?.name ?? '';
+  const myRole = project?.myRole ?? '';
 
   // Tab state
   const [activeTab, setActiveTab] = useState<TabKey>('adjustments');
 
-  // Data
-  const [adjustments, setAdjustments] = useState<CashAdjustment[]>([]);
-  const [adjustmentsTotal, setAdjustmentsTotal] = useState(0);
-  const [costs, setCosts] = useState<PrivateCost[]>([]);
-  const [costsTotal, setCostsTotal] = useState(0);
-  const [summary, setSummary] = useState<CashSummary | null>(null);
+  // SWR keys — only fire when projectId is set.
+  // Cash routes return 403 for non-OWNER; we treat that as "no access" via err.
+  const cashKey = projectId ? `/api/projects/${projectId}/cash` : null;
+  const costsKey = projectId ? `/api/projects/${projectId}/cash/costs` : null;
+
+  const {
+    data: cashData,
+    error: cashErr,
+    isLoading: cashLoading,
+    mutate: refetchCash,
+  } = useSWR<{
+    adjustments: CashAdjustment[];
+    total: number;
+    summary: CashSummary;
+  }>(cashKey, jsonFetcher, { revalidateOnFocus: false, dedupingInterval: 60_000 });
+
+  const {
+    data: costsData,
+    isLoading: costsLoading,
+    mutate: refetchCosts,
+  } = useSWR<{ costs: PrivateCost[]; total: number }>(
+    costsKey,
+    jsonFetcher,
+    { revalidateOnFocus: false, dedupingInterval: 60_000 },
+  );
+
+  const adjustments: CashAdjustment[] = cashData?.adjustments ?? [];
+  const adjustmentsTotal = cashData?.total ?? 0;
+  const costs: PrivateCost[] = costsData?.costs ?? [];
+  const costsTotal = costsData?.total ?? 0;
+  const summary: CashSummary | null = cashData?.summary ?? null;
+
+  // 403 from cash → access denied (only OWNER can hit /cash)
+  const accessDenied = cashErr?.message?.includes('HTTP 403') ?? false;
+  const loading = projectLoading || cashLoading || costsLoading;
 
   // UI state
-  const [loading, setLoading] = useState(true);
   const [error, setError] = useState('');
   const [showAdjustmentForm, setShowAdjustmentForm] = useState(false);
   const [showCostForm, setShowCostForm] = useState(false);
@@ -75,63 +106,6 @@ export default function CashModulePage() {
   const [costVendor, setCostVendor] = useState('');
   const [costNotes, setCostNotes] = useState('');
   const [costIncurredAt, setCostIncurredAt] = useState('');
-
-  // ─── Data Loading ───────────────────────────────────────────────────────
-
-  const loadProjectInfo = useCallback(async () => {
-    try {
-      const res = await fetch(`/api/projects/${projectId}`);
-      const data = await res.json();
-      if (data.success) {
-        setProjectName(data.data.name);
-        setMyRole(data.data.myRole);
-      }
-    } catch {
-      // Non-critical
-    }
-  }, [projectId]);
-
-  const loadCashData = useCallback(async () => {
-    try {
-      const res = await fetch(`/api/projects/${projectId}/cash`);
-      if (res.status === 403) {
-        setAccessDenied(true);
-        return;
-      }
-      const data = await res.json();
-      if (data.success) {
-        setAdjustments(data.data.adjustments);
-        setAdjustmentsTotal(data.data.total);
-        setSummary(data.data.summary);
-      } else {
-        setError(data.error || 'Failed to load cash data');
-      }
-    } catch {
-      setError('Failed to load cash data');
-    }
-  }, [projectId]);
-
-  const loadCosts = useCallback(async () => {
-    try {
-      const res = await fetch(`/api/projects/${projectId}/cash/costs`);
-      const data = await res.json();
-      if (data.success) {
-        setCosts(data.data.costs);
-        setCostsTotal(data.data.total);
-      }
-    } catch {
-      // Non-critical for initial load
-    }
-  }, [projectId]);
-
-  useEffect(() => {
-    const load = async () => {
-      setLoading(true);
-      await Promise.all([loadProjectInfo(), loadCashData(), loadCosts()]);
-      setLoading(false);
-    };
-    load();
-  }, [loadProjectInfo, loadCashData, loadCosts]);
 
   // ─── Create Handlers ───────────────────────────────────────────────────
 
@@ -171,7 +145,7 @@ export default function CashModulePage() {
         setAdjReason('');
         setShowAdjustmentForm(false);
         // Reload data
-        await loadCashData();
+        await refetchCash();
       } else {
         setError(data.error || 'Failed to create adjustment');
       }
@@ -222,7 +196,7 @@ export default function CashModulePage() {
         setCostIncurredAt('');
         setShowCostForm(false);
         // Reload data
-        await Promise.all([loadCosts(), loadCashData()]);
+        await Promise.all([refetchCosts(), refetchCash()]);
       } else {
         setError(data.error || 'Failed to create cost entry');
       }

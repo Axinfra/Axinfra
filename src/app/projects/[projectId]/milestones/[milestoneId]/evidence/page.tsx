@@ -1,19 +1,24 @@
 'use client';
 
-import { useState, useEffect } from 'react';
+import { useEffect, useState } from 'react';
 import { useRouter, useParams } from 'next/navigation';
+import useSWR from 'swr';
 import Layout from '@/components/Layout';
 import Navbar from '@/components/Navbar';
+import { useProject } from '@/lib/contexts/ProjectContext';
+import { jsonFetcher } from '@/lib/fetcher';
+
+interface MilestonePayload {
+  title: string;
+  state: string;
+  permissions: { canSubmitEvidence?: boolean };
+}
 
 export default function SubmitEvidencePage() {
   const params = useParams();
   const projectId = params.projectId as string;
   const milestoneId = params.milestoneId as string;
   const router = useRouter();
-  const [projectName, setProjectName] = useState('');
-  const [myRole, setMyRole] = useState('');
-  const [milestoneTitle, setMilestoneTitle] = useState('');
-  const [loading, setLoading] = useState(true);
   const [submitting, setSubmitting] = useState(false);
   const [error, setError] = useState('');
 
@@ -21,44 +26,33 @@ export default function SubmitEvidencePage() {
   const [remarks, setRemarks] = useState('');
   const [files, setFiles] = useState<File[]>([]);
 
+  const { project, isLoading: projectLoading } = useProject();
+  const projectName = project?.name ?? '';
+  const myRole = project?.myRole ?? '';
+
+  const {
+    data: milestone,
+    isLoading: msLoading,
+  } = useSWR<MilestonePayload>(
+    projectId && milestoneId
+      ? `/api/projects/${projectId}/milestones/${milestoneId}`
+      : null,
+    jsonFetcher,
+    { revalidateOnFocus: false, dedupingInterval: 30_000 },
+  );
+
+  const milestoneTitle = milestone?.title ?? '';
+  const loading = projectLoading || msLoading;
+
+  // Validate state/permission once milestone is hydrated.
   useEffect(() => {
-    loadData();
-  }, [projectId, milestoneId]);
-
-  const loadData = async () => {
-    try {
-      const [projectRes, milestoneRes] = await Promise.all([
-        fetch(`/api/projects/${projectId}`),
-        fetch(`/api/projects/${projectId}/milestones/${milestoneId}`),
-      ]);
-
-      const [projectData, milestoneData] = await Promise.all([
-        projectRes.json(),
-        milestoneRes.json(),
-      ]);
-
-      if (projectData.success) {
-        setProjectName(projectData.data.name);
-        setMyRole(projectData.data.myRole);
-      }
-
-      if (milestoneData.success) {
-        setMilestoneTitle(milestoneData.data.title);
-
-        // Check if user can submit evidence
-        if (milestoneData.data.state !== 'IN_PROGRESS') {
-          setError('Evidence can only be submitted when milestone is In Progress');
-        }
-        if (!milestoneData.data.permissions.canSubmitEvidence) {
-          setError('You do not have permission to submit evidence');
-        }
-      }
-    } catch {
-      setError('Failed to load data');
-    } finally {
-      setLoading(false);
+    if (!milestone) return;
+    if (milestone.state !== 'IN_PROGRESS') {
+      setError('Evidence can only be submitted when milestone is In Progress');
+    } else if (!milestone.permissions?.canSubmitEvidence) {
+      setError('You do not have permission to submit evidence');
     }
-  };
+  }, [milestone]);
 
   const handleFileChange = (e: React.ChangeEvent<HTMLInputElement>) => {
     const selectedFiles = Array.from(e.target.files || []);

@@ -1,10 +1,13 @@
 'use client';
 
-import { useState, useEffect } from 'react';
+import { useEffect, useState } from 'react';
 import { useRouter, useParams } from 'next/navigation';
+import useSWR from 'swr';
 import Layout from '@/components/Layout';
 import Navbar from '@/components/Navbar';
 import { formatCurrency } from '@/lib/utils';
+import { useProject } from '@/lib/contexts/ProjectContext';
+import { jsonFetcher } from '@/lib/fetcher';
 
 interface MilestoneData {
   id: string;
@@ -12,6 +15,8 @@ interface MilestoneData {
   plannedValue: number;
   value: number;
   isExtra: boolean;
+  state: string;
+  permissions: { canVerify?: boolean };
   boqLinks: Array<{
     plannedQty: number;
     boqItem: {
@@ -27,61 +32,45 @@ export default function VerifyMilestonePage() {
   const projectId = params.projectId as string;
   const milestoneId = params.milestoneId as string;
   const router = useRouter();
-  const [projectName, setProjectName] = useState('');
-  const [myRole, setMyRole] = useState('');
-  const [milestone, setMilestone] = useState<MilestoneData | null>(null);
-  const [loading, setLoading] = useState(true);
   const [verifying, setVerifying] = useState(false);
   const [error, setError] = useState('');
 
   const [qtyVerified, setQtyVerified] = useState('');
   const [notes, setNotes] = useState('');
+  const [hydrated, setHydrated] = useState(false);
 
+  const { project, isLoading: projectLoading } = useProject();
+  const projectName = project?.name ?? '';
+  const myRole = project?.myRole ?? '';
+
+  const {
+    data: milestone,
+    isLoading: msLoading,
+  } = useSWR<MilestoneData>(
+    projectId && milestoneId
+      ? `/api/projects/${projectId}/milestones/${milestoneId}`
+      : null,
+    jsonFetcher,
+    { revalidateOnFocus: false, dedupingInterval: 30_000 },
+  );
+  const loading = projectLoading || msLoading;
+
+  // Initialize default qtyVerified + run validation gates once milestone is loaded.
   useEffect(() => {
-    loadData();
-  }, [projectId, milestoneId]);
+    if (!milestone || hydrated) return;
+    const totalPlannedQty = milestone.boqLinks.reduce(
+      (sum, link) => sum + link.plannedQty,
+      0,
+    );
+    setQtyVerified(totalPlannedQty > 0 ? totalPlannedQty.toString() : '1');
 
-  const loadData = async () => {
-    try {
-      const [projectRes, milestoneRes] = await Promise.all([
-        fetch(`/api/projects/${projectId}`),
-        fetch(`/api/projects/${projectId}/milestones/${milestoneId}`),
-      ]);
-
-      const [projectData, milestoneData] = await Promise.all([
-        projectRes.json(),
-        milestoneRes.json(),
-      ]);
-
-      if (projectData.success) {
-        setProjectName(projectData.data.name);
-        setMyRole(projectData.data.myRole);
-      }
-
-      if (milestoneData.success) {
-        setMilestone(milestoneData.data);
-
-        // Set default qty to total planned (or 1 for Extras with no BOQ)
-        const totalPlannedQty = milestoneData.data.boqLinks.reduce(
-          (sum: number, link: { plannedQty: number }) => sum + link.plannedQty,
-          0
-        );
-        // For Extras (no BOQ), default to 1 (100% verification)
-        setQtyVerified(totalPlannedQty > 0 ? totalPlannedQty.toString() : '1');
-
-        if (milestoneData.data.state !== 'SUBMITTED') {
-          setError('Milestone must be in Submitted state to verify');
-        }
-        if (!milestoneData.data.permissions.canVerify) {
-          setError('You do not have permission to verify milestones');
-        }
-      }
-    } catch {
-      setError('Failed to load data');
-    } finally {
-      setLoading(false);
+    if (milestone.state !== 'SUBMITTED') {
+      setError('Milestone must be in Submitted state to verify');
+    } else if (!milestone.permissions?.canVerify) {
+      setError('You do not have permission to verify milestones');
     }
-  };
+    setHydrated(true);
+  }, [milestone, hydrated]);
 
   const handleVerify = async (e: React.FormEvent) => {
     e.preventDefault();

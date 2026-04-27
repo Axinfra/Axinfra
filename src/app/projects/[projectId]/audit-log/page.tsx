@@ -1,10 +1,13 @@
 'use client';
 
-import { useState, useEffect } from 'react';
+import { useState, useMemo } from 'react';
 import { useParams } from 'next/navigation';
+import useSWR from 'swr';
 import Layout from '@/components/Layout';
 import Navbar from '@/components/Navbar';
 import { formatDateTime } from '@/lib/utils';
+import { useProject } from '@/lib/contexts/ProjectContext';
+import { jsonFetcher } from '@/lib/fetcher';
 
 interface AuditLogEntry {
   id: string;
@@ -25,11 +28,6 @@ interface AuditLogEntry {
 export default function AuditLogPage() {
   const params = useParams();
   const projectId = params.projectId as string;
-  const [logs, setLogs] = useState<AuditLogEntry[]>([]);
-  const [total, setTotal] = useState(0);
-  const [projectName, setProjectName] = useState('');
-  const [myRole, setMyRole] = useState('');
-  const [loading, setLoading] = useState(true);
   const [error, setError] = useState('');
   const [exporting, setExporting] = useState(false);
 
@@ -42,45 +40,34 @@ export default function AuditLogPage() {
 
   const [expandedId, setExpandedId] = useState<string | null>(null);
 
-  useEffect(() => {
-    loadData();
+  const { project, isLoading: projectLoading } = useProject();
+  const projectName = project?.name ?? '';
+  const myRole = project?.myRole ?? '';
+
+  const auditUrl = useMemo(() => {
+    if (!projectId) return null;
+    return (
+      `/api/projects/${projectId}/audit-log?` +
+      new URLSearchParams({
+        ...(filters.entityType && { entityType: filters.entityType }),
+        ...(filters.actionType && { actionType: filters.actionType }),
+        limit: filters.limit.toString(),
+        offset: filters.offset.toString(),
+      })
+    );
   }, [projectId, filters]);
 
-  const loadData = async () => {
-    try {
-      const [projectRes, logsRes] = await Promise.all([
-        fetch(`/api/projects/${projectId}`),
-        fetch(
-          `/api/projects/${projectId}/audit-log?` +
-            new URLSearchParams({
-              ...(filters.entityType && { entityType: filters.entityType }),
-              ...(filters.actionType && { actionType: filters.actionType }),
-              limit: filters.limit.toString(),
-              offset: filters.offset.toString(),
-            })
-        ),
-      ]);
+  const { data: payload, isLoading: logsLoading } = useSWR<{
+    logs: AuditLogEntry[];
+    total: number;
+  }>(auditUrl, jsonFetcher, {
+    revalidateOnFocus: false,
+    dedupingInterval: 60_000,
+  });
 
-      const [projectData, logsData] = await Promise.all([
-        projectRes.json(),
-        logsRes.json(),
-      ]);
-
-      if (projectData.success) {
-        setProjectName(projectData.data.name);
-        setMyRole(projectData.data.myRole);
-      }
-
-      if (logsData.success) {
-        setLogs(logsData.data.logs);
-        setTotal(logsData.data.total);
-      }
-    } catch {
-      setError('Failed to load audit log');
-    } finally {
-      setLoading(false);
-    }
-  };
+  const logs: AuditLogEntry[] = payload?.logs ?? [];
+  const total = payload?.total ?? 0;
+  const loading = projectLoading || logsLoading;
 
   const handleExport = async () => {
     setExporting(true);

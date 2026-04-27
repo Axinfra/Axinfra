@@ -1,15 +1,16 @@
 'use client';
 
-import { useEffect, useState, useCallback } from 'react';
+import { useState } from 'react';
 import { useParams } from 'next/navigation';
+import useSWR from 'swr';
 import {
   LineChart, Line, BarChart, Bar, XAxis, YAxis, CartesianGrid, Tooltip,
   ResponsiveContainer, Cell, Legend, ReferenceLine,
 } from 'recharts';
 import Layout from '@/components/Layout';
 import EINav from '@/components/execution-intelligence/EINav';
-
-interface ProjectInfo { name: string; myRole: string; }
+import { useProject } from '@/lib/contexts/ProjectContext';
+import { jsonFetcher } from '@/lib/fetcher';
 
 interface AnalyticsData {
   kpis: {
@@ -39,25 +40,18 @@ type Tab = 'curves' | 'vendors' | 'delays' | 'payments' | 'heatmap';
 export default function AnalyticsPage() {
   const params = useParams();
   const projectId = params.projectId as string;
-  const [projectInfo, setProjectInfo] = useState<ProjectInfo | null>(null);
-  const [data, setData] = useState<AnalyticsData | null>(null);
-  const [loading, setLoading] = useState(true);
   const [tab, setTab] = useState<Tab>('curves');
 
-  const load = useCallback(async () => {
-    const [projRes, analyticsRes] = await Promise.all([
-      fetch(`/api/projects/${projectId}`),
-      fetch(`/api/execution-intelligence/${projectId}/analytics`),
-    ]);
-    const [projData, analyticsData] = await Promise.all([projRes.json(), analyticsRes.json()]);
-    if (projData.success) setProjectInfo({ name: projData.data.name, myRole: projData.data.myRole });
-    if (analyticsData.success) setData(analyticsData.data);
-    setLoading(false);
-  }, [projectId]);
+  const { project, isLoading: projectLoading } = useProject();
+  const projectName = project?.name ?? '...';
+  const role = project?.myRole ?? '';
 
-  useEffect(() => { load(); }, [load]);
-
-  const role = projectInfo?.myRole ?? '';
+  const { data, isLoading: dataLoading } = useSWR<AnalyticsData>(
+    projectId ? `/api/execution-intelligence/${projectId}/analytics` : null,
+    jsonFetcher,
+    { revalidateOnFocus: false, dedupingInterval: 120_000 },
+  );
+  const loading = projectLoading || dataLoading;
 
   const TABS: { id: Tab; label: string }[] = [
     { id: 'curves', label: 'S-Curve & Burndown' },
@@ -69,7 +63,7 @@ export default function AnalyticsPage() {
 
   return (
     <Layout>
-      <EINav projectId={projectId} projectName={projectInfo?.name ?? '...'} role={role} />
+      <EINav projectId={projectId} projectName={projectName} role={role} />
 
       {loading ? (
         <AnalyticsSkeleton />

@@ -1,11 +1,14 @@
 'use client';
 
-import { useState, useEffect } from 'react';
+import { useEffect, useState } from 'react';
 import { useParams, useRouter } from 'next/navigation';
 import Link from 'next/link';
+import useSWR from 'swr';
 import Layout from '@/components/Layout';
 import Navbar from '@/components/Navbar';
 import { formatCurrency } from '@/lib/utils';
+import { useProject } from '@/lib/contexts/ProjectContext';
+import { jsonFetcher } from '@/lib/fetcher';
 
 interface VendorUser {
   userId: string;
@@ -33,14 +36,8 @@ export default function CreateMilestonePage() {
   const router = useRouter();
   const projectId = params.projectId as string;
 
-  const [projectName, setProjectName] = useState('');
-  const [myRole, setMyRole] = useState('');
-  const [loading, setLoading] = useState(true);
   const [submitting, setSubmitting] = useState(false);
   const [error, setError] = useState('');
-
-  const [boqItems, setBoqItems] = useState<BOQItem[]>([]);
-  const [vendors, setVendors] = useState<VendorUser[]>([]);
 
   const [form, setForm] = useState({
     title: '',
@@ -54,59 +51,38 @@ export default function CreateMilestonePage() {
     vendorUserId: '',
   });
 
+  const { project, isLoading: projectLoading } = useProject();
+  const projectName = project?.name ?? '';
+  const myRole = project?.myRole ?? '';
+  const canEdit =
+    ((project?.permissions ?? {}) as Record<string, boolean>).canEditMilestones === true;
+  const isOwnerOrPMC = myRole === 'OWNER' || myRole === 'PMC';
+
+  const { data: boqs, isLoading: boqLoading } = useSWR<BOQ[]>(
+    projectId ? `/api/projects/${projectId}/boq` : null,
+    jsonFetcher,
+    { revalidateOnFocus: false, dedupingInterval: 60_000 },
+  );
+
+  const { data: vendorsPayload, isLoading: vendorsLoading } = useSWR<VendorUser[]>(
+    projectId && isOwnerOrPMC ? `/api/admin/vendors?projectId=${projectId}` : null,
+    jsonFetcher,
+    { revalidateOnFocus: false, dedupingInterval: 120_000 },
+  );
+
+  const boqItems: BOQItem[] = (() => {
+    const approved = (boqs ?? []).find((b) => b.status === 'APPROVED');
+    return approved ? approved.items ?? [] : [];
+  })();
+  const vendors: VendorUser[] = vendorsPayload ?? [];
+  const loading = projectLoading || boqLoading || (isOwnerOrPMC && vendorsLoading);
+
+  // Surface permission error once project loads.
   useEffect(() => {
-    loadData();
-  }, [projectId]);
-
-  const loadData = async () => {
-    try {
-      const [projectRes, boqRes] = await Promise.all([
-        fetch(`/api/projects/${projectId}`),
-        fetch(`/api/projects/${projectId}/boq`),
-      ]);
-
-      const [projectData, boqData] = await Promise.all([
-        projectRes.json(),
-        boqRes.json(),
-      ]);
-
-      if (projectData.success) {
-        setProjectName(projectData.data.name);
-        setMyRole(projectData.data.myRole);
-
-        // Check permission
-        if (!projectData.data.permissions?.canEditMilestones) {
-          setError('You do not have permission to create milestones.');
-        }
-      } else {
-        setError(projectData.error || 'Failed to load project');
-      }
-
-      if (boqData.success && boqData.data) {
-        const approvedBoq = boqData.data.find((b: BOQ) => b.status === 'APPROVED');
-        if (approvedBoq) {
-          setBoqItems(approvedBoq.items || []);
-        }
-      }
-
-      // Load vendor users (OWNER/PMC only)
-      if (projectData.success && (projectData.data.myRole === 'OWNER' || projectData.data.myRole === 'PMC')) {
-        try {
-          const vendorsRes = await fetch(`/api/admin/vendors?projectId=${projectId}`);
-          const vendorsData = await vendorsRes.json();
-          if (vendorsData.success) {
-            setVendors(vendorsData.data);
-          }
-        } catch {
-          // Vendor dropdown is optional
-        }
-      }
-    } catch {
-      setError('Failed to load data');
-    } finally {
-      setLoading(false);
+    if (!projectLoading && project && !canEdit) {
+      setError('You do not have permission to create milestones.');
     }
-  };
+  }, [projectLoading, project, canEdit]);
 
   const updateForm = (updates: Partial<typeof form>) => {
     setForm((prev) => ({ ...prev, ...updates }));

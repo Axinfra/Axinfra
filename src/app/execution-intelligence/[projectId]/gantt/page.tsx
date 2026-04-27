@@ -1,15 +1,13 @@
 'use client';
 
-import { useEffect, useState, useCallback, useRef } from 'react';
+import { useState } from 'react';
 import { useParams } from 'next/navigation';
+import useSWR from 'swr';
 import Layout from '@/components/Layout';
 import EINav from '@/components/execution-intelligence/EINav';
 import GanttChart from '@/components/execution-intelligence/GanttChart';
-
-interface ProjectInfo {
-  name: string;
-  myRole: string;
-}
+import { useProject } from '@/lib/contexts/ProjectContext';
+import { jsonFetcher } from '@/lib/fetcher';
 
 interface GanttMilestone {
   id: string;
@@ -49,28 +47,25 @@ export default function GanttPage() {
   const params = useParams();
   const projectId = params.projectId as string;
 
-  const [projectInfo, setProjectInfo] = useState<ProjectInfo | null>(null);
-  const [ganttData, setGanttData] = useState<GanttData | null>(null);
-  const [loading, setLoading] = useState(true);
   const [mode, setMode] = useState<GanttMode>('L1');
   const [showCriticalOnly, setShowCriticalOnly] = useState(false);
   const [filterVendor, setFilterVendor] = useState<string>('');
 
-  const load = useCallback(async () => {
-    const [projRes, ganttRes] = await Promise.all([
-      fetch(`/api/projects/${projectId}`),
-      fetch(`/api/execution-intelligence/${projectId}/gantt`),
-    ]);
-    const [projData, ganttJson] = await Promise.all([projRes.json(), ganttRes.json()]);
-    if (projData.success) setProjectInfo({ name: projData.data.name, myRole: projData.data.myRole });
-    if (ganttJson.success) setGanttData(ganttJson.data);
-    setLoading(false);
-  }, [projectId]);
-
-  useEffect(() => { load(); }, [load]);
-
-  const role = projectInfo?.myRole ?? '';
+  const { project, isLoading: projectLoading } = useProject();
+  const projectName = project?.name ?? '...';
+  const role = project?.myRole ?? '';
   const canEdit = role === 'OWNER' || role === 'PMC';
+
+  const {
+    data: ganttData,
+    isLoading: ganttLoading,
+    mutate: refetchGantt,
+  } = useSWR<GanttData>(
+    projectId ? `/api/execution-intelligence/${projectId}/gantt` : null,
+    jsonFetcher,
+    { revalidateOnFocus: false, dedupingInterval: 30_000 },
+  );
+  const loading = projectLoading || ganttLoading;
 
   // Unique vendors for filter
   const vendors = ganttData
@@ -95,12 +90,12 @@ export default function GanttPage() {
       headers: { 'Content-Type': 'application/json' },
       body: JSON.stringify({ [field]: value }),
     });
-    load();
+    void refetchGantt();
   };
 
   return (
     <Layout>
-      <EINav projectId={projectId} projectName={projectInfo?.name ?? '...'} role={role} />
+      <EINav projectId={projectId} projectName={projectName} role={role} />
 
       <div className="space-y-4">
         {/* Toolbar */}

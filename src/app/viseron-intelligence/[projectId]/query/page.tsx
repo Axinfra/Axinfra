@@ -4,11 +4,7 @@ import { useEffect, useState, useCallback, useRef } from 'react';
 import { useParams } from 'next/navigation';
 import Layout from '@/components/Layout';
 import ViseronNav from '@/components/viseron/ViseronNav';
-
-interface ProjectInfo {
-  name: string;
-  myRole: string;
-}
+import { useProject } from '@/lib/contexts/ProjectContext';
 
 interface QueryMessage {
   id: string;
@@ -29,22 +25,15 @@ const SUGGESTED_QUERIES = [
 export default function ViseronQueryPage() {
   const params = useParams();
   const projectId = params.projectId as string;
-  const [projectInfo, setProjectInfo] = useState<ProjectInfo | null>(null);
   const [messages, setMessages] = useState<QueryMessage[]>([]);
   const [input, setInput] = useState('');
   const [isLoading, setIsLoading] = useState(false);
-  const [pageLoading, setPageLoading] = useState(true);
   const scrollRef = useRef<HTMLDivElement>(null);
   const inputRef = useRef<HTMLInputElement>(null);
 
-  useEffect(() => {
-    fetch(`/api/projects/${projectId}`)
-      .then((r) => r.json())
-      .then((data) => {
-        if (data.success) setProjectInfo({ name: data.data.name, myRole: data.data.myRole });
-      })
-      .finally(() => setPageLoading(false));
-  }, [projectId]);
+  const { project, isLoading: pageLoading } = useProject();
+  const projectName = project?.name ?? '...';
+  const myRole = project?.myRole ?? '';
 
   // Auto-scroll on new messages
   useEffect(() => {
@@ -116,8 +105,8 @@ export default function ViseronQueryPage() {
     <Layout>
       <ViseronNav
         projectId={projectId}
-        projectName={projectInfo?.name ?? '...'}
-        role={projectInfo?.myRole ?? ''}
+        projectName={projectName}
+        role={myRole}
       />
 
       {pageLoading ? (
