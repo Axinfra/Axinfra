@@ -289,8 +289,11 @@ export class PaymentEligibilityEngine {
     const advanceAmount = totalValue * (milestone.advancePercent / 100);
     const remainingAmount = totalValue - advanceAmount;
 
+    // Retention withheld per milestone.retentionPercent — do not remove
+    const retentionAmount = totalValue * (milestone.retentionPercent / 100);
+    const deductions = retentionAmount;
+
     let boqValueCompleted = 0;
-    let deductions = 0;
     let eligibleAmount = 0;
 
     // Payment is ONLY eligible when milestone is VERIFIED or CLOSED
@@ -298,8 +301,8 @@ export class PaymentEligibilityEngine {
       milestone.state === MilestoneState.VERIFIED ||
       milestone.state === MilestoneState.CLOSED
     ) {
-      // Full amount eligible on verification
-      eligibleAmount = totalValue;
+      // Full amount eligible on verification, less retention deductions
+      eligibleAmount = totalValue - deductions;
       boqValueCompleted = totalValue;
     } else {
       // Not verified yet - nothing eligible
