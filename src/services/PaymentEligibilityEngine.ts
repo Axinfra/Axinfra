@@ -496,40 +496,78 @@ export class PaymentEligibilityEngine {
       return { success: false, error: 'Reason is required for unblocking' };
     }
 
-    const eligibility = await prisma.paymentEligibility.findUnique({
-      where: { milestoneId },
+    // recalculate must complete before block-clear — both steps must be observable or neither
+    // We pre-compute the new eligibility (no writes), then perform the state change,
+    // block-clear, eligibility event, and audit log inside a SINGLE transaction.
+    const milestone = await prisma.milestone.findUnique({
+      where: { id: milestoneId },
+      include: {
+        boqLinks: { include: { boqItem: true } },
+        verifications: { orderBy: { verifiedAt: 'desc' } },
+        paymentEligibility: true,
+      },
     });
 
-    if (!eligibility) {
+    if (!milestone || !milestone.paymentEligibility) {
       return { success: false, error: 'Payment eligibility not found' };
     }
+
+    const eligibility = milestone.paymentEligibility;
 
     if (eligibility.state !== EligibilityState.BLOCKED) {
       return { success: false, error: 'Item is not blocked' };
     }
 
-    // Recalculate to determine new state after unblock
-    const result = await this.recalculatePaymentEligibility(
-      milestoneId,
-      actorId,
-      actorRole,
-      EligibilityEventType.UNBLOCKED_BY_OWNER
+    const typedMilestone = {
+      ...milestone,
+      paymentModel: milestone.paymentModel as PaymentModel,
+      state: milestone.state as MilestoneState,
+    };
+    const calculation = await this.computeEligibility(typedMilestone);
+
+    // Pass currentState=null so determineState recomputes a fresh state
+    // (the BLOCKED-stays-BLOCKED rule must be bypassed when unblocking).
+    const newState = this.determineState(
+      calculation,
+      typedMilestone.state,
+      milestone.plannedEnd,
+      null
     );
 
-    if (!result.success) {
-      return result;
-    }
+    const previousAmount = eligibility.eligibleAmount;
 
-    // Atomic: clear block info + audit log
+    // Atomic: state change + block-clear + eligibility event + audit log
     await prisma.$transaction(async (tx) => {
       await tx.paymentEligibility.update({
         where: { milestoneId },
         data: {
+          boqValueCompleted: calculation.boqValueCompleted,
+          deductions: calculation.deductions,
+          eligibleAmount: calculation.eligibleAmount,
+          advanceAmount: calculation.advanceAmount,
+          remainingAmount: calculation.remainingAmount,
           blockedAmount: 0,
+          state: newState,
+          dueDate: calculation.dueDate,
+          lastCalculatedAt: new Date(),
           blockReasonCode: null,
           blockExplanation: null,
           blockedAt: null,
           blockedByActorId: null,
+        },
+      });
+
+      await tx.eligibilityEvent.create({
+        data: {
+          paymentEligibilityId: eligibility.id,
+          eventType: EligibilityEventType.UNBLOCKED_BY_OWNER,
+          fromState: EligibilityState.BLOCKED,
+          toState: newState,
+          actorId,
+          actorRole,
+          eligibleAmountBefore: previousAmount,
+          eligibleAmountAfter: calculation.eligibleAmount,
+          explanation: reason,
         },
       });
 
@@ -542,7 +580,7 @@ export class PaymentEligibilityEngine {
           entityType: 'PaymentEligibility',
           entityId: eligibility.id,
           beforeJson: JSON.stringify({ state: EligibilityState.BLOCKED }),
-          afterJson: JSON.stringify({ state: result.eligibility?.state }),
+          afterJson: JSON.stringify({ state: newState, eligibleAmount: calculation.eligibleAmount }),
           reason,
         },
       });
@@ -551,7 +589,7 @@ export class PaymentEligibilityEngine {
     // Viseron Intelligence: emit system event for analytics pipeline
     SystemEventService.emit(SystemEventType.PAYMENT_UNBLOCKED, projectId, 'PaymentEligibility', eligibility.id, actorId, {
       milestoneId,
-      newState: result.eligibility?.state,
+      newState,
     });
 
     return { success: true };
