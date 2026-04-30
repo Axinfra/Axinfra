@@ -27,6 +27,11 @@ const daysFromNow = (d: number) => new Date(now.getTime() + d * 86_400_000);
 
 // ─── Main seed ───────────────────────────────────────────────────────────────
 async function main() {
+  if (process.env.NODE_ENV === 'production') {
+    console.error('SEED ABORTED: NODE_ENV is production. This script will destroy all data. If you genuinely need to reseed production, remove this guard manually.');
+    process.exit(1);
+  }
+
   console.log('🌱 Seeding Axinfra database…\n');
 
   // ── 1. Wipe all data (respects FK order) ─────────────────────────────────
