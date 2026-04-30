@@ -390,8 +390,8 @@ export class FollowUpScheduler {
       return { success: false, error: 'Only Owner or PMC can resolve follow-ups' };
     }
 
-    const followUp = await prisma.followUp.findUnique({
-      where: { id: followUpId },
+    const followUp = await prisma.followUp.findFirst({
+      where: { id: followUpId, projectId },
     });
 
     if (!followUp) {
