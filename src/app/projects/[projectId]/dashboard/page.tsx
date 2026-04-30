@@ -7,6 +7,10 @@ import Navbar from '@/components/Navbar';
 import { formatCurrency, formatDate, formatDateTime } from '@/lib/utils';
 import { useProject } from '@/lib/contexts/ProjectContext';
 import { jsonFetcher } from '@/lib/fetcher';
+import ActivityFeed from '@/components/dashboard/ActivityFeed';
+import MilestoneCompletionChart from '@/components/dashboard/MilestoneCompletionChart';
+import BudgetVsActualChart from '@/components/dashboard/BudgetVsActualChart';
+import PaymentStatusChart from '@/components/dashboard/PaymentStatusChart';
 
 export default function DashboardPage() {
   const params = useParams();
@@ -55,7 +59,7 @@ export default function DashboardPage() {
           {myRole} Dashboard
         </h1>
 
-        {myRole === 'OWNER' && <OwnerDashboard data={dashboard} />}
+        {myRole === 'OWNER' && <OwnerDashboard data={dashboard} projectId={projectId} />}
         {myRole === 'PMC' && <PMCDashboard data={dashboard} />}
         {myRole === 'VENDOR' && <VendorDashboard data={dashboard} />}
         {myRole === 'VIEWER' && <ViewerDashboard data={dashboard} />}
@@ -64,7 +68,7 @@ export default function DashboardPage() {
   );
 }
 
-function OwnerDashboard({ data }: { data: any }) {
+function OwnerDashboard({ data, projectId }: { data: any; projectId: string }) {
   return (
     <div className="space-y-6">
       {/* Summary Cards */}
@@ -118,6 +122,24 @@ function OwnerDashboard({ data }: { data: any }) {
           </div>
         </div>
       </div>
+
+      {/* ── Project Overview Charts ── */}
+      <section className="space-y-3">
+        <div className="flex items-baseline justify-between">
+          <h2 className="text-lg font-semibold text-[#f5f1e8]">Project Overview</h2>
+          <span className="text-xs text-[rgba(232,228,220,0.45)]">
+            Across all your owned projects
+          </span>
+        </div>
+        <div className="grid gap-4 grid-cols-1 lg:grid-cols-2 xl:grid-cols-3">
+          <MilestoneCompletionChart />
+          <BudgetVsActualChart />
+          <PaymentStatusChart />
+        </div>
+      </section>
+
+      {/* ── Recent Activity Feed ── */}
+      <ActivityFeed projectId={projectId} />
 
       {/* Vendor Exposures */}
       {data.vendorExposures?.length > 0 && (
