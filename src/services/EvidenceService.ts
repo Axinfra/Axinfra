@@ -78,6 +78,10 @@ export class EvidenceService {
       return { success: false, error: 'Milestone not found' };
     }
 
+    if (milestone.vendorUserId && milestone.vendorUserId !== actorId) {
+      throw new Error('FORBIDDEN: You can only submit evidence on milestones assigned to you');
+    }
+
     if (milestone.state !== MilestoneState.IN_PROGRESS) {
       return { success: false, error: `Cannot submit evidence for milestone in ${milestone.state} state` };
     }
