@@ -301,8 +301,8 @@ export class PaymentEligibilityEngine {
       milestone.state === MilestoneState.VERIFIED ||
       milestone.state === MilestoneState.CLOSED
     ) {
-      // Full amount eligible on verification, less retention deductions
-      eligibleAmount = totalValue - deductions;
+      // advanceAmount already disbursed — subtract to prevent double-payment
+      eligibleAmount = totalValue - advanceAmount - deductions;
       boqValueCompleted = totalValue;
     } else {
       // Not verified yet - nothing eligible
