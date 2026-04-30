@@ -4,7 +4,8 @@ import { requireProjectAuth } from '@/lib/auth';
 import { validateMilestoneOwnership } from '@/lib/validate-ownership';
 import { RoleGuard } from '@/services/RoleGuard';
 import { MilestoneStateMachine } from '@/services/MilestoneStateMachine';
-import { AuditActionTypes, MilestoneState } from '@/types';
+import { PaymentEligibilityEngine } from '@/services/PaymentEligibilityEngine';
+import { AuditActionTypes, EligibilityEventType, MilestoneState } from '@/types';
 import { z } from 'zod';
 
 const verifySchema = z.object({
@@ -78,52 +79,119 @@ export async function POST(
       valueEligibleComputed = milestone.value;
     }
 
-    // Transition to VERIFIED state via state machine (which now validates
-    // ALL evidence approved, writes audit log atomically, and recalculates eligibility)
-    const transitionResult = await MilestoneStateMachine.transition(
-      milestoneId,
-      MilestoneState.VERIFIED,
-      auth.userId,
-      auth.role,
-      projectId,
-      notes
-    );
+    // Re-validate state-machine preconditions inside the transaction,
+    // then update milestone state + create transition record + verification + audit logs
+    // as a SINGLE atomic operation. State-machine.transition is NOT used here because
+    // its internal $transaction would split the work into two separate atomic units.
+    let fromState: MilestoneState = MilestoneState.SUBMITTED;
+    try {
+      await prisma.$transaction(async (tx) => {
+        const current = await tx.milestone.findUnique({
+          where: { id: milestoneId },
+        });
+        if (!current) {
+          throw new Error('Milestone not found');
+        }
+        fromState = current.state as MilestoneState;
 
-    if (!transitionResult.success) {
-      return NextResponse.json(
-        { success: false, error: transitionResult.error },
-        { status: 400 }
-      );
-    }
+        if (!MilestoneStateMachine.isValidTransition(fromState, MilestoneState.VERIFIED)) {
+          throw new Error(`Invalid transition: ${fromState} -> ${MilestoneState.VERIFIED}`);
+        }
+        if (!MilestoneStateMachine.canPerformTransition(fromState, MilestoneState.VERIFIED, auth.role)) {
+          throw new Error(`FORBIDDEN: Role ${auth.role} cannot perform transition: ${fromState} -> ${MilestoneState.VERIFIED}`);
+        }
 
-    // Create verification record and audit log atomically
-    await prisma.$transaction(async (tx) => {
-      await tx.verification.create({
-        data: {
-          milestoneId,
-          verifiedById: auth.userId,
-          qtyVerified,
-          valueEligibleComputed,
-          notes,
-        },
-      });
+        // Re-check ALL evidence APPROVED inside the transaction (race-safe)
+        const totalEvidence = await tx.evidence.count({ where: { milestoneId } });
+        const approvedEvidence = await tx.evidence.count({
+          where: { milestoneId, status: 'APPROVED' },
+        });
+        if (totalEvidence === 0) {
+          throw new Error('Cannot verify milestone without evidence');
+        }
+        if (approvedEvidence < totalEvidence) {
+          throw new Error(
+            `Cannot verify: ${totalEvidence - approvedEvidence} of ${totalEvidence} evidence items are not yet approved`
+          );
+        }
 
-      await tx.auditLog.create({
-        data: {
-          projectId,
-          actorId: auth.userId,
-          role: auth.role,
-          actionType: AuditActionTypes.VERIFICATION_CREATE,
-          entityType: 'Verification',
-          entityId: milestoneId,
-          afterJson: JSON.stringify({
+        await tx.milestone.update({
+          where: { id: milestoneId },
+          data: {
+            state: MilestoneState.VERIFIED,
+            actualVerification: new Date(),
+          },
+        });
+
+        await tx.milestoneStateTransition.create({
+          data: {
+            milestoneId,
+            fromState,
+            toState: MilestoneState.VERIFIED,
+            actorId: auth.userId,
+            role: auth.role,
+            reason: notes,
+          },
+        });
+
+        await tx.verification.create({
+          data: {
+            milestoneId,
+            verifiedById: auth.userId,
             qtyVerified,
             valueEligibleComputed,
             notes,
-          }),
-        },
+          },
+        });
+
+        await tx.auditLog.create({
+          data: {
+            projectId,
+            actorId: auth.userId,
+            role: auth.role,
+            actionType: AuditActionTypes.MILESTONE_STATE_TRANSITION,
+            entityType: 'Milestone',
+            entityId: milestoneId,
+            beforeJson: JSON.stringify({ state: fromState }),
+            afterJson: JSON.stringify({ state: MilestoneState.VERIFIED }),
+            reason: notes,
+          },
+        });
+
+        await tx.auditLog.create({
+          data: {
+            projectId,
+            actorId: auth.userId,
+            role: auth.role,
+            actionType: AuditActionTypes.VERIFICATION_CREATE,
+            entityType: 'Verification',
+            entityId: milestoneId,
+            afterJson: JSON.stringify({
+              qtyVerified,
+              valueEligibleComputed,
+              notes,
+            }),
+          },
+        });
       });
-    });
+    } catch (txErr) {
+      const msg = txErr instanceof Error ? txErr.message : 'Verification transaction failed';
+      if (msg.startsWith('FORBIDDEN')) {
+        return NextResponse.json({ success: false, error: msg }, { status: 403 });
+      }
+      return NextResponse.json({ success: false, error: msg }, { status: 400 });
+    }
+
+    // Best-effort recalculate after the atomic transaction. If this fails,
+    // the verification still stands and a subsequent event will trigger a retry.
+    await PaymentEligibilityEngine.recalculatePaymentEligibility(
+      milestoneId,
+      auth.userId,
+      auth.role,
+      EligibilityEventType.MILESTONE_STATE_CHANGED,
+      'Milestone',
+      milestoneId
+    );
 
     return NextResponse.json({
       success: true,
