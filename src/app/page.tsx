@@ -1,216 +1,642 @@
-import Link from "next/link"
-import styles from "./landing.module.css"
+'use client';
 
-/* ── Reusable Project Card ── */
-function ProjectCard({
-  title,
-  status,
-  statusType,
-  progress,
-  metaLeft,
-  metaRight,
-}: {
-  title: string
-  status: string
-  statusType: "active" | "done" | "risk"
-  progress: number
-  metaLeft: string
-  metaRight: string
-}) {
-  const statusClass =
-    statusType === "active"
-      ? styles.statusActive
-      : statusType === "done"
-        ? styles.statusDone
-        : styles.statusRisk
+import { useState, useEffect, useRef } from 'react';
+import Link from 'next/link';
+import './landing-page.css';
+import {
+  motion,
+  useInView,
+  AnimatePresence,
+  useMotionValue,
+  useSpring,
+  type Variants,
+} from 'framer-motion';
 
-  const progressClass =
-    statusType === "active"
-      ? styles.progressActive
-      : statusType === "done"
-        ? styles.progressDone
-        : styles.progressRisk
 
+/* ─── Motion helpers ─────────────────────────────────────────────────────── */
+const fadeUp: Variants = {
+  hidden: { opacity: 0, y: 32 },
+  show: { opacity: 1, y: 0, transition: { duration: 0.65, ease: [0.22, 1, 0.36, 1] } },
+};
+
+function Section({ children, className = '', style = {} }: { children: React.ReactNode; className?: string; style?: React.CSSProperties }) {
+  const ref = useRef(null);
+  const inView = useInView(ref, { once: true, margin: '-80px' });
   return (
-    <div className={styles.projectCard}>
-      <div className={styles.projectCardHeader}>
-        <span className={styles.projectCardTitle}>{title}</span>
-        <span className={`${styles.statusBadge} ${statusClass}`}>{status}</span>
-      </div>
-      <div className={styles.progressBar}>
-        <div
-          className={`${styles.progressFill} ${progressClass}`}
-          style={{ width: `${progress}%` }}
-        />
-      </div>
-      <div className={styles.projectCardMeta}>
-        <span>{metaLeft}</span>
-        <span>{metaRight}</span>
-      </div>
-    </div>
-  )
+    <motion.div
+      ref={ref}
+      variants={fadeUp}
+      initial="hidden"
+      animate={inView ? 'show' : 'hidden'}
+      className={className}
+      style={style}
+    >
+      {children}
+    </motion.div>
+  );
 }
 
-/* ── Checkmark SVG ── */
-function CheckIcon() {
+/* ─── Animated counter ───────────────────────────────────────────────────── */
+function Counter({ to, decimals = 0 }: { to: number; decimals?: number }) {
+  const ref = useRef<HTMLSpanElement>(null);
+  const inView = useInView(ref, { once: true });
+  const started = useRef(false);
+
+  useEffect(() => {
+    if (!inView || started.current) return;
+    started.current = true;
+
+    const FRAMES = 55; // ~0.9s at 60fps — fast & snappy
+    let frame = 0;
+
+    const tick = () => {
+      frame++;
+      // Ease-out cubic: starts fast, decelerates at end
+      const t = frame / FRAMES;
+      const eased = 1 - Math.pow(1 - t, 3);
+      const value = to * eased;
+
+      if (ref.current) {
+        ref.current.textContent = decimals
+          ? value.toFixed(decimals)
+          : Math.round(value).toString();
+      }
+
+      if (frame < FRAMES) {
+        requestAnimationFrame(tick);
+      } else if (ref.current) {
+        // Snap to exact final value
+        ref.current.textContent = decimals ? to.toFixed(decimals) : String(to);
+      }
+    };
+
+    requestAnimationFrame(tick);
+  }, [inView, to, decimals]);
+
+  return <span ref={ref} suppressHydrationWarning>0</span>;
+}
+
+/* ─── Flow SVG ───────────────────────────────────────────────────────────── */
+function FlowDiagram() {
+  const Arr = ({ id, color }: { id: string; color: string }) => (
+    <marker id={id} viewBox="0 0 10 10" refX="8" refY="5" markerWidth="5" markerHeight="5" orient="auto-start-reverse">
+      <path d="M2 1L8 5L2 9" fill="none" stroke={color} strokeWidth="1.8" strokeLinecap="round" strokeLinejoin="round" />
+    </marker>
+  );
+  const Node = ({ x, y, w, h, stroke, roleColor, role, label, sub, pulse }: {
+    x: number; y: number; w: number; h: number; stroke: string; roleColor: string;
+    role: string; label: string; sub?: string; pulse?: boolean;
+  }) => (
+    <g>
+      {pulse && (
+        <circle cx={x + w / 2} cy={y + h / 2} r={Math.max(w, h) / 2 + 10} fill="none" stroke={stroke} strokeOpacity=".25">
+          <animate attributeName="r" values={`${Math.max(w, h) / 2 + 6};${Math.max(w, h) / 2 + 20};${Math.max(w, h) / 2 + 6}`} dur="3s" repeatCount="indefinite" />
+          <animate attributeName="stroke-opacity" values=".25;0;.25" dur="3s" repeatCount="indefinite" />
+        </circle>
+      )}
+      <rect x={x} y={y} width={w} height={h} rx="10" fill={stroke === '#c9a84c' ? '#1a1508' : '#0a1a12'} stroke={stroke} strokeWidth="1.3" />
+      <text x={x + w / 2} y={y + h * 0.38} textAnchor="middle" fill={roleColor} fontSize="9" fontFamily="JetBrains Mono,monospace" fontWeight="600" letterSpacing="1.5">{role}</text>
+      <text x={x + w / 2} y={y + h * 0.67} textAnchor="middle" fill="#f5e9c8" fontSize="11.5" fontFamily="Instrument Sans,sans-serif" fontWeight="500">{label}</text>
+      {sub && <text x={x + w / 2} y={y + h * 0.88} textAnchor="middle" fill={roleColor} fontSize="9" fontFamily="JetBrains Mono,monospace" opacity=".6">{sub}</text>}
+    </g>
+  );
+  const Diamond = ({ cx, cy, size, stroke, roleColor, role, label, pulse }: {
+    cx: number; cy: number; size: number; stroke: string; roleColor: string; role: string; label: string; pulse?: boolean;
+  }) => (
+    <g>
+      {pulse && (
+        <circle cx={cx} cy={cy} r={size + 8} fill="none" stroke={stroke} strokeOpacity=".22">
+          <animate attributeName="r" values={`${size + 6};${size + 18};${size + 6}`} dur="3.2s" repeatCount="indefinite" />
+          <animate attributeName="stroke-opacity" values=".22;0;.22" dur="3.2s" repeatCount="indefinite" />
+        </circle>
+      )}
+      <polygon points={`${cx},${cy - size} ${cx + size},${cy} ${cx},${cy + size} ${cx - size},${cy}`} fill="#1a1508" stroke={stroke} strokeWidth="1.3" />
+      <text x={cx} y={cy - 6} textAnchor="middle" fill={roleColor} fontSize="8.5" fontFamily="JetBrains Mono,monospace" fontWeight="600" letterSpacing="1">{role}</text>
+      <text x={cx} y={cy + 9} textAnchor="middle" fill="#f5e9c8" fontSize="10.5" fontFamily="Instrument Sans,sans-serif">{label}</text>
+    </g>
+  );
+  const Connector = ({ d, stroke, dur }: { d: string; stroke: string; dur: number }) => (
+    <>
+      <path d={d} fill="none" stroke={stroke} strokeWidth="1" opacity=".2" />
+      <path className="dash" d={d} fill="none" stroke={stroke} strokeWidth="1.3" opacity=".72" style={{ animationDuration: `${dur}s` }} />
+      <circle r="3" fill={stroke}>
+        <animateMotion dur={`${dur + 0.1}s`} repeatCount="indefinite" path={d} />
+      </circle>
+    </>
+  );
+
   return (
-    <svg viewBox="0 0 12 12" fill="none" xmlns="http://www.w3.org/2000/svg">
-      <path d="M2.5 6L5 8.5L9.5 3.5" stroke="currentColor" strokeWidth="1.5" strokeLinecap="round" strokeLinejoin="round" />
+    <svg width="100%" viewBox="0 0 860 530" role="img" xmlns="http://www.w3.org/2000/svg" style={{ background: '#080808', borderRadius: 12, display: 'block' }}>
+      <title>Axinfra project governance flow</title>
+      <defs>
+        <Arr id="ag" color="#c9a84c" />
+        <Arr id="agr" color="#1d9e75" />
+        <Arr id="ar" color="#e24b4a" />
+      </defs>
+
+      {([['50', 'OWNER', '#c9a84c', '250'], ['320', 'PMC', '#888', '530'], ['600', 'VENDOR', '#1d9e75', '840']] as const).map(([x, label, color, x2]) => (
+        <g key={label}>
+          <text x={x} y="34" fill={color} fontSize="10" fontFamily="JetBrains Mono,monospace" fontWeight="600" letterSpacing="2" opacity=".65">{label}</text>
+          <line x1={x} y1="40" x2={x2} y2="40" stroke={color} strokeWidth=".5" opacity=".22" />
+        </g>
+      ))}
+      <line x1="290" y1="48" x2="290" y2="510" stroke="#fff" strokeWidth=".4" opacity=".05" />
+      <line x1="572" y1="48" x2="572" y2="510" stroke="#fff" strokeWidth=".4" opacity=".05" />
+
+      <Node x={50} y={92} w={180} h={48} stroke="#c9a84c" roleColor="#c9a84c" role="OWNER" label="Creates project" pulse />
+      <Connector d="M231 116 L317 116" stroke="#c9a84c" dur={1.5} />
+      <Node x={317} y={92} w={170} h={48} stroke="#c9a84c" roleColor="#c9a84c" role="PMC" label="Creates BOQ" />
+      <Connector d="M402 140 L402 180 L140 180 L140 208" stroke="#c9a84c" dur={2.3} />
+      <Diamond cx={140} cy={248} size={44} stroke="#c9a84c" roleColor="#c9a84c" role="OWNER" label="Approve BOQ?" pulse />
+      <text x={202} y={244} fill="#1d9e75" fontSize="10" fontFamily="Instrument Sans,sans-serif" fontWeight="600">✓ Approve</text>
+      <text x={26} y={328} fill="#e24b4a" fontSize="10" fontFamily="Instrument Sans,sans-serif" fontWeight="600">✗ Reject</text>
+      <path d="M140 292 L140 348 L402 348 L402 140" fill="none" stroke="#e24b4a" strokeWidth="1" strokeDasharray="4 6" opacity=".6" markerEnd="url(#ar)" />
+      <circle r="2.5" fill="#e24b4a"><animateMotion dur="3.4s" repeatCount="indefinite" path="M140,292 L140,348 L402,348 L402,140" /></circle>
+      <rect x={216} y={337} width={138} height={20} rx="5" fill="#1a0606" />
+      <text x={285} y={351} textAnchor="middle" fill="#e24b4a" fontSize="9" fontFamily="JetBrains Mono,monospace">BOQ Revised — re-submit</text>
+      <Connector d="M184 248 L317 248" stroke="#1d9e75" dur={1.6} />
+      <Node x={317} y={224} w={170} h={48} stroke="#1d9e75" roleColor="#1d9e75" role="PMC" label="Creates milestones" />
+      <Connector d="M487 248 L608 248" stroke="#1d9e75" dur={1.7} />
+      <Node x={608} y={224} w={180} h={48} stroke="#1d9e75" roleColor="#1d9e75" role="VENDOR" label="Starts work" pulse />
+      <Connector d="M698 272 L698 370" stroke="#1d9e75" dur={1.8} />
+      <Node x={608} y={370} w={180} h={48} stroke="#1d9e75" roleColor="#1d9e75" role="VENDOR" label="Submits evidence" />
+      <Connector d="M608 394 L490 394" stroke="#c9a84c" dur={1.6} />
+      <Diamond cx={402} cy={394} size={44} stroke="#c9a84c" roleColor="#c9a84c" role="PMC" label="Verifies?" pulse />
+      <text x={280} y={390} fill="#1d9e75" fontSize="10" fontFamily="Instrument Sans,sans-serif" fontWeight="600">✓ Verified</text>
+      <text x={408} y={456} fill="#e24b4a" fontSize="10" fontFamily="Instrument Sans,sans-serif" fontWeight="600">✗ Not satisfied</text>
+      <path d="M402 438 L402 482 L698 482 L698 418" fill="none" stroke="#e24b4a" strokeWidth="1" strokeDasharray="4 6" opacity=".6" markerEnd="url(#ar)" />
+      <circle r="2.5" fill="#e24b4a"><animateMotion dur="3.2s" repeatCount="indefinite" path="M402,438 L402,482 L698,482 L698,418" /></circle>
+      <rect x={468} y={471} width={132} height={20} rx="5" fill="#1a0606" />
+      <text x={534} y={485} textAnchor="middle" fill="#e24b4a" fontSize="9" fontFamily="JetBrains Mono,monospace">Back to In Progress</text>
+      <Connector d="M358 394 L140 394 L140 460" stroke="#1d9e75" dur={2.5} />
+      <Node x={50} y={460} w={180} h={52} stroke="#1d9e75" roleColor="#1d9e75" role="OWNER" label="Releases payment" sub="Milestone closed" pulse />
     </svg>
-  )
+  );
 }
 
-export default function LandingPage() {
+/* ─── Data ───────────────────────────────────────────────────────────────── */
+const GANTT_TASKS = [
+  { name: 'Project kickoff', role: 'OWNER', color: 'gold', start: 0, len: 0.8 },
+  { name: 'BOQ — Phase 0 Foundation', role: 'PMC', color: 'gold', start: 0.6, len: 1.4 },
+  { name: 'BOQ Approval', role: 'OWNER', color: 'gold', start: 2, len: 0.5 },
+  { name: 'Foundation milestones', role: 'PMC', color: 'green', start: 2.4, len: 1.2 },
+  { name: 'Foundation work', role: 'VENDOR', color: 'green', start: 2.8, len: 1.8 },
+  { name: 'Evidence review — Phase 0', role: 'PMC', color: 'gold', start: 4.6, len: 0.5 },
+  { name: 'Payment release — Phase 0', role: 'OWNER', color: 'green', start: 5.1, len: 0.5 },
+  { name: 'BOQ — Structural Works', role: 'PMC', color: 'gold', start: 2, len: 1.2 },
+  { name: 'Structural milestones', role: 'PMC', color: 'green', start: 3, len: 0.6 },
+  { name: 'Structural work', role: 'VENDOR', color: 'green', start: 3.4, len: 2.8 },
+  { name: 'Evidence — Structural', role: 'VENDOR', color: 'gold', start: 6.2, len: 0.5 },
+  { name: 'Phase 3 BOQ (Draft)', role: 'PMC', color: 'gray', start: 5, len: 2 },
+  { name: 'Facade & MEP (at risk)', role: 'VENDOR', color: 'red', start: 5.8, len: 2.2 },
+];
+const MONTHS = ['Jan', 'Feb', 'Mar', 'Apr', 'May', 'Jun', 'Jul', 'Aug'];
+
+const FEATURES = [
+  { icon: '🏗️', title: 'Milestone-gated workflows', desc: 'Every phase is broken into milestones. Work can only progress when evidence is submitted and verified — no shortcuts, no exceptions.' },
+  { icon: '💸', title: 'Evidence-based payment release', desc: 'Owners release payment only after PMC verifies vendor evidence. No approval, no disbursement. Advance exposure becomes a thing of the past.' },
+  { icon: '👥', title: 'Role-based access — Owner, PMC, Vendor', desc: 'Each stakeholder sees exactly what they need. Owners see financials. PMC sees execution. Vendors see their milestones. Zero information leakage.' },
+  { icon: '📋', title: 'Immutable audit trail', desc: 'Every action is timestamped and attributed. Disputes are resolved in minutes with data, not weeks with screenshots. 100% traceable from day one.' },
+  { icon: '⚡', title: 'Viseron AI risk detection', desc: 'Predictive intelligence flags delays, budget overruns, and compliance gaps before they escalate. Built into the intelligence tier — no extra setup.' },
+  { icon: '📊', title: 'Execution intelligence & analytics', desc: 'S-curves, burn-down charts, vendor scorecards, delay cost estimates, and payment cycle analysis — all derived from live project data.' },
+];
+
+const PROJECTS = [
+  { name: 'Marina Tower · Phase 2 — Structural Works', status: 'In Progress', statusClass: 'badge-gold', pct: 62, fill: 'var(--gold)', meta: ['Milestone 4 of 7', '62% complete'] },
+  { name: 'Sector 18 Villa Block — MEP Rough-in', status: 'Payment Released', statusClass: 'badge-green', pct: 100, fill: 'var(--green)', meta: ['Milestone 6 of 6', '₹16.4L disbursed'] },
+  { name: 'Greenfield Commercial Hub — Foundation', status: 'Viseron: Delay Risk', statusClass: 'badge-red', pct: 28, fill: 'var(--red)', meta: ['Milestone 2 of 8 · 11 days overdue', '28%'] },
+];
+
+const AUDIT_LOG = [
+  { time: '2026-05-25 22:41', actor: 'Ravi Kumar (Owner)', action: 'released payment for Milestone 3 — Structural Works', badge: 'badge-green', label: 'Payment Released' },
+  { time: '2026-05-25 19:12', actor: 'Priya Mehta (PMC)', action: 'verified evidence for Milestone 3 — Marina Tower Phase 2', badge: 'badge-green', label: 'Verified' },
+  { time: '2026-05-25 14:03', actor: 'BuildCo Vendors', action: 'submitted 7 photos + site report for Milestone 3', badge: 'badge-gold', label: 'Evidence Submitted' },
+  { time: '2026-05-24 11:30', actor: 'Priya Mehta (PMC)', action: 'rejected evidence for Phase 3 — insufficient rebar photo coverage', badge: 'badge-red', label: 'Not Satisfied' },
+  { time: '2026-05-23 09:15', actor: 'Ravi Kumar (Owner)', action: 'approved BOQ for Phase 2 — Facade & MEP (₹28.4L)', badge: 'badge-green', label: 'BOQ Approved' },
+  { time: '2026-05-22 16:44', actor: 'Priya Mehta (PMC)', action: 'created 4 milestones for Phase 2 — Marina Tower', badge: 'badge-gray', label: 'Milestones Created' },
+  { time: '2026-05-21 10:00', actor: 'Ravi Kumar (Owner)', action: 'created project — Downtown Office Building', badge: 'badge-gold', label: 'Project Created' },
+];
+
+/* ─── Main component ─────────────────────────────────────────────────────── */
+export default function HomePage() {
+   const [counters, setCounters] = useState({ a: 0, b: 0, c: 0 });
+  const [menuOpen, setMenuOpen] = useState(false);
+  const statsRef = useRef(null);
+
+  useEffect(() => {
+    const obs = new IntersectionObserver(entries => {
+      if (entries[0].isIntersecting) {
+        let frame = 0;
+        const total = 70;
+        const tick = () => {
+          frame++;
+          setCounters({ a: Math.round(47 * frame / total), b: parseFloat((3.2 * frame / total).toFixed(1)), c: Math.round(100 * frame / total) });
+          if (frame < total) requestAnimationFrame(tick);
+        };
+        requestAnimationFrame(tick);
+        obs.disconnect();
+      }
+    }, { threshold: 0.6 });
+    if (statsRef.current) obs.observe(statsRef.current);
+    return () => obs.disconnect();
+  }, []);
+
   return (
-    <div className={styles.landing}>
-      {/* ── Nav ── */}
-      <nav className={styles.nav}>
-        <div className={styles.navLeft}>
-          <div className={styles.logoMark}>A</div>
-          <span className={styles.wordmark}>Axinfra</span>
+    <>
+      {/* ── NAV ── */}
+      <nav className="ax-nav">
+        <div className="ax-logo">
+          <div className="ax-logomark">A</div>
+          Axinfra
         </div>
-        <div className={styles.navCenter}>
-          <Link href="#platform" className={styles.navLink}>Platform</Link>
-          <Link href="#viseron" className={styles.navLink}>Viseron AI</Link>
-          <Link href="#pricing" className={styles.navLink}>Pricing</Link>
-          <Link href="#clients" className={styles.navLink}>Clients</Link>
+
+        <div className="ax-navlinks">
+          {['Platform', 'How it Works', 'Dashboard', 'Pricing', 'Clients'].map((l) => (
+            <a key={l} href={`#${l.toLowerCase().replace(/ /g, '-')}`}>{l}</a>
+          ))}
         </div>
-        <div className={styles.navRight}>
-          <Link href="/auth/login" className={styles.btnLogin}>Log in</Link>
-          <Link href="/auth/login" className={styles.btnDemo}>Request Demo</Link>
+
+        <div className="ax-navcta">
+          <Link href="/auth/login" className="btn-ghost">Log in</Link>
+          <Link href="/auth/login" className="btn-primary">Request Demo</Link>
         </div>
+
+        <button className="ax-hamburger" onClick={() => setMenuOpen((o) => !o)} aria-label="Menu">
+          <span /><span /><span />
+        </button>
       </nav>
 
-      {/* ── Hero ── */}
-      <section className={styles.hero}>
-        <div className={styles.heroBadge}>
-          <span className={styles.pulseDot} />
-          <span className={styles.heroBadgeText}>Viseron AI — Predictive Risk Intelligence</span>
-        </div>
-        <h1 className={styles.heroHeadline}>
-          The Operating Layer for{" "}
-          <span className={styles.goldText}>Construction</span> Command.
-        </h1>
-        <p className={styles.heroSub}>
+      <AnimatePresence>
+        {menuOpen && (
+          <motion.div
+            className="ax-mobile-menu"
+            initial={{ opacity: 0, y: -12 }}
+            animate={{ opacity: 1, y: 0 }}
+            exit={{ opacity: 0, y: -12 }}
+            transition={{ duration: 0.22 }}
+          >
+            {['Platform', 'How it Works', 'Dashboard', 'Pricing', 'Clients'].map((l) => (
+              <a key={l} href={`#${l.toLowerCase().replace(/ /g, '-')}`} onClick={() => setMenuOpen(false)}>{l}</a>
+            ))}
+            <Link href="/auth/login" className="btn-primary" style={{ marginTop: 8, justifyContent: 'center' }} onClick={() => setMenuOpen(false)}>
+              Request Demo
+            </Link>
+          </motion.div>
+        )}
+      </AnimatePresence>
+
+      {/* ── HERO ── */}
+      <section className="ax-hero">
+        <div className="hero-gridbg" />
+        <div className="hero-glow" />
+
+        <motion.div
+          className="hero-badge"
+          initial={{ opacity: 0, y: 16 }}
+          animate={{ opacity: 1, y: 0 }}
+          transition={{ duration: 0.6, delay: 0.1 }}
+        >
+          <span className="hero-dot" />
+          Viseron AI — Predictive Risk Intelligence
+        </motion.div>
+
+        <motion.h1
+          className="hero-title"
+          initial={{ opacity: 0, y: 24 }}
+          animate={{ opacity: 1, y: 0 }}
+          transition={{ duration: 0.7, delay: 0.22, ease: [0.22, 1, 0.36, 1] }}
+        >
+          The Operating Layer for<br />
+          <span className="gold"><em>Construction</em></span> Command.
+        </motion.h1>
+
+        <motion.p
+          className="hero-sub"
+          initial={{ opacity: 0, y: 20 }}
+          animate={{ opacity: 1, y: 0 }}
+          transition={{ duration: 0.65, delay: 0.36 }}
+        >
           Milestone governance, evidence-based payment release, and AI-driven risk
           detection — built for PMC firms executing at scale across India and GCC.
-        </p>
-        <div className={styles.heroCtas}>
-          <Link href="/auth/login" className={styles.btnDemo}>
-            Request a Demo →
-          </Link>
-          <Link href="#platform" className={styles.btnGhost}>
-            See Live Dashboard
-          </Link>
+        </motion.p>
+
+        <motion.div
+          className="hero-actions"
+          initial={{ opacity: 0, y: 16 }}
+          animate={{ opacity: 1, y: 0 }}
+          transition={{ duration: 0.6, delay: 0.48 }}
+        >
+          <Link href="/auth/login" className="btn-hero">Request a Demo →</Link>
+          <a href="#how-it-works" className="btn-outline">See Live Dashboard</a>
+        </motion.div>
+
+        {/* Stats */}
+        <motion.div
+          // className="stats-bar"
+          initial={{ opacity: 0 }}
+          animate={{ opacity: 1 }}
+          transition={{ duration: 0.9, delay: 0.3 }}
+        >
+          <div className="stats-bar reveal" ref={statsRef}>
+          <div className="stat-item"><div className="stat-num"><span className="acc">{counters.a}</span>%</div><div className="stat-label">Reduction in update chasing</div></div>
+          <div className="stat-item"><div className="stat-num"><span className="acc">{counters.b}</span>×</div><div className="stat-label">Faster payment approvals</div></div>
+          <div className="stat-item"><div className="stat-num"><span className="acc">{counters.c}</span>%</div><div className="stat-label">Audit trail, zero WhatsApp</div></div>
+          <div className="stat-item"><div className="stat-num">₹<span className="acc">0</span></div><div className="stat-label">Setup or integration cost</div></div>
+        </div>
+        </motion.div>
+      </section>
+
+      <div className="ax-divider" />
+
+      {/* ── QUOTE 1 ── */}
+      <Section className="quote-section">
+        <div className="quote-mark">"</div>
+        <p className="quote-text">We stopped chasing vendors on WhatsApp the week we went live. Every milestone, every payment — it's all in one place, timestamped, and traceable.</p>
+        <p className="quote-attr">PMC Director · Residential high-rise, Bangalore</p>
+      </Section>
+
+      <div className="ax-divider" />
+
+      {/* ── HOW IT WORKS ── */}
+      <section className="ax-section" id="how-it-works" style={{ background: 'var(--bg1)' }}>
+        <Section className="sec-head-row">
+          <div>
+            <div className="sec-tag">How it works</div>
+            <h2 className="sec-title">Three roles.<br /><em>One governed flow.</em></h2>
+          </div>
+          <p className="sec-sub">From the moment an Owner creates a project to the final payment release — every step is tracked, every approval is recorded, and nothing moves without evidence.</p>
+        </Section>
+        <Section className="flow-wrap">
+          <FlowDiagram />
+        </Section>
+      </section>
+
+      <div className="ax-divider" />
+
+      {/* ── PLATFORM ── */}
+      <section className="ax-section" id="platform">
+        <Section>
+          <div className="sec-tag">Platform</div>
+          <h2 className="sec-title">Built for the handoff<br /><em>layer that always breaks.</em></h2>
+          <p className="sec-sub">Construction projects don't fail on site — they fail between site, PMC, and client. Axinfra replaces ad-hoc communication with a structured record every stakeholder trusts.</p>
+        </Section>
+
+        <div className="feat-grid" style={{ marginTop: 52 }}>
+          {FEATURES.map((f, i) => (
+            <motion.div
+              key={f.title}
+              className="feat-card"
+              initial={{ opacity: 0, y: 28 }}
+              whileInView={{ opacity: 1, y: 0 }}
+              viewport={{ once: true, margin: '-60px' }}
+              transition={{ duration: 0.55, delay: (i % 3) * 0.1, ease: [0.22, 1, 0.36, 1] }}
+            >
+              <div className="feat-icon">{f.icon}</div>
+              <div className="feat-title">{f.title}</div>
+              <div className="feat-desc">{f.desc}</div>
+            </motion.div>
+          ))}
         </div>
       </section>
 
-      {/* ── Metrics Strip ── */}
-      <div className={styles.metrics}>
-        <div className={styles.metricCol}>
-          <div className={styles.metricNumber}>
-            47<span className={styles.metricSymbol}>%</span>
-          </div>
-          <div className={styles.metricLabel}>Reduction in update chasing</div>
-        </div>
-        <div className={styles.metricCol}>
-          <div className={styles.metricNumber}>
-            3.2<span className={styles.metricSymbol}>×</span>
-          </div>
-          <div className={styles.metricLabel}>Faster payment approvals</div>
-        </div>
-        <div className={styles.metricCol}>
-          <div className={styles.metricNumber}>
-            100<span className={styles.metricSymbol}>%</span>
-          </div>
-          <div className={styles.metricLabel}>Audit trail, zero WhatsApp</div>
-        </div>
-        <div className={styles.metricCol}>
-          <div className={styles.metricNumber}>
-            <span className={styles.metricSymbol}>₹</span>0
-          </div>
-          <div className={styles.metricLabel}>Setup or integration cost</div>
-        </div>
-      </div>
+      <div className="ax-divider" />
 
-      {/* ── Two Panel Section ── */}
-      <div id="platform" className={styles.twoPanel}>
-        {/* Left Panel — Platform */}
-        <div className={styles.panelLeft}>
-          <div className={styles.sectionTag}>Platform</div>
-          <h2 className={styles.panelTitle}>
-            Every milestone. Every rupee. Governed.
-          </h2>
-          <p className={styles.panelBody}>
-            Construction projects fail at the handoff layer — between site, PMC,
-            and client. Axinfra replaces ad-hoc communication with structured
-            evidence, approval workflows, and a living project record.
-          </p>
-          <ul className={styles.featureList}>
-            <li className={styles.featureItem}>
-              <span className={styles.featureIcon}><CheckIcon /></span>
-              Structured milestone tracking with evidence upload and sign-off chains
-            </li>
-            <li className={styles.featureItem}>
-              <span className={styles.featureIcon}><CheckIcon /></span>
-              Milestone-gated payment release — no approval, no disbursement
-            </li>
-            <li className={styles.featureItem}>
-              <span className={styles.featureIcon}><CheckIcon /></span>
-              Role-based access for clients, PMC directors, and site engineers
-            </li>
-            <li className={styles.featureItem}>
-              <span className={styles.featureIcon}><CheckIcon /></span>
-              Immutable audit trail — every action timestamped and attributed
-            </li>
-          </ul>
-          <div id="viseron" className={styles.aiPill}>
-            <span className={styles.aiPillDot} />
-            Viseron AI layer included on Intelligence tier
+      {/* ── LIVE PROJECTS ── */}
+      <section className="ax-section" id="dashboard" style={{ background: 'var(--bg1)' }}>
+        <Section className="sec-head-row">
+          <div>
+            <div className="sec-tag">Live project view</div>
+            <h2 className="sec-title">Real status. Real time.<br /><em>Zero WhatsApp.</em></h2>
+          </div>
+          <p className="sec-sub">Every project your PMC manages, updated the moment evidence is submitted or a milestone changes state. No follow-up calls. No status meetings.</p>
+        </Section>
+
+        <div className="proj-list">
+          {PROJECTS.map((p, i) => (
+            <motion.div
+              key={p.name}
+              className="proj-row"
+              initial={{ opacity: 0, x: -20 }}
+              whileInView={{ opacity: 1, x: 0 }}
+              viewport={{ once: true }}
+              transition={{ duration: 0.5, delay: i * 0.12 }}
+            >
+              <div className="proj-top">
+                <div className="proj-name">{p.name}</div>
+                <span className={`badge ${p.statusClass}`}>{p.status}</span>
+              </div>
+              <div className="proj-bar">
+                <motion.div
+                  className="proj-fill"
+                  style={{ background: p.fill }}
+                  initial={{ width: 0 }}
+                  whileInView={{ width: `${p.pct}%` }}
+                  viewport={{ once: true }}
+                  transition={{ duration: 0.9, delay: i * 0.12 + 0.3, ease: [0.22, 1, 0.36, 1] }}
+                />
+              </div>
+              <div className="proj-meta"><span>{p.meta[0]}</span><span>{p.meta[1]}</span></div>
+            </motion.div>
+          ))}
+        </div>
+      </section>
+
+      <div className="ax-divider" />
+
+      {/* ── OWNER DASHBOARD ── */}
+      <section className="ax-section">
+        <Section>
+          <div className="sec-tag">Owner Dashboard</div>
+          <h2 className="sec-title">Full financial visibility.<br /><em>One screen.</em></h2>
+          <p className="sec-sub">Verified value, disbursed payments, unpaid milestones, advance exposure — all derived automatically from your project data. No spreadsheets. No manual reporting.</p>
+        </Section>
+
+        <Section className="dash-chrome">
+          <div className="dash-bar">
+            <div className="dash-dot" style={{ background: '#ff5f57' }} />
+            <div className="dash-dot" style={{ background: '#febc2e' }} />
+            <div className="dash-dot" style={{ background: '#28c840' }} />
+            <span className="dash-url">axinfra.in · Downtown Office Building · Owner Dashboard</span>
+          </div>
+          <div className="dash-body">
+            <div className="dash-metrics">
+              {([['Verified Value', '$365,000', ''], ['Paid Value', '$115,000', 'green'], ['Unpaid Value', '$250,000', 'gold'], ['Blocked Value', '$0', 'red'], ['Advance Exposure', '$0', 'purple'], ['BOQ Overruns', '0', 'gold']] as const).map(([l, v, c]) => (
+                <div className="m-card" key={l}><div className="m-label">{l}</div><div className={`m-val ${c}`}>{v}</div></div>
+              ))}
+            </div>
+            <div className="dash-charts">
+              <div className="c-card">
+                <div className="c-title">Milestone completion rate</div>
+                <div className="c-sub">Verified or closed, per project</div>
+                <div className="bars">
+                  {[['35%', 'Downtown'], ['60%', 'Prestige'], ['55%', 'Residential'], ['62%', 'Industrial'], ['58%', 'Warehouse']].map(([h, l]) => (
+                    <div className="bar-col" key={l}>
+                      <div style={{ flex: 1, display: 'flex', alignItems: 'flex-end', width: '100%' }}>
+                        <div className="bar" style={{ height: h, background: 'var(--gold)', opacity: 0.85 }} />
+                      </div>
+                      <div className="bar-lbl">{l}</div>
+                    </div>
+                  ))}
+                </div>
+              </div>
+              <div className="c-card">
+                <div className="c-title">Budget vs actual spend</div>
+                <div className="c-sub">BOQ planned vs amount paid</div>
+                <div className="bars">
+                  {[['38%', '18%', 'Downtown'], ['100%', '10%', 'Prestige'], ['22%', '8%', 'Residential'], ['18%', '6%', 'Industrial']].map(([b, a, l]) => (
+                    <div className="bar-col" key={l}>
+                      <div style={{ flex: 1, display: 'flex', alignItems: 'flex-end', gap: 3, width: '100%' }}>
+                        <div style={{ flex: 1, height: b, background: '#378ADD', opacity: 0.7, borderRadius: '3px 3px 0 0' }} />
+                        <div style={{ flex: 1, height: a, background: 'var(--gold)', opacity: 0.85, borderRadius: '3px 3px 0 0' }} />
+                      </div>
+                      <div className="bar-lbl">{l}</div>
+                    </div>
+                  ))}
+                </div>
+              </div>
+              <div className="c-card">
+                <div className="c-title">Payment status</div>
+                <div className="c-sub">14 payments across projects</div>
+                <div className="donut-wrap">
+                  <svg width="90" height="90" viewBox="0 0 90 90">
+                    <circle cx="45" cy="45" r="32" fill="none" stroke="#1d9e75" strokeWidth="13" strokeDasharray="100 201" strokeDashoffset="0" transform="rotate(-90 45 45)" />
+                    <circle cx="45" cy="45" r="32" fill="none" stroke="#c9a84c" strokeWidth="13" strokeDasharray="76 201" strokeDashoffset="-100" transform="rotate(-90 45 45)" />
+                    <circle cx="45" cy="45" r="32" fill="none" stroke="#e24b4a" strokeWidth="13" strokeDasharray="25 201" strokeDashoffset="-176" transform="rotate(-90 45 45)" />
+                    <text x="45" y="41" textAnchor="middle" fill="var(--text)" fontSize="13" fontFamily="DM Serif Display,serif">14</text>
+                    <text x="45" y="53" textAnchor="middle" fill="var(--text3)" fontSize="8" fontFamily="JetBrains Mono,monospace">PAYMENTS</text>
+                  </svg>
+                  <div className="d-legend">
+                    {[['#1d9e75', 'Approved', '50%'], ['#c9a84c', 'Pending', '38%'], ['#e24b4a', 'Disputed', '12%']].map(([c, l, p]) => (
+                      <div className="d-row" key={l}>
+                        <div style={{ display: 'flex', alignItems: 'center' }}>
+                          <div className="d-dot" style={{ background: c }} />
+                          <span style={{ color: 'var(--text2)', fontSize: 11 }}>{l}</span>
+                        </div>
+                        <span style={{ color: 'var(--text)', fontSize: 11, fontFamily: 'var(--mono)' }}>{p}</span>
+                      </div>
+                    ))}
+                  </div>
+                </div>
+              </div>
+            </div>
+          </div>
+        </Section>
+      </section>
+
+      <div className="ax-divider" />
+
+      {/* ── GANTT ── */}
+      <section className="ax-section" style={{ background: 'var(--bg1)' }}>
+        <Section className="sec-head-row">
+          <div>
+            <div className="sec-tag">Execution intelligence · Gantt</div>
+            <h2 className="sec-title">Planned vs actual.<br /><em>Always honest.</em></h2>
+          </div>
+          <p className="sec-sub">Visual timeline with milestone status, vendor ownership, and delay flags — updated in real time as evidence is submitted and milestones change state.</p>
+        </Section>
+
+        <Section className="gantt-wrap">
+          <div className="gantt-head">
+            <div className="gantt-hcell">Task · Role</div>
+            <div className="gantt-months">{MONTHS.map((m) => <div className="gantt-mo" key={m}>{m}</div>)}</div>
+          </div>
+          {GANTT_TASKS.map((t, i) => {
+            const pct = (v: number) => `${((v / 8) * 100).toFixed(2)}%`;
+            return (
+              <motion.div
+                key={i}
+                className="gantt-row"
+                initial={{ opacity: 0 }}
+                whileInView={{ opacity: 1 }}
+                viewport={{ once: true }}
+                transition={{ duration: 0.4, delay: i * 0.04 }}
+              >
+                <div className="gantt-task">
+                  <div className="g-name">{t.name}</div>
+                  <div className="g-role">{t.role}</div>
+                </div>
+                <div className="gantt-tl">
+                  <div className={`g-bar ${t.color}`} style={{ left: pct(t.start), width: pct(t.len) }}>{t.name}</div>
+                </div>
+              </motion.div>
+            );
+          })}
+        </Section>
+      </section>
+
+      <div className="ax-divider" />
+
+      {/* ── AUDIT ── */}
+      <section className="ax-section">
+        <Section>
+          <div className="sec-tag">Audit trail</div>
+          <h2 className="sec-title">Every action. Every actor.<br /><em>Timestamped forever.</em></h2>
+          <p className="sec-sub">No more "I thought you approved it." Every decision, every submission, every payment — recorded immutably. Disputes resolved in seconds, not weeks.</p>
+        </Section>
+
+        <div className="audit-feed" style={{ marginTop: 48 }}>
+          {AUDIT_LOG.map((a, i) => (
+            <motion.div
+              key={i}
+              className="audit-item"
+              initial={{ opacity: 0, x: -16 }}
+              whileInView={{ opacity: 1, x: 0 }}
+              viewport={{ once: true }}
+              transition={{ duration: 0.45, delay: i * 0.07 }}
+            >
+              <span className="audit-time">{a.time}</span>
+              <span className="audit-text"><strong>{a.actor}</strong> {a.action}</span>
+              <span className={`badge ${a.badge}`}>{a.label}</span>
+            </motion.div>
+          ))}
+        </div>
+      </section>
+
+      <div className="ax-divider" />
+
+      {/* ── QUOTE 2 ── */}
+      <Section className="quote-section">
+        <div className="quote-mark">"</div>
+        <p className="quote-text">Our payment cycles dropped from 18 days to under 4. The evidence-first model means vendors show up with proof, not excuses.</p>
+        <p className="quote-attr">Owner · Commercial development, Dubai GCC</p>
+      </Section>
+
+      <div className="ax-divider" />
+
+      {/* ── FOOTER ── */}
+      <footer className="ax-footer">
+        <div className="footer-grid">
+          <div className="footer-brand">
+            <div className="ax-logo"><div className="ax-logomark">A</div>Axinfra</div>
+            <p>The operating layer for construction command. Milestone governance, evidence-based payment release, and AI-driven risk detection — built for PMCs at scale.</p>
+          </div>
+          <div className="footer-col">
+            <h4>Platform</h4>
+            <a href="#platform">Milestone Tracking</a>
+            <a href="#platform">Payment Governance</a>
+            <a href="#platform">Audit Trail</a>
+            <a href="#dashboard">Execution Intelligence</a>
+            <a href="#how-it-works">Viseron AI</a>
+          </div>
+          <div className="footer-col">
+            <h4>Company</h4>
+            <a href="#">About</a>
+            <a href="#">Clients</a>
+            <a href="#">Pricing</a>
+            <Link href="/auth/login">Request Demo</Link>
+          </div>
+          <div className="footer-col">
+            <h4>Legal</h4>
+            <a href="#">Privacy Policy</a>
+            <a href="#">Terms of Service</a>
+            <a href="#">Security</a>
           </div>
         </div>
-
-        {/* Right Panel — Live Project View */}
-        <div className={styles.panelRight}>
-          <div className={styles.sectionTag}>Live project view</div>
-          <div className={styles.projectCards}>
-            <ProjectCard
-              title="Marina Tower · Phase 2 — Structural"
-              status="In Progress"
-              statusType="active"
-              progress={62}
-              metaLeft="Milestone 4 of 7"
-              metaRight="62% complete"
-            />
-            <ProjectCard
-              title="Sector 18 Villa Block — MEP Rough-in"
-              status="Payment Released"
-              statusType="done"
-              progress={100}
-              metaLeft="Milestone 6 of 6"
-              metaRight="₹18.4L disbursed"
-            />
-            <ProjectCard
-              title="Greenfield Commercial Hub — Foundation"
-              status="Viseron: Delay Risk"
-              statusType="risk"
-              progress={28}
-              metaLeft="Milestone 2 of 8 · 11 days overdue"
-              metaRight="28%"
-            />
-          </div>
+        <div className="footer-bottom">
+          <p>© 2026 Axinfra. Trusted by PMC firms across India · GCC expansion 2025.</p>
+          <p>axinfra.in →</p>
         </div>
-      </div>
-
-      {/* ── Bottom Strip ── */}
-      <div id="clients" className={styles.bottomStrip}>
-        <span className={styles.bottomStripLeft}>
-          Trusted by PMC firms across India · GCC expansion 2025
-        </span>
-        <span className={styles.bottomStripRight}>
-          axinfra.in →
-        </span>
-      </div>
-    </div>
-  )
+      </footer>
+    </>
+  );
 }
