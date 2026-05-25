@@ -151,14 +151,105 @@ export class S3Storage implements FileStorageAdapter {
 }
 
 
-/**
- * Active storage adapter — change this line to switch storage backends.
- *
- * For production S3: export const fileStorage = new S3Storage();
- */
+// ── Vercel Blob adapter (production — simplest for Vercel deployments) ─────────
 
-export const fileStorage =
-  process.env.NODE_ENV === "production"
-    ? new S3Storage()
-    : new LocalDiskStorage();
+export class VercelBlobStorage implements FileStorageAdapter {
+  async save(key: string, data: Buffer, mimeType: string): Promise<string> {
+    const { put } = await import('@vercel/blob');
+    const blob = await put(key, data, {
+      access: 'private',   // only accessible via signed URL from your API
+      contentType: mimeType,
+    });
+    return blob.url;       // store the full URL as the key in DB
+  }
+
+  async read(storageKey: string): Promise<Buffer | null> {
+    try {
+      const res = await fetch(storageKey);
+      if (!res.ok) return null;
+      return Buffer.from(await res.arrayBuffer());
+    } catch {
+      return null;
+    }
+  }
+
+  async delete(storageKey: string): Promise<void> {
+    const { del } = await import('@vercel/blob');
+    await del(storageKey);
+  }
+
+  async exists(storageKey: string): Promise<boolean> {
+    try {
+      const res = await fetch(storageKey, { method: 'HEAD' });
+      return res.ok;
+    } catch {
+      return false;
+    }
+  }
+}
+
+// ── Supabase Storage adapter (production — recommended for Vercel) ────────────
+
+export class SupabaseStorage implements FileStorageAdapter {
+  private supabase;
+  private bucket: string;
+
+  constructor() {
+    const { createClient } = require('@supabase/supabase-js');
+    const url = process.env.SUPABASE_URL!;
+    const key = process.env.SUPABASE_SERVICE_ROLE_KEY!;
+    this.bucket = process.env.SUPABASE_STORAGE_BUCKET || 'evidence';
+    this.supabase = createClient(url, key, {
+      auth: { persistSession: false },
+    });
+  }
+
+  async save(key: string, data: Buffer, mimeType: string): Promise<string> {
+    const { error } = await this.supabase.storage
+      .from(this.bucket)
+      .upload(key, data, { contentType: mimeType, upsert: false });
+    if (error) throw new Error(`Supabase upload failed: ${error.message}`);
+    return key;
+  }
+
+  async read(key: string): Promise<Buffer | null> {
+    const { data, error } = await this.supabase.storage
+      .from(this.bucket)
+      .download(key);
+    if (error || !data) return null;
+    const arrayBuffer = await (data as Blob).arrayBuffer();
+    return Buffer.from(arrayBuffer);
+  }
+
+  async delete(key: string): Promise<void> {
+    await this.supabase.storage.from(this.bucket).remove([key]);
+  }
+
+  async exists(key: string): Promise<boolean> {
+    const folder = key.split('/').slice(0, -1).join('/') || '';
+    const name = key.split('/').pop() ?? key;
+    const { data } = await this.supabase.storage
+      .from(this.bucket)
+      .list(folder, { search: name });
+    return (data?.length ?? 0) > 0;
+  }
+}
+
+/**
+ * Active storage adapter.
+ *
+ * Priority:
+ *  1. Vercel Blob      — if BLOB_READ_WRITE_TOKEN is set (simplest for Vercel)
+ *  2. Supabase Storage — if SUPABASE_URL + SUPABASE_SERVICE_ROLE_KEY are set
+ *  3. Cloudflare R2    — if R2_BUCKET is set
+ *  4. Local disk       — dev fallback (not suitable for Vercel / serverless)
+ */
+export const fileStorage: FileStorageAdapter =
+  process.env.BLOB_READ_WRITE_TOKEN
+    ? new VercelBlobStorage()
+    : process.env.SUPABASE_URL && process.env.SUPABASE_SERVICE_ROLE_KEY
+      ? new SupabaseStorage()
+      : process.env.R2_BUCKET
+        ? new S3Storage()
+        : new LocalDiskStorage();
 

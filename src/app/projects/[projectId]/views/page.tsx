@@ -1,5 +1,6 @@
 'use client';
 
+import { ListPageSkeleton } from '@/components/ui/SkeletonPage';
 import { useState, useEffect } from 'react';
 import { useParams } from 'next/navigation';
 import useSWR from 'swr';
@@ -70,6 +71,7 @@ export default function CustomViewsPage() {
   const [groups, setGroups] = useState<GroupedMilestones[]>([]);
   const [viewLoading, setViewLoading] = useState(false);
   const [showCreateModal, setShowCreateModal] = useState(false);
+  const [confirmDeleteViewId, setConfirmDeleteViewId] = useState<string | null>(null);
 
   // Project metadata via shared context (one fetch per workspace).
   const { project, isLoading: projectLoading } = useProject();
@@ -83,8 +85,8 @@ export default function CustomViewsPage() {
     isLoading: viewsLoading,
     mutate: refetchViews,
   } = useSWR<{ views: CustomView[]; templates: Template[] }>(viewsKey, jsonFetcher, {
-    revalidateOnFocus: false,
-    dedupingInterval: 60_000,
+    revalidateOnFocus: true,
+    dedupingInterval: 5_000,
   });
 
   const views: CustomView[] = viewsPayload?.views ?? [];
@@ -147,8 +149,7 @@ export default function CustomViewsPage() {
   };
 
   const handleDeleteView = async (viewId: string) => {
-    if (!confirm('Are you sure you want to delete this view?')) return;
-
+    setConfirmDeleteViewId(null);
     try {
       const res = await fetch(`/api/projects/${projectId}/views/${viewId}`, {
         method: 'DELETE',
@@ -195,7 +196,7 @@ export default function CustomViewsPage() {
   if (loading) {
     return (
       <Layout>
-        <div className="text-center py-12">Loading...</div>
+        <ListPageSkeleton />
       </Layout>
     );
   }
@@ -245,7 +246,7 @@ export default function CustomViewsPage() {
                   {view.name}
                 </button>
                 <button
-                  onClick={() => handleDeleteView(view.id)}
+                  onClick={() => setConfirmDeleteViewId(view.id)}
                   className="px-2 py-2 text-[rgba(232,228,220,0.35)] hover:text-red-500"
                   title="Delete view"
                 >
@@ -322,6 +323,34 @@ export default function CustomViewsPage() {
         onCreate={handleCreateView}
         templates={templates}
       />
+
+      {/* Delete View confirmation modal */}
+      {confirmDeleteViewId && (
+        <div className="fixed inset-0 bg-black/70 flex items-center justify-center z-50">
+          <div className="bg-[#13151a] border border-[rgba(255,255,255,0.1)] rounded-xl max-w-sm w-full mx-4">
+            <div className="p-6">
+              <h2 className="text-lg font-semibold mb-2 text-[#e06050]">Delete View</h2>
+              <p className="text-[rgba(232,228,220,0.55)] mb-4 text-sm">
+                Are you sure you want to delete this view? This cannot be undone.
+              </p>
+              <div className="flex justify-end gap-3">
+                <button
+                  onClick={() => setConfirmDeleteViewId(null)}
+                  className="btn btn-secondary"
+                >
+                  Cancel
+                </button>
+                <button
+                  onClick={() => void handleDeleteView(confirmDeleteViewId)}
+                  className="btn bg-[#e06050] text-white hover:bg-[#c8503f]"
+                >
+                  Delete View
+                </button>
+              </div>
+            </div>
+          </div>
+        </div>
+      )}
     </Layout>
   );
 }

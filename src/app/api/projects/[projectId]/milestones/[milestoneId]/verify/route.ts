@@ -22,8 +22,8 @@ export async function POST(
     const { projectId, milestoneId } = await params;
     const auth = await requireProjectAuth(projectId);
 
-    // Only Owner and PMC can verify
-    RoleGuard.requireRole(auth, ['OWNER', 'PMC']);
+    // Only PMC can verify
+    RoleGuard.requireRole(auth, ['PMC']);
 
     // IDOR guard: verify milestone belongs to this project
     const milestoneCheck = await validateMilestoneOwnership(milestoneId, projectId);
@@ -101,19 +101,17 @@ export async function POST(
           throw new Error(`FORBIDDEN: Role ${auth.role} cannot perform transition: ${fromState} -> ${MilestoneState.VERIFIED}`);
         }
 
-        // Re-check ALL evidence APPROVED inside the transaction (race-safe)
+        // Ensure there is at least one evidence submission
         const totalEvidence = await tx.evidence.count({ where: { milestoneId } });
-        const approvedEvidence = await tx.evidence.count({
-          where: { milestoneId, status: 'APPROVED' },
-        });
         if (totalEvidence === 0) {
           throw new Error('Cannot verify milestone without evidence');
         }
-        if (approvedEvidence < totalEvidence) {
-          throw new Error(
-            `Cannot verify: ${totalEvidence - approvedEvidence} of ${totalEvidence} evidence items are not yet approved`
-          );
-        }
+
+        // Auto-approve any still-SUBMITTED evidence when PMC verifies
+        await tx.evidence.updateMany({
+          where: { milestoneId, status: 'SUBMITTED' },
+          data: { status: 'APPROVED' },
+        });
 
         await tx.milestone.update({
           where: { id: milestoneId },
@@ -192,6 +190,46 @@ export async function POST(
       'Milestone',
       milestoneId
     );
+
+    // ── In-app notifications ─────────────────────────────────────────────────
+    // Fire-and-forget: failures must not block the response.
+    try {
+      const ms = await prisma.milestone.findUnique({
+        where: { id: milestoneId },
+        select: { title: true, vendorUserId: true },
+      });
+      const title = ms?.title ?? 'Milestone';
+
+      // 1. Notify Owner: payment needs to be released
+      await prisma.systemEvent.create({
+        data: {
+          eventType: 'PAYMENT_REQUIRED',
+          severity: 'HIGH',
+          actorId: auth.userId,
+          projectId,
+          entityType: 'Milestone',
+          entityId: milestoneId,
+          message: `PMC has verified "${title}". Please review and release the payment.`,
+        },
+      });
+
+      // 2. Notify Vendor: their milestone was verified
+      if (ms?.vendorUserId) {
+        await prisma.systemEvent.create({
+          data: {
+            eventType: 'MILESTONE_VERIFIED',
+            severity: 'INFO',
+            actorId: auth.userId,
+            projectId,
+            entityType: 'Milestone',
+            entityId: milestoneId,
+            message: `Your milestone "${title}" has been verified by the PMC. Payment will be released by the Owner.`,
+          },
+        });
+      }
+    } catch {
+      // best-effort
+    }
 
     return NextResponse.json({
       success: true,

@@ -35,7 +35,7 @@ const TRANSITION_PERMISSIONS: Record<string, Role[]> = {
   [`${MilestoneState.IN_PROGRESS}->${MilestoneState.SUBMITTED}`]: [Role.VENDOR],
 
   // From SUBMITTED
-  [`${MilestoneState.SUBMITTED}->${MilestoneState.VERIFIED}`]: [Role.OWNER, Role.PMC],
+  [`${MilestoneState.SUBMITTED}->${MilestoneState.VERIFIED}`]: [Role.PMC],
   [`${MilestoneState.SUBMITTED}->${MilestoneState.IN_PROGRESS}`]: [Role.OWNER, Role.PMC], // Rejection
 
   // From VERIFIED
@@ -306,9 +306,7 @@ export class MilestoneStateMachine {
   static async canVerify(milestoneId: string): Promise<{ canVerify: boolean; reason?: string }> {
     const milestone = await prisma.milestone.findUnique({
       where: { id: milestoneId },
-      include: {
-        evidence: true, // Fetch ALL evidence to check status
-      },
+      include: { evidence: { select: { id: true } } },
     });
 
     if (!milestone) {
@@ -321,15 +319,6 @@ export class MilestoneStateMachine {
 
     if (milestone.evidence.length === 0) {
       return { canVerify: false, reason: 'No evidence found' };
-    }
-
-    // ALL evidence must be APPROVED before verification
-    const unapproved = milestone.evidence.filter(e => e.status !== 'APPROVED');
-    if (unapproved.length > 0) {
-      return {
-        canVerify: false,
-        reason: `${unapproved.length} of ${milestone.evidence.length} evidence items are not yet approved`,
-      };
     }
 
     return { canVerify: true };

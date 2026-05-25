@@ -6,6 +6,7 @@ import { requireProjectOwner } from '@/lib/guards/requireOwner';
 import { AuditLogger } from '@/services/AuditLogger';
 import { AuditActionTypes, Role } from '@/types';
 import { cached } from '@/lib/cache';
+import { invalidateProjectAndMemberCaches } from '@/lib/cache-invalidation';
 import { z } from 'zod';
 
 const updateProjectSchema = z.object({
@@ -174,6 +175,8 @@ export async function PATCH(
       afterJson: updates,
     });
 
+    await invalidateProjectAndMemberCaches(projectId);
+
     return NextResponse.json({
       success: true,
       data: updatedProject,
@@ -246,6 +249,7 @@ export async function DELETE(
     // Drop every cached auth entry for this project so revoked users
     // can't keep using a stale cache to access dashboard/milestones routes.
     await invalidateProjectAuthForProject(projectId);
+    await invalidateProjectAndMemberCaches(projectId);
 
     // Audit log (project still exists for audit purposes)
     await AuditLogger.log({

@@ -1,5 +1,8 @@
 'use client';
 
+import dynamic from 'next/dynamic';
+import { DashboardSkeleton } from '@/components/ui/SkeletonPage';
+import { Skeleton } from '@/components/ui/Skeleton';
 import { useParams } from 'next/navigation';
 import useSWR from 'swr';
 import Layout from '@/components/Layout';
@@ -7,10 +10,10 @@ import Navbar from '@/components/Navbar';
 import { formatCurrency, formatDate, formatDateTime } from '@/lib/utils';
 import { useProject } from '@/lib/contexts/ProjectContext';
 import { jsonFetcher } from '@/lib/fetcher';
-import ActivityFeed from '@/components/dashboard/ActivityFeed';
-import MilestoneCompletionChart from '@/components/dashboard/MilestoneCompletionChart';
-import BudgetVsActualChart from '@/components/dashboard/BudgetVsActualChart';
-import PaymentStatusChart from '@/components/dashboard/PaymentStatusChart';
+const ActivityFeed = dynamic(() => import('@/components/dashboard/ActivityFeed'), { loading: () => <Skeleton className='h-48 w-full rounded-lg' /> });
+const MilestoneCompletionChart = dynamic(() => import('@/components/dashboard/MilestoneCompletionChart'), { loading: () => <Skeleton className='h-48 w-full rounded-lg' /> });
+const BudgetVsActualChart = dynamic(() => import('@/components/dashboard/BudgetVsActualChart'), { loading: () => <Skeleton className='h-48 w-full rounded-lg' /> });
+const PaymentStatusChart = dynamic(() => import('@/components/dashboard/PaymentStatusChart'), { loading: () => <Skeleton className='h-48 w-full rounded-lg' /> });
 
 export default function DashboardPage() {
   const params = useParams();
@@ -27,7 +30,7 @@ export default function DashboardPage() {
   } = useSWR<any>(
     projectId ? `/api/projects/${projectId}/dashboard` : null,
     jsonFetcher,
-    { revalidateOnFocus: false, dedupingInterval: 30_000 },
+    { revalidateOnFocus: true, dedupingInterval: 5_000 },
   );
 
   const projectName = project?.name ?? '';
@@ -37,7 +40,7 @@ export default function DashboardPage() {
   if (loading) {
     return (
       <Layout>
-        <div className="text-center py-12">Loading...</div>
+        <DashboardSkeleton />
       </Layout>
     );
   }

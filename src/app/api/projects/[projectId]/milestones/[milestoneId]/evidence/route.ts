@@ -1,9 +1,13 @@
 import { NextRequest, NextResponse } from 'next/server';
+import { prisma } from '@/lib/db';
 import { requireProjectAuth } from '@/lib/auth';
 import { validateMilestoneOwnership } from '@/lib/validate-ownership';
 import { RoleGuard } from '@/services/RoleGuard';
 import { EvidenceService } from '@/services/EvidenceService';
 import { z } from 'zod';
+
+// Allow up to 30s for file upload + Supabase Storage write
+export const maxDuration = 30;
 
 const submitEvidenceSchema = z.object({
   qtyOrPercent: z.coerce.number().min(0).max(100),
@@ -121,6 +125,27 @@ export async function POST(
         { success: false, error: result.error },
         { status: 400 }
       );
+    }
+
+    // Notify PMC that evidence was submitted (best-effort)
+    try {
+      const ms = await prisma.milestone.findUnique({
+        where: { id: milestoneId },
+        select: { title: true },
+      });
+      await prisma.systemEvent.create({
+        data: {
+          eventType: 'EVIDENCE_SUBMITTED',
+          severity: 'INFO',
+          actorId: auth.userId,
+          projectId,
+          entityType: 'Milestone',
+          entityId: milestoneId,
+          message: `Vendor has submitted evidence for "${ms?.title ?? 'Milestone'}". Please review and verify.`,
+        },
+      });
+    } catch {
+      // best-effort
     }
 
     return NextResponse.json({

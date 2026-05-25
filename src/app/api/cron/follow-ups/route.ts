@@ -2,9 +2,9 @@ import { NextRequest, NextResponse } from 'next/server';
 import { prisma } from '@/lib/db';
 import { FollowUpScheduler } from '@/services/FollowUpScheduler';
 
-// POST /api/cron/follow-ups - Run follow-up checks for all projects
-// This endpoint should be called by a cron job (e.g., daily)
-export async function POST(request: NextRequest) {
+export const maxDuration = 60; // seconds — cron may process many projects
+
+async function runFollowUps(request: NextRequest): Promise<NextResponse> {
   try {
     // API key auth for cron jobs — CRON_SECRET must be set
     const authHeader = request.headers.get('authorization');
@@ -60,3 +60,7 @@ export async function POST(request: NextRequest) {
     );
   }
 }
+
+// Vercel cron jobs send GET — both methods share the same logic
+export const GET = runFollowUps;
+export const POST = runFollowUps;

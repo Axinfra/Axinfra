@@ -9,6 +9,7 @@
  */
 
 import { NextRequest, NextResponse } from 'next/server';
+import { prisma } from '@/lib/db';
 import { requireProjectAuth } from '@/lib/auth';
 import { validateMilestoneOwnership } from '@/lib/validate-ownership';
 import { RoleGuard } from '@/services/RoleGuard';
@@ -16,26 +17,22 @@ import { PaymentEligibilityEngine } from '@/services/PaymentEligibilityEngine';
 import { BlockingReasonCode, BlockingReasonCodes, EligibilityState } from '@/types';
 import { z } from 'zod';
 
-// Schema for blocking action
 const blockSchema = z.object({
   action: z.literal('block'),
   reasonCode: z.enum(Object.keys(BlockingReasonCodes) as [string, ...string[]]),
   explanation: z.string().min(1, 'Explanation is required for blocking'),
 });
 
-// Schema for unblocking action
 const unblockSchema = z.object({
   action: z.literal('unblock'),
   reason: z.string().min(1, 'Reason is required for unblocking'),
 });
 
-// Schema for marking paid
 const markPaidSchema = z.object({
   action: z.literal('markPaid'),
   explanation: z.string().min(1, 'Explanation is required'),
 });
 
-// Discriminated union of all actions
 const actionSchema = z.discriminatedUnion('action', [
   blockSchema,
   unblockSchema,
@@ -45,13 +42,10 @@ const actionSchema = z.discriminatedUnion('action', [
 /**
  * POST /api/projects/[projectId]/milestones/[milestoneId]/payment/mark
  *
- * Trigger a human event on payment eligibility.
- * GOVERNANCE: Humans trigger events, system decides states.
- *
  * Valid actions:
- * - block: Block payment (Owner/PMC) - requires reasonCode + explanation
- * - unblock: Unblock payment (Owner only) - requires reason
- * - markPaid: Mark as paid (Owner/PMC) - requires explanation
+ * - markPaid: Owner confirms payment → payment MARKED_PAID + milestone CLOSED + notify Vendor + PMC
+ * - block:    Owner marks payment not done + reason → notify Vendor + PMC
+ * - unblock:  Owner unblocks a previously not-done payment
  */
 export async function POST(
   request: NextRequest,
@@ -61,7 +55,6 @@ export async function POST(
     const { projectId, milestoneId } = await params;
     const auth = await requireProjectAuth(projectId);
 
-    // IDOR guard: verify milestone belongs to this project
     const milestoneCheck = await validateMilestoneOwnership(milestoneId, projectId);
     if (!milestoneCheck) {
       return NextResponse.json(
@@ -77,15 +70,12 @@ export async function POST(
 
     switch (data.action) {
       case 'block':
-        // Check permission
         if (!RoleGuard.canBlockPayment(auth)) {
           return NextResponse.json(
             { success: false, error: 'Only Owner or PMC can block payments' },
             { status: 403 }
           );
         }
-
-        // Trigger block event - system will handle state transition
         result = await PaymentEligibilityEngine.block(
           milestoneId,
           data.reasonCode as BlockingReasonCode,
@@ -94,18 +84,37 @@ export async function POST(
           auth.role,
           projectId
         );
+        // Notify Vendor + PMC that payment was marked not done
+        if (result.success) {
+          try {
+            const ms = await prisma.milestone.findUnique({
+              where: { id: milestoneId },
+              select: { title: true, vendorUserId: true },
+            });
+            const title = ms?.title ?? 'Milestone';
+            const reasonText = data.explanation ? `: ${data.explanation}` : '';
+            await prisma.systemEvent.create({
+              data: {
+                eventType: 'PAYMENT_NOT_DONE',
+                severity: 'WARNING',
+                actorId: auth.userId,
+                projectId,
+                entityType: 'Milestone',
+                entityId: milestoneId,
+                message: `Payment for "${title}" was not released${reasonText}.`,
+              },
+            });
+          } catch { /* best-effort */ }
+        }
         break;
 
       case 'unblock':
-        // Check permission
         if (!RoleGuard.canUnblockPayment(auth)) {
           return NextResponse.json(
             { success: false, error: 'Only Owner can unblock payments' },
             { status: 403 }
           );
         }
-
-        // Trigger unblock event - system will recalculate state
         result = await PaymentEligibilityEngine.unblock(
           milestoneId,
           data.reason,
@@ -116,22 +125,56 @@ export async function POST(
         break;
 
       case 'markPaid':
-        // Check permission
         if (!RoleGuard.canMarkPaid(auth)) {
           return NextResponse.json(
             { success: false, error: 'Only Owner or PMC can mark payments as paid' },
             { status: 403 }
           );
         }
-
-        // Trigger mark paid event - terminal state
-        result = await PaymentEligibilityEngine.markPaid(
+        // Atomic: mark paid + close milestone in a single transaction
+        result = await PaymentEligibilityEngine.markPaidAndClose(
           milestoneId,
           data.explanation,
           auth.userId,
           auth.role,
           projectId
         );
+        // Notify Vendor + PMC (best-effort, after the atomic commit)
+        if (result.success) {
+          try {
+            const ms = await prisma.milestone.findUnique({
+              where: { id: milestoneId },
+              select: { title: true, vendorUserId: true },
+            });
+            const title = ms?.title ?? 'Milestone';
+
+            if (ms?.vendorUserId) {
+              await prisma.systemEvent.create({
+                data: {
+                  eventType: 'PAYMENT_DONE',
+                  severity: 'HIGH',
+                  actorId: auth.userId,
+                  projectId,
+                  entityType: 'Milestone',
+                  entityId: milestoneId,
+                  message: `Payment for "${title}" has been released. Milestone is now closed.`,
+                },
+              });
+            }
+
+            await prisma.systemEvent.create({
+              data: {
+                eventType: 'PAYMENT_DONE',
+                severity: 'INFO',
+                actorId: auth.userId,
+                projectId,
+                entityType: 'Milestone',
+                entityId: milestoneId,
+                message: `Owner has released payment for "${title}". Milestone closed.`,
+              },
+            });
+          } catch { /* best-effort */ }
+        }
         break;
     }
 
@@ -142,23 +185,22 @@ export async function POST(
       );
     }
 
-    // Return updated eligibility
     const eligibility = await PaymentEligibilityEngine.getEligibility(milestoneId);
 
     return NextResponse.json({
       success: true,
       data: eligibility
         ? {
-          state: eligibility.state,
-          eligibleAmount: eligibility.eligibleAmount,
-          blockedAmount: eligibility.blockedAmount,
-          indicator: PaymentEligibilityEngine.derivePaymentIndicator({
-            state: eligibility.state as EligibilityState,
+            state: eligibility.state,
             eligibleAmount: eligibility.eligibleAmount,
             blockedAmount: eligibility.blockedAmount,
-            dueDate: eligibility.dueDate,
-          }),
-        }
+            indicator: PaymentEligibilityEngine.derivePaymentIndicator({
+              state: eligibility.state as EligibilityState,
+              eligibleAmount: eligibility.eligibleAmount,
+              blockedAmount: eligibility.blockedAmount,
+              dueDate: eligibility.dueDate,
+            }),
+          }
         : null,
     });
   } catch (error) {

@@ -33,7 +33,7 @@ export async function GET(request: NextRequest) {
 
     // Find vendor's project role(s) — must be VENDOR
     const vendorRoles = await prisma.projectRole.findMany({
-      where: { userId: auth.userId, role: Role.VENDOR },
+      where: { userId: auth.userId, role: Role.VENDOR, project: { deletedAt: null } },
       include: { project: { select: { id: true, name: true } } },
     });
 

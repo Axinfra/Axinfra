@@ -1,7 +1,8 @@
 'use client';
 
+import { FormPageSkeleton } from '@/components/ui/SkeletonPage';
 import { useEffect, useState } from 'react';
-import { useParams, useRouter } from 'next/navigation';
+import { useParams, useRouter, useSearchParams } from 'next/navigation';
 import Link from 'next/link';
 import useSWR from 'swr';
 import Layout from '@/components/Layout';
@@ -27,13 +28,21 @@ interface BOQItem {
 
 interface BOQ {
   id: string;
+  phaseId: string | null;
   status: string;
   items: BOQItem[];
+}
+
+interface Phase {
+  id: string;
+  name: string;
 }
 
 export default function CreateMilestonePage() {
   const params = useParams();
   const router = useRouter();
+  const searchParams = useSearchParams();
+  const prefilledPhaseId = searchParams.get('phaseId') ?? '';
   const projectId = params.projectId as string;
 
   const [submitting, setSubmitting] = useState(false);
@@ -49,6 +58,7 @@ export default function CreateMilestonePage() {
     selectedBoqItemId: '',
     boqQty: '',
     vendorUserId: '',
+    phaseId: prefilledPhaseId,
   });
 
   const { project, isLoading: projectLoading } = useProject();
@@ -56,23 +66,33 @@ export default function CreateMilestonePage() {
   const myRole = project?.myRole ?? '';
   const canEdit =
     ((project?.permissions ?? {}) as Record<string, boolean>).canEditMilestones === true;
+  const isOwner = myRole === 'OWNER';
   const isOwnerOrPMC = myRole === 'OWNER' || myRole === 'PMC';
 
   const { data: boqs, isLoading: boqLoading } = useSWR<BOQ[]>(
     projectId ? `/api/projects/${projectId}/boq` : null,
     jsonFetcher,
-    { revalidateOnFocus: false, dedupingInterval: 60_000 },
+    { revalidateOnFocus: true, dedupingInterval: 5_000 },
   );
 
   const { data: vendorsPayload, isLoading: vendorsLoading } = useSWR<VendorUser[]>(
     projectId && isOwnerOrPMC ? `/api/admin/vendors?projectId=${projectId}` : null,
     jsonFetcher,
-    { revalidateOnFocus: false, dedupingInterval: 120_000 },
+    { revalidateOnFocus: true, dedupingInterval: 5_000 },
+  );
+
+  const { data: phases = [] } = useSWR<Phase[]>(
+    projectId ? `/api/projects/${projectId}/phases` : null,
+    jsonFetcher,
+    { revalidateOnFocus: true, dedupingInterval: 5_000 },
   );
 
   const boqItems: BOQItem[] = (() => {
-    const approved = (boqs ?? []).find((b) => b.status === 'APPROVED');
-    return approved ? approved.items ?? [] : [];
+    if (!form.phaseId) return [];
+    const phaseBoq = (boqs ?? []).find(
+      (b) => b.phaseId === form.phaseId && b.status === 'APPROVED'
+    );
+    return phaseBoq ? phaseBoq.items ?? [] : [];
   })();
   const vendors: VendorUser[] = vendorsPayload ?? [];
   const loading = projectLoading || boqLoading || (isOwnerOrPMC && vendorsLoading);
@@ -97,8 +117,9 @@ export default function CreateMilestonePage() {
     setSubmitting(true);
     setError('');
 
+    const effectiveIsExtra = isOwner || form.isExtra || !form.phaseId;
     const boqLinks =
-      form.selectedBoqItemId && form.boqQty
+      !effectiveIsExtra && form.selectedBoqItemId && form.boqQty
         ? [{ boqItemId: form.selectedBoqItemId, plannedQty: parseFloat(form.boqQty) }]
         : undefined;
 
@@ -112,8 +133,9 @@ export default function CreateMilestonePage() {
           plannedEnd: form.plannedEnd || undefined,
           value: form.value ? parseFloat(form.value) : 0,
           advancePercent: form.advancePercent ? parseFloat(form.advancePercent) : 0,
-          isExtra: form.isExtra,
+          isExtra: effectiveIsExtra,
           vendorUserId: form.vendorUserId || null,
+          phaseId: effectiveIsExtra ? null : form.phaseId || null,
           boqLinks,
         }),
       });
@@ -201,6 +223,48 @@ export default function CreateMilestonePage() {
                   onChange={(e) => updateForm({ plannedEnd: e.target.value })}
                 />
               </div>
+
+              {isOwner ? (
+                <div>
+                  <label className="label">Phase</label>
+                  <div className="input bg-[rgba(196,163,90,0.08)] border-[rgba(196,163,90,0.18)] text-[#c4a35a] cursor-not-allowed">
+                    Extra milestones
+                  </div>
+                </div>
+              ) : (phases.length > 0 || prefilledPhaseId) && (
+                <div>
+                  <label className="label">Phase (optional)</label>
+                  {prefilledPhaseId ? (
+                    <div className="input bg-[rgba(255,255,255,0.03)] text-[rgba(232,228,220,0.55)] cursor-not-allowed">
+                      Phase:{' '}
+                      <span className="text-[#e8e4dc] font-medium">
+                        {phases.find((p) => p.id === prefilledPhaseId)?.name ?? prefilledPhaseId}
+                      </span>
+                    </div>
+                  ) : (
+                    <>
+                      <select
+                        className="input"
+                        value={form.phaseId}
+                        onChange={(e) => updateForm({ phaseId: e.target.value })}
+                      >
+                        <option value="">-- No phase --</option>
+                        {phases.map((p) => (
+                          <option key={p.id} value={p.id}>
+                            {p.name}
+                          </option>
+                        ))}
+                      </select>
+                      {!form.phaseId && (
+                        <p className="text-xs text-[rgba(232,228,220,0.35)] mt-1.5">
+                          Milestones without a phase will be marked as Extra and require
+                          Owner approval before work can begin.
+                        </p>
+                      )}
+                    </>
+                  )}
+                </div>
+              )}
             </div>
           </div>
 
@@ -216,7 +280,8 @@ export default function CreateMilestonePage() {
                   <input
                     type="checkbox"
                     className="h-4 w-4 rounded border-[rgba(255,255,255,0.1)] text-[#c4a35a] focus:ring-[rgba(196,163,90,0.3)]"
-                    checked={form.isExtra}
+                    checked={isOwner || form.isExtra}
+                    disabled={isOwner}
                     onChange={(e) =>
                       updateForm({
                         isExtra: e.target.checked,
@@ -226,21 +291,21 @@ export default function CreateMilestonePage() {
                     }
                   />
                   <span className="text-sm font-medium text-[#c4a35a]">
-                    Mark as Extra (Outside BOQ)
+                    {isOwner ? 'Owner-created milestones are Extras' : 'Mark as Extra (Outside BOQ)'}
                   </span>
                 </label>
 
-                {form.isExtra && (
+                {(isOwner || form.isExtra) && (
                   <div className="mt-3 bg-[rgba(196,163,90,0.08)] border border-[rgba(196,163,90,0.15)] rounded-lg p-3">
                     <p className="text-sm text-[#c4a35a]">
-                      This milestone is outside the approved BOQ and will require Owner approval before payments can be processed.
+                      This milestone is outside the approved BOQ and will appear under Extra milestones.
                     </p>
                   </div>
                 )}
               </div>
 
               {/* BOQ Item Link — only when not Extra */}
-              {!form.isExtra && (
+              {!(isOwner || form.isExtra || !form.phaseId) && (
                 <div className="space-y-4">
                   <div>
                     <label className="label">Link to BOQ Item</label>
@@ -265,11 +330,18 @@ export default function CreateMilestonePage() {
                         </option>
                       ))}
                     </select>
-                    {boqItems.length === 0 && (
-                      <p className="text-xs text-[rgba(232,228,220,0.35)] mt-1.5">
-                        No approved BOQ items available. Create a BOQ first or mark this milestone as Extra.
-                      </p>
-                    )}
+                    {boqItems.length === 0 && (() => {
+                      const phaseBoq = (boqs ?? []).find((b) => b.phaseId === form.phaseId);
+                      return (
+                        <p className="text-xs text-[rgba(232,228,220,0.35)] mt-1.5">
+                          {!phaseBoq
+                            ? 'No BOQ created for this phase yet. Ask PMC to create one first.'
+                            : phaseBoq.status !== 'APPROVED'
+                            ? `BOQ for this phase is ${phaseBoq.status.toLowerCase()} — Owner must approve it before linking.`
+                            : 'No items in this phase\'s BOQ.'}
+                        </p>
+                      );
+                    })()}
                   </div>
 
                   {form.selectedBoqItemId && (
@@ -398,16 +470,16 @@ export default function CreateMilestonePage() {
               onClick={handleSubmit}
               disabled={submitting || !form.title.trim()}
               className={`btn ${
-                form.isExtra
+                isOwner || form.isExtra || !form.phaseId
                   ? 'bg-[#c4a35a] hover:bg-[#b3943f] text-white'
                   : 'btn-primary'
               } disabled:opacity-50`}
             >
-              {submitting
-                ? 'Creating...'
-                : form.isExtra
-                ? 'Create & Send for Approval'
-                : 'Create Milestone'}
+	              {submitting
+	                ? 'Creating...'
+	                : isOwner || form.isExtra || !form.phaseId
+	                ? 'Create Extra Milestone'
+	                : 'Create Milestone'}
             </button>
           </div>
         </div>

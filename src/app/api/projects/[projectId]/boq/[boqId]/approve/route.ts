@@ -3,7 +3,7 @@ import { requireProjectAuth } from '@/lib/auth';
 import { validateBOQOwnership } from '@/lib/validate-ownership';
 import { RoleGuard } from '@/services/RoleGuard';
 import { BOQService } from '@/services/BOQService';
-import { invalidatePrefix } from '@/lib/cache';
+import { invalidateProjectAndMemberCaches } from '@/lib/cache-invalidation';
 
 // POST /api/projects/[projectId]/boq/[boqId]/approve - Approve BOQ
 export async function POST(
@@ -35,7 +35,7 @@ export async function POST(
       );
     }
 
-    await invalidatePrefix(`boq:${projectId}:`);
+    await invalidateProjectAndMemberCaches(projectId);
 
     return NextResponse.json({ success: true });
   } catch (error) {

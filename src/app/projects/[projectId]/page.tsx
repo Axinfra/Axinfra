@@ -1,5 +1,6 @@
 'use client';
 
+import { TablePageSkeleton } from '@/components/ui/SkeletonPage';
 import Layout from '@/components/Layout';
 import Navbar from '@/components/Navbar';
 import MilestoneStateBadge from '@/components/MilestoneStateBadge';
@@ -8,6 +9,7 @@ import { formatCurrency, formatDate } from '@/lib/utils';
 import Link from 'next/link';
 import { useParams } from 'next/navigation';
 import { useProject } from '@/lib/contexts/ProjectContext';
+import PhaseList from '@/components/phases/PhaseList';
 
 interface ProjectData {
   id: string;
@@ -47,7 +49,7 @@ export default function ProjectDetailPage() {
   if (loading) {
     return (
       <Layout>
-        <div className="text-center py-12">Loading...</div>
+        <TablePageSkeleton title={false} />
       </Layout>
     );
   }
@@ -145,6 +147,9 @@ export default function ProjectDetailPage() {
             </Link>
           </div>
         </div>
+
+        {/* Phases */}
+        <PhaseList projectId={projectId} userRole={project.myRole} />
 
         {/* Recent Milestones */}
         <div className="card">

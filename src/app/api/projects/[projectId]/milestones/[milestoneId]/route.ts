@@ -5,6 +5,7 @@ import { MilestoneStateMachine } from '@/services/MilestoneStateMachine';
 import { RoleGuard } from '@/services/RoleGuard';
 import { AuditLogger } from '@/services/AuditLogger';
 import { AuditActionTypes, MilestoneState } from '@/types';
+import { invalidatePrefix } from '@/lib/cache';
 
 // GET /api/projects/[projectId]/milestones/[milestoneId] - Get milestone details
 export async function GET(
@@ -159,6 +160,11 @@ export async function DELETE(
     await prisma.milestone.delete({
       where: { id: milestoneId },
     });
+
+    await Promise.all([
+      invalidatePrefix(`milestone:${projectId}:list:`),
+      invalidatePrefix(`project:${projectId}:detail:`),
+    ]);
 
     // Log the deletion
     await AuditLogger.log({

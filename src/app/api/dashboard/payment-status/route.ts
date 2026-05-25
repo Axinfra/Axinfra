@@ -11,6 +11,7 @@
 import { NextResponse } from 'next/server';
 import { prisma } from '@/lib/db';
 import { requireAuth } from '@/lib/auth';
+import { cached } from '@/lib/cache';
 import { Role, EligibilityState } from '@/types';
 
 export const dynamic = 'force-dynamic';
@@ -31,46 +32,33 @@ export async function GET() {
   try {
     const auth = await requireAuth();
 
-    const ownerProjects = await prisma.projectRole.findMany({
-      where: {
-        userId: auth.userId,
-        role: Role.OWNER,
-        project: { deletedAt: null },
+    const data = await cached(
+      `dashboard:payment-status:${auth.userId}`,
+      120_000,
+      async () => {
+        const ownerProjects = await prisma.projectRole.findMany({
+          where: { userId: auth.userId, role: Role.OWNER, project: { deletedAt: null } },
+          select: { projectId: true },
+        });
+        const projectIds = ownerProjects.map((p) => p.projectId);
+        if (projectIds.length === 0) return { pending: 0, approved: 0, disputed: 0, total: 0 };
+
+        const eligibilities = await prisma.paymentEligibility.findMany({
+          where: { milestone: { projectId: { in: projectIds } } },
+          select: { state: true },
+        });
+
+        let pending = 0, approved = 0, disputed = 0;
+        for (const e of eligibilities) {
+          if (PENDING_STATES.includes(e.state)) pending += 1;
+          else if (APPROVED_STATES.includes(e.state)) approved += 1;
+          else if (DISPUTED_STATES.includes(e.state)) disputed += 1;
+        }
+        return { pending, approved, disputed, total: pending + approved + disputed };
       },
-      select: { projectId: true },
-    });
-    const projectIds = ownerProjects.map((p) => p.projectId);
+    );
 
-    if (projectIds.length === 0) {
-      return NextResponse.json({
-        success: true,
-        data: { pending: 0, approved: 0, disputed: 0, total: 0 },
-      });
-    }
-
-    const eligibilities = await prisma.paymentEligibility.findMany({
-      where: { milestone: { projectId: { in: projectIds } } },
-      select: { state: true },
-    });
-
-    let pending = 0;
-    let approved = 0;
-    let disputed = 0;
-    for (const e of eligibilities) {
-      if (PENDING_STATES.includes(e.state)) pending += 1;
-      else if (APPROVED_STATES.includes(e.state)) approved += 1;
-      else if (DISPUTED_STATES.includes(e.state)) disputed += 1;
-    }
-
-    return NextResponse.json({
-      success: true,
-      data: {
-        pending,
-        approved,
-        disputed,
-        total: pending + approved + disputed,
-      },
-    });
+    return NextResponse.json({ success: true, data });
   } catch (err: unknown) {
     const msg = err instanceof Error ? err.message : 'Unknown error';
     if (msg === 'UNAUTHORIZED') {

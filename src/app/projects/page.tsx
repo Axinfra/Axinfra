@@ -1,5 +1,6 @@
 'use client';
 
+import { ProjectsListSkeleton } from '@/components/ui/SkeletonPage';
 import { useState, useEffect, useCallback } from 'react';
 import Link from 'next/link';
 import Layout from '@/components/Layout';
@@ -135,7 +136,38 @@ export default function ProjectsPage() {
 
       setShowModal(false);
       setToast(editingProject ? 'Project updated successfully' : 'Project created successfully');
-      loadProjects();
+
+      if (editingProject) {
+        // Optimistic update: patch the edited project in-place
+        const meta = (form.location || form.contractValue || form.startDate || form.endDate)
+          ? JSON.stringify({ location: form.location, contractValue: form.contractValue ? parseFloat(form.contractValue) : undefined, startDate: form.startDate, endDate: form.endDate })
+          : undefined;
+        setProjects((prev) =>
+          prev.map((p) =>
+            p.id === editingProject.id
+              ? { ...p, name: form.name, description: form.description || undefined, metadata: meta }
+              : p,
+          ),
+        );
+      } else {
+        // Optimistic update: prepend new project immediately — no refetch needed
+        const meta = (form.location || form.contractValue || form.startDate || form.endDate)
+          ? JSON.stringify({ location: form.location, contractValue: form.contractValue ? parseFloat(form.contractValue) : undefined, startDate: form.startDate, endDate: form.endDate })
+          : undefined;
+        setProjects((prev) => [
+          {
+            id: data.data.id,
+            name: form.name,
+            description: form.description || undefined,
+            myRole: 'OWNER',
+            milestoneCount: 0,
+            createdAt: new Date().toISOString(),
+            metadata: meta,
+          },
+          ...prev,
+        ]);
+        setUserRole('OWNER');
+      }
     } catch (err) {
       setModalError(err instanceof Error ? err.message : 'Something went wrong');
     } finally {
@@ -155,9 +187,10 @@ export default function ProjectsPage() {
         throw new Error(data.error || 'Failed to archive project');
       }
 
+      // Optimistic update: remove archived project immediately
+      setProjects((prev) => prev.filter((p) => p.id !== deleteTarget.id));
       setDeleteTarget(null);
       setToast('Project archived successfully');
-      loadProjects();
     } catch (err) {
       setModalError(err instanceof Error ? err.message : 'Failed to archive');
     } finally {
@@ -168,7 +201,7 @@ export default function ProjectsPage() {
   if (loading) {
     return (
       <Layout>
-        <div className="text-center py-12">Loading...</div>
+        <ProjectsListSkeleton />
       </Layout>
     );
   }

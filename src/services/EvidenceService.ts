@@ -103,41 +103,63 @@ export class EvidenceService {
       }
     }
 
-    // Create evidence and files in transaction
+    // Save files to storage BEFORE transaction (disk I/O outside TX)
+    const savedFiles: Array<{ storageKey: string; filePath: string; originalName: string; mimeType: string; size: number }> = [];
+    for (const file of submission.files) {
+      const storageKey = generateStorageKey(file.originalName);
+      const filePath = await fileStorage.save(storageKey, file.buffer, file.mimeType);
+      savedFiles.push({ storageKey, filePath, originalName: file.originalName, mimeType: file.mimeType, size: file.size });
+    }
+
+    // Create evidence + transition milestone IN_PROGRESS → SUBMITTED atomically
     const evidence = await prisma.$transaction(async (tx) => {
-      // Create evidence record (frozen = true immediately)
+      // Create evidence record
       const evidence = await tx.evidence.create({
         data: {
           milestoneId: submission.milestoneId,
           submittedById: actorId,
           qtyOrPercent: submission.qtyOrPercent,
           remarks: submission.remarks,
-          frozen: true, // SPEC: Evidence is frozen after submission
+          frozen: true,
           status: EvidenceStatus.SUBMITTED,
         },
       });
 
-      // Save files to disk and store metadata in database
-      for (const file of submission.files) {
-        const storageKey = generateStorageKey(file.originalName);
-
-        // Save file to disk/object storage
-        const filePath = await fileStorage.save(storageKey, file.buffer, file.mimeType);
-
-        // Create file record with path only (NO binary data)
+      // Create file records
+      for (const f of savedFiles) {
         await tx.evidenceFile.create({
           data: {
             evidenceId: evidence.id,
-            storageKey,
-            fileName: file.originalName,
-            mimeType: file.mimeType,
-            size: file.size,
-            filePath,
+            storageKey: f.storageKey,
+            fileName: f.originalName,
+            mimeType: f.mimeType,
+            size: f.size,
+            filePath: f.filePath,
           },
         });
       }
 
-      // Audit log INSIDE transaction for atomicity
+      // Transition milestone IN_PROGRESS → SUBMITTED
+      await tx.milestone.update({
+        where: { id: submission.milestoneId },
+        data: {
+          state: MilestoneState.SUBMITTED,
+          actualSubmission: new Date(),
+        },
+      });
+
+      await tx.milestoneStateTransition.create({
+        data: {
+          milestoneId: submission.milestoneId,
+          fromState: MilestoneState.IN_PROGRESS,
+          toState: MilestoneState.SUBMITTED,
+          actorId,
+          role,
+          reason: 'Evidence submitted',
+        },
+      });
+
+      // Audit logs
       await tx.auditLog.create({
         data: {
           projectId,
@@ -150,9 +172,22 @@ export class EvidenceService {
             milestoneId: submission.milestoneId,
             qtyOrPercent: submission.qtyOrPercent,
             remarks: submission.remarks,
-            fileCount: submission.files.length,
+            fileCount: savedFiles.length,
             frozen: true,
           }),
+        },
+      });
+
+      await tx.auditLog.create({
+        data: {
+          projectId,
+          actorId,
+          role,
+          actionType: AuditActionTypes.MILESTONE_STATE_TRANSITION,
+          entityType: 'Milestone',
+          entityId: submission.milestoneId,
+          beforeJson: JSON.stringify({ state: MilestoneState.IN_PROGRESS }),
+          afterJson: JSON.stringify({ state: MilestoneState.SUBMITTED }),
         },
       });
 
@@ -236,6 +271,39 @@ export class EvidenceService {
           reason: review.note,
         },
       });
+
+      // On rejection, move milestone back to IN_PROGRESS so vendor can resubmit
+      if (review.action === 'REJECT' && evidence.milestone.state === MilestoneState.SUBMITTED) {
+        await tx.milestone.update({
+          where: { id: evidence.milestoneId },
+          data: { state: MilestoneState.IN_PROGRESS, actualSubmission: null },
+        });
+
+        await tx.milestoneStateTransition.create({
+          data: {
+            milestoneId: evidence.milestoneId,
+            fromState: MilestoneState.SUBMITTED,
+            toState: MilestoneState.IN_PROGRESS,
+            actorId,
+            role,
+            reason: `Evidence rejected: ${review.note}`,
+          },
+        });
+
+        await tx.auditLog.create({
+          data: {
+            projectId,
+            actorId,
+            role,
+            actionType: AuditActionTypes.MILESTONE_STATE_TRANSITION,
+            entityType: 'Milestone',
+            entityId: evidence.milestoneId,
+            beforeJson: JSON.stringify({ state: MilestoneState.SUBMITTED }),
+            afterJson: JSON.stringify({ state: MilestoneState.IN_PROGRESS }),
+            reason: `Evidence rejected — vendor must resubmit`,
+          },
+        });
+      }
     });
 
     // GOVERNANCE: Trigger eligibility recalculation after evidence review
@@ -354,6 +422,7 @@ export class EvidenceService {
         status: EvidenceStatus.SUBMITTED,
         milestone: {
           projectId,
+          state: { notIn: ['VERIFIED', 'CLOSED'] },
         },
       },
       include: {
@@ -389,8 +458,10 @@ export class EvidenceService {
       return null;
     }
 
-    // Read file from disk/object storage
-    const buffer = await fileStorage.read(file.storageKey);
+    // filePath is the resolved path returned by save() (e.g. "./uploads/key").
+    // storageKey alone is missing the base dir for LocalDiskStorage, so prefer filePath.
+    const readTarget = file.filePath || file.storageKey;
+    const buffer = await fileStorage.read(readTarget);
     if (!buffer) {
       return null;
     }

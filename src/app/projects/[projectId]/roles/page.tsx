@@ -1,5 +1,6 @@
 'use client';
 
+import { TablePageSkeleton } from '@/components/ui/SkeletonPage';
 import { useState } from 'react';
 import { useParams } from 'next/navigation';
 import useSWR from 'swr';
@@ -33,7 +34,7 @@ export default function RolesPage() {
   } = useSWR<Role[]>(
     projectId ? `/api/projects/${projectId}/roles` : null,
     jsonFetcher,
-    { revalidateOnFocus: false, dedupingInterval: 60_000 },
+    { revalidateOnFocus: true, dedupingInterval: 5_000 },
   );
   const loading = projectLoading || rolesLoading;
 
@@ -42,6 +43,7 @@ export default function RolesPage() {
   const [newRole, setNewRole] = useState('VENDOR');
   const [addError, setAddError] = useState('');
   const [adding, setAdding] = useState(false);
+  const [confirmRemoveUserId, setConfirmRemoveUserId] = useState<string | null>(null);
 
   const handleAddRole = async (e: React.FormEvent) => {
     e.preventDefault();
@@ -73,10 +75,7 @@ export default function RolesPage() {
   };
 
   const handleRemoveRole = async (userId: string) => {
-    if (!confirm('Are you sure you want to remove this user from the project?')) {
-      return;
-    }
-
+    setConfirmRemoveUserId(null);
     try {
       const res = await fetch(`/api/projects/${projectId}/roles`, {
         method: 'DELETE',
@@ -99,7 +98,7 @@ export default function RolesPage() {
   if (loading) {
     return (
       <Layout>
-        <div className="text-center py-12">Loading...</div>
+        <TablePageSkeleton />
       </Layout>
     );
   }
@@ -144,8 +143,8 @@ export default function RolesPage() {
                     {myRole === 'OWNER' && (
                       <td>
                         <button
-                          onClick={() => handleRemoveRole(role.userId)}
-                          className="text-[#e06050] hover:text-[#e06050] text-sm"
+                          onClick={() => setConfirmRemoveUserId(role.userId)}
+                          className="text-[#e06050] hover:text-[#c8503f] text-sm"
                         >
                           Remove
                         </button>
@@ -169,7 +168,7 @@ export default function RolesPage() {
                 <ul className="text-sm text-[rgba(232,228,220,0.55)] space-y-1">
                   <li>Full project access</li>
                   <li>Manage roles</li>
-                  <li>Approve BOQ</li>
+                  <li>Approve BOQ (cannot create)</li>
                   <li>Verify milestones</li>
                   <li>Block/Unblock payments</li>
                 </ul>
@@ -177,7 +176,7 @@ export default function RolesPage() {
               <div>
                 <h3 className="font-medium text-[#e8e4dc] mb-2">PMC</h3>
                 <ul className="text-sm text-[rgba(232,228,220,0.55)] space-y-1">
-                  <li>Edit BOQ (cannot approve)</li>
+                  <li>Create &amp; edit BOQ (cannot approve)</li>
                   <li>Review evidence</li>
                   <li>Verify milestones</li>
                   <li>Block payments</li>
@@ -202,6 +201,39 @@ export default function RolesPage() {
           </div>
         </div>
       </div>
+
+      {/* Remove User confirmation modal */}
+      {confirmRemoveUserId && (
+        <div className="fixed inset-0 bg-black/70 flex items-center justify-center z-50">
+          <div className="bg-[#13151a] border border-[rgba(255,255,255,0.1)] rounded-xl max-w-sm w-full mx-4">
+            <div className="p-6">
+              <h2 className="text-lg font-semibold mb-2 text-[#e06050]">Remove User</h2>
+              <p className="text-[rgba(232,228,220,0.55)] mb-4 text-sm">
+                Are you sure you want to remove{' '}
+                <span className="font-medium text-[#e8e4dc]">
+                  {roles.find((r) => r.userId === confirmRemoveUserId)?.name ?? 'this user'}
+                </span>{' '}
+                from the project?
+              </p>
+              {error && <div className="alert alert-error mb-3 text-sm">{error}</div>}
+              <div className="flex justify-end gap-3">
+                <button
+                  onClick={() => setConfirmRemoveUserId(null)}
+                  className="btn btn-secondary"
+                >
+                  Cancel
+                </button>
+                <button
+                  onClick={() => void handleRemoveRole(confirmRemoveUserId)}
+                  className="btn bg-[#e06050] text-white hover:bg-[#c8503f]"
+                >
+                  Remove User
+                </button>
+              </div>
+            </div>
+          </div>
+        </div>
+      )}
 
       {/* Add User Modal */}
       {showAddModal && (

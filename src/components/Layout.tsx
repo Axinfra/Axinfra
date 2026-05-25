@@ -2,7 +2,7 @@
 
 import { useRouter, usePathname } from 'next/navigation';
 import Link from 'next/link';
-import { useState, useEffect } from 'react';
+import { useState, useEffect, useRef } from 'react';
 
 interface LayoutProps {
   children: React.ReactNode;
@@ -20,6 +20,18 @@ interface User {
   email: string;
 }
 
+interface Notification {
+  id: string;
+  eventType: string;
+  message: string;
+  severity: string;
+  projectId: string | null;
+  projectName: string;
+  entityId: string | null;
+  entityType: string | null;
+  createdAt: string;
+}
+
 export default function Layout({ children }: LayoutProps) {
   const router = useRouter();
   const pathname = usePathname();
@@ -28,6 +40,16 @@ export default function Layout({ children }: LayoutProps) {
   const [isAdminUser, setIsAdminUser] = useState(false);
   const [isVendorOnly, setIsVendorOnly] = useState(false);
   const [vendorProjects, setVendorProjects] = useState<ProjectRoleInfo[]>([]);
+
+  // Notifications
+  const [notifications, setNotifications] = useState<Notification[]>([]);
+  const [notifOpen, setNotifOpen] = useState(false);
+  const [lastSeenAt, setLastSeenAt] = useState<string>(() =>
+    typeof window !== 'undefined'
+      ? localStorage.getItem('axinfra_notif_seen') ?? new Date(0).toISOString()
+      : new Date(0).toISOString(),
+  );
+  const bellRef = useRef<HTMLDivElement>(null);
 
   useEffect(() => {
     fetch('/api/auth/session')
@@ -46,6 +68,45 @@ export default function Layout({ children }: LayoutProps) {
       })
       .catch(console.error);
   }, []);
+
+  // Fetch notifications periodically
+  useEffect(() => {
+    const load = () =>
+      fetch('/api/notifications')
+        .then((r) => r.json())
+        .then((d) => { if (d.success) setNotifications(d.data); })
+        .catch(() => {});
+    load();
+    const id = setInterval(load, 30_000);
+    return () => clearInterval(id);
+  }, []);
+
+  // Close dropdown when clicking outside
+  useEffect(() => {
+    const handler = (e: MouseEvent) => {
+      if (bellRef.current && !bellRef.current.contains(e.target as Node)) {
+        setNotifOpen(false);
+      }
+    };
+    document.addEventListener('mousedown', handler);
+    return () => document.removeEventListener('mousedown', handler);
+  }, []);
+
+  const unreadCount = notifications.filter(
+    (n) => new Date(n.createdAt) > new Date(lastSeenAt),
+  ).length;
+
+  const handleBellClick = () => {
+    if (!notifOpen) {
+      const now = new Date().toISOString();
+      setLastSeenAt(now);
+      localStorage.setItem('axinfra_notif_seen', now);
+    }
+    setNotifOpen((v) => !v);
+  };
+
+  const severityColor = (s: string) =>
+    s === 'HIGH' ? 'text-[#e06050]' : s === 'WARNING' ? 'text-[#f97316]' : 'text-[#5cba80]';
 
   const handleLogout = async () => {
     await fetch('/api/auth/logout', { method: 'POST' });
@@ -198,6 +259,65 @@ export default function Layout({ children }: LayoutProps) {
             {user && (
               <span className="text-[13px] text-[rgba(232,228,220,0.55)] hidden sm:block">{user.name}</span>
             )}
+
+            {/* Notification bell */}
+            <div ref={bellRef} className="relative">
+              <button
+                onClick={handleBellClick}
+                className="relative p-2 rounded-lg text-[rgba(232,228,220,0.5)] hover:bg-[rgba(255,255,255,0.05)] hover:text-[#e8e4dc] transition-colors"
+                aria-label="Notifications"
+              >
+                <svg className="w-5 h-5" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                  <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={1.8}
+                    d="M15 17h5l-1.405-1.405A2.032 2.032 0 0118 14.158V11a6.002 6.002 0 00-4-5.659V5a2 2 0 10-4 0v.341C7.67 6.165 6 8.388 6 11v3.159c0 .538-.214 1.055-.595 1.436L4 17h5m6 0v1a3 3 0 11-6 0v-1m6 0H9" />
+                </svg>
+                {unreadCount > 0 && (
+                  <span className="absolute top-1 right-1 w-4 h-4 rounded-full bg-[#e06050] text-white text-[9px] font-bold flex items-center justify-center">
+                    {unreadCount > 9 ? '9+' : unreadCount}
+                  </span>
+                )}
+              </button>
+
+              {/* Dropdown */}
+              {notifOpen && (
+                <div className="absolute right-0 top-full mt-2 w-80 bg-[#13151a] border border-[rgba(255,255,255,0.1)] rounded-xl shadow-2xl z-50 overflow-hidden">
+                  <div className="px-4 py-3 border-b border-[rgba(255,255,255,0.07)]">
+                    <p className="text-sm font-semibold text-[#e8e4dc]">Notifications</p>
+                    <p className="text-xs text-[rgba(232,228,220,0.4)]">Last 7 days</p>
+                  </div>
+                  <div className="max-h-80 overflow-y-auto">
+                    {notifications.length === 0 ? (
+                      <p className="text-sm text-[rgba(232,228,220,0.4)] text-center py-8">No notifications</p>
+                    ) : (
+                      notifications.map((n) => (
+                        <div
+                          key={n.id}
+                          onClick={() => {
+                            setNotifOpen(false);
+                            if (n.projectId && n.entityId && n.entityType === 'Milestone') {
+                              router.push(`/projects/${n.projectId}/milestones/${n.entityId}`);
+                            }
+                          }}
+                          className="px-4 py-3 border-b border-[rgba(255,255,255,0.04)] hover:bg-[rgba(255,255,255,0.03)] cursor-pointer transition-colors"
+                        >
+                          <div className="flex items-start gap-2">
+                            <span className={`text-base mt-0.5 shrink-0 ${severityColor(n.severity)}`}>
+                              {n.severity === 'HIGH' ? '🔔' : n.severity === 'WARNING' ? '⚠' : '✓'}
+                            </span>
+                            <div className="min-w-0">
+                              <p className="text-xs text-[rgba(232,228,220,0.8)] leading-relaxed">{n.message}</p>
+                              {n.projectName && (
+                                <p className="text-[10px] text-[rgba(232,228,220,0.35)] mt-0.5">{n.projectName}</p>
+                              )}
+                            </div>
+                          </div>
+                        </div>
+                      ))
+                    )}
+                  </div>
+                </div>
+              )}
+            </div>
           </div>
         </header>
 

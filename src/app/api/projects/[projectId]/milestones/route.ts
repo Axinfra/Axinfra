@@ -3,8 +3,8 @@ import { prisma } from '@/lib/db';
 import { requireProjectAuth } from '@/lib/auth';
 import { RoleGuard } from '@/services/RoleGuard';
 import { AuditLogger } from '@/services/AuditLogger';
-import { AuditActionTypes, PaymentModel, EligibilityState } from '@/types';
-import { cached, invalidatePrefix } from '@/lib/cache';
+import { AuditActionTypes, PaymentModel, EligibilityState, Role } from '@/types';
+import { invalidateProjectAndMemberCaches } from '@/lib/cache-invalidation';
 import { z } from 'zod';
 
 const milestoneListSelect = {
@@ -21,6 +21,7 @@ const milestoneListSelect = {
   isExtra: true,
   extraApprovedAt: true,
   vendorUserId: true,
+  phaseId: true,
   createdAt: true,
   vendorUser: { select: { id: true, name: true, email: true } },
   boqLinks: {
@@ -62,6 +63,7 @@ const createMilestoneSchema = z.object({
   advancePercent: z.number().min(0).max(100).default(0), // Advance percentage (0-100)
   isExtra: z.boolean().default(false), // Outside BOQ - requires owner approval
   vendorUserId: z.string().uuid().optional().nullable(), // Optional vendor assignment
+  phaseId: z.string().uuid().optional().nullable(),
   boqLinks: z.array(z.object({
     boqItemId: z.string().uuid(),
     plannedQty: z.number().positive(),
@@ -75,7 +77,7 @@ export async function GET(
 ) {
   try {
     const { projectId } = await params;
-    const auth = await requireProjectAuth(projectId);
+    await requireProjectAuth(projectId);
 
     const url = new URL(request.url);
     const all = url.searchParams.get('all') === 'true';
@@ -86,33 +88,26 @@ export async function GET(
     const skip = all ? 0 : (page - 1) * limit;
     const take = all ? undefined : limit;
 
-    const cacheKey = `milestone:${projectId}:list:${auth.role}:${auth.userId}:page:${all ? 'all' : page}:limit:${all ? 'all' : limit}`;
-
-    const { milestones, total } = await cached(cacheKey, 60_000, async () => {
-      const [rows, count] = await Promise.all([
-        prisma.milestone.findMany({
-          where: { projectId },
-          select: milestoneListSelect,
-          orderBy: { createdAt: 'asc' },
-          ...(take !== undefined ? { take, skip } : {}),
-        }),
-        prisma.milestone.count({ where: { projectId } }),
-      ]);
-      return { milestones: rows, total: count };
-    });
+    const [rows, total] = await Promise.all([
+      prisma.milestone.findMany({
+        where: { projectId },
+        select: milestoneListSelect,
+        orderBy: { createdAt: 'desc' },
+        ...(take !== undefined ? { take, skip } : {}),
+      }),
+      prisma.milestone.count({ where: { projectId } }),
+    ]);
 
     return NextResponse.json(
       {
         success: true,
-        data: milestones,
+        data: rows,
         total,
         page: all ? 1 : page,
         limit: all ? total : limit,
       },
       {
-        headers: {
-          'Cache-Control': 's-maxage=30, stale-while-revalidate=300',
-        },
+        headers: { 'Cache-Control': 'no-store' },
       }
     );
   } catch (error) {
@@ -148,6 +143,9 @@ export async function POST(
 
     const body = await request.json();
     const data = createMilestoneSchema.parse(body);
+    const isExtra = auth.role === Role.OWNER || data.isExtra || !data.phaseId;
+    const phaseId = isExtra ? null : data.phaseId ?? null;
+    const boqLinks = isExtra ? undefined : data.boqLinks;
 
     // Calculate advance and remaining amounts
     const advanceAmount = data.value * (data.advancePercent / 100);
@@ -165,15 +163,16 @@ export async function POST(
           plannedQtyOrPercent: data.plannedQtyOrPercent,
           value: data.value,
           advancePercent: data.advancePercent,
-          isExtra: data.isExtra,
+          isExtra,
           vendorUserId: data.vendorUserId ?? null,
+          phaseId,
         },
       });
 
       // Create BOQ links if provided
-      if (data.boqLinks && data.boqLinks.length > 0) {
+      if (boqLinks && boqLinks.length > 0) {
         await tx.milestoneBOQLink.createMany({
-          data: data.boqLinks.map((link) => ({
+          data: boqLinks.map((link) => ({
             milestoneId: milestone.id,
             boqItemId: link.boqItemId,
             plannedQty: link.plannedQty,
@@ -198,7 +197,7 @@ export async function POST(
       return milestone;
     });
 
-    await invalidatePrefix(`milestone:${projectId}:list:`);
+    await invalidateProjectAndMemberCaches(projectId);
 
     await AuditLogger.log({
       projectId,
@@ -213,9 +212,10 @@ export async function POST(
         advancePercent: data.advancePercent,
         advanceAmount,
         remainingAmount,
-        isExtra: data.isExtra,
+        isExtra,
+        phaseId,
         vendorUserId: data.vendorUserId ?? null,
-        boqLinks: data.boqLinks,
+        boqLinks,
       },
     });
 

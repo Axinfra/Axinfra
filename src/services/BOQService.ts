@@ -9,6 +9,10 @@ export interface BOQItemInput {
   rate: number;
 }
 
+function isEditableBOQStatus(status: string): boolean {
+  return status === BOQStatus.DRAFT || status === BOQStatus.REVISED;
+}
+
 /**
  * BOQService - Handles Bill of Quantities operations.
  *
@@ -23,19 +27,30 @@ export class BOQService {
   static async create(
     projectId: string,
     actorId: string,
-    role: Role
+    role: Role,
+    phaseId?: string
   ): Promise<{ success: boolean; boqId?: string; error?: string }> {
-    // Check for existing draft BOQ
-    const existingDraft = await prisma.bOQ.findFirst({
-      where: { projectId, status: BOQStatus.DRAFT },
-    });
+    if (role !== Role.PMC) {
+      return { success: false, error: 'Only PMC can create BOQ' };
+    }
 
-    if (existingDraft) {
-      return { success: false, error: 'A draft BOQ already exists' };
+    if (!phaseId) {
+      return { success: false, error: 'Phase is required to create a BOQ' };
+    }
+
+    const phase = await prisma.phase.findFirst({
+      where: { id: phaseId, projectId },
+      include: { boq: { select: { id: true } } },
+    });
+    if (!phase) {
+      return { success: false, error: 'Phase not found in this project' };
+    }
+    if (phase.boq) {
+      return { success: false, error: 'This phase already has a BOQ' };
     }
 
     const boq = await prisma.bOQ.create({
-      data: { projectId },
+      data: { projectId, phaseId, status: BOQStatus.DRAFT },
     });
 
     await AuditLogger.log({
@@ -45,7 +60,7 @@ export class BOQService {
       actionType: AuditActionTypes.BOQ_CREATE,
       entityType: 'BOQ',
       entityId: boq.id,
-      afterJson: { status: BOQStatus.DRAFT },
+      afterJson: { phaseId, status: BOQStatus.DRAFT },
     });
 
     return { success: true, boqId: boq.id };
@@ -53,7 +68,7 @@ export class BOQService {
 
   /**
    * Add an item to a BOQ.
-   * Only allowed for DRAFT BOQs.
+   * Only allowed for DRAFT/REVISED BOQs.
    */
   static async addItem(
     boqId: string,
@@ -70,8 +85,12 @@ export class BOQService {
       return { success: false, error: 'BOQ not found' };
     }
 
-    if (boq.status !== BOQStatus.DRAFT) {
-      return { success: false, error: 'Cannot add items to approved BOQ. Use revision.' };
+    if (role !== Role.PMC) {
+      return { success: false, error: 'Only PMC can add BOQ items' };
+    }
+
+    if (!isEditableBOQStatus(boq.status)) {
+      return { success: false, error: 'Cannot add items to approved BOQ. Owner must send it to Revised first.' };
     }
 
     const plannedValue = item.plannedQty * item.rate;
@@ -102,7 +121,7 @@ export class BOQService {
 
   /**
    * Update a BOQ item.
-   * Only allowed for DRAFT BOQs.
+   * Only allowed for DRAFT/REVISED BOQs.
    */
   static async updateItem(
     itemId: string,
@@ -120,8 +139,12 @@ export class BOQService {
       return { success: false, error: 'BOQ item not found' };
     }
 
-    if (item.boq.status !== BOQStatus.DRAFT) {
-      return { success: false, error: 'Cannot modify items in approved BOQ. Use revision.' };
+    if (role !== Role.PMC) {
+      return { success: false, error: 'Only PMC can update BOQ items' };
+    }
+
+    if (!isEditableBOQStatus(item.boq.status)) {
+      return { success: false, error: 'Cannot modify items in approved BOQ. Owner must send it to Revised first.' };
     }
 
     const beforeData = {
@@ -163,7 +186,7 @@ export class BOQService {
 
   /**
    * Remove a BOQ item.
-   * Only allowed for DRAFT BOQs.
+   * Only allowed for DRAFT/REVISED BOQs.
    */
   static async removeItem(
     itemId: string,
@@ -180,8 +203,12 @@ export class BOQService {
       return { success: false, error: 'BOQ item not found' };
     }
 
-    if (item.boq.status !== BOQStatus.DRAFT) {
-      return { success: false, error: 'Cannot remove items from approved BOQ. Use revision.' };
+    if (role !== Role.PMC) {
+      return { success: false, error: 'Only PMC can remove BOQ items' };
+    }
+
+    if (!isEditableBOQStatus(item.boq.status)) {
+      return { success: false, error: 'Cannot remove items from approved BOQ. Owner must send it to Revised first.' };
     }
 
     const beforeData = {
@@ -226,24 +253,34 @@ export class BOQService {
 
     const boq = await prisma.bOQ.findFirst({
       where: { id: boqId, projectId },
-      include: { items: true },
+      include: { items: true, revisions: { orderBy: { revisionNumber: 'desc' } } },
     });
 
     if (!boq) {
       return { success: false, error: 'BOQ not found' };
     }
 
-    if (boq.status !== BOQStatus.DRAFT) {
-      return { success: false, error: 'BOQ is not in DRAFT status' };
+    const fromStatus = boq.status as BOQStatus;
+    if (fromStatus !== BOQStatus.DRAFT && fromStatus !== BOQStatus.REVISED) {
+      return { success: false, error: 'BOQ must be in DRAFT or REVISED status to approve' };
     }
 
     if (boq.items.length === 0) {
       return { success: false, error: 'Cannot approve empty BOQ' };
     }
 
-    await prisma.bOQ.update({
-      where: { id: boqId },
-      data: { status: BOQStatus.APPROVED },
+    await prisma.$transaction(async (tx) => {
+      await tx.bOQ.update({
+        where: { id: boqId },
+        data: { status: BOQStatus.APPROVED },
+      });
+
+      if (fromStatus === BOQStatus.REVISED && boq.revisions.length > 0) {
+        await tx.bOQRevision.update({
+          where: { id: boq.revisions[0].id }, // [0] = latest (ordered desc)
+          data: { approvedAt: new Date(), approvedById: actorId },
+        });
+      }
     });
 
     await AuditLogger.log({
@@ -253,11 +290,95 @@ export class BOQService {
       actionType: AuditActionTypes.BOQ_APPROVE,
       entityType: 'BOQ',
       entityId: boqId,
-      beforeJson: { status: BOQStatus.DRAFT },
+      beforeJson: { status: fromStatus },
       afterJson: { status: BOQStatus.APPROVED },
     });
 
     return { success: true };
+  }
+
+  /**
+   * Owner sends BOQ back for revision.
+   * Flow: Owner reviews BOQ -> NO -> BOQ = REVISED, re-approval needed.
+   */
+  static async requestRevision(
+    boqId: string,
+    reason: string,
+    actorId: string,
+    role: Role,
+    projectId: string
+  ): Promise<{ success: boolean; revisionNumber?: number; error?: string }> {
+    if (role !== Role.OWNER) {
+      return { success: false, error: 'Only Owner can request BOQ revision' };
+    }
+
+    if (!reason || reason.trim().length === 0) {
+      return { success: false, error: 'Revision reason is required' };
+    }
+
+    const boq = await prisma.bOQ.findFirst({
+      where: { id: boqId, projectId },
+      include: { items: true, revisions: true },
+    });
+
+    if (!boq) {
+      return { success: false, error: 'BOQ not found' };
+    }
+
+    const fromStatus = boq.status as BOQStatus;
+    if (
+      fromStatus !== BOQStatus.DRAFT &&
+      fromStatus !== BOQStatus.REVISED &&
+      fromStatus !== BOQStatus.APPROVED
+    ) {
+      return { success: false, error: 'BOQ must be DRAFT, REVISED, or APPROVED to request revision' };
+    }
+
+    const revisionNumber = boq.revisions.length + 1;
+    const beforeState = {
+      status: fromStatus,
+      items: boq.items.map((item) => ({
+        id: item.id,
+        description: item.description,
+        unit: item.unit,
+        plannedQty: item.plannedQty,
+        rate: item.rate,
+        plannedValue: item.plannedValue,
+      })),
+    };
+
+    await prisma.$transaction(async (tx) => {
+      await tx.bOQRevision.create({
+        data: {
+          boqId,
+          revisionNumber,
+          reason,
+          changesJson: JSON.stringify({
+            before: beforeState,
+            changes: { ownerReview: 'REJECTED_FOR_REVISION' },
+          }),
+        },
+      });
+
+      await tx.bOQ.update({
+        where: { id: boqId },
+        data: { status: BOQStatus.REVISED },
+      });
+    });
+
+    await AuditLogger.log({
+      projectId,
+      actorId,
+      role,
+      actionType: AuditActionTypes.BOQ_REVISE,
+      entityType: 'BOQ',
+      entityId: boqId,
+      beforeJson: beforeState,
+      afterJson: { status: BOQStatus.REVISED, revisionNumber },
+      reason,
+    });
+
+    return { success: true, revisionNumber };
   }
 
   /**
@@ -276,6 +397,10 @@ export class BOQService {
     role: Role,
     projectId: string
   ): Promise<{ success: boolean; revisionNumber?: number; error?: string }> {
+    if (role !== Role.PMC) {
+      return { success: false, error: 'Only PMC can revise BOQ items' };
+    }
+
     if (!reason || reason.trim().length === 0) {
       return { success: false, error: 'Revision reason is required' };
     }

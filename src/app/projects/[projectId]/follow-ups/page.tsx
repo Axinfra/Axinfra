@@ -1,5 +1,6 @@
 'use client';
 
+import { ListPageSkeleton } from '@/components/ui/SkeletonPage';
 import { useState } from 'react';
 import { useParams } from 'next/navigation';
 import useSWR from 'swr';
@@ -57,7 +58,7 @@ export default function FollowUpsPage() {
   } = useSWR<FollowUp[]>(
     projectId ? `/api/projects/${projectId}/follow-ups` : null,
     jsonFetcher,
-    { revalidateOnFocus: false, dedupingInterval: 30_000 },
+    { revalidateOnFocus: true, dedupingInterval: 5_000 },
   );
   const loading = projectLoading || followUpsLoading;
 
@@ -99,7 +100,7 @@ export default function FollowUpsPage() {
   if (loading) {
     return (
       <Layout>
-        <div className="text-center py-12">Loading...</div>
+        <ListPageSkeleton />
       </Layout>
     );
   }

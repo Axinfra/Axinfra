@@ -7,6 +7,7 @@
 import { NextResponse } from 'next/server';
 import { prisma } from '@/lib/db';
 import { requireAuth } from '@/lib/auth';
+import { cached } from '@/lib/cache';
 import { Role, MilestoneState } from '@/types';
 
 export const dynamic = 'force-dynamic';
@@ -17,22 +18,26 @@ export async function GET() {
   try {
     const auth = await requireAuth();
 
-    const ownerProjects = await prisma.projectRole.findMany({
-      where: {
-        userId: auth.userId,
-        role: Role.OWNER,
-        project: { deletedAt: null },
-      },
-      select: {
-        project: {
-          select: {
-            id: true,
-            name: true,
-            milestones: { select: { state: true } },
+    const ownerProjects = await cached(
+      `dashboard:milestone-completion:${auth.userId}`,
+      120_000,
+      () => prisma.projectRole.findMany({
+        where: {
+          userId: auth.userId,
+          role: Role.OWNER,
+          project: { deletedAt: null },
+        },
+        select: {
+          project: {
+            select: {
+              id: true,
+              name: true,
+              milestones: { select: { state: true } },
+            },
           },
         },
-      },
-    });
+      }),
+    );
 
     const items = ownerProjects.map(({ project }) => {
       const total = project.milestones.length;

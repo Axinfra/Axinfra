@@ -1,7 +1,8 @@
 'use client';
 
+import { DetailPageSkeleton } from '@/components/ui/SkeletonPage';
 import { useState } from 'react';
-import { useParams } from 'next/navigation';
+import { useParams, useRouter } from 'next/navigation';
 import Link from 'next/link';
 import useSWR from 'swr';
 import Layout from '@/components/Layout';
@@ -39,7 +40,7 @@ interface MilestoneData {
     submittedAt: string;
     reviewNote?: string;
     submittedBy: { name: string };
-    files: Array<{ id: string; fileName: string }>;
+    files: Array<{ id: string; fileName: string; mimeType: string }>;
   }>;
   transitions: Array<{
     fromState: string | null;
@@ -54,6 +55,9 @@ interface MilestoneData {
     eligibleAmount: number;
     advanceAmount: number;
     remainingAmount: number;
+    blockExplanation?: string | null;
+    blockReasonCode?: string | null;
+    blockedAt?: string | null;
   };
 }
 
@@ -61,9 +65,11 @@ export default function MilestoneDetailPage() {
   const params = useParams();
   const projectId = params.projectId as string;
   const milestoneId = params.milestoneId as string;
+  const router = useRouter();
   const [error, setError] = useState('');
-  const [transitioning, setTransitioning] = useState(false);
-  const [transitionReason, setTransitionReason] = useState('');
+  const [starting, setStarting] = useState(false);
+  const [approvingExtra, setApprovingExtra] = useState(false);
+  const [confirmApproveExtra, setConfirmApproveExtra] = useState(false);
 
   const { project, isLoading: projectLoading } = useProject();
   const projectName = project?.name ?? '';
@@ -75,70 +81,46 @@ export default function MilestoneDetailPage() {
       : null;
   const {
     data: milestone,
-    error: msErr,
     isLoading: msLoading,
     mutate: refetchMilestone,
   } = useSWR<MilestoneData>(milestoneKey, jsonFetcher, {
-    revalidateOnFocus: false,
-    dedupingInterval: 30_000,
+    revalidateOnFocus: true,
+    dedupingInterval: 5_000,
   });
 
   const loading = projectLoading || msLoading;
-  if (msErr && !error) {
-    // Surface the SWR error once.
-    // (don't loop setState; this is a non-effect derivation)
-  }
 
-  const handleTransition = async (toState: string) => {
-    // Rejection requires reason
-    if (milestone?.state === 'SUBMITTED' && toState === 'IN_PROGRESS') {
-      if (!transitionReason.trim()) {
-        setError('Rejection requires a reason');
-        return;
-      }
-    }
-
-    setTransitioning(true);
+  const handleStartWork = async () => {
+    setStarting(true);
     setError('');
-
     try {
       const res = await fetch(`/api/projects/${projectId}/milestones/${milestoneId}/transition`, {
         method: 'POST',
         headers: { 'Content-Type': 'application/json' },
-        body: JSON.stringify({
-          toState,
-          reason: transitionReason || undefined,
-        }),
+        body: JSON.stringify({ toState: 'IN_PROGRESS' }),
       });
-
       const data = await res.json();
       if (data.success) {
-        setTransitionReason('');
         void refetchMilestone();
       } else {
         setError(data.error);
       }
     } catch {
-      setError('Failed to transition');
+      setError('Failed to start work');
     } finally {
-      setTransitioning(false);
+      setStarting(false);
     }
   };
 
   const handleApproveExtra = async () => {
-    if (!confirm('Are you sure you want to approve this Extra (outside BOQ) milestone?')) {
-      return;
-    }
-
-    setTransitioning(true);
+    setConfirmApproveExtra(false);
+    setApprovingExtra(true);
     setError('');
-
     try {
       const res = await fetch(`/api/projects/${projectId}/milestones/${milestoneId}/approve-extra`, {
         method: 'POST',
         headers: { 'Content-Type': 'application/json' },
       });
-
       const data = await res.json();
       if (data.success) {
         void refetchMilestone();
@@ -148,40 +130,41 @@ export default function MilestoneDetailPage() {
     } catch {
       setError('Failed to approve extra');
     } finally {
-      setTransitioning(false);
+      setApprovingExtra(false);
     }
   };
 
-  if (loading) {
-    return (
-      <Layout>
-        <div className="text-center py-12">Loading...</div>
-      </Layout>
-    );
-  }
+  if (loading) return <Layout><DetailPageSkeleton /></Layout>;
+  if (!milestone) return <Layout><div className="alert alert-error">{error || 'Milestone not found'}</div></Layout>;
 
-  if (!milestone) {
-    return (
-      <Layout>
-        <div className="alert alert-error">{error || 'Milestone not found'}</div>
-      </Layout>
-    );
-  }
+  const stateLabel: Record<string, string> = {
+    DRAFT: 'Draft',
+    IN_PROGRESS: 'In Progress',
+    SUBMITTED: 'Evidence Submitted',
+    VERIFIED: 'Verified',
+    CLOSED: 'Closed',
+  };
+
+  // Determine what action card to show
+  const showStartWork = myRole === 'VENDOR' && milestone.state === 'DRAFT';
+  const showSubmitEvidence = milestone.permissions.canSubmitEvidence && milestone.state === 'IN_PROGRESS';
+  const showReviewEvidence = milestone.permissions.canVerify && milestone.state === 'SUBMITTED';
+  const showPaymentLink = (myRole === 'OWNER' || myRole === 'PMC') && milestone.paymentEligibility && milestone.state === 'VERIFIED';
 
   return (
     <Layout>
       <Navbar projectId={projectId} projectName={projectName} role={myRole} />
 
-      <div className="space-y-6">
+      <div className="space-y-6 max-w-4xl">
         {/* Header */}
-        <div className="flex justify-between items-start">
+        <div className="flex justify-between items-start flex-wrap gap-3">
           <div>
-            <Link
-              href={`/projects/${projectId}/milestones`}
-              className="text-sm text-[rgba(232,228,220,0.55)] hover:text-[rgba(232,228,220,0.55)]"
+            <button
+              onClick={() => router.push(`/projects/${projectId}/milestones`)}
+              className="text-sm text-[rgba(232,228,220,0.45)] hover:text-[#e8e4dc] transition-colors"
             >
-              Back to Milestones
-            </Link>
+              ← Back to Milestones
+            </button>
             <h1 className="text-2xl font-bold text-[#e8e4dc] mt-2">{milestone.title}</h1>
             {milestone.description && (
               <p className="text-[rgba(232,228,220,0.55)] mt-1">{milestone.description}</p>
@@ -196,169 +179,223 @@ export default function MilestoneDetailPage() {
         {milestone.isExtra && (
           <div className={`border rounded-lg p-4 ${
             milestone.extraApprovedAt
-              ? 'bg-[rgba(50,200,120,0.1)] border-green-200'
-              : 'bg-[rgba(196,163,90,0.08)] border-[rgba(196,163,90,0.15)]'
+              ? 'bg-[rgba(92,186,128,0.07)] border-[rgba(92,186,128,0.2)]'
+              : 'bg-[rgba(196,163,90,0.06)] border-[rgba(196,163,90,0.2)]'
           }`}>
-            <div className="flex items-center justify-between">
+            <div className="flex items-center justify-between gap-3 flex-wrap">
               <div>
-                <p className={`font-medium ${
-                  milestone.extraApprovedAt ? 'text-[#5cba80]' : 'text-orange-300'
-                }`}>
-                  {milestone.extraApprovedAt
-                    ? '✓ Extra Approved'
-                    : '⚠️ Extra (Outside BOQ) - Pending Approval'}
+                <p className={`font-medium text-sm ${milestone.extraApprovedAt ? 'text-[#5cba80]' : 'text-[#c4a35a]'}`}>
+                  {milestone.extraApprovedAt ? '✓ Extra Work Approved' : '⚠ Extra Work — Pending Owner Approval'}
                 </p>
-                <p className={`text-sm ${
-                  milestone.extraApprovedAt ? 'text-[#5cba80]' : 'text-[#c4a35a]'
-                }`}>
+                <p className="text-xs text-[rgba(232,228,220,0.45)] mt-0.5">
                   {milestone.extraApprovedAt
                     ? `Approved on ${formatDateTime(milestone.extraApprovedAt)}`
-                    : 'This milestone is outside the approved BOQ and requires Owner approval.'}
+                    : 'This milestone is outside the approved BOQ.'}
                 </p>
               </div>
               {!milestone.extraApprovedAt && myRole === 'OWNER' && (
                 <button
-                  onClick={handleApproveExtra}
-                  disabled={transitioning}
-                  className="btn bg-[#c4a35a] text-white hover:bg-[#b3943f]"
+                  onClick={() => setConfirmApproveExtra(true)}
+                  disabled={approvingExtra}
+                  className="btn btn-primary text-sm disabled:opacity-50"
                 >
-                  {transitioning ? 'Approving...' : 'Approve Extra'}
+                  {approvingExtra ? 'Approving…' : 'Approve Extra'}
                 </button>
               )}
             </div>
           </div>
         )}
 
-        {/* Info Cards */}
-        <div className="grid gap-4 md:grid-cols-3">
+        {/* Key Info */}
+        <div className="grid gap-4 sm:grid-cols-3">
           <div className="card">
             <div className="card-body">
-              <p className="text-sm text-[rgba(232,228,220,0.55)]">Payment Model</p>
-              <p className="text-lg font-semibold">{milestone.paymentModel.replace('_', ' ')}</p>
+              <p className="text-xs text-[rgba(232,228,220,0.45)] uppercase tracking-wider">Payment Model</p>
+              <p className="text-base font-semibold text-[#e8e4dc] mt-1">{milestone.paymentModel.replace('_', ' ')}</p>
             </div>
           </div>
           <div className="card">
             <div className="card-body">
-              <p className="text-sm text-[rgba(232,228,220,0.55)]">Planned Value</p>
-              <p className="text-lg font-semibold">{formatCurrency(milestone.plannedValue)}</p>
+              <p className="text-xs text-[rgba(232,228,220,0.45)] uppercase tracking-wider">Milestone Value</p>
+              <p className="text-base font-semibold text-[#c4a35a] mt-1">{formatCurrency(milestone.plannedValue || milestone.value)}</p>
             </div>
           </div>
           <div className="card">
             <div className="card-body">
-              <p className="text-sm text-[rgba(232,228,220,0.55)]">Due Date</p>
-              <p className="text-lg font-semibold">{formatDate(milestone.plannedEnd)}</p>
+              <p className="text-xs text-[rgba(232,228,220,0.45)] uppercase tracking-wider">Due Date</p>
+              <p className="text-base font-semibold text-[#e8e4dc] mt-1">{formatDate(milestone.plannedEnd) || '—'}</p>
             </div>
           </div>
         </div>
 
-        {/* State Transition */}
-        {milestone.validNextStates.length > 0 && (
+        {/* Action Card — role + state aware */}
+        {(showStartWork || showSubmitEvidence || showReviewEvidence || showPaymentLink) && (
           <div className="card">
-            <div className="card-header">
-              <h2 className="text-lg font-semibold">Actions</h2>
-            </div>
             <div className="card-body">
-              {milestone.state === 'SUBMITTED' &&
-                milestone.validNextStates.includes('IN_PROGRESS') && (
-                  <div className="mb-4">
-                    <label className="label">Rejection Reason (required for rejection)</label>
-                    <textarea
-                      className="input"
-                      rows={2}
-                      value={transitionReason}
-                      onChange={(e) => setTransitionReason(e.target.value)}
-                      placeholder="Enter reason for rejection..."
-                    />
+              {showStartWork && (
+                <div className="flex items-center justify-between gap-4 flex-wrap">
+                  <div>
+                    <p className="text-base font-semibold text-[#e8e4dc]">Ready to begin?</p>
+                    <p className="text-sm text-[rgba(232,228,220,0.5)] mt-0.5">
+                      Click Start Work to mark this milestone as In Progress and notify the PMC.
+                    </p>
+                  </div>
+                  <button
+                    onClick={handleStartWork}
+                    disabled={starting}
+                    className="btn btn-primary shrink-0 disabled:opacity-50"
+                  >
+                    {starting ? 'Starting…' : 'Start Work'}
+                  </button>
+                </div>
+              )}
+
+              {showSubmitEvidence && (
+                <div className="flex items-center justify-between gap-4 flex-wrap">
+                  <div>
+                    <p className="text-base font-semibold text-[#e8e4dc]">Work complete?</p>
+                    <p className="text-sm text-[rgba(232,228,220,0.5)] mt-0.5">
+                      Upload photos or PDFs as proof of work. The PMC will review and verify.
+                    </p>
+                  </div>
+                  <Link
+                    href={`/projects/${projectId}/milestones/${milestoneId}/evidence`}
+                    className="btn btn-primary shrink-0"
+                  >
+                    Submit Evidence
+                  </Link>
+                </div>
+              )}
+
+              {showReviewEvidence && (
+                <div className="flex items-center justify-between gap-4 flex-wrap">
+                  <div>
+                    <p className="text-base font-semibold text-[#e8e4dc]">Evidence submitted for review</p>
+                    <p className="text-sm text-[rgba(232,228,220,0.5)] mt-0.5">
+                      The vendor has submitted evidence. Review attachments, then verify or request revision.
+                    </p>
+                  </div>
+                  <Link
+                    href={`/projects/${projectId}/milestones/${milestoneId}/verify`}
+                    className="btn btn-success shrink-0"
+                  >
+                    Review Evidence
+                  </Link>
+                </div>
+              )}
+
+              {showPaymentLink && !showReviewEvidence && (
+                <div className="flex items-center justify-between gap-4 flex-wrap">
+                  <div>
+                    <p className="text-base font-semibold text-[#e8e4dc]">Milestone Verified</p>
+                    <p className="text-sm text-[rgba(232,228,220,0.5)] mt-0.5">
+                      Payment of {formatCurrency(milestone.paymentEligibility!.eligibleAmount)} is eligible for release.
+                    </p>
+                  </div>
+                  <Link
+                    href={`/projects/${projectId}/payments`}
+                    className="btn btn-primary shrink-0"
+                  >
+                    Manage Payment
+                  </Link>
+                </div>
+              )}
+            </div>
+          </div>
+        )}
+
+        {/* Payment Not Released — prominent banner for all roles */}
+        {milestone.paymentEligibility?.state === 'BLOCKED' && (
+          <div className="border border-[rgba(224,96,80,0.3)] rounded-xl p-4 bg-[rgba(224,96,80,0.06)]">
+            <div className="flex items-start gap-3">
+              <div className="w-8 h-8 rounded-full bg-[rgba(224,96,80,0.15)] flex items-center justify-center shrink-0 mt-0.5">
+                <span className="text-[#e06050] text-base">✕</span>
+              </div>
+              <div className="flex-1 min-w-0">
+                <p className="text-sm font-semibold text-[#e06050]">Payment Not Released</p>
+                <p className="text-xs text-[rgba(232,228,220,0.5)] mt-0.5">
+                  The Owner has reviewed the milestone and deferred payment.
+                </p>
+                {milestone.paymentEligibility.blockExplanation && (
+                  <div className="mt-2 p-3 rounded-lg bg-[rgba(0,0,0,0.2)] border border-[rgba(224,96,80,0.15)]">
+                    <p className="text-xs text-[rgba(232,228,220,0.45)] mb-1">Reason given by Owner</p>
+                    <p className="text-sm text-[#e8e4dc]">"{milestone.paymentEligibility.blockExplanation}"</p>
                   </div>
                 )}
-              <div className="flex flex-wrap gap-3">
-                {milestone.validNextStates.map((state) => (
-                  <button
-                    key={state}
-                    onClick={() => handleTransition(state)}
-                    disabled={transitioning}
-                    className={`btn ${
-                      state === 'VERIFIED' || state === 'CLOSED'
-                        ? 'btn-success'
-                        : state === 'IN_PROGRESS' && milestone.state === 'SUBMITTED'
-                        ? 'btn-danger'
-                        : 'btn-primary'
-                    }`}
-                  >
-                    {transitioning ? 'Processing...' : `Move to ${state.replace('_', ' ')}`}
-                  </button>
-                ))}
+                {milestone.paymentEligibility.blockedAt && (
+                  <p className="text-xs text-[rgba(232,228,220,0.35)] mt-2">{formatDateTime(milestone.paymentEligibility.blockedAt)}</p>
+                )}
               </div>
             </div>
           </div>
         )}
 
-        {/* Quick Links */}
-        <div className="flex flex-wrap gap-3">
-          {milestone.permissions.canSubmitEvidence && milestone.state === 'IN_PROGRESS' && (
-            <Link
-              href={`/projects/${projectId}/milestones/${milestoneId}/evidence`}
-              className="btn btn-primary"
-            >
-              Submit Evidence
-            </Link>
-          )}
-          {milestone.permissions.canVerify && milestone.state === 'SUBMITTED' && (
-            <Link
-              href={`/projects/${projectId}/milestones/${milestoneId}/verify`}
-              className="btn btn-success"
-            >
-              Verify Milestone
-            </Link>
-          )}
-        </div>
+        {/* Payment Status */}
+        {milestone.paymentEligibility && (
+          <div className="card">
+            <div className="card-header">
+              <h2 className="text-base font-semibold">Payment Status</h2>
+            </div>
+            <div className="card-body">
+              <div className="flex items-center justify-between flex-wrap gap-3">
+                <div className="flex items-center gap-4">
+                  <PaymentStatusBadge state={milestone.paymentEligibility.state as any} />
+                  <span className="text-xl font-bold text-[#e8e4dc]">
+                    {formatCurrency(milestone.paymentEligibility.eligibleAmount)}
+                  </span>
+                </div>
+                {(myRole === 'OWNER' || myRole === 'PMC') && (
+                  <Link href={`/projects/${projectId}/payments`} className="btn btn-secondary text-sm">
+                    View Payments
+                  </Link>
+                )}
+              </div>
+              {milestone.paymentEligibility.advanceAmount > 0 && (
+                <p className="text-xs text-[rgba(232,228,220,0.4)] mt-2">
+                  Advance: {formatCurrency(milestone.paymentEligibility.advanceAmount)} · Remaining: {formatCurrency(milestone.paymentEligibility.remainingAmount)}
+                </p>
+              )}
+            </div>
+          </div>
+        )}
 
         {/* Evidence */}
         <div className="card">
           <div className="card-header">
-            <h2 className="text-lg font-semibold">Evidence ({milestone.evidence.length})</h2>
+            <h2 className="text-base font-semibold">Evidence ({milestone.evidence.length})</h2>
           </div>
           <div className="card-body">
             {milestone.evidence.length === 0 ? (
-              <p className="text-[rgba(232,228,220,0.55)] text-center py-4">No evidence submitted yet</p>
+              <p className="text-sm text-[rgba(232,228,220,0.4)] text-center py-6">No evidence submitted yet</p>
             ) : (
               <div className="space-y-4">
                 {milestone.evidence.map((ev) => (
-                  <div key={ev.id} className="border border-[rgba(255,255,255,0.07)] rounded-lg p-4">
-                    <div className="flex justify-between items-start">
+                  <div key={ev.id} className="border border-[rgba(255,255,255,0.07)] rounded-lg p-4 space-y-3">
+                    <div className="flex items-start justify-between gap-3">
                       <div>
-                        <span
-                          className={`badge ${
-                            ev.status === 'APPROVED'
-                              ? 'badge-verified'
-                              : ev.status === 'REJECTED'
-                              ? 'badge-blocked'
-                              : 'badge-submitted'
-                          }`}
-                        >
+                        <span className={`inline-flex items-center px-2 py-0.5 rounded text-xs font-medium ${
+                          ev.status === 'APPROVED'
+                            ? 'bg-[rgba(92,186,128,0.12)] text-[#5cba80]'
+                            : ev.status === 'REJECTED'
+                            ? 'bg-[rgba(224,96,80,0.12)] text-[#e06050]'
+                            : 'bg-[rgba(196,163,90,0.12)] text-[#c4a35a]'
+                        }`}>
                           {ev.status}
                         </span>
-                        <p className="text-sm text-[rgba(232,228,220,0.55)] mt-2">
-                          Submitted by {ev.submittedBy.name} on {formatDateTime(ev.submittedAt)}
+                        <p className="text-xs text-[rgba(232,228,220,0.45)] mt-1.5">
+                          {ev.submittedBy.name} · {formatDateTime(ev.submittedAt)}
                         </p>
-                        <p className="text-sm mt-1">
-                          Qty/Percent: <span className="font-medium">{ev.qtyOrPercent}%</span>
-                        </p>
-                        {ev.remarks && <p className="text-sm text-[rgba(232,228,220,0.55)] mt-1">{ev.remarks}</p>}
-                        {ev.reviewNote && (
-                          <p className="text-sm text-[#e06050] mt-1">
-                            Review note: {ev.reviewNote}
-                          </p>
-                        )}
                       </div>
-                      <div className="text-right">
-                        <p className="text-xs text-[rgba(232,228,220,0.55)]">{ev.files.length} file(s)</p>
-                      </div>
+                      <span className="text-lg font-bold text-[#c4a35a] shrink-0">{ev.qtyOrPercent}%</span>
                     </div>
-                    {/* File List */}
+                    {ev.remarks && (
+                      <p className="text-sm text-[rgba(232,228,220,0.65)]">{ev.remarks}</p>
+                    )}
+                    {ev.reviewNote && (
+                      <p className="text-xs text-[#e06050]">Note: {ev.reviewNote}</p>
+                    )}
                     {ev.files.length > 0 && (
-                      <div className="mt-3 pt-3 border-t border-[rgba(255,255,255,0.07)]">
-                        <p className="text-xs text-[rgba(232,228,220,0.55)] mb-2">Attached Files:</p>
+                      <div className="pt-2 border-t border-[rgba(255,255,255,0.06)]">
                         <div className="flex flex-wrap gap-2">
                           {ev.files.map((file) => (
                             <a
@@ -366,9 +403,9 @@ export default function MilestoneDetailPage() {
                               href={`/api/files/${file.id}`}
                               target="_blank"
                               rel="noopener noreferrer"
-                              className="inline-flex items-center px-2 py-1 text-xs bg-[rgba(255,255,255,0.05)] hover:bg-[rgba(255,255,255,0.06)] rounded text-[#c4a35a]"
+                              className="inline-flex items-center gap-1.5 px-2.5 py-1 text-xs rounded-md bg-[rgba(255,255,255,0.05)] hover:bg-[rgba(196,163,90,0.1)] text-[#c4a35a] border border-[rgba(255,255,255,0.07)] transition-colors"
                             >
-                              {file.fileName}
+                              {file.mimeType === 'application/pdf' ? '📄' : '🖼'} {file.fileName}
                             </a>
                           ))}
                         </div>
@@ -381,53 +418,64 @@ export default function MilestoneDetailPage() {
           </div>
         </div>
 
-        {/* Payment Status */}
-        {milestone.paymentEligibility && (
-          <div className="card">
-            <div className="card-header">
-              <h2 className="text-lg font-semibold">Payment Status</h2>
-            </div>
-            <div className="card-body">
-              <div className="flex items-center justify-between">
-                <div className="flex items-center space-x-4">
-                  <PaymentStatusBadge state={milestone.paymentEligibility.state as any} />
-                  <span className="text-xl font-bold">
-                    {formatCurrency(milestone.paymentEligibility.eligibleAmount)}
-                  </span>
-                </div>
-                <Link
-                  href={`/projects/${projectId}/payments`}
-                  className="btn btn-sm btn-secondary"
-                >
-                  Manage Payments
-                </Link>
-              </div>
-            </div>
-          </div>
-        )}
-
-        {/* Transition History */}
+        {/* State History */}
         <div className="card">
           <div className="card-header">
-            <h2 className="text-lg font-semibold">State History</h2>
+            <h2 className="text-base font-semibold">History</h2>
           </div>
           <div className="card-body">
-            <div className="space-y-3">
-              {milestone.transitions.map((t, i) => (
-                <div key={i} className="flex items-start space-x-3 text-sm">
-                  <div className="w-32 text-[rgba(232,228,220,0.55)]">{formatDateTime(t.createdAt)}</div>
-                  <div>
-                    <span className="font-medium">{t.actor.name}</span>
-                    <span className="text-[rgba(232,228,220,0.55)]"> moved to </span>
-                    <span className="font-medium">{t.toState}</span>
-                    {t.reason && <span className="text-[rgba(232,228,220,0.55)]"> - {t.reason}</span>}
+            {milestone.transitions.length === 0 ? (
+              <p className="text-sm text-[rgba(232,228,220,0.4)] text-center py-4">No transitions yet</p>
+            ) : (
+              <div className="space-y-3">
+                {[...milestone.transitions].reverse().map((t, i) => (
+                  <div key={i} className="flex items-start gap-3 text-sm">
+                    <div className="w-2 h-2 rounded-full bg-[#c4a35a] mt-1.5 shrink-0" />
+                    <div className="flex-1 min-w-0">
+                      <span className="font-medium text-[#e8e4dc]">{t.actor.name}</span>
+                      <span className="text-[rgba(232,228,220,0.45)]"> → </span>
+                      <span className="font-medium text-[#c4a35a]">{stateLabel[t.toState] ?? t.toState}</span>
+                      {t.reason && (
+                        <p className="text-xs text-[rgba(232,228,220,0.45)] mt-0.5 italic">"{t.reason}"</p>
+                      )}
+                      <p className="text-xs text-[rgba(232,228,220,0.3)] mt-0.5">{formatDateTime(t.createdAt)}</p>
+                    </div>
                   </div>
-                </div>
-              ))}
-            </div>
+                ))}
+              </div>
+            )}
           </div>
         </div>
       </div>
+
+      {/* Approve Extra confirmation modal */}
+      {confirmApproveExtra && (
+        <div className="fixed inset-0 bg-black/70 flex items-center justify-center z-50">
+          <div className="bg-[#13151a] border border-[rgba(255,255,255,0.1)] rounded-xl max-w-sm w-full mx-4">
+            <div className="p-6">
+              <h2 className="text-lg font-semibold mb-2 text-[#e8e4dc]">Approve Extra Milestone</h2>
+              <p className="text-[rgba(232,228,220,0.55)] mb-4 text-sm">
+                This milestone is outside the approved BOQ. Approving it confirms the extra scope is authorised.
+              </p>
+              <div className="flex justify-end gap-3">
+                <button
+                  onClick={() => setConfirmApproveExtra(false)}
+                  className="btn btn-secondary"
+                >
+                  Cancel
+                </button>
+                <button
+                  onClick={() => void handleApproveExtra()}
+                  disabled={approvingExtra}
+                  className="btn btn-primary disabled:opacity-50"
+                >
+                  {approvingExtra ? 'Approving…' : 'Approve Extra'}
+                </button>
+              </div>
+            </div>
+          </div>
+        </div>
+      )}
     </Layout>
   );
 }

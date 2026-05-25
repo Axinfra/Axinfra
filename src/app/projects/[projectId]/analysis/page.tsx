@@ -1,5 +1,6 @@
 'use client';
 
+import { AnalysisSkeleton } from '@/components/ui/SkeletonPage';
 import { useState } from 'react';
 import { useParams } from 'next/navigation';
 import useSWR from 'swr';
@@ -53,8 +54,8 @@ export default function AnalysisPage() {
     data: tabPayload,
     isLoading: tabLoading,
   } = useSWR<Record<string, unknown>>(tabKey, jsonFetcher, {
-    revalidateOnFocus: false,
-    dedupingInterval: 120_000,
+    revalidateOnFocus: true,
+    dedupingInterval: 5_000,
     keepPreviousData: false,
   });
   const tabData: Record<string, any> = (tabPayload ?? {}) as Record<string, any>;
@@ -64,7 +65,7 @@ export default function AnalysisPage() {
   if (loading) {
     return (
       <Layout>
-        <div className="text-center py-12">Loading...</div>
+        <AnalysisSkeleton />
       </Layout>
     );
   }

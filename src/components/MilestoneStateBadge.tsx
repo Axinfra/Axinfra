@@ -10,7 +10,7 @@ interface MilestoneStateBadgeProps {
 const stateConfig: Record<MilestoneState, { label: string; variant: "default" | "secondary" | "destructive" | "outline" | "success" | "warning" | "neutral" }> = {
   DRAFT: { label: 'Draft', variant: 'neutral' },
   IN_PROGRESS: { label: 'In Progress', variant: 'default' },
-  SUBMITTED: { label: 'Submitted', variant: 'warning' },
+  SUBMITTED: { label: 'Evidence Submitted', variant: 'warning' },
   VERIFIED: { label: 'Verified', variant: 'success' },
   CLOSED: { label: 'Closed', variant: 'neutral' },
 };

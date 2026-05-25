@@ -18,7 +18,7 @@ export async function GET() {
 
     const projectRoles = await cached(
       `session:roles:${session.userId}`,
-      120_000,
+      300_000,
       () =>
         prisma.projectRole.findMany({
           where: { userId: session.userId },

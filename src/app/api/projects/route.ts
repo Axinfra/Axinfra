@@ -1,6 +1,8 @@
 import { NextRequest, NextResponse } from 'next/server';
 import { prisma } from '@/lib/db';
 import { requireAuth } from '@/lib/auth';
+import { cached } from '@/lib/cache';
+import { invalidateUserWorkspaceCaches } from '@/lib/cache-invalidation';
 import { AuditLogger } from '@/services/AuditLogger';
 import { AuditActionTypes, Role } from '@/types';
 import { z } from 'zod';
@@ -30,34 +32,21 @@ export async function GET() {
   try {
     const auth = await requireAuth();
 
-    const projectRoles = await prisma.projectRole.findMany({
-      where: {
-        userId: auth.userId,
-        project: { deletedAt: null },
-      },
-      include: {
-        project: {
-          include: {
-            roles: {
-              include: {
-                user: {
-                  select: {
-                    id: true,
-                    name: true,
-                    email: true,
-                  },
-                },
-              },
-            },
-            _count: {
-              select: {
-                milestones: true,
-              },
+    const projectRoles = await cached(
+      `projects:list:${auth.userId}`,
+      300_000,
+      () => prisma.projectRole.findMany({
+        where: { userId: auth.userId, project: { deletedAt: null } },
+        include: {
+          project: {
+            include: {
+              roles: { include: { user: { select: { id: true, name: true, email: true } } } },
+              _count: { select: { milestones: true } },
             },
           },
         },
-      },
-    });
+      }),
+    );
 
     const projects = projectRoles.map((pr) => ({
       id: pr.project.id,
@@ -145,6 +134,8 @@ export async function POST(request: NextRequest) {
 
       return project;
     });
+
+    await invalidateUserWorkspaceCaches(auth.userId);
 
     // Log creation
     await AuditLogger.log({

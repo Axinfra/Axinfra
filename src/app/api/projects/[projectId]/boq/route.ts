@@ -3,7 +3,8 @@ import { prisma } from '@/lib/db';
 import { requireProjectAuth } from '@/lib/auth';
 import { RoleGuard } from '@/services/RoleGuard';
 import { BOQService } from '@/services/BOQService';
-import { cached, invalidatePrefix } from '@/lib/cache';
+import { cached } from '@/lib/cache';
+import { invalidateProjectAndMemberCaches } from '@/lib/cache-invalidation';
 
 // GET /api/projects/[projectId]/boq - List BOQs for project
 export async function GET(
@@ -25,8 +26,11 @@ export async function GET(
           revisions: {
             orderBy: { revisionNumber: 'desc' },
           },
+          phase: {
+            select: { id: true, name: true, sortOrder: true },
+          },
         },
-        orderBy: { createdAt: 'desc' },
+        orderBy: [{ phase: { sortOrder: 'asc' } }, { createdAt: 'desc' }],
       }),
     );
 
@@ -58,10 +62,13 @@ export async function POST(
     const { projectId } = await params;
     const auth = await requireProjectAuth(projectId);
 
-    // Only Owner and PMC can create BOQ
-    RoleGuard.requireRole(auth, ['OWNER', 'PMC']);
+    // Only PMC can create BOQ; Owner can only approve
+    RoleGuard.requireRole(auth, ['PMC']);
 
-    const result = await BOQService.create(projectId, auth.userId, auth.role);
+    const body = await request.json().catch(() => ({}));
+    const phaseId: string | undefined = body?.phaseId ?? undefined;
+
+    const result = await BOQService.create(projectId, auth.userId, auth.role, phaseId);
 
     if (!result.success) {
       return NextResponse.json(
@@ -70,8 +77,7 @@ export async function POST(
       );
     }
 
-    // Invalidate the BOQ list cache so the new entry shows up immediately.
-    await invalidatePrefix(`boq:${projectId}:`);
+    await invalidateProjectAndMemberCaches(projectId);
 
     return NextResponse.json({
       success: true,

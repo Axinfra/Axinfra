@@ -698,6 +698,142 @@ export class PaymentEligibilityEngine {
     return { success: true };
   }
 
+  /**
+   * Atomically mark payment as paid AND close the milestone in a single transaction.
+   * This prevents the crash-window that exists when the two operations run separately.
+   */
+  static async markPaidAndClose(
+    milestoneId: string,
+    explanation: string,
+    actorId: string,
+    actorRole: Role,
+    projectId: string
+  ): Promise<{ success: boolean; error?: string }> {
+    if (actorRole !== Role.OWNER && actorRole !== Role.PMC) {
+      return { success: false, error: 'Only Owner or PMC can mark payments as paid' };
+    }
+
+    if (!explanation || explanation.trim().length === 0) {
+      return { success: false, error: 'Explanation is required' };
+    }
+
+    const eligibility = await prisma.paymentEligibility.findUnique({
+      where: { milestoneId },
+    });
+
+    if (!eligibility) {
+      return { success: false, error: 'Payment eligibility not found' };
+    }
+
+    if (eligibility.state === EligibilityState.BLOCKED) {
+      return { success: false, error: 'Cannot mark blocked item as paid. Unblock first.' };
+    }
+
+    if (eligibility.state === EligibilityState.MARKED_PAID) {
+      return { success: false, error: 'Item is already marked as paid' };
+    }
+
+    if (
+      eligibility.state !== EligibilityState.FULLY_ELIGIBLE &&
+      eligibility.state !== EligibilityState.PARTIALLY_ELIGIBLE
+    ) {
+      return {
+        success: false,
+        error: `Cannot mark as paid: milestone is in ${eligibility.state} state. Payment must be eligible first.`,
+      };
+    }
+
+    const previousEligibilityState = eligibility.state;
+    const eventType =
+      actorRole === Role.OWNER
+        ? EligibilityEventType.MARKED_PAID_BY_OWNER
+        : EligibilityEventType.MARKED_PAID_BY_PMC;
+
+    // Single atomic transaction: mark paid + close milestone
+    await prisma.$transaction(async (tx) => {
+      // 1. Update payment eligibility
+      await tx.paymentEligibility.update({
+        where: { milestoneId },
+        data: {
+          state: EligibilityState.MARKED_PAID,
+          markedPaidAt: new Date(),
+          markedPaidByActorId: actorId,
+          paidExplanation: explanation,
+        },
+      });
+
+      await tx.eligibilityEvent.create({
+        data: {
+          paymentEligibilityId: eligibility.id,
+          eventType,
+          fromState: previousEligibilityState,
+          toState: EligibilityState.MARKED_PAID,
+          actorId,
+          actorRole,
+          eligibleAmountBefore: eligibility.eligibleAmount,
+          eligibleAmountAfter: eligibility.eligibleAmount,
+          explanation,
+        },
+      });
+
+      await tx.auditLog.create({
+        data: {
+          projectId,
+          actorId,
+          role: actorRole,
+          actionType: AuditActionTypes.ELIGIBILITY_MARKED_PAID,
+          entityType: 'PaymentEligibility',
+          entityId: eligibility.id,
+          beforeJson: JSON.stringify({ state: previousEligibilityState }),
+          afterJson: JSON.stringify({ state: EligibilityState.MARKED_PAID }),
+          reason: explanation,
+        },
+      });
+
+      // 2. Close the milestone (VERIFIED → CLOSED)
+      const current = await tx.milestone.findUnique({ where: { id: milestoneId } });
+      if (current && current.state === MilestoneState.VERIFIED) {
+        await tx.milestone.update({
+          where: { id: milestoneId },
+          data: { state: MilestoneState.CLOSED },
+        });
+
+        await tx.milestoneStateTransition.create({
+          data: {
+            milestoneId,
+            fromState: MilestoneState.VERIFIED,
+            toState: MilestoneState.CLOSED,
+            actorId,
+            role: actorRole,
+            reason: 'Payment confirmed by Owner',
+          },
+        });
+
+        await tx.auditLog.create({
+          data: {
+            projectId,
+            actorId,
+            role: actorRole,
+            actionType: AuditActionTypes.MILESTONE_STATE_TRANSITION,
+            entityType: 'Milestone',
+            entityId: milestoneId,
+            beforeJson: JSON.stringify({ state: MilestoneState.VERIFIED }),
+            afterJson: JSON.stringify({ state: MilestoneState.CLOSED }),
+            reason: 'Payment confirmed by Owner',
+          },
+        });
+      }
+    });
+
+    SystemEventService.emit(SystemEventType.PAYMENT_MARKED_PAID, projectId, 'PaymentEligibility', eligibility.id, actorId, {
+      milestoneId,
+      fromState: previousEligibilityState,
+      eligibleAmount: eligibility.eligibleAmount,
+    });
+
+    return { success: true };
+  }
+
   // ============================================
   // QUERY METHODS (READ-ONLY)
   // ============================================

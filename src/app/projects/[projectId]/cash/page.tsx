@@ -65,7 +65,7 @@ export default function CashModulePage() {
     adjustments: CashAdjustment[];
     total: number;
     summary: CashSummary;
-  }>(cashKey, jsonFetcher, { revalidateOnFocus: false, dedupingInterval: 60_000 });
+  }>(cashKey, jsonFetcher, { revalidateOnFocus: true, dedupingInterval: 5_000 });
 
   const {
     data: costsData,
@@ -74,7 +74,7 @@ export default function CashModulePage() {
   } = useSWR<{ costs: PrivateCost[]; total: number }>(
     costsKey,
     jsonFetcher,
-    { revalidateOnFocus: false, dedupingInterval: 60_000 },
+    { revalidateOnFocus: true, dedupingInterval: 5_000 },
   );
 
   const adjustments: CashAdjustment[] = cashData?.adjustments ?? [];

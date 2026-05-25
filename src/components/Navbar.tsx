@@ -43,7 +43,7 @@ export default function Navbar({ projectId, projectName, role }: NavbarProps) {
   // so the click feels instant.
   const navItems = [
     { href: `/projects/${projectId}`, label: 'Overview', icon: LayoutDashboard, always: true, prefetchApi: [`/api/projects/${projectId}`] },
-    { href: `/projects/${projectId}/boq`, label: 'BOQ', icon: FileText, always: true, prefetchApi: [`/api/projects/${projectId}/boq`] },
+    { href: `/projects/${projectId}/boq`, label: role === 'OWNER' ? 'View BOQ' : 'BOQ', icon: FileText, always: true, prefetchApi: [`/api/projects/${projectId}/boq`] },
     { href: `/projects/${projectId}/milestones`, label: 'Milestones', icon: Flag, always: true, prefetchApi: [`/api/projects/${projectId}/milestones`] },
     { href: `/projects/${projectId}/views`, label: 'Views', icon: Layers, always: true, prefetchApi: [`/api/projects/${projectId}/views`] },
     { href: `/projects/${projectId}/analysis`, label: 'Analysis', icon: BarChart2, roles: ['OWNER', 'PMC'], prefetchApi: [`/api/projects/${projectId}/analysis`] },

@@ -26,7 +26,7 @@ export class RoleGuard {
   }
 
   static canEditBOQ(auth: ProjectAuthContext): boolean {
-    return auth.role === Role.OWNER || auth.role === Role.PMC;
+    return auth.role === Role.PMC;
   }
 
   static canApproveBOQ(auth: ProjectAuthContext): boolean {
@@ -46,7 +46,7 @@ export class RoleGuard {
   }
 
   static canVerify(auth: ProjectAuthContext): boolean {
-    return auth.role === Role.OWNER || auth.role === Role.PMC;
+    return auth.role === Role.PMC;
   }
 
   static canBlockPayment(auth: ProjectAuthContext): boolean {

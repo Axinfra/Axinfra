@@ -63,11 +63,13 @@ export async function POST(request: NextRequest) {
     // Successful login — reset rate limiter counter
     loginRateLimiter.reset(rateLimitKey);
 
-    const token = await createSession({
-      id: user.id,
-      email: user.email,
-      name: user.name,
-    });
+    const [token, projectRoles] = await Promise.all([
+      createSession({ id: user.id, email: user.email, name: user.name }),
+      prisma.projectRole.findMany({
+        where: { userId: user.id },
+        select: { role: true },
+      }),
+    ]);
 
     const response = NextResponse.json({
       success: true,
@@ -77,6 +79,7 @@ export async function POST(request: NextRequest) {
           name: user.name,
           email: user.email,
         },
+        projectRoles: projectRoles.map((pr) => ({ role: pr.role })),
       },
     });
 

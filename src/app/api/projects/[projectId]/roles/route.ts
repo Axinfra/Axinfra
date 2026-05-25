@@ -1,6 +1,10 @@
 import { NextRequest, NextResponse } from 'next/server';
 import { prisma } from '@/lib/db';
 import { requireProjectAuth, invalidateProjectAuth } from '@/lib/auth';
+import {
+  invalidateProjectAndMemberCaches,
+  invalidateUserWorkspaceCaches,
+} from '@/lib/cache-invalidation';
 import { RoleGuard } from '@/services/RoleGuard';
 import { AuditLogger } from '@/services/AuditLogger';
 import { AuditActionTypes, Role } from '@/types';
@@ -118,6 +122,7 @@ export async function POST(
     // Drop the cached auth entry for the new member so their next request
     // sees the role immediately instead of waiting up to 60s.
     await invalidateProjectAuth(projectId, user.id);
+    await invalidateProjectAndMemberCaches(projectId);
 
     await AuditLogger.log({
       projectId,
@@ -223,6 +228,8 @@ export async function DELETE(
 
     // Revoked user must lose access on their next request — drop the cache.
     await invalidateProjectAuth(projectId, userId);
+    await invalidateUserWorkspaceCaches(userId);
+    await invalidateProjectAndMemberCaches(projectId);
 
     await AuditLogger.log({
       projectId,

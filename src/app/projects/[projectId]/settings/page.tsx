@@ -1,5 +1,6 @@
 'use client';
 
+import { FormPageSkeleton } from '@/components/ui/SkeletonPage';
 import { useState, useEffect } from 'react';
 import { useParams, useRouter } from 'next/navigation';
 import Layout from '@/components/Layout';
@@ -125,7 +126,7 @@ export default function ProjectSettingsPage() {
   if (loading) {
     return (
       <Layout>
-        <div className="text-center py-12">Loading...</div>
+        <FormPageSkeleton />
       </Layout>
     );
   }

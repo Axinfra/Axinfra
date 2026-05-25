@@ -35,10 +35,12 @@ model AuditLog {
 model BOQ {
   id          String        @id @default(uuid())
   projectId   String
+  phaseId     String?       @unique
   status      String        @default("DRAFT")
   createdAt   DateTime      @default(now())
   updatedAt   DateTime      @updatedAt
   project     Project       @relation(fields: [projectId], references: [id], onDelete: Cascade)
+  phase       Phase?        @relation(fields: [phaseId], references: [id], onDelete: SetNull)
   items       BOQItem[]
   revisions   BOQRevision[]
 
@@ -64,13 +66,15 @@ model BOQItem {
 }
 
 model BOQRevision {
-  id             String   @id @default(uuid())
+  id             String    @id @default(uuid())
   boqId          String
   revisionNumber Int
   reason         String
   changesJson    String
-  createdAt      DateTime @default(now())
-  boq            BOQ      @relation(fields: [boqId], references: [id], onDelete: Cascade)
+  approvedAt     DateTime?
+  approvedById   String?
+  createdAt      DateTime  @default(now())
+  boq            BOQ       @relation(fields: [boqId], references: [id], onDelete: Cascade)
 
   @@index([boqId])
   @@index([boqId, revisionNumber])
@@ -199,11 +203,13 @@ model Milestone {
   extraApprovedById       String?
   state                   String                     @default("DRAFT")
   vendorUserId            String?                    // Optional: assigned vendor user
+  phaseId                 String?
   createdAt               DateTime                   @default(now())
   updatedAt               DateTime                   @updatedAt
   evidence                Evidence[]
   project                 Project                    @relation(fields: [projectId], references: [id], onDelete: Cascade)
   vendorUser              User?                      @relation("MilestoneVendor", fields: [vendorUserId], references: [id])
+  phase                   Phase?                     @relation(fields: [phaseId], references: [id], onDelete: SetNull)
   boqLinks                MilestoneBOQLink[]
   transitions             MilestoneStateTransition[]
   paymentEligibility      PaymentEligibility?
@@ -217,6 +223,7 @@ model Milestone {
   @@index([extraApprovedById])
   @@index([title])
   @@index([plannedEnd])
+  @@index([phaseId])
   @@index([projectId, state])
   @@index([projectId, createdAt])
   @@index([vendorUserId, state])
@@ -296,6 +303,7 @@ model Project {
   boqs             BOQ[]
   followUps        FollowUp[]
   milestones       Milestone[]
+  phases           Phase[]
   roles            ProjectRole[]
   scheduleConfig   ProjectScheduleConfig?
   vendorMetrics    VendorMetrics[]
@@ -499,4 +507,19 @@ model PrivateCostEntry {
   @@index([projectId])
   @@index([createdById])
   @@index([category])
+}
+
+model Phase {
+  id         String      @id @default(uuid())
+  projectId  String
+  name       String
+  sortOrder  Int         @default(0)
+  createdAt  DateTime    @default(now())
+  updatedAt  DateTime    @updatedAt
+  project    Project     @relation(fields: [projectId], references: [id], onDelete: Cascade)
+  boq        BOQ?
+  milestones Milestone[]
+
+  @@index([projectId])
+  @@index([projectId, sortOrder])
 }

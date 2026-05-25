@@ -5,7 +5,7 @@ import { useState } from 'react';
 import { useRouter } from 'next/navigation';
 import { Button } from '@/components/ui/Button';
 import { Input } from '@/components/ui/Input';
-import { ArrowRight, Loader2, AlertCircle } from 'lucide-react';
+import { ArrowRight, Loader2, AlertCircle, Eye, EyeOff } from 'lucide-react';
 import Link from 'next/link';
 
 export default function LoginPage() {
@@ -14,6 +14,7 @@ export default function LoginPage() {
   const [password, setPassword] = useState('');
   const [error, setError] = useState('');
   const [loading, setLoading] = useState(false);
+  const [showPassword, setShowPassword] = useState(false);
 
   const handleSubmit = async (e: React.FormEvent) => {
     e.preventDefault();
@@ -30,17 +31,9 @@ export default function LoginPage() {
       const data = await res.json();
 
       if (data.success) {
-        // Check if user is vendor-only to redirect appropriately
-        const sessionRes = await fetch('/api/auth/session');
-        const sessionData = await sessionRes.json();
-        if (sessionData.success) {
-          const roles = sessionData.data.projectRoles || [];
-          const vendorRoles = ['VENDOR'];
-          const isVendorOnly = roles.length > 0 && roles.every((r: { role: string }) => vendorRoles.includes(r.role));
-          router.push(isVendorOnly ? '/vendor' : '/projects');
-        } else {
-          router.push('/projects');
-        }
+        const roles: { role: string }[] = data.data.projectRoles || [];
+        const isVendorOnly = roles.length > 0 && roles.every((r) => r.role === 'VENDOR');
+        router.push(isVendorOnly ? '/vendor' : '/projects');
       } else {
         setError(data.error || 'Login failed');
       }
@@ -145,15 +138,27 @@ export default function LoginPage() {
                   <label htmlFor="password" className="text-xs font-medium text-[rgba(232,228,220,0.55)] uppercase tracking-wider block">Password</label>
                   <Link href="#" className="text-xs font-medium text-[#c4a35a] hover:underline">Forgot password?</Link>
                 </div>
-                <Input
-                  id="password"
-                  type="password"
-                  value={password}
-                  onChange={(e) => setPassword(e.target.value)}
-                  placeholder="••••••••"
-                  required
-                  autoComplete="current-password"
-                />
+                <div className="relative">
+                  <Input
+                    id="password"
+                    type={showPassword ? 'text' : 'password'}
+                    value={password}
+                    onChange={(e) => setPassword(e.target.value)}
+                    placeholder="••••••••"
+                    required
+                    autoComplete="current-password"
+                    className="pr-10"
+                  />
+                  <button
+                    type="button"
+                    onClick={() => setShowPassword((v) => !v)}
+                    className="absolute right-3 top-1/2 -translate-y-1/2 text-[rgba(232,228,220,0.35)] hover:text-[rgba(232,228,220,0.7)] transition-colors"
+                    tabIndex={-1}
+                    aria-label={showPassword ? 'Hide password' : 'Show password'}
+                  >
+                    {showPassword ? <EyeOff className="h-4 w-4" /> : <Eye className="h-4 w-4" />}
+                  </button>
+                </div>
               </div>
             </div>
 

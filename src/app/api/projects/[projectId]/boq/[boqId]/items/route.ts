@@ -3,7 +3,7 @@ import { requireProjectAuth } from '@/lib/auth';
 import { validateBOQOwnership } from '@/lib/validate-ownership';
 import { RoleGuard } from '@/services/RoleGuard';
 import { BOQService } from '@/services/BOQService';
-import { invalidatePrefix } from '@/lib/cache';
+import { invalidateProjectAndMemberCaches } from '@/lib/cache-invalidation';
 import { z } from 'zod';
 
 const addItemSchema = z.object({
@@ -36,7 +36,7 @@ export async function POST(
     const { projectId, boqId } = await params;
     const auth = await requireProjectAuth(projectId);
 
-    RoleGuard.requireRole(auth, ['OWNER', 'PMC']);
+    RoleGuard.requireRole(auth, ['PMC']);
 
     // IDOR guard: verify BOQ belongs to this project
     const ownershipCheck = await validateBOQOwnership(boqId, projectId);
@@ -59,7 +59,7 @@ export async function POST(
       );
     }
 
-    await invalidatePrefix(`boq:${projectId}:`);
+    await invalidateProjectAndMemberCaches(projectId);
 
     return NextResponse.json({
       success: true,
@@ -101,7 +101,7 @@ export async function PATCH(
     const { projectId, boqId } = await params;
     const auth = await requireProjectAuth(projectId);
 
-    RoleGuard.requireRole(auth, ['OWNER', 'PMC']);
+    RoleGuard.requireRole(auth, ['PMC']);
 
     // IDOR guard: verify BOQ belongs to this project
     const ownershipCheck2 = await validateBOQOwnership(boqId, projectId);
@@ -124,7 +124,7 @@ export async function PATCH(
       );
     }
 
-    await invalidatePrefix(`boq:${projectId}:`);
+    await invalidateProjectAndMemberCaches(projectId);
 
     return NextResponse.json({ success: true });
   } catch (error) {
@@ -163,7 +163,7 @@ export async function DELETE(
     const { projectId, boqId } = await params;
     const auth = await requireProjectAuth(projectId);
 
-    RoleGuard.requireRole(auth, ['OWNER', 'PMC']);
+    RoleGuard.requireRole(auth, ['PMC']);
 
     // IDOR guard: verify BOQ belongs to this project
     const ownershipCheck3 = await validateBOQOwnership(boqId, projectId);
@@ -186,7 +186,7 @@ export async function DELETE(
       );
     }
 
-    await invalidatePrefix(`boq:${projectId}:`);
+    await invalidateProjectAndMemberCaches(projectId);
 
     return NextResponse.json({ success: true });
   } catch (error) {

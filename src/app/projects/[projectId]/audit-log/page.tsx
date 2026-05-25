@@ -1,5 +1,6 @@
 'use client';
 
+import { TablePageSkeleton } from '@/components/ui/SkeletonPage';
 import { useState, useMemo } from 'react';
 import { useParams } from 'next/navigation';
 import useSWR from 'swr';
@@ -34,7 +35,7 @@ export default function AuditLogPage() {
   const [filters, setFilters] = useState({
     entityType: '',
     actionType: '',
-    limit: 50,
+    limit: 25,
     offset: 0,
   });
 
@@ -61,8 +62,8 @@ export default function AuditLogPage() {
     logs: AuditLogEntry[];
     total: number;
   }>(auditUrl, jsonFetcher, {
-    revalidateOnFocus: false,
-    dedupingInterval: 60_000,
+    revalidateOnFocus: true,
+    dedupingInterval: 5_000,
   });
 
   const logs: AuditLogEntry[] = payload?.logs ?? [];
@@ -101,13 +102,22 @@ export default function AuditLogPage() {
   if (loading) {
     return (
       <Layout>
-        <div className="text-center py-12">Loading...</div>
+        <TablePageSkeleton />
       </Layout>
     );
   }
 
-  const entityTypes = Array.from(new Set(logs.map((l) => l.entityType)));
-  const actionTypes = Array.from(new Set(logs.map((l) => l.actionType)));
+  const entityTypes = ['Milestone', 'BOQ', 'Phase', 'Evidence', 'Project', 'Role', 'FollowUp', 'Payment', 'Cash'];
+  const actionTypes = [
+    'BOQ_CREATE', 'BOQ_APPROVE', 'BOQ_REVISE', 'BOQ_ITEM_ADD', 'BOQ_ITEM_UPDATE', 'BOQ_ITEM_REMOVE',
+    'MILESTONE_CREATE', 'MILESTONE_UPDATE', 'MILESTONE_DELETE', 'MILESTONE_STATE_TRANSITION', 'MILESTONE_BOQ_LINK',
+    'EVIDENCE_SUBMIT', 'EVIDENCE_APPROVE', 'EVIDENCE_REJECT',
+    'VERIFICATION_CREATE',
+    'ELIGIBILITY_RECALCULATED', 'ELIGIBILITY_BLOCKED', 'ELIGIBILITY_UNBLOCKED', 'ELIGIBILITY_MARKED_PAID',
+    'ROLE_ASSIGN', 'ROLE_REMOVE',
+    'FOLLOWUP_CREATE', 'FOLLOWUP_RESOLVE', 'FOLLOWUP_ESCALATE',
+    'PROJECT_CREATE', 'PROJECT_UPDATE',
+  ];
 
   return (
     <Layout>
@@ -252,28 +262,55 @@ export default function AuditLogPage() {
         </div>
 
         {/* Pagination */}
-        {total > filters.limit && (
-          <div className="flex justify-center space-x-2">
-            <button
-              disabled={filters.offset === 0}
-              onClick={() => setFilters({ ...filters, offset: Math.max(0, filters.offset - filters.limit) })}
-              className="btn btn-secondary btn-sm"
-            >
-              Previous
-            </button>
-            <span className="py-2 px-4 text-sm text-[rgba(232,228,220,0.55)]">
-              Page {Math.floor(filters.offset / filters.limit) + 1} of{' '}
-              {Math.ceil(total / filters.limit)}
-            </span>
-            <button
-              disabled={filters.offset + filters.limit >= total}
-              onClick={() => setFilters({ ...filters, offset: filters.offset + filters.limit })}
-              className="btn btn-secondary btn-sm"
-            >
-              Next
-            </button>
-          </div>
-        )}
+        {total > filters.limit && (() => {
+          const currentPage = Math.floor(filters.offset / filters.limit) + 1;
+          const totalPageCount = Math.ceil(total / filters.limit);
+          const goTo = (p: number) =>
+            setFilters({ ...filters, offset: (p - 1) * filters.limit });
+          const pages = Array.from({ length: totalPageCount }, (_, i) => i + 1)
+            .filter((p) => p === 1 || p === totalPageCount || Math.abs(p - currentPage) <= 1)
+            .reduce<(number | '…')[]>((acc, p, idx, arr) => {
+              if (idx > 0 && p - (arr[idx - 1] as number) > 1) acc.push('…');
+              acc.push(p);
+              return acc;
+            }, []);
+          return (
+            <div className="flex items-center justify-between py-2">
+              <p className="text-sm text-[rgba(232,228,220,0.45)]">
+                Showing {filters.offset + 1}–{Math.min(filters.offset + filters.limit, total)} of {total}
+              </p>
+              <div className="flex items-center gap-1">
+                <button
+                  disabled={currentPage === 1}
+                  onClick={() => goTo(currentPage - 1)}
+                  className="btn btn-sm btn-secondary disabled:opacity-40"
+                >
+                  ← Prev
+                </button>
+                {pages.map((p, i) =>
+                  p === '…' ? (
+                    <span key={`e-${i}`} className="px-2 text-[rgba(232,228,220,0.3)] text-sm">…</span>
+                  ) : (
+                    <button
+                      key={p}
+                      onClick={() => goTo(p as number)}
+                      className={`btn btn-sm ${currentPage === p ? 'btn-primary' : 'btn-secondary'}`}
+                    >
+                      {p}
+                    </button>
+                  )
+                )}
+                <button
+                  disabled={currentPage === totalPageCount}
+                  onClick={() => goTo(currentPage + 1)}
+                  className="btn btn-sm btn-secondary disabled:opacity-40"
+                >
+                  Next →
+                </button>
+              </div>
+            </div>
+          );
+        })()}
       </div>
     </Layout>
   );
