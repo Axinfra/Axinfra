@@ -1,6 +1,4 @@
 import Link from "next/link"
-import { getSession } from "@/lib/auth"
-import { redirect } from "next/navigation"
 import styles from "./landing.module.css"
 
 /* ── Reusable Project Card ── */
@@ -62,12 +60,7 @@ function CheckIcon() {
   )
 }
 
-export default async function LandingPage() {
-  const session = await getSession()
-  if (session) {
-    redirect("/projects")
-  }
-
+export default function LandingPage() {
   return (
     <div className={styles.landing}>
       {/* ── Nav ── */}

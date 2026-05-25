@@ -499,7 +499,7 @@ export default function BOQPage() {
                       disabled={!selectedPhaseId || phaseHasBoq}
                       className="btn btn-primary disabled:opacity-50"
                     >
-                      Create Draft BOQ
+                      Create BOQ
                     </button>
                   </div>
                 </>

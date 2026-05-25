@@ -12,6 +12,7 @@ const SELF_AUTH_ROUTES = ['/api/cron/follow-ups'];
 
 // Page routes accessible without a session
 const PUBLIC_PAGE_ROUTES = [
+  '/',
   '/auth/login',
   '/auth/register',
 ];
@@ -35,7 +36,10 @@ export function middleware(request: NextRequest) {
   }
 
   // ── Page routes ─────────────────────────────────────────────────────────
-  if (PUBLIC_PAGE_ROUTES.some((r) => pathname.startsWith(r))) {
+  const isPublicPage = PUBLIC_PAGE_ROUTES.some((r) =>
+    r === '/' ? pathname === '/' : pathname.startsWith(r)
+  );
+  if (isPublicPage) {
     // Already logged in — send away from login page
     if (sessionToken && pathname.startsWith('/auth/login')) {
       return NextResponse.redirect(new URL('/projects', request.url));
