@@ -12,7 +12,7 @@ import { z } from 'zod';
 
 const assignRoleSchema = z.object({
   email: z.string().email(),
-  role: z.enum(['OWNER', 'PMC', 'VENDOR', 'VIEWER']),
+  role: z.enum(['OWNER', 'PMC', 'VENDOR', 'VIEWER', 'ARTIFACTS']),
 });
 
 const removeRoleSchema = z.object({

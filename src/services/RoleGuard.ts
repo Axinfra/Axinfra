@@ -4,7 +4,7 @@ import { ProjectAuthContext } from '@/lib/auth';
 /**
  * RoleGuard - Server-side role enforcement.
  *
- * Allowed roles: OWNER, PMC, VENDOR, VIEWER
+ * Allowed roles: OWNER, PMC, VENDOR, VIEWER, ARTIFACTS
  */
 export class RoleGuard {
   static requireRole(auth: ProjectAuthContext, allowedRoles: Role[]): void {
@@ -14,7 +14,7 @@ export class RoleGuard {
   }
 
   static canRead(auth: ProjectAuthContext): boolean {
-    return ([Role.OWNER, Role.PMC, Role.VENDOR, Role.VIEWER] as string[]).includes(auth.role);
+    return ([Role.OWNER, Role.PMC, Role.VENDOR, Role.VIEWER, Role.ARTIFACTS] as string[]).includes(auth.role);
   }
 
   static canManageProject(auth: ProjectAuthContext): boolean {
@@ -42,7 +42,7 @@ export class RoleGuard {
   }
 
   static canReviewEvidence(auth: ProjectAuthContext): boolean {
-    return auth.role === Role.OWNER || auth.role === Role.PMC;
+    return auth.role === Role.OWNER || auth.role === Role.PMC || auth.role === Role.ARTIFACTS;
   }
 
   static canVerify(auth: ProjectAuthContext): boolean {
@@ -66,7 +66,7 @@ export class RoleGuard {
   }
 
   static canExportAuditLog(auth: ProjectAuthContext): boolean {
-    return auth.role === Role.OWNER || auth.role === Role.PMC;
+    return auth.role === Role.OWNER || auth.role === Role.PMC || auth.role === Role.ARTIFACTS;
   }
 
   static canResolveFollowUp(auth: ProjectAuthContext): boolean {
@@ -76,6 +76,11 @@ export class RoleGuard {
   /** Cash module access - OWNER only */
   static canAccessCashModule(auth: ProjectAuthContext): boolean {
     return auth.role === Role.OWNER;
+  }
+
+  /** Artifacts role: upload/manage project documents, drawings, and deliverables */
+  static canManageArtifacts(auth: ProjectAuthContext): boolean {
+    return auth.role === Role.OWNER || auth.role === Role.PMC || auth.role === Role.ARTIFACTS;
   }
 
   static validateNotSelfApproval(reviewerId: string, submitterId: string): void {
@@ -103,6 +108,7 @@ export class RoleGuard {
       canExportAuditLog: this.canExportAuditLog(fakeAuth),
       canResolveFollowUp: this.canResolveFollowUp(fakeAuth),
       canAccessCashModule: this.canAccessCashModule(fakeAuth),
+      canManageArtifacts: this.canManageArtifacts(fakeAuth),
     };
   }
 }

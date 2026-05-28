@@ -23,6 +23,11 @@ export interface ExecutionAnalysis {
     avgDaysInSubmitted: number;
     avgEvidenceReviewDays: number;
     evidenceRejectionRate: number;
+    doneCount: number;
+    inProgressCount: number;
+    submittedCount: number;
+    approachingCount: number; // due within 30d, not verified
+    draftCount: number;
   };
   stateBreakdown: Array<{
     state: MilestoneState;
@@ -231,9 +236,21 @@ export class AnalysisService {
     });
 
     const now = new Date();
+    const thirtyDaysOut = new Date(now.getTime() + 30 * 24 * 60 * 60 * 1000);
     const totalMilestones = milestones.length;
     const verifiedCount = milestones.filter(m =>
       ([MilestoneState.VERIFIED, MilestoneState.CLOSED] as string[]).includes(m.state)
+    ).length;
+    const doneCount = verifiedCount;
+    const inProgressCount = milestones.filter(m => m.state === MilestoneState.IN_PROGRESS).length;
+    const submittedCount = milestones.filter(m => m.state === MilestoneState.SUBMITTED).length;
+    const draftCount = milestones.filter(m => m.state === MilestoneState.DRAFT).length;
+    // Approaching: plannedEnd within next 30 days, not yet verified/closed
+    const approachingCount = milestones.filter(m =>
+      m.plannedEnd &&
+      m.plannedEnd > now &&
+      m.plannedEnd <= thirtyDaysOut &&
+      !([MilestoneState.VERIFIED, MilestoneState.CLOSED] as string[]).includes(m.state)
     ).length;
 
     // Calculate time spent in each state
@@ -337,6 +354,11 @@ export class AnalysisService {
         evidenceRejectionRate: allEvidence.length > 0
           ? Math.round((rejectedEvidence.length / allEvidence.length) * 100)
           : 0,
+        doneCount,
+        inProgressCount,
+        submittedCount,
+        approachingCount,
+        draftCount,
       },
       stateBreakdown,
       slaBreaches: slaBreaches.slice(0, 10), // Top 10

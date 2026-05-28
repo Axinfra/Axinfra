@@ -3,6 +3,7 @@ export const Role = {
   PMC: 'PMC',
   VENDOR: 'VENDOR',
   VIEWER: 'VIEWER',
+  ARTIFACTS: 'ARTIFACTS',
 } as const;
 export type Role = (typeof Role)[keyof typeof Role];
 

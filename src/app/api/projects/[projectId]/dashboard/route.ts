@@ -6,6 +6,7 @@ import { PaymentEligibilityEngine } from '@/services/PaymentEligibilityEngine';
 import { FollowUpScheduler } from '@/services/FollowUpScheduler';
 import { Role, EligibilityState, EvidenceStatus, MilestoneState } from '@/types';
 import { cached } from '@/lib/cache';
+import { buildArchitectureSnapshot } from '@/lib/architectureMetrics';
 
 // GET /api/projects/[projectId]/dashboard - Get role-specific dashboard data
 export async function GET(
@@ -32,6 +33,9 @@ export async function GET(
       case Role.VIEWER:
         dashboardData = await cached(`dash:viewer:${projectId}`, TTL, () => getViewerDashboard(projectId));
         break;
+      case Role.ARTIFACTS:
+        dashboardData = await cached(`dash:artifacts:${projectId}:${auth.userId}`, TTL, () => getArtifactsDashboard(projectId, auth.userId));
+        break;
     }
 
     return NextResponse.json({ success: true, data: dashboardData });
@@ -56,7 +60,7 @@ async function getOwnerDashboard(projectId: string) {
   // VERIFIED/CLOSED (feeds totalVerifiedValue) OR the eligibility is in one of
   // the tracked payment states (feeds totalPaidValue / totalBlockedValue / totalUnpaidValue).
   // The two gates are independent, so we OR them to preserve existing semantics.
-  const [eligibilities, overruns, vendorExposures, followUps] = await Promise.all([
+  const [eligibilities, overruns, vendorExposures, followUps, architecture] = await Promise.all([
     prisma.paymentEligibility.findMany({
       where: {
         milestone: { projectId },
@@ -94,6 +98,7 @@ async function getOwnerDashboard(projectId: string) {
     PaymentEligibilityEngine.detectBOQOverruns(projectId),
     PaymentEligibilityEngine.detectVendorExposure(projectId),
     FollowUpScheduler.getOpenFollowUps(projectId),
+    getArchitectureSnapshot(projectId),
   ]);
 
   // Calculate totals
@@ -151,12 +156,91 @@ async function getOwnerDashboard(projectId: string) {
     boqOverruns: overruns.slice(0, 5),
     openFollowUps: followUps.length,
     followUps: followUps.slice(0, 10),
+    architecture,
   };
+}
+
+async function getArtifactsDashboard(projectId: string, userId: string) {
+  const [architecture, myRequestedSets] = await Promise.all([
+    getArchitectureSnapshot(projectId, userId),
+    prisma.drawingSet.findMany({
+      where: {
+        projectId,
+        createdById: userId,
+        status: { in: ['REQUESTED', 'IN_PROGRESS', 'DELIVERED'] },
+      },
+      select: {
+        id: true,
+        name: true,
+        status: true,
+        dueDate: true,
+        requestedAt: true,
+      },
+      orderBy: [{ dueDate: 'asc' }, { requestedAt: 'desc' }],
+      take: 10,
+    }),
+  ]);
+
+  return {
+    architecture,
+    myRequestedSets: myRequestedSets.map((set) => ({
+      id: set.id,
+      name: set.name,
+      status: set.status,
+      dueDate: set.dueDate,
+      requestedAt: set.requestedAt,
+    })),
+  };
+}
+
+async function getArchitectureSnapshot(projectId: string, createdById?: string) {
+  const setWhere = createdById ? { projectId, createdById } : { projectId };
+  const rowWhere = createdById ? { projectId, createdById } : { projectId };
+
+  const [sets, rows, pendingReview, dueSoonSets] = await Promise.all([
+    prisma.drawingSet.findMany({
+      where: setWhere,
+      select: { status: true },
+    }),
+    prisma.drawingRow.findMany({
+      where: rowWhere,
+      select: { status: true },
+    }),
+    prisma.drawingVersion.count({
+      where: {
+        reviewStatus: 'PENDING',
+        isCurrent: true,
+        drawingRow: rowWhere,
+      },
+    }),
+    prisma.drawingSet.findMany({
+      where: {
+        ...setWhere,
+        dueDate: { not: null },
+        status: { in: ['REQUESTED', 'IN_PROGRESS', 'DELIVERED'] },
+      },
+      select: {
+        id: true,
+        name: true,
+        status: true,
+        dueDate: true,
+      },
+      orderBy: { dueDate: 'asc' },
+      take: 8,
+    }),
+  ]);
+
+  return buildArchitectureSnapshot({
+    sets,
+    rows,
+    pendingReview,
+    dueSoonSets,
+  });
 }
 
 async function getPMCDashboard(projectId: string) {
   // All five reads are independent — fan out in parallel.
-  const [pendingEvidence, duePayments, blockedItems, upcomingDeadlines, followUps] = await Promise.all([
+  const [pendingEvidence, duePayments, blockedItems, upcomingDeadlines, followUps, architecture] = await Promise.all([
     EvidenceService.getPendingReviews(projectId),
     prisma.paymentEligibility.findMany({
       where: {
@@ -195,6 +279,7 @@ async function getPMCDashboard(projectId: string) {
       orderBy: { plannedEnd: 'asc' },
     }),
     FollowUpScheduler.getOpenFollowUps(projectId),
+    getArchitectureSnapshot(projectId),
   ]);
 
   return {
@@ -229,6 +314,7 @@ async function getPMCDashboard(projectId: string) {
     })),
     openFollowUps: followUps.length,
     followUps: followUps.slice(0, 10),
+    architecture,
   };
 }
 

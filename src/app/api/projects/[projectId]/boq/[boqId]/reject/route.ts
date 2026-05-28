@@ -1,4 +1,5 @@
 import { NextRequest, NextResponse } from 'next/server';
+import { prisma } from '@/lib/db';
 import { requireProjectAuth } from '@/lib/auth';
 import { validateBOQOwnership } from '@/lib/validate-ownership';
 import { RoleGuard } from '@/services/RoleGuard';
@@ -48,6 +49,17 @@ export async function POST(
     }
 
     await invalidateProjectAndMemberCaches(projectId);
+    await prisma.systemEvent.create({
+      data: {
+        projectId,
+        eventType: 'BOQ_REVISION_REQUESTED',
+        severity: 'WARNING',
+        message: `Owner has requested BOQ revision: ${reason}`,
+        entityType: 'BOQ',
+        entityId: boqId,
+        actorId: auth.userId,
+      },
+    });
 
     return NextResponse.json({
       success: true,

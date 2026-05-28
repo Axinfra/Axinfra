@@ -1,4 +1,5 @@
 import { NextRequest, NextResponse } from 'next/server';
+import { prisma } from '@/lib/db';
 import { requireProjectAuth } from '@/lib/auth';
 import { validateBOQOwnership } from '@/lib/validate-ownership';
 import { RoleGuard } from '@/services/RoleGuard';
@@ -36,6 +37,17 @@ export async function POST(
     }
 
     await invalidateProjectAndMemberCaches(projectId);
+    await prisma.systemEvent.create({
+      data: {
+        projectId,
+        eventType: 'BOQ_APPROVED',
+        severity: 'INFO',
+        message: 'Owner has approved a BOQ.',
+        entityType: 'BOQ',
+        entityId: boqId,
+        actorId: auth.userId,
+      },
+    });
 
     return NextResponse.json({ success: true });
   } catch (error) {

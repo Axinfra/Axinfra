@@ -4,7 +4,7 @@ import bcrypt from 'bcryptjs';
 const prisma = new PrismaClient();
 
 // ─── String-based enums (matches src/types/index.ts) ────────────────────────
-const Role = { OWNER: 'OWNER', PMC: 'PMC', VENDOR: 'VENDOR', VIEWER: 'VIEWER' } as const;
+const Role = { OWNER: 'OWNER', PMC: 'PMC', VENDOR: 'VENDOR', VIEWER: 'VIEWER', ARTIFACTS: 'ARTIFACTS' } as const;
 const BOQStatus = { DRAFT: 'DRAFT', APPROVED: 'APPROVED', REVISED: 'REVISED' } as const;
 const MilestoneState = {
   DRAFT: 'DRAFT', IN_PROGRESS: 'IN_PROGRESS', SUBMITTED: 'SUBMITTED',
@@ -36,6 +36,10 @@ async function main() {
 
   // ── 1. Wipe all data (respects FK order) ─────────────────────────────────
   console.log('  Clearing existing data…');
+  await prisma.drawingVersion.deleteMany();
+  await prisma.drawingRow.deleteMany();
+  await prisma.setRequest.deleteMany();
+  await prisma.drawingSet.deleteMany();
   await prisma.privateCostEntry.deleteMany();
   await prisma.cashAdjustment.deleteMany();
   await prisma.systemEvent.deleteMany();
@@ -85,7 +89,187 @@ async function main() {
   const viewer = await prisma.user.create({
     data: { name: 'Vera Viewer', email: 'viewer@example.com', hashedPassword: hash },
   });
-  console.log('  Created 6 users (1 admin + 5 demo)');
+  const architect = await prisma.user.create({
+    data: { name: 'Arthur Architect', email: 'architect@example.com', hashedPassword: hash },
+  });
+  console.log('  Created 7 users (1 admin + 6 demo)');
+
+  async function seedArchitectureForProject(projectId: string, label: string) {
+    const draftSet = await prisma.drawingSet.create({
+      data: {
+        projectId,
+        name: `${label} - Working Drawing Set A`,
+        description: 'Core architectural package for review',
+        cost: 90000,
+        currency: 'INR',
+        status: 'DRAFT',
+        createdById: architect.id,
+      },
+    });
+
+    const requestedSet = await prisma.drawingSet.create({
+      data: {
+        projectId,
+        name: `${label} - Working Drawing Set B`,
+        description: 'PMC-requested revision package',
+        cost: 125000,
+        currency: 'INR',
+        status: 'REQUESTED',
+        createdById: architect.id,
+        requestedById: pmc.id,
+        requestedAt: daysAgo(4),
+        dueDate: daysFromNow(8),
+      },
+    });
+
+    const approvedSet = await prisma.drawingSet.create({
+      data: {
+        projectId,
+        name: `${label} - Working Drawing Set C`,
+        description: 'Approved package ready for owner payment',
+        cost: 150000,
+        currency: 'INR',
+        status: 'APPROVED',
+        createdById: architect.id,
+        requestedById: pmc.id,
+        requestedAt: daysAgo(20),
+        deliveredAt: daysAgo(14),
+        approvedAt: daysAgo(10),
+      },
+    });
+
+    const rowA = await prisma.drawingRow.create({
+      data: {
+        projectId,
+        setId: requestedSet.id,
+        serialNo: 1,
+        category: 'Plans',
+        name: 'Ground Floor Layout',
+        floor: 'GROUND_FLOOR',
+        description: 'Updated layout with circulation revision',
+        status: 'SUBMITTED',
+        dueDate: daysFromNow(8),
+        createdById: architect.id,
+      },
+    });
+    await prisma.drawingVersion.create({
+      data: {
+        drawingRowId: rowA.id,
+        versionNumber: 1,
+        uploadType: 'URL',
+        fileUrl: 'https://example.com/drawings/ground-floor-layout-v1.pdf',
+        fileName: 'ground-floor-layout-v1.pdf',
+        uploadedById: architect.id,
+        reviewStatus: 'PENDING',
+        isCurrent: true,
+      },
+    });
+
+    const rowB = await prisma.drawingRow.create({
+      data: {
+        projectId,
+        setId: approvedSet.id,
+        serialNo: 2,
+        category: 'Sections',
+        name: 'Section A-A',
+        floor: 'ALL_FLOORS',
+        description: 'Final coordinated section',
+        status: 'APPROVED',
+        createdById: architect.id,
+      },
+    });
+    await prisma.drawingVersion.create({
+      data: {
+        drawingRowId: rowB.id,
+        versionNumber: 2,
+        uploadType: 'URL',
+        fileUrl: 'https://example.com/drawings/section-aa-v2.pdf',
+        fileName: 'section-aa-v2.pdf',
+        uploadedById: architect.id,
+        reviewStatus: 'APPROVED',
+        reviewedById: pmc.id,
+        reviewedAt: daysAgo(11),
+        isCurrent: true,
+      },
+    });
+
+    const rowC = await prisma.drawingRow.create({
+      data: {
+        projectId,
+        setId: draftSet.id,
+        serialNo: 3,
+        category: 'Elevations',
+        name: 'South Elevation',
+        floor: 'ALL_FLOORS',
+        description: 'Facade control line draft',
+        status: 'PENDING',
+        createdById: architect.id,
+      },
+    });
+    await prisma.drawingVersion.create({
+      data: {
+        drawingRowId: rowC.id,
+        versionNumber: 0,
+        uploadType: 'URL',
+        fileUrl: 'https://example.com/drawings/south-elevation-v0.pdf',
+        fileName: 'south-elevation-v0.pdf',
+        uploadedById: architect.id,
+        reviewStatus: 'REJECTED',
+        reviewedById: pmc.id,
+        reviewedAt: daysAgo(7),
+        rejectionReason: 'Please align facade grid with structural column lines',
+        isCurrent: true,
+      },
+    });
+
+    await prisma.setRequest.create({
+      data: {
+        setId: requestedSet.id,
+        projectId,
+        requestedById: pmc.id,
+        requestedAt: daysAgo(4),
+        dueDate: daysFromNow(8),
+        note: 'Need updated layout + services coordination',
+        status: 'ACCEPTED',
+      },
+    });
+
+    await prisma.auditLog.createMany({
+      data: [
+        {
+          projectId,
+          actorId: architect.id,
+          role: Role.ARTIFACTS,
+          actionType: 'PROJECT_UPDATE',
+          entityType: 'DrawingSet',
+          entityId: draftSet.id,
+          afterJson: JSON.stringify({ name: draftSet.name, status: draftSet.status, cost: draftSet.cost }),
+          createdAt: daysAgo(25),
+        },
+        {
+          projectId,
+          actorId: pmc.id,
+          role: Role.PMC,
+          actionType: 'PROJECT_UPDATE',
+          entityType: 'SetRequest',
+          entityId: requestedSet.id,
+          afterJson: JSON.stringify({ setId: requestedSet.id, dueDate: daysFromNow(8).toISOString(), status: 'REQUESTED' }),
+          reason: 'Request drawings for review',
+          createdAt: daysAgo(4),
+        },
+        {
+          projectId,
+          actorId: owner.id,
+          role: Role.OWNER,
+          actionType: 'PROJECT_UPDATE',
+          entityType: 'DrawingSet',
+          entityId: approvedSet.id,
+          afterJson: JSON.stringify({ status: approvedSet.status, approvedAt: approvedSet.approvedAt?.toISOString() ?? null }),
+          createdAt: daysAgo(10),
+        },
+      ],
+    });
+  }
 
   // ════════════════════════════════════════════════════════════════════════════
   // PROJECT 1 — Downtown Office Building
@@ -108,6 +292,7 @@ async function main() {
       { projectId: p1.id, userId: vendor1.id, role: Role.VENDOR },
       { projectId: p1.id, userId: vendor2.id, role: Role.VENDOR },
       { projectId: p1.id, userId: viewer.id, role: Role.VIEWER },
+      { projectId: p1.id, userId: architect.id, role: Role.ARTIFACTS },
     ],
   });
 
@@ -464,6 +649,8 @@ async function main() {
 
   console.log('  ✅ Project 1: Downtown Office Building');
   console.log('     4 Phases | 4 BOQs (3 APPROVED, 1 DRAFT) | 7 Milestones | 1 Extra\n');
+  await seedArchitectureForProject(p1.id, 'Downtown');
+  console.log('     + Architecture demo: sets, rows, versions, set request, audit logs\n');
 
   // ════════════════════════════════════════════════════════════════════════════
   // PROJECT 2 — Riverfront Residential Towers
@@ -483,6 +670,7 @@ async function main() {
       { projectId: p2.id, userId: pmc.id, role: Role.PMC },
       { projectId: p2.id, userId: vendor1.id, role: Role.VENDOR },
       { projectId: p2.id, userId: viewer.id, role: Role.VIEWER },
+      { projectId: p2.id, userId: architect.id, role: Role.ARTIFACTS },
     ],
   });
 
@@ -645,6 +833,8 @@ async function main() {
 
   console.log('  ✅ Project 2: Riverfront Residential Towers');
   console.log('     3 Phases | 3 BOQs (1 APPROVED, 1 APPROVED+BLOCKED, 1 REVISED) | 3 Milestones\n');
+  await seedArchitectureForProject(p2.id, 'Riverfront');
+  console.log('     + Architecture demo: sets, rows, versions, set request, audit logs\n');
 
   // ════════════════════════════════════════════════════════════════════════════
   // PROJECT 3 — Industrial Warehouse Fit-Out
@@ -664,6 +854,7 @@ async function main() {
       { projectId: p3.id, userId: pmc.id, role: Role.PMC },
       { projectId: p3.id, userId: vendor2.id, role: Role.VENDOR },
       { projectId: p3.id, userId: viewer.id, role: Role.VIEWER },
+      { projectId: p3.id, userId: architect.id, role: Role.ARTIFACTS },
     ],
   });
 
@@ -802,12 +993,15 @@ async function main() {
 
   console.log('  ✅ Project 3: Industrial Warehouse Fit-Out');
   console.log('     2 Phases | 2 BOQs (both APPROVED) | 3 Milestones\n');
+  await seedArchitectureForProject(p3.id, 'Warehouse');
+  console.log('     + Architecture demo: sets, rows, versions, set request, audit logs\n');
 
   // ── Summary ──────────────────────────────────────────────────────────────
   console.log('========================================');
   console.log('  ✅ Database seeded successfully!');
   console.log('========================================\n');
   console.log('  3 Projects');
+  console.log('  7 Users (1 admin + 6 demo incl. Architects role)');
   console.log('  9 Phases total (3-4 per project)');
   console.log('  9 BOQs (6 APPROVED, 1 DRAFT, 1 REVISED, 1 APPROVED+BLOCKED)');
   console.log('  11 Milestones (linked to phases) + 1 Extra milestone (isExtra=true)');
@@ -823,12 +1017,13 @@ async function main() {
   console.log('    IN_PROGRESS— Glazing, Superstructure, Cold Storage');
   console.log('    DRAFT      — MEP Rough-In, Interior Fit-Out, Extra Parking\n');
   console.log('  Demo accounts:');
-  console.log('    Admin (OWNER) : admin@axinfra.local  (password: admin123)');
-  console.log('    Owner         : owner@example.com    (password: password123)');
-  console.log('    PMC           : pmc@example.com      (password: password123)');
-  console.log('    Vendor 1      : vendor@example.com   (password: password123)');
-  console.log('    Vendor 2      : vendor2@example.com  (password: password123)');
-  console.log('    Viewer        : viewer@example.com   (password: password123)');
+  console.log('    Admin (OWNER) : admin@axinfra.local       (password: admin123)');
+  console.log('    Owner         : owner@example.com         (password: password123)');
+  console.log('    PMC           : pmc@example.com           (password: password123)');
+  console.log('    Vendor 1      : vendor@example.com        (password: password123)');
+  console.log('    Vendor 2      : vendor2@example.com       (password: password123)');
+  console.log('    Viewer        : viewer@example.com        (password: password123)');
+  console.log('    Architects    : architect@example.com     (password: password123)');
   console.log('');
 }
 

@@ -18,7 +18,8 @@ import {
   Settings,
   ChevronRight,
   FolderOpen,
-  Wallet
+  Wallet,
+  Ruler
 } from 'lucide-react';
 import { cn } from '@/lib/utils';
 
@@ -33,6 +34,11 @@ const roleColors: Record<string, "default" | "secondary" | "outline" | "destruct
   PMC: 'warning',
   VENDOR: 'success',
   VIEWER: 'secondary',
+  ARTIFACTS: 'outline',
+};
+
+const roleLabels: Record<string, string> = {
+  ARTIFACTS: 'ARCHITECT',
 };
 
 export default function Navbar({ projectId, projectName, role }: NavbarProps) {
@@ -43,6 +49,7 @@ export default function Navbar({ projectId, projectName, role }: NavbarProps) {
   // so the click feels instant.
   const navItems = [
     { href: `/projects/${projectId}`, label: 'Overview', icon: LayoutDashboard, always: true, prefetchApi: [`/api/projects/${projectId}`] },
+    { href: `/projects/${projectId}/architecture`, label: 'Architecture', icon: Ruler, always: true, prefetchApi: [`/api/projects/${projectId}/architecture`] },
     { href: `/projects/${projectId}/boq`, label: role === 'OWNER' ? 'View BOQ' : 'BOQ', icon: FileText, always: true, prefetchApi: [`/api/projects/${projectId}/boq`] },
     { href: `/projects/${projectId}/milestones`, label: 'Milestones', icon: Flag, always: true, prefetchApi: [`/api/projects/${projectId}/milestones`] },
     { href: `/projects/${projectId}/views`, label: 'Views', icon: Layers, always: true, prefetchApi: [`/api/projects/${projectId}/views`] },
@@ -92,7 +99,7 @@ export default function Navbar({ projectId, projectName, role }: NavbarProps) {
           <h1 className="text-xl font-bold text-[#e8e4dc] truncate tracking-tight">{projectName}</h1>
         </div>
         <Badge variant={roleColors[role] || 'secondary'} className="px-3 py-1 text-xs uppercase tracking-wider">
-          {role}
+          {roleLabels[role] ?? role}
         </Badge>
       </div>
 

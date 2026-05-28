@@ -40,7 +40,7 @@ export default function RolesPage() {
 
   const [showAddModal, setShowAddModal] = useState(false);
   const [newEmail, setNewEmail] = useState('');
-  const [newRole, setNewRole] = useState('VENDOR');
+  const [newRole, setNewRole] = useState('PMC');
   const [addError, setAddError] = useState('');
   const [adding, setAdding] = useState(false);
   const [confirmRemoveUserId, setConfirmRemoveUserId] = useState<string | null>(null);
@@ -62,7 +62,7 @@ export default function RolesPage() {
       if (data.success) {
         setShowAddModal(false);
         setNewEmail('');
-        setNewRole('VENDOR');
+        setNewRole('PMC');
         void refetchRoles();
       } else {
         setAddError(data.error);
@@ -162,12 +162,12 @@ export default function RolesPage() {
             <h2 className="text-lg font-semibold">Role Permissions</h2>
           </div>
           <div className="card-body">
-            <div className="grid gap-4 md:grid-cols-2">
+            <div className="grid gap-4 md:grid-cols-2 lg:grid-cols-3">
               <div>
                 <h3 className="font-medium text-[#e8e4dc] mb-2">OWNER</h3>
                 <ul className="text-sm text-[rgba(232,228,220,0.55)] space-y-1">
                   <li>Full project access</li>
-                  <li>Manage roles</li>
+                  <li>Manage roles &amp; assign team</li>
                   <li>Approve BOQ (cannot create)</li>
                   <li>Verify milestones</li>
                   <li>Block/Unblock payments</li>
@@ -177,9 +177,20 @@ export default function RolesPage() {
                 <h3 className="font-medium text-[#e8e4dc] mb-2">PMC</h3>
                 <ul className="text-sm text-[rgba(232,228,220,0.55)] space-y-1">
                   <li>Create &amp; edit BOQ (cannot approve)</li>
-                  <li>Review evidence</li>
+                  <li>Review &amp; manage evidence</li>
                   <li>Verify milestones</li>
                   <li>Block payments</li>
+                  <li>Manage project architect deliverables</li>
+                </ul>
+              </div>
+              <div>
+                <h3 className="font-medium text-[#e8e4dc] mb-2">ARCHITECTS</h3>
+                <ul className="text-sm text-[rgba(232,228,220,0.55)] space-y-1">
+                  <li>Upload &amp; manage project documents</li>
+                  <li>Review submitted evidence (read)</li>
+                  <li>Export audit log</li>
+                  <li>View milestones &amp; phases (read-only)</li>
+                  <li>No payment or BOQ control</li>
                 </ul>
               </div>
               <div>
@@ -270,6 +281,7 @@ export default function RolesPage() {
                     onChange={(e) => setNewRole(e.target.value)}
                   >
                     <option value="PMC">PMC</option>
+                    <option value="ARTIFACTS">Architects</option>
                     <option value="VENDOR">Vendor</option>
                     <option value="VIEWER">Viewer</option>
                   </select>

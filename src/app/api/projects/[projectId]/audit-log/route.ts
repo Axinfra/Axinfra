@@ -43,6 +43,9 @@ const PRIVATE_CASH_ACTION_TYPES: string[] = [
   AuditActionTypes.PRIVATE_COST_CREATE,
 ];
 
+const DEFAULT_LIMIT = 25;
+const MAX_LIMIT = 100;
+
 // GET /api/projects/[projectId]/audit-log - Get audit logs
 export async function GET(
   request: NextRequest,
@@ -54,6 +57,11 @@ export async function GET(
 
     const { searchParams } = new URL(request.url);
 
+    const parsedLimit = searchParams.get('limit') ? parseInt(searchParams.get('limit')!, 10) : DEFAULT_LIMIT;
+    const parsedOffset = searchParams.get('offset') ? parseInt(searchParams.get('offset')!, 10) : 0;
+    const limit = Number.isFinite(parsedLimit) ? Math.min(Math.max(parsedLimit, 1), MAX_LIMIT) : DEFAULT_LIMIT;
+    const offset = Number.isFinite(parsedOffset) ? Math.max(parsedOffset, 0) : 0;
+
     const options = {
       entityType: searchParams.get('entityType') || undefined,
       entityId: searchParams.get('entityId') || undefined,
@@ -61,8 +69,8 @@ export async function GET(
       actionType: searchParams.get('actionType') || undefined,
       startDate: searchParams.get('startDate') ? new Date(searchParams.get('startDate')!) : undefined,
       endDate: searchParams.get('endDate') ? new Date(searchParams.get('endDate')!) : undefined,
-      limit: searchParams.get('limit') ? parseInt(searchParams.get('limit')!, 10) : 100,
-      offset: searchParams.get('offset') ? parseInt(searchParams.get('offset')!, 10) : 0,
+      limit,
+      offset,
       // SECURITY: Non-OWNER users must never see cash module audit entries
       excludeActionTypes: !RoleGuard.canAccessCashModule(auth)
         ? PRIVATE_CASH_ACTION_TYPES

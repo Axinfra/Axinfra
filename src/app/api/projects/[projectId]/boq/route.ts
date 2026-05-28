@@ -79,6 +79,20 @@ export async function POST(
 
     await invalidateProjectAndMemberCaches(projectId);
 
+    if (result.boqId) {
+      await prisma.systemEvent.create({
+        data: {
+          projectId,
+          eventType: 'BOQ_SUBMITTED',
+          severity: 'INFO',
+          message: 'PMC has submitted a BOQ for Owner approval.',
+          entityType: 'BOQ',
+          entityId: result.boqId,
+          actorId: auth.userId,
+        },
+      });
+    }
+
     return NextResponse.json({
       success: true,
       data: { boqId: result.boqId },

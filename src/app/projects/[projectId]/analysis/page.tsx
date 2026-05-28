@@ -150,24 +150,101 @@ function ExecutionTab({ data }: { data: any }) {
   if (!data) return <div className="text-center py-8 text-[rgba(232,228,220,0.6)]">No data available</div>;
 
   const { overview, stateBreakdown, slaBreaches, byTrade } = data;
+  const total = overview.totalMilestones || 1;
+  const doneCount     = overview.doneCount ?? 0;
+  const submittedCount = overview.submittedCount ?? 0;
+  const inProgressCount = overview.inProgressCount ?? 0;
+  const approachingCount = overview.approachingCount ?? 0;
+  const draftCount    = overview.draftCount ?? 0;
+  const donePct      = Math.round((doneCount / total) * 100);
+  const submPct      = Math.round((submittedCount / total) * 100);
+  const inProgPct    = Math.round((inProgressCount / total) * 100);
+  const approachPct  = Math.round((approachingCount / total) * 100);
+  const draftPct     = Math.max(0, 100 - donePct - submPct - inProgPct - approachPct);
 
   return (
     <div className="space-y-6">
-      {/* Key Question */}
-      <div className="bg-[rgba(59,130,246,0.1)] border-l-4 border-blue-500 p-4">
-        <p className="text-blue-300 font-medium">
-          "Where is work actually moving, and where is it stuck?"
-        </p>
+      {/* ── Project Progress Overview ── */}
+      <div className="rounded-xl border border-[rgba(255,255,255,0.07)] overflow-hidden"
+        style={{ background: 'rgba(255,255,255,0.02)' }}>
+        <div className="px-5 py-4 border-b border-[rgba(255,255,255,0.06)] flex items-center justify-between">
+          <h3 className="font-semibold text-[#e8e4dc] text-sm">Project Progress</h3>
+          <span className="text-xs text-[rgba(232,228,220,0.4)]">{overview.totalMilestones} milestones total</span>
+        </div>
+        <div className="px-5 py-5 space-y-4">
+          {/* Segmented bar */}
+          <div className="flex h-5 w-full rounded-lg overflow-hidden gap-px bg-[rgba(255,255,255,0.04)]">
+            {donePct > 0 && (
+              <div className="bg-green-500 transition-all" style={{ width: `${donePct}%` }}
+                title={`Done: ${overview.doneCount}`} />
+            )}
+            {submPct > 0 && (
+              <div className="bg-yellow-400 transition-all" style={{ width: `${submPct}%` }}
+                title={`Submitted: ${overview.submittedCount}`} />
+            )}
+            {inProgPct > 0 && (
+              <div className="bg-blue-500 transition-all" style={{ width: `${inProgPct}%` }}
+                title={`In Progress: ${overview.inProgressCount}`} />
+            )}
+            {approachPct > 0 && (
+              <div className="bg-[#fb923c] transition-all" style={{ width: `${approachPct}%` }}
+                title={`Due soon: ${overview.approachingCount}`} />
+            )}
+            {draftPct > 0 && (
+              <div className="bg-[rgba(255,255,255,0.12)] transition-all" style={{ width: `${draftPct}%` }}
+                title={`Draft: ${overview.draftCount}`} />
+            )}
+          </div>
+
+          {/* Stat chips */}
+          <div className="flex flex-wrap gap-3">
+            <div className="flex items-center gap-2 px-3 py-2 rounded-lg bg-[rgba(34,197,94,0.08)] border border-[rgba(34,197,94,0.2)]">
+              <span className="w-2.5 h-2.5 rounded-full bg-green-500 shrink-0" />
+              <div>
+                <p className="text-lg font-bold text-green-400 leading-none">{doneCount}</p>
+                <p className="text-[10px] text-[rgba(232,228,220,0.5)] mt-0.5">Done ({donePct}%)</p>
+              </div>
+            </div>
+            <div className="flex items-center gap-2 px-3 py-2 rounded-lg bg-[rgba(251,146,60,0.08)] border border-[rgba(251,146,60,0.2)]">
+              <span className="w-2.5 h-2.5 rounded-full bg-[#fb923c] shrink-0 animate-pulse" />
+              <div>
+                <p className="text-lg font-bold text-[#fb923c] leading-none">{approachingCount}</p>
+                <p className="text-[10px] text-[rgba(232,228,220,0.5)] mt-0.5">Due in 30 days</p>
+              </div>
+            </div>
+            <div className="flex items-center gap-2 px-3 py-2 rounded-lg bg-[rgba(59,130,246,0.08)] border border-[rgba(59,130,246,0.2)]">
+              <span className="w-2.5 h-2.5 rounded-full bg-blue-500 shrink-0" />
+              <div>
+                <p className="text-lg font-bold text-blue-400 leading-none">{inProgressCount}</p>
+                <p className="text-[10px] text-[rgba(232,228,220,0.5)] mt-0.5">In Progress</p>
+              </div>
+            </div>
+            <div className="flex items-center gap-2 px-3 py-2 rounded-lg bg-[rgba(234,179,8,0.08)] border border-[rgba(234,179,8,0.2)]">
+              <span className="w-2.5 h-2.5 rounded-full bg-yellow-400 shrink-0" />
+              <div>
+                <p className="text-lg font-bold text-yellow-300 leading-none">{submittedCount}</p>
+                <p className="text-[10px] text-[rgba(232,228,220,0.5)] mt-0.5">Pending Review</p>
+              </div>
+            </div>
+            <div className="flex items-center gap-2 px-3 py-2 rounded-lg bg-[rgba(255,255,255,0.04)] border border-[rgba(255,255,255,0.08)]">
+              <span className="w-2.5 h-2.5 rounded-full bg-[rgba(255,255,255,0.25)] shrink-0" />
+              <div>
+                <p className="text-lg font-bold text-[rgba(232,228,220,0.55)] leading-none">{draftCount}</p>
+                <p className="text-[10px] text-[rgba(232,228,220,0.35)] mt-0.5">Not Started</p>
+              </div>
+            </div>
+          </div>
+
+          {/* Completion bar label */}
+          <div className="flex justify-between text-xs text-[rgba(232,228,220,0.4)]">
+            <span className="font-medium text-green-400">{donePct}% complete</span>
+            <span>{overview.totalMilestones - doneCount} remaining</span>
+          </div>
+        </div>
       </div>
 
-      {/* Overview Metrics */}
-      <div className="grid grid-cols-2 md:grid-cols-3 lg:grid-cols-6 gap-4">
-        <MetricCard
-          label="Milestones Verified"
-          value={`${overview.verifiedPercent}%`}
-          subtext={`of ${overview.totalMilestones} total`}
-          color={overview.verifiedPercent >= 50 ? 'green' : 'yellow'}
-        />
+      {/* ── Velocity & Quality Metrics ── */}
+      <div className="grid grid-cols-2 md:grid-cols-3 lg:grid-cols-5 gap-3">
         <MetricCard
           label="Avg Days In Progress"
           value={overview.avgDaysInProgress}
@@ -175,9 +252,9 @@ function ExecutionTab({ data }: { data: any }) {
           color={overview.avgDaysInProgress > 30 ? 'red' : 'gray'}
         />
         <MetricCard
-          label="Avg Days In Submitted"
+          label="Avg Days Awaiting Review"
           value={overview.avgDaysInSubmitted}
-          subtext="days waiting review"
+          subtext="days"
           color={overview.avgDaysInSubmitted > 7 ? 'red' : 'gray'}
         />
         <MetricCard
@@ -193,10 +270,10 @@ function ExecutionTab({ data }: { data: any }) {
           color={overview.evidenceRejectionRate > 20 ? 'red' : 'gray'}
         />
         <MetricCard
-          label="Total Milestones"
-          value={overview.totalMilestones}
-          subtext="in project"
-          color="gray"
+          label="SLA Breaches"
+          value={slaBreaches.length}
+          subtext="active"
+          color={slaBreaches.length > 0 ? 'red' : 'green'}
         />
       </div>
 

@@ -78,28 +78,38 @@ function Counter({ to, decimals = 0 }: { to: number; decimals?: number }) {
 
 /* ─── Flow SVG ───────────────────────────────────────────────────────────── */
 function FlowDiagram() {
+  const GOLD = '#c9a84c';
+  const ARCH = '#7b9ef8';
+  const GREEN = '#1d9e75';
+  const RED = '#e24b4a';
+
   const Arr = ({ id, color }: { id: string; color: string }) => (
     <marker id={id} viewBox="0 0 10 10" refX="8" refY="5" markerWidth="5" markerHeight="5" orient="auto-start-reverse">
       <path d="M2 1L8 5L2 9" fill="none" stroke={color} strokeWidth="1.8" strokeLinecap="round" strokeLinejoin="round" />
     </marker>
   );
+
   const Node = ({ x, y, w, h, stroke, roleColor, role, label, sub, pulse }: {
     x: number; y: number; w: number; h: number; stroke: string; roleColor: string;
     role: string; label: string; sub?: string; pulse?: boolean;
-  }) => (
-    <g>
-      {pulse && (
-        <circle cx={x + w / 2} cy={y + h / 2} r={Math.max(w, h) / 2 + 10} fill="none" stroke={stroke} strokeOpacity=".25">
-          <animate attributeName="r" values={`${Math.max(w, h) / 2 + 6};${Math.max(w, h) / 2 + 20};${Math.max(w, h) / 2 + 6}`} dur="3s" repeatCount="indefinite" />
-          <animate attributeName="stroke-opacity" values=".25;0;.25" dur="3s" repeatCount="indefinite" />
-        </circle>
-      )}
-      <rect x={x} y={y} width={w} height={h} rx="10" fill={stroke === '#c9a84c' ? '#1a1508' : '#0a1a12'} stroke={stroke} strokeWidth="1.3" />
-      <text x={x + w / 2} y={y + h * 0.38} textAnchor="middle" fill={roleColor} fontSize="9" fontFamily="JetBrains Mono,monospace" fontWeight="600" letterSpacing="1.5">{role}</text>
-      <text x={x + w / 2} y={y + h * 0.67} textAnchor="middle" fill="#f5e9c8" fontSize="11.5" fontFamily="Instrument Sans,sans-serif" fontWeight="500">{label}</text>
-      {sub && <text x={x + w / 2} y={y + h * 0.88} textAnchor="middle" fill={roleColor} fontSize="9" fontFamily="JetBrains Mono,monospace" opacity=".6">{sub}</text>}
-    </g>
-  );
+  }) => {
+    const bg = stroke === GOLD ? '#1a1508' : stroke === ARCH ? '#080f1a' : '#0a1a12';
+    return (
+      <g>
+        {pulse && (
+          <circle cx={x + w / 2} cy={y + h / 2} r={Math.max(w, h) / 2 + 10} fill="none" stroke={stroke} strokeOpacity=".25">
+            <animate attributeName="r" values={`${Math.max(w, h) / 2 + 6};${Math.max(w, h) / 2 + 20};${Math.max(w, h) / 2 + 6}`} dur="3s" repeatCount="indefinite" />
+            <animate attributeName="stroke-opacity" values=".25;0;.25" dur="3s" repeatCount="indefinite" />
+          </circle>
+        )}
+        <rect x={x} y={y} width={w} height={h} rx="10" fill={bg} stroke={stroke} strokeWidth="1.3" />
+        <text x={x + w / 2} y={y + h * 0.38} textAnchor="middle" fill={roleColor} fontSize="9" fontFamily="JetBrains Mono,monospace" fontWeight="600" letterSpacing="1.5">{role}</text>
+        <text x={x + w / 2} y={y + h * 0.67} textAnchor="middle" fill="#f5e9c8" fontSize="11.5" fontFamily="Instrument Sans,sans-serif" fontWeight="500">{label}</text>
+        {sub && <text x={x + w / 2} y={y + h * 0.88} textAnchor="middle" fill={roleColor} fontSize="9" fontFamily="JetBrains Mono,monospace" opacity=".6">{sub}</text>}
+      </g>
+    );
+  };
+
   const Diamond = ({ cx, cy, size, stroke, roleColor, role, label, pulse }: {
     cx: number; cy: number; size: number; stroke: string; roleColor: string; role: string; label: string; pulse?: boolean;
   }) => (
@@ -115,6 +125,7 @@ function FlowDiagram() {
       <text x={cx} y={cy + 9} textAnchor="middle" fill="#f5e9c8" fontSize="10.5" fontFamily="Instrument Sans,sans-serif">{label}</text>
     </g>
   );
+
   const Connector = ({ d, stroke, dur }: { d: string; stroke: string; dur: number }) => (
     <>
       <path d={d} fill="none" stroke={stroke} strokeWidth="1" opacity=".2" />
@@ -125,51 +136,83 @@ function FlowDiagram() {
     </>
   );
 
+  /* ── coordinate reference ──────────────────────────────────────────────────
+     ViewBox 920×560   Node w=160 h=48
+     OWNER   cx=110   x=30    divider-right x=215
+     ARCHITECT cx=310  x=230   divider-right x=430
+     PMC     cx=530   x=450   divider-right x=648
+     VENDOR  cx=750   x=660
+  ─────────────────────────────────────────────────────────────────────────── */
   return (
-    <svg width="100%" viewBox="0 0 860 530" role="img" xmlns="http://www.w3.org/2000/svg" style={{ background: '#080808', borderRadius: 12, display: 'block' }}>
+    <svg width="100%" viewBox="0 0 920 560" role="img" xmlns="http://www.w3.org/2000/svg" style={{ background: '#080808', borderRadius: 12, display: 'block' }}>
       <title>Axinfra project governance flow</title>
       <defs>
-        <Arr id="ag" color="#c9a84c" />
-        <Arr id="agr" color="#1d9e75" />
-        <Arr id="ar" color="#e24b4a" />
+        <Arr id="ag"  color={GOLD}  />
+        <Arr id="agr" color={GREEN} />
+        <Arr id="ar"  color={RED}   />
+        <Arr id="ab"  color={ARCH}  />
       </defs>
 
-      {([['50', 'OWNER', '#c9a84c', '250'], ['320', 'PMC', '#888', '530'], ['600', 'VENDOR', '#1d9e75', '840']] as const).map(([x, label, color, x2]) => (
+      {/* ── swimlane headers ── */}
+      {[
+        { x: '30',  label: 'OWNER',     color: GOLD,  x2: '200' },
+        { x: '230', label: 'ARCHITECT', color: ARCH,  x2: '385' },
+        { x: '450', label: 'PMC',       color: '#aaa',x2: '610' },
+        { x: '660', label: 'VENDOR',    color: GREEN, x2: '845' },
+      ].map(({ x, label, color, x2 }) => (
         <g key={label}>
-          <text x={x} y="34" fill={color} fontSize="10" fontFamily="JetBrains Mono,monospace" fontWeight="600" letterSpacing="2" opacity=".65">{label}</text>
-          <line x1={x} y1="40" x2={x2} y2="40" stroke={color} strokeWidth=".5" opacity=".22" />
+          <text x={x} y="32" fill={color} fontSize="10" fontFamily="JetBrains Mono,monospace" fontWeight="600" letterSpacing="2" opacity=".65">{label}</text>
+          <line x1={x} y1="38" x2={x2} y2="38" stroke={color} strokeWidth=".5" opacity=".22" />
         </g>
       ))}
-      <line x1="290" y1="48" x2="290" y2="510" stroke="#fff" strokeWidth=".4" opacity=".05" />
-      <line x1="572" y1="48" x2="572" y2="510" stroke="#fff" strokeWidth=".4" opacity=".05" />
+      <line x1="215" y1="46" x2="215" y2="535" stroke="#fff" strokeWidth=".4" opacity=".05" />
+      <line x1="430" y1="46" x2="430" y2="535" stroke="#fff" strokeWidth=".4" opacity=".05" />
+      <line x1="648" y1="46" x2="648" y2="535" stroke="#fff" strokeWidth=".4" opacity=".05" />
 
-      <Node x={50} y={92} w={180} h={48} stroke="#c9a84c" roleColor="#c9a84c" role="OWNER" label="Creates project" pulse />
-      <Connector d="M231 116 L317 116" stroke="#c9a84c" dur={1.5} />
-      <Node x={317} y={92} w={170} h={48} stroke="#c9a84c" roleColor="#c9a84c" role="PMC" label="Creates BOQ" />
-      <Connector d="M402 140 L402 180 L140 180 L140 208" stroke="#c9a84c" dur={2.3} />
-      <Diamond cx={140} cy={248} size={44} stroke="#c9a84c" roleColor="#c9a84c" role="OWNER" label="Approve BOQ?" pulse />
-      <text x={202} y={244} fill="#1d9e75" fontSize="10" fontFamily="Instrument Sans,sans-serif" fontWeight="600">✓ Approve</text>
-      <text x={26} y={328} fill="#e24b4a" fontSize="10" fontFamily="Instrument Sans,sans-serif" fontWeight="600">✗ Reject</text>
-      <path d="M140 292 L140 348 L402 348 L402 140" fill="none" stroke="#e24b4a" strokeWidth="1" strokeDasharray="4 6" opacity=".6" markerEnd="url(#ar)" />
-      <circle r="2.5" fill="#e24b4a"><animateMotion dur="3.4s" repeatCount="indefinite" path="M140,292 L140,348 L402,348 L402,140" /></circle>
-      <rect x={216} y={337} width={138} height={20} rx="5" fill="#1a0606" />
-      <text x={285} y={351} textAnchor="middle" fill="#e24b4a" fontSize="9" fontFamily="JetBrains Mono,monospace">BOQ Revised — re-submit</text>
-      <Connector d="M184 248 L317 248" stroke="#1d9e75" dur={1.6} />
-      <Node x={317} y={224} w={170} h={48} stroke="#1d9e75" roleColor="#1d9e75" role="PMC" label="Creates milestones" />
-      <Connector d="M487 248 L608 248" stroke="#1d9e75" dur={1.7} />
-      <Node x={608} y={224} w={180} h={48} stroke="#1d9e75" roleColor="#1d9e75" role="VENDOR" label="Starts work" pulse />
-      <Connector d="M698 272 L698 370" stroke="#1d9e75" dur={1.8} />
-      <Node x={608} y={370} w={180} h={48} stroke="#1d9e75" roleColor="#1d9e75" role="VENDOR" label="Submits evidence" />
-      <Connector d="M608 394 L490 394" stroke="#c9a84c" dur={1.6} />
-      <Diamond cx={402} cy={394} size={44} stroke="#c9a84c" roleColor="#c9a84c" role="PMC" label="Verifies?" pulse />
-      <text x={280} y={390} fill="#1d9e75" fontSize="10" fontFamily="Instrument Sans,sans-serif" fontWeight="600">✓ Verified</text>
-      <text x={408} y={456} fill="#e24b4a" fontSize="10" fontFamily="Instrument Sans,sans-serif" fontWeight="600">✗ Not satisfied</text>
-      <path d="M402 438 L402 482 L698 482 L698 418" fill="none" stroke="#e24b4a" strokeWidth="1" strokeDasharray="4 6" opacity=".6" markerEnd="url(#ar)" />
-      <circle r="2.5" fill="#e24b4a"><animateMotion dur="3.2s" repeatCount="indefinite" path="M402,438 L402,482 L698,482 L698,418" /></circle>
-      <rect x={468} y={471} width={132} height={20} rx="5" fill="#1a0606" />
-      <text x={534} y={485} textAnchor="middle" fill="#e24b4a" fontSize="9" fontFamily="JetBrains Mono,monospace">Back to In Progress</text>
-      <Connector d="M358 394 L140 394 L140 460" stroke="#1d9e75" dur={2.5} />
-      <Node x={50} y={460} w={180} h={52} stroke="#1d9e75" roleColor="#1d9e75" role="OWNER" label="Releases payment" sub="Milestone closed" pulse />
+      {/* ── row 1: Creates project → Designs plans → Creates BOQ ── */}
+      <Node x={30}  y={76} w={160} h={48} stroke={GOLD} roleColor={GOLD} role="OWNER"     label="Creates project" pulse />
+      <Connector d="M190 100 L230 100" stroke={GOLD} dur={1.2} />
+      <Node x={230} y={76} w={160} h={48} stroke={ARCH} roleColor={ARCH} role="ARCHITECT" label="Designs plans"  pulse />
+      <Connector d="M390 100 L450 100" stroke={ARCH} dur={1.4} />
+      <Node x={450} y={76} w={160} h={48} stroke={GOLD} roleColor={GOLD} role="PMC"       label="Creates BOQ" />
+
+      {/* BOQ routes back to Owner for approval */}
+      <Connector d="M530 124 L530 160 L110 160 L110 188" stroke={GOLD} dur={2.2} />
+
+      {/* ── row 2: Owner approves BOQ ── */}
+      <Diamond cx={110} cy={232} size={44} stroke={GOLD} roleColor={GOLD} role="OWNER" label="Approve BOQ?" pulse />
+      <text x={166} y={228} fill={GREEN} fontSize="10" fontFamily="Instrument Sans,sans-serif" fontWeight="600">✓ Approve</text>
+      <text x={10}  y={302} fill={RED}   fontSize="10" fontFamily="Instrument Sans,sans-serif" fontWeight="600">✗ Reject</text>
+
+      {/* Reject → BOQ revised loop */}
+      <path d="M110 276 L110 308 L530 308 L530 124" fill="none" stroke={RED} strokeWidth="1" strokeDasharray="4 6" opacity=".6" markerEnd="url(#ar)" />
+      <circle r="2.5" fill={RED}><animateMotion dur="3.4s" repeatCount="indefinite" path="M110,276 L110,308 L530,308 L530,124" /></circle>
+      <rect x={230} y={297} width={162} height={20} rx="5" fill="#1a0606" />
+      <text x={311} y={311} textAnchor="middle" fill={RED} fontSize="9" fontFamily="JetBrains Mono,monospace">BOQ Revised — re-submit</text>
+
+      {/* Approve → PMC milestones → Vendor starts work */}
+      <Connector d="M154 232 L450 232" stroke={GREEN} dur={1.6} />
+      <Node x={450} y={208} w={160} h={48} stroke={GREEN} roleColor={GREEN} role="PMC"    label="Creates milestones" />
+      <Connector d="M610 232 L660 232" stroke={GREEN} dur={1.7} />
+      <Node x={660} y={208} w={160} h={48} stroke={GREEN} roleColor={GREEN} role="VENDOR" label="Starts work" pulse />
+
+      {/* ── row 3: Vendor submits evidence → PMC verifies ── */}
+      <Connector d="M740 256 L740 360" stroke={GREEN} dur={1.8} />
+      <Node x={655} y={360} w={170} h={48} stroke={GREEN} roleColor={GREEN} role="VENDOR" label="Submits evidence" />
+      <Connector d="M655 384 L574 384" stroke={GOLD} dur={1.6} />
+      <Diamond cx={530} cy={384} size={44} stroke={GOLD} roleColor={GOLD} role="PMC" label="Verifies?" pulse />
+      <text x={398} y={380} fill={GREEN} fontSize="10" fontFamily="Instrument Sans,sans-serif" fontWeight="600">✓ Verified</text>
+      <text x={536} y={446} fill={RED}   fontSize="10" fontFamily="Instrument Sans,sans-serif" fontWeight="600">✗ Not satisfied</text>
+
+      {/* Not satisfied → back to Vendor */}
+      <path d="M530 428 L530 472 L740 472 L740 408" fill="none" stroke={RED} strokeWidth="1" strokeDasharray="4 6" opacity=".6" markerEnd="url(#ar)" />
+      <circle r="2.5" fill={RED}><animateMotion dur="3.2s" repeatCount="indefinite" path="M530,428 L530,472 L740,472 L740,408" /></circle>
+      <rect x={568} y={461} width={148} height={20} rx="5" fill="#1a0606" />
+      <text x={642} y={475} textAnchor="middle" fill={RED} fontSize="9" fontFamily="JetBrains Mono,monospace">Back to In Progress</text>
+
+      {/* ── row 4: Owner releases payment ── */}
+      <Connector d="M486 384 L110 384 L110 460" stroke={GREEN} dur={2.5} />
+      <Node x={30} y={460} w={160} h={52} stroke={GREEN} roleColor={GREEN} role="OWNER" label="Releases payment" sub="Milestone closed" pulse />
     </svg>
   );
 }
@@ -362,9 +405,9 @@ export default function HomePage() {
         <Section className="sec-head-row">
           <div>
             <div className="sec-tag">How it works</div>
-            <h2 className="sec-title">Three roles.<br /><em>One governed flow.</em></h2>
+            <h2 className="sec-title">Four roles.<br /><em>One governed flow.</em></h2>
           </div>
-          <p className="sec-sub">From the moment an Owner creates a project to the final payment release — every step is tracked, every approval is recorded, and nothing moves without evidence.</p>
+          <p className="sec-sub">Owner creates the project. Architect designs the plans. PMC writes the BOQ, governs milestones, and verifies evidence. Vendor executes and submits proof. Every approval on record — nothing moves without a paper trail.</p>
         </Section>
         <Section className="flow-wrap">
           <FlowDiagram />

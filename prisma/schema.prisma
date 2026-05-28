@@ -311,6 +311,10 @@ model Project {
   systemEvents     SystemEvent[]
   cashAdjustments  CashAdjustment[]
   privateCosts     PrivateCostEntry[]
+  // Architecture module
+  drawingSets      DrawingSet[]
+  drawingRows      DrawingRow[]
+  setRequests      SetRequest[]
 }
 
 /// Dependency link between two milestones (CPM / Gantt edges)
@@ -363,24 +367,33 @@ model ProjectRole {
 }
 
 model User {
-  id                 String                     @id @default(uuid())
-  name               String
-  email              String                     @unique
-  hashedPassword     String
-  createdAt          DateTime                   @default(now())
-  updatedAt          DateTime                   @updatedAt
-  auditLogs          AuditLog[]
-  eligibilityEvents  EligibilityEvent[]
-  evidence           Evidence[]
-  followUps          FollowUp[]
-  transitions        MilestoneStateTransition[]
-  projectRoles       ProjectRole[]
-  verifications      Verification[]
-  assignedMilestones Milestone[]                @relation("MilestoneVendor")
-  vendorMetrics      VendorMetrics[]
-  systemEventsActor  SystemEvent[]              @relation("SystemEventActor")
-  cashAdjustments    CashAdjustment[]           @relation("CashAdjustmentCreator")
-  privateCosts       PrivateCostEntry[]         @relation("PrivateCostCreator")
+  id                      String                     @id @default(uuid())
+  name                    String
+  email                   String                     @unique
+  hashedPassword          String
+  createdAt               DateTime                   @default(now())
+  updatedAt               DateTime                   @updatedAt
+  auditLogs               AuditLog[]
+  eligibilityEvents       EligibilityEvent[]
+  evidence                Evidence[]
+  followUps               FollowUp[]
+  transitions             MilestoneStateTransition[]
+  projectRoles            ProjectRole[]
+  verifications           Verification[]
+  assignedMilestones      Milestone[]                @relation("MilestoneVendor")
+  vendorMetrics           VendorMetrics[]
+  systemEventsActor       SystemEvent[]              @relation("SystemEventActor")
+  cashAdjustments         CashAdjustment[]           @relation("CashAdjustmentCreator")
+  privateCosts            PrivateCostEntry[]         @relation("PrivateCostCreator")
+  // Architecture module
+  drawingSetsCreated      DrawingSet[]               @relation("DrawingSetCreator")
+  drawingSetsRequested    DrawingSet[]               @relation("DrawingSetRequester")
+  drawingSetsPaid         DrawingSet[]               @relation("DrawingSetPaymentReleaser")
+  drawingRows             DrawingRow[]               @relation("DrawingRowCreator")
+  drawingRowsPaid         DrawingRow[]               @relation("DrawingRowPaymentReleaser")
+  drawingVersionsUploaded DrawingVersion[]           @relation("DrawingVersionUploader")
+  drawingVersionsReviewed DrawingVersion[]           @relation("DrawingVersionReviewer")
+  setRequests             SetRequest[]               @relation("SetRequestCreator")
 }
 
 model Verification {
@@ -522,4 +535,121 @@ model Phase {
 
   @@index([projectId])
   @@index([projectId, sortOrder])
+}
+
+// ── Architecture Module ───────────────────────────────────────────────────────
+
+/// A set of drawings (e.g. "Working Drawing Set 1") with a cost and lifecycle
+model DrawingSet {
+  id                String    @id @default(uuid())
+  projectId         String
+  name              String
+  description       String?
+  cost              Float     @default(0)
+  currency          String    @default("INR")
+  /// DRAFT | SUBMITTED_TO_PMC | REQUESTED | IN_PROGRESS | DELIVERED | APPROVED | PAID
+  status            String    @default("DRAFT")
+  createdById       String
+  requestedById     String?
+  requestedAt       DateTime?
+  dueDate           DateTime?
+  deliveredAt       DateTime?
+  approvedAt        DateTime?
+  paidAt            DateTime?
+  paymentReleasedBy String?
+  createdAt         DateTime  @default(now())
+  updatedAt         DateTime  @updatedAt
+
+  project          Project     @relation(fields: [projectId], references: [id], onDelete: Cascade)
+  createdBy        User        @relation("DrawingSetCreator", fields: [createdById], references: [id])
+  requestedBy      User?       @relation("DrawingSetRequester", fields: [requestedById], references: [id])
+  paymentReleaser  User?       @relation("DrawingSetPaymentReleaser", fields: [paymentReleasedBy], references: [id])
+  rows             DrawingRow[]
+  requests         SetRequest[]
+
+  @@index([projectId])
+  @@index([createdById])
+  @@index([projectId, status])
+}
+
+/// A single drawing row — one entry in the master drawing register
+model DrawingRow {
+  id          String    @id @default(uuid())
+  projectId   String
+  setId       String?
+  serialNo    Int
+  category    String
+  name        String
+  /// BASEMENT | GROUND_FLOOR | FIRST_FLOOR | SECOND_FLOOR | TERRACE | ALL_FLOORS
+  floor       String    @default("ALL_FLOORS")
+  description String?
+  /// PENDING | SUBMITTED | APPROVED | REJECTED
+  status      String    @default("PENDING")
+  dueDate     DateTime?
+  createdById String
+  /// Per-drawing payment release (OWNER)
+  paidAt      DateTime?
+  paidById    String?
+  createdAt   DateTime  @default(now())
+  updatedAt   DateTime  @updatedAt
+
+  project    Project      @relation(fields: [projectId], references: [id], onDelete: Cascade)
+  set        DrawingSet?  @relation(fields: [setId], references: [id], onDelete: SetNull)
+  createdBy  User         @relation("DrawingRowCreator", fields: [createdById], references: [id])
+  paidBy     User?        @relation("DrawingRowPaymentReleaser", fields: [paidById], references: [id])
+  versions   DrawingVersion[]
+
+  @@index([projectId])
+  @@index([setId])
+  @@index([projectId, status])
+  @@index([projectId, serialNo])
+}
+
+/// A specific version of a drawing (v0, v1, v2 …)
+model DrawingVersion {
+  id              String    @id @default(uuid())
+  drawingRowId    String
+  versionNumber   Int
+  /// PDF | URL
+  uploadType      String    @default("PDF")
+  fileUrl         String
+  fileName        String?
+  fileSizeKb      Int?
+  uploadedById    String
+  uploadedAt      DateTime  @default(now())
+  reviewedById    String?
+  reviewedAt      DateTime?
+  /// PENDING | APPROVED | REJECTED
+  reviewStatus    String    @default("PENDING")
+  rejectionReason String?
+  isCurrent       Boolean   @default(true)
+
+  drawingRow DrawingRow @relation(fields: [drawingRowId], references: [id], onDelete: Cascade)
+  uploadedBy User       @relation("DrawingVersionUploader", fields: [uploadedById], references: [id])
+  reviewedBy User?      @relation("DrawingVersionReviewer", fields: [reviewedById], references: [id])
+
+  @@index([drawingRowId])
+  @@index([uploadedById])
+  @@index([drawingRowId, isCurrent])
+  @@index([drawingRowId, versionNumber])
+}
+
+/// A formal PMC request for a drawing set
+model SetRequest {
+  id            String    @id @default(uuid())
+  setId         String
+  projectId     String
+  requestedById String
+  requestedAt   DateTime  @default(now())
+  dueDate       DateTime?
+  note          String?
+  /// PENDING | ACCEPTED | DECLINED
+  status        String    @default("PENDING")
+
+  set          DrawingSet @relation(fields: [setId], references: [id], onDelete: Cascade)
+  project      Project    @relation(fields: [projectId], references: [id], onDelete: Cascade)
+  requestedBy  User       @relation("SetRequestCreator", fields: [requestedById], references: [id])
+
+  @@index([setId])
+  @@index([projectId])
 }
