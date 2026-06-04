@@ -1,7 +1,7 @@
 import { NextRequest, NextResponse } from 'next/server';
 import { prisma } from '@/lib/db';
 import { requireProjectAuth } from '@/lib/auth';
-import { fileStorage } from '@/lib/file-storage';
+import { fileStorage, getFileRedirectUrl } from '@/lib/file-storage';
 
 export const dynamic = 'force-dynamic';
 
@@ -19,18 +19,10 @@ export async function GET(
     });
     if (!file) return NextResponse.json({ success: false, error: 'Not found' }, { status: 404 });
 
-    // Cloud storage (Vercel Blob): redirect the browser directly to the CDN URL.
-    // This avoids proxying the file through the serverless function (double bandwidth,
-    // function timeout on large files). Auth is already enforced above.
-    if (file.storageKey.startsWith('https://')) {
-      let downloadUrl = file.storageKey;
-      // Private blobs (uploaded before the public-access fix) need a signed URL
-      if (!file.storageKey.includes('.public.blob.vercel-storage.com')) {
-        const { getDownloadUrl } = await import('@vercel/blob');
-        downloadUrl = await getDownloadUrl(file.storageKey);
-      }
-      return NextResponse.redirect(downloadUrl);
-    }
+    // Cloud storage: get a browser-accessible URL and redirect.
+    // For private Vercel Blob, getFileRedirectUrl issues a presigned URL via the SDK.
+    const redirectUrl = await getFileRedirectUrl(file.storageKey);
+    if (redirectUrl) return NextResponse.redirect(redirectUrl);
 
     // Local disk (development): proxy through the function
     const buffer = await fileStorage.read(file.storageKey);

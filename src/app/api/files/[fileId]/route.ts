@@ -2,6 +2,7 @@ import { NextRequest, NextResponse } from 'next/server';
 import { getSession } from '@/lib/auth';
 import { prisma } from '@/lib/db';
 import { EvidenceService } from '@/services/EvidenceService';
+import { getFileRedirectUrl } from '@/lib/file-storage';
 
 // GET /api/files/[fileId] - Download evidence file
 // IDOR protection: verify the requesting user belongs to the project that owns this file
@@ -56,17 +57,10 @@ export async function GET(
       );
     }
 
-    // Cloud storage (Vercel Blob): redirect the browser directly to the CDN URL
-    // to avoid proxying the file through the serverless function.
+    // Cloud storage: redirect to a browser-accessible URL (presigned for private blobs).
     const blobUrl = fileRecord.filePath || fileRecord.storageKey;
-    if (blobUrl?.startsWith('https://')) {
-      let downloadUrl = blobUrl;
-      if (!blobUrl.includes('.public.blob.vercel-storage.com')) {
-        const { getDownloadUrl } = await import('@vercel/blob');
-        downloadUrl = await getDownloadUrl(blobUrl);
-      }
-      return NextResponse.redirect(downloadUrl);
-    }
+    const redirectUrl = await getFileRedirectUrl(blobUrl ?? '');
+    if (redirectUrl) return NextResponse.redirect(redirectUrl);
 
     // Local disk (development): proxy through the function
     const file = await EvidenceService.getFile(fileId);

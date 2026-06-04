@@ -255,3 +255,32 @@ export const fileStorage: FileStorageAdapter =
         ? new S3Storage()
         : new LocalDiskStorage();
 
+/**
+ * Returns a URL the browser can use to open/download a stored file.
+ *
+ * - Local paths (dev)          → null  (caller should proxy via fileStorage.read)
+ * - Public Vercel Blob URL     → the URL itself  (CDN-served, no auth needed)
+ * - Private Vercel Blob URL    → short-lived presigned URL via issueSignedToken + presignUrl
+ * - Other https:// (S3/etc)    → the URL itself  (presigned at upload time)
+ */
+export async function getFileRedirectUrl(storageKey: string): Promise<string | null> {
+  if (!storageKey.startsWith('https://')) return null; // local disk — caller must proxy
+
+  // Public Vercel Blob or any other fully-accessible URL
+  if (!storageKey.includes('.blob.vercel-storage.com') ||
+      storageKey.includes('.public.blob.vercel-storage.com')) {
+    return storageKey;
+  }
+
+  // Private Vercel Blob — generate a short-lived presigned GET URL
+  const { issueSignedToken, presignUrl } = await import('@vercel/blob');
+  const pathname = new URL(storageKey).pathname.slice(1); // strip leading /
+  const signedToken = await issueSignedToken({ pathname, operations: ['get'] });
+  const { presignedUrl } = await presignUrl(signedToken, {
+    operation: 'get',
+    pathname,
+    access: 'private',
+  });
+  return presignedUrl;
+}
+
