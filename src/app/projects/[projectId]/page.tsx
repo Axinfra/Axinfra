@@ -493,18 +493,21 @@ interface MsgCtx {
   replyFiles: File[];
   setReplyFiles: React.Dispatch<React.SetStateAction<File[]>>;
   replySubmitting: boolean;
+  replyError: string;
+  setReplyError: (v: string) => void;
   replyFileInputRef: React.RefObject<HTMLInputElement>;
   sendReply: (id: string) => Promise<void>;
   withdrawRequest: (id: string) => Promise<void>;
 }
 
 function FileChip({ f, requestId, projectId }: { f: VendorRequestFile; requestId: string; projectId: string }) {
+  const mime = f.mimeType ?? '';
   return (
     <a
       href={`/api/projects/${projectId}/vendor-requests/${requestId}/files/${f.id}`}
       target="_blank" rel="noreferrer"
       className="flex items-center gap-1.5 px-2.5 py-1.5 rounded-lg bg-[rgba(255,255,255,0.05)] border border-[rgba(255,255,255,0.08)] hover:border-[rgba(255,255,255,0.22)] transition-colors text-xs text-[rgba(232,228,220,0.65)]">
-      {f.mimeType.startsWith('image/') ? <ImageIcon className="w-3 h-3 shrink-0" /> : <FileText className="w-3 h-3 shrink-0" />}
+      {mime.startsWith('image/') ? <ImageIcon className="w-3 h-3 shrink-0" /> : <FileText className="w-3 h-3 shrink-0" />}
       <span className="truncate max-w-[140px]">{f.fileName}</span>
       <span className="text-[rgba(232,228,220,0.3)] shrink-0">{fileSizeLabel(f.fileSize)}</span>
     </a>
@@ -516,7 +519,7 @@ function MessageCard({ r, ctx }: { r: VendorRequest; ctx: MsgCtx }) {
     projectId, myUserId, myRole, view, myRoleSendTos,
     expandedId, setExpandedId, respondingId, setRespondingId,
     replyNote, setReplyNote, replyStatus, setReplyStatus,
-    replyFiles, setReplyFiles, replySubmitting, replyFileInputRef,
+    replyFiles, setReplyFiles, replySubmitting, replyError, setReplyError, replyFileInputRef,
     sendReply, withdrawRequest,
   } = ctx;
 
@@ -684,13 +687,18 @@ function MessageCard({ r, ctx }: { r: VendorRequest; ctx: MsgCtx }) {
                       if (replyFileInputRef.current) replyFileInputRef.current.value = '';
                     }} />
 
-                  <button onClick={() => sendReply(r.id)} disabled={replySubmitting}
+                  <button onClick={() => { setReplyError(''); sendReply(r.id); }} disabled={replySubmitting}
                     className="btn btn-primary text-xs py-1.5 flex items-center gap-1.5 disabled:opacity-50">
                     {replySubmitting ? <Loader2 className="w-3.5 h-3.5 animate-spin" /> : <Send className="w-3.5 h-3.5" />}
                     {replySubmitting ? 'Sending…' : 'Send'}
                   </button>
-                  <button onClick={() => { setRespondingId(null); setReplyNote(''); setReplyFiles([]); }}
+                  <button onClick={() => { setRespondingId(null); setReplyNote(''); setReplyFiles([]); setReplyError(''); }}
                     className="text-xs text-[rgba(232,228,220,0.4)] hover:text-[#e8e4dc] px-2">Cancel</button>
+                  {replyError && (
+                    <p className="text-xs text-[#e06050] flex items-center gap-1 ml-1">
+                      <AlertCircle className="w-3 h-3 shrink-0" />{replyError}
+                    </p>
+                  )}
                 </div>
               </div>
             ) : (
@@ -757,6 +765,7 @@ function CommunicationTab({
   const [replyStatus, setReplyStatus] = useState<'ACKNOWLEDGED' | 'IN_REVIEW' | 'RESOLVED' | 'REJECTED'>('ACKNOWLEDGED');
   const [replyFiles, setReplyFiles] = useState<File[]>([]);
   const [replySubmitting, setReplySubmitting] = useState(false);
+  const [replyError, setReplyError] = useState('');
   const [submitting, setSubmitting] = useState(false);
   const [formError, setFormError] = useState('');
   const [pendingFiles, setPendingFiles] = useState<File[]>([]);
@@ -809,14 +818,23 @@ function CommunicationTab({
       const data = await res.json();
       if (!data.success) { setFormError(data.error); return; }
 
+      const failedUploads: string[] = [];
       for (const file of pendingFiles) {
         const fd = new FormData();
         fd.append('file', file);
-        await fetch(`/api/projects/${projectId}/vendor-requests/${data.data.id}/files`, { method: 'POST', body: fd });
+        const upRes = await fetch(`/api/projects/${projectId}/vendor-requests/${data.data.id}/files`, { method: 'POST', body: fd });
+        if (!upRes.ok) {
+          const upData = await upRes.json().catch(() => ({}));
+          failedUploads.push(upData.error ? `${file.name}: ${upData.error}` : file.name);
+        }
       }
 
       await refetch();
-      resetForm();
+      if (failedUploads.length > 0) {
+        setFormError(`Request sent, but ${failedUploads.length} file(s) failed to upload: ${failedUploads.join(', ')}`);
+      } else {
+        resetForm();
+      }
     } catch { setFormError('Failed to submit'); }
     finally { setSubmitting(false); }
   };
@@ -833,10 +851,15 @@ function CommunicationTab({
       if (!data.success) return;
 
       // Upload reply attachments
+      const failedUploads: string[] = [];
       for (const file of replyFiles) {
         const fd = new FormData();
         fd.append('file', file);
-        await fetch(`/api/projects/${projectId}/vendor-requests/${requestId}/files`, { method: 'POST', body: fd });
+        const upRes = await fetch(`/api/projects/${projectId}/vendor-requests/${requestId}/files`, { method: 'POST', body: fd });
+        if (!upRes.ok) {
+          const upData = await upRes.json().catch(() => ({}));
+          failedUploads.push(upData.error ? `${file.name}: ${upData.error}` : file.name);
+        }
       }
 
       setRespondingId(null);
@@ -844,6 +867,9 @@ function CommunicationTab({
       setReplyStatus('ACKNOWLEDGED');
       setReplyFiles([]);
       await refetch();
+      if (failedUploads.length > 0) {
+        setReplyError(`Reply sent, but ${failedUploads.length} file(s) failed: ${failedUploads.join(', ')}`);
+      }
     } finally { setReplySubmitting(false); }
   };
 
@@ -864,7 +890,7 @@ function CommunicationTab({
     projectId, myUserId, myRole, view, myRoleSendTos,
     expandedId, setExpandedId, respondingId, setRespondingId,
     replyNote, setReplyNote, replyStatus, setReplyStatus,
-    replyFiles, setReplyFiles, replySubmitting, replyFileInputRef,
+    replyFiles, setReplyFiles, replySubmitting, replyError, setReplyError, replyFileInputRef,
     sendReply, withdrawRequest,
   };
 
@@ -1003,7 +1029,7 @@ function CommunicationTab({
 
             {/* File attachments */}
             <div>
-              <label className="label text-xs">Attachments <span className="text-[rgba(232,228,220,0.35)]">(PDF, JPG, PNG — max 20 MB each)</span></label>
+              <label className="label text-xs">Attachments <span className="text-[rgba(232,228,220,0.35)]">(PDF, images, Word, Excel, DWG/DXF — max 20 MB each)</span></label>
               <div className="flex flex-wrap gap-2 mb-2">
                 {pendingFiles.map((f, i) => (
                   <div key={i} className="flex items-center gap-2 px-3 py-1.5 rounded-lg bg-[rgba(255,255,255,0.05)] border border-[rgba(255,255,255,0.1)] text-xs text-[rgba(232,228,220,0.7)]">
@@ -1020,7 +1046,7 @@ function CommunicationTab({
                 className="flex items-center gap-2 px-3 py-2 rounded-lg border border-dashed border-[rgba(255,255,255,0.15)] text-xs text-[rgba(232,228,220,0.5)] hover:border-[rgba(196,163,90,0.4)] hover:text-[#c4a35a] transition-colors">
                 <Paperclip className="w-3.5 h-3.5" />Attach file
               </button>
-              <input ref={fileInputRef} type="file" accept=".pdf,.jpg,.jpeg,.png,.webp,.gif" multiple className="hidden" onChange={handleFileAdd} />
+              <input ref={fileInputRef} type="file" accept=".pdf,.jpg,.jpeg,.png,.webp,.gif,.doc,.docx,.xls,.xlsx,.dwg,.dxf" multiple className="hidden" onChange={handleFileAdd} />
             </div>
 
             {/* Actions */}

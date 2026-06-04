@@ -19,12 +19,24 @@ export async function GET(
     });
     if (!file) return NextResponse.json({ success: false, error: 'Not found' }, { status: 404 });
 
+    // Cloud storage (Vercel Blob): redirect the browser directly to the CDN URL.
+    // This avoids proxying the file through the serverless function (double bandwidth,
+    // function timeout on large files). Auth is already enforced above.
+    if (file.storageKey.startsWith('https://')) {
+      let downloadUrl = file.storageKey;
+      // Private blobs (uploaded before the public-access fix) need a signed URL
+      if (!file.storageKey.includes('.public.blob.vercel-storage.com')) {
+        const { getDownloadUrl } = await import('@vercel/blob');
+        downloadUrl = await getDownloadUrl(file.storageKey);
+      }
+      return NextResponse.redirect(downloadUrl);
+    }
+
+    // Local disk (development): proxy through the function
     const buffer = await fileStorage.read(file.storageKey);
     if (!buffer) return NextResponse.json({ success: false, error: 'File not found' }, { status: 404 });
 
-    // Guard: empty mimeType (legacy rows or unknown types) would throw in WHATWG Headers
     const contentType = file.mimeType || 'application/octet-stream';
-    // RFC 5987 — encode the filename so quotes/special chars don't break the header
     const safeName = encodeURIComponent(file.fileName).replace(/'/g, '%27');
     const disposition = request.nextUrl.searchParams.get('download') === '1' ? 'attachment' : 'inline';
 

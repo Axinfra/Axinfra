@@ -35,19 +35,30 @@ export async function GET(
       return NextResponse.json({ success: false, error: 'File not found' }, { status: 404 });
     }
 
+    // Cloud storage (Vercel Blob): redirect directly to CDN to avoid proxying
+    if (version.fileUrl.startsWith('https://')) {
+      let downloadUrl = version.fileUrl;
+      if (!version.fileUrl.includes('.public.blob.vercel-storage.com')) {
+        const { getDownloadUrl } = await import('@vercel/blob');
+        downloadUrl = await getDownloadUrl(version.fileUrl);
+      }
+      return NextResponse.redirect(downloadUrl);
+    }
+
+    // Local disk (development): proxy through the function
     const buffer = await fileStorage.read(version.fileUrl);
     if (!buffer) {
       return NextResponse.json({ success: false, error: 'File not found' }, { status: 404 });
     }
 
     const fallbackName = `${version.drawingRow.name}-v${version.versionNumber}.pdf`;
-    const safeFileName = (version.fileName ?? fallbackName).replace(/[^\x20-\x7E]/g, '_');
+    const safeName = encodeURIComponent(version.fileName ?? fallbackName).replace(/'/g, '%27');
 
     return new NextResponse(new Uint8Array(buffer), {
       headers: {
         'Content-Type': 'application/pdf',
-        'Content-Disposition': `${download ? 'attachment' : 'inline'}; filename="${safeFileName}"`,
-        'Content-Length': buffer.length.toString(),
+        'Content-Disposition': `${download ? 'attachment' : 'inline'}; filename*=UTF-8''${safeName}`,
+        'Content-Length': buffer.byteLength.toString(),
       },
     });
   } catch (error) {

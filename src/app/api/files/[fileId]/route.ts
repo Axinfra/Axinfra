@@ -56,6 +56,19 @@ export async function GET(
       );
     }
 
+    // Cloud storage (Vercel Blob): redirect the browser directly to the CDN URL
+    // to avoid proxying the file through the serverless function.
+    const blobUrl = fileRecord.filePath || fileRecord.storageKey;
+    if (blobUrl?.startsWith('https://')) {
+      let downloadUrl = blobUrl;
+      if (!blobUrl.includes('.public.blob.vercel-storage.com')) {
+        const { getDownloadUrl } = await import('@vercel/blob');
+        downloadUrl = await getDownloadUrl(blobUrl);
+      }
+      return NextResponse.redirect(downloadUrl);
+    }
+
+    // Local disk (development): proxy through the function
     const file = await EvidenceService.getFile(fileId);
 
     if (!file) {
