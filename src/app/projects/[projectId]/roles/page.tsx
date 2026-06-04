@@ -184,7 +184,7 @@ export default function RolesPage() {
                 </ul>
               </div>
               <div>
-                <h3 className="font-medium text-[#e8e4dc] mb-2">ARCHITECTS</h3>
+                <h3 className="font-medium text-[#e8e4dc] mb-2">CONSULTANTS</h3>
                 <ul className="text-sm text-[rgba(232,228,220,0.55)] space-y-1">
                   <li>Upload &amp; manage project documents</li>
                   <li>Review submitted evidence (read)</li>
@@ -281,7 +281,7 @@ export default function RolesPage() {
                     onChange={(e) => setNewRole(e.target.value)}
                   >
                     <option value="PMC">PMC</option>
-                    <option value="ARTIFACTS">Architects</option>
+                    <option value="CONSULTANT">Consultants</option>
                     <option value="VENDOR">Vendor</option>
                     <option value="VIEWER">Viewer</option>
                   </select>

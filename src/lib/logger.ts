@@ -48,7 +48,7 @@ class Logger {
 
     info(message: string, context?: LogContext): void {
         const entry = this.formatEntry('info', message, context);
-        console.log(JSON.stringify(entry));
+        // console.log(JSON.stringify(entry));
     }
 
     warn(message: string, context?: LogContext): void {

@@ -139,7 +139,7 @@ function FlowDiagram() {
   /* ── coordinate reference ──────────────────────────────────────────────────
      ViewBox 920×560   Node w=160 h=48
      OWNER   cx=110   x=30    divider-right x=215
-     ARCHITECT cx=310  x=230   divider-right x=430
+     CONSULTANT cx=310  x=230   divider-right x=430
      PMC     cx=530   x=450   divider-right x=648
      VENDOR  cx=750   x=660
   ─────────────────────────────────────────────────────────────────────────── */
@@ -156,7 +156,7 @@ function FlowDiagram() {
       {/* ── swimlane headers ── */}
       {[
         { x: '30',  label: 'OWNER',     color: GOLD,  x2: '200' },
-        { x: '230', label: 'ARCHITECT', color: ARCH,  x2: '385' },
+        { x: '230', label: 'CONSULTANT', color: ARCH,  x2: '385' },
         { x: '450', label: 'PMC',       color: '#aaa',x2: '610' },
         { x: '660', label: 'VENDOR',    color: GREEN, x2: '845' },
       ].map(({ x, label, color, x2 }) => (
@@ -172,7 +172,7 @@ function FlowDiagram() {
       {/* ── row 1: Creates project → Designs plans → Creates BOQ ── */}
       <Node x={30}  y={76} w={160} h={48} stroke={GOLD} roleColor={GOLD} role="OWNER"     label="Creates project" pulse />
       <Connector d="M190 100 L230 100" stroke={GOLD} dur={1.2} />
-      <Node x={230} y={76} w={160} h={48} stroke={ARCH} roleColor={ARCH} role="ARCHITECT" label="Designs plans"  pulse />
+      <Node x={230} y={76} w={160} h={48} stroke={ARCH} roleColor={ARCH} role="CONSULTANT" label="Designs plans"  pulse />
       <Connector d="M390 100 L450 100" stroke={ARCH} dur={1.4} />
       <Node x={450} y={76} w={160} h={48} stroke={GOLD} roleColor={GOLD} role="PMC"       label="Creates BOQ" />
 
@@ -407,7 +407,7 @@ export default function HomePage() {
             <div className="sec-tag">How it works</div>
             <h2 className="sec-title">Four roles.<br /><em>One governed flow.</em></h2>
           </div>
-          <p className="sec-sub">Owner creates the project. Architect designs the plans. PMC writes the BOQ, governs milestones, and verifies evidence. Vendor executes and submits proof. Every approval on record — nothing moves without a paper trail.</p>
+          <p className="sec-sub">Owner creates the project. Consultant designs the plans. PMC writes the BOQ, governs milestones, and verifies evidence. Vendor executes and submits proof. Every approval on record — nothing moves without a paper trail.</p>
         </Section>
         <Section className="flow-wrap">
           <FlowDiagram />

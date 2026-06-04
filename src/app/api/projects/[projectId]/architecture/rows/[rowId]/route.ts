@@ -28,7 +28,7 @@ export async function PATCH(
     const { name, category, floor, description, setId, dueDate } = patchSchema.parse(body);
 
     // Set assignment changes are restricted to Architects only.
-    if ('setId' in body && auth.role !== 'ARTIFACTS') {
+    if ('setId' in body && auth.role !== 'CONSULTANT') {
       return NextResponse.json({ success: false, error: 'Only Architects can assign or change sets' }, { status: 403 });
     }
 
@@ -40,7 +40,7 @@ export async function PATCH(
       if (attempted.length > 0) {
         return NextResponse.json({ success: false, error: 'PMC can only edit name and due date' }, { status: 403 });
       }
-    } else if (auth.role === 'ARTIFACTS') {
+    } else if (auth.role === 'CONSULTANT') {
       // Architect can edit name, floor, description, category, setId (own rows only)
       if (row.createdById !== auth.userId) {
         return NextResponse.json({ success: false, error: 'Can only edit your own rows' }, { status: 403 });

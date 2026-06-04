@@ -139,7 +139,7 @@ export default function ArchitecturePage() {
   const projectName = project?.name ?? '';
 
   const tabs = (() => {
-    if (myRole === 'ARTIFACTS') return ['Overview', 'My Sets', 'All Drawings', 'Import'];
+    if (myRole === 'CONSULTANT') return ['Overview', 'My Sets', 'All Drawings', 'Import'];
     if (myRole === 'PMC')       return ['Overview', 'Drawing Sets', 'Review Queue'];
     if (myRole === 'OWNER')     return ['Overview', 'Drawing Sets', 'All Drawings'];
     if (myRole === 'VENDOR')    return ['Approved Drawings'];
@@ -618,7 +618,7 @@ export default function ArchitecturePage() {
   if (projectLoading) return <Layout><TablePageSkeleton /></Layout>;
 
   const statsData = stats as OverviewStats | undefined;
-  const canBulkAssign = myRole === 'ARTIFACTS';
+  const canBulkAssign = myRole === 'CONSULTANT';
 
   // ── Renders ───────────────────────────────────────────────────────────────
 
@@ -665,15 +665,15 @@ export default function ArchitecturePage() {
     const isLoading = actionLoading === set.id;
     const isRequested = set.status === 'REQUESTED';
     const isJustCreated = justCreatedSetId === set.id;
-    const canOpenSetRows = ['ARTIFACTS', 'PMC', 'OWNER'].includes(myRole);
+    const canOpenSetRows = ['CONSULTANT', 'PMC', 'OWNER'].includes(myRole);
     return (
       <div
         key={set.id}
         onClick={() => { if (canOpenSetRows) openRequestedSetDrawings(set.id); }}
-        className={`card transition-all ${isJustCreated ? 'ring-2 ring-[rgba(196,163,90,0.5)] shadow-[0_0_24px_rgba(196,163,90,0.12)]' : ''} ${isRequested && myRole === 'ARTIFACTS' ? 'ring-1 ring-[rgba(129,140,248,0.35)]' : ''} ${canOpenSetRows ? 'cursor-pointer hover:border-[rgba(196,163,90,0.25)]' : ''}`}
+        className={`card transition-all ${isJustCreated ? 'ring-2 ring-[rgba(196,163,90,0.5)] shadow-[0_0_24px_rgba(196,163,90,0.12)]' : ''} ${isRequested && myRole === 'CONSULTANT' ? 'ring-1 ring-[rgba(129,140,248,0.35)]' : ''} ${canOpenSetRows ? 'cursor-pointer hover:border-[rgba(196,163,90,0.25)]' : ''}`}
       >
         <div className="card-body space-y-3">
-          {isRequested && myRole === 'ARTIFACTS' && (
+          {isRequested && myRole === 'CONSULTANT' && (
             <div className="flex items-start gap-2.5 p-3 rounded-lg bg-[rgba(129,140,248,0.08)] border border-[rgba(129,140,248,0.2)]">
               <Zap className="w-4 h-4 text-[#818cf8] shrink-0 mt-0.5" />
               <div>
@@ -721,7 +721,7 @@ export default function ArchitecturePage() {
             {set.approvedAt && <span>Approved {formatDate(set.approvedAt)}</span>}
           </div>
           <div className="flex flex-wrap gap-2 pt-1">
-            {myRole === 'ARTIFACTS' && set.status === 'DRAFT' && (
+            {myRole === 'CONSULTANT' && set.status === 'DRAFT' && (
               <button onClick={(e) => { e.stopPropagation(); void doSetAction(set.id, 'submit'); }} disabled={isLoading}
                 className="btn btn-sm btn-primary disabled:opacity-50">{isLoading ? '…' : 'Submit to PMC →'}</button>
             )}
@@ -739,13 +739,13 @@ export default function ArchitecturePage() {
                 {isLoading ? '…' : `Release ₹${set.cost.toLocaleString('en-IN')}`}
               </button>
             )}
-            {myRole === 'ARTIFACTS' && isRequested && (
+            {myRole === 'CONSULTANT' && isRequested && (
               <button onClick={(e) => { e.stopPropagation(); openRequestedSetDrawings(set.id); }}
                 className="btn btn-sm border border-[rgba(129,140,248,0.3)] text-[#818cf8] hover:bg-[rgba(129,140,248,0.08)] flex items-center gap-1.5">
                 <Upload className="w-3 h-3" />Upload Drawings
               </button>
             )}
-            {myRole === 'ARTIFACTS' && set.status === 'DRAFT' && (
+            {myRole === 'CONSULTANT' && set.status === 'DRAFT' && (
               <button onClick={(e) => { e.stopPropagation(); void handleDeleteSet(set.id, set.name); }} disabled={isLoading}
                 className="btn btn-sm border border-[rgba(224,96,80,0.25)] text-[#e06050] hover:bg-[rgba(224,96,80,0.08)] flex items-center gap-1.5 disabled:opacity-50 ml-auto">
                 <Trash2 className="w-3 h-3" />Delete Set
@@ -822,7 +822,7 @@ export default function ArchitecturePage() {
           </button>
 
           {/* Template download */}
-          {['PMC', 'ARTIFACTS'].includes(myRole) && (
+          {['PMC', 'CONSULTANT'].includes(myRole) && (
             <a href={`/api/projects/${projectId}/architecture/rows/template`} download
               className="flex items-center gap-1.5 text-xs text-[rgba(232,228,220,0.4)] hover:text-[#c4a35a] transition-colors">
               <Download className="w-3 h-3" />Template
@@ -835,9 +835,9 @@ export default function ArchitecturePage() {
 
   const renderRowCells = (row: DrawingRow) => {
     const currentVersion = row.versions[0];
-    const canUpload = myRole === 'ARTIFACTS' && row.status !== 'APPROVED';
+    const canUpload = myRole === 'CONSULTANT' && row.status !== 'APPROVED';
     const canReview = ['PMC', 'OWNER'].includes(myRole) && currentVersion?.reviewStatus === 'PENDING';
-    const canViewHistory = ['OWNER', 'PMC', 'ARTIFACTS'].includes(myRole);
+    const canViewHistory = ['OWNER', 'PMC', 'CONSULTANT'].includes(myRole);
     const isVendor = myRole === 'VENDOR';
     const setRequested = row.set?.status === 'REQUESTED';
     const isSelected = selectedIds.has(row.id);
@@ -848,7 +848,7 @@ export default function ArchitecturePage() {
         className={`border-b border-[rgba(255,255,255,0.04)] last:border-0 transition-colors ${
           isSelected
             ? 'bg-[rgba(196,163,90,0.06)]'
-            : setRequested && myRole === 'ARTIFACTS' && row.status === 'PENDING'
+            : setRequested && myRole === 'CONSULTANT' && row.status === 'PENDING'
               ? 'bg-[rgba(129,140,248,0.02)] hover:bg-[rgba(129,140,248,0.04)]'
               : 'hover:bg-[rgba(255,255,255,0.015)]'
         } ${canBulkAssign ? 'cursor-pointer' : ''}`}>
@@ -865,7 +865,7 @@ export default function ArchitecturePage() {
               <div className="text-sm text-[#e8e4dc] font-medium leading-snug">{row.name}</div>
               <div className="text-xs text-[rgba(232,228,220,0.4)] mt-0.5">{row.category}</div>
             </div>
-            {setRequested && myRole === 'ARTIFACTS' && row.status === 'PENDING' && (
+            {setRequested && myRole === 'CONSULTANT' && row.status === 'PENDING' && (
               <span className="flex items-center gap-1 text-xs text-[#818cf8] bg-[rgba(129,140,248,0.1)] px-1.5 py-0.5 rounded-full">
                 <span className="w-1.5 h-1.5 rounded-full bg-[#818cf8] animate-pulse" />needed
               </span>
@@ -908,7 +908,7 @@ export default function ArchitecturePage() {
                 <button onClick={() => setReviewModal({ rowId: row.id, versionId: currentVersion!.id, rowName: row.name })}
                   className="text-xs text-[#fb923c] hover:text-[#f97316] font-medium transition-colors">Review</button>
               )}
-              {myRole === 'ARTIFACTS' && (
+              {myRole === 'CONSULTANT' && (
                 <button onClick={() => openAssignModal(row)}
                   className="text-xs text-[rgba(232,228,220,0.4)] hover:text-[#818cf8] transition-colors">
                   {row.set ? 'Move' : 'Set'}
@@ -1200,7 +1200,7 @@ export default function ArchitecturePage() {
 
           <div className="flex gap-3">
             <button onClick={() => { setImportResult(null); setImportRows([]); }} className="btn btn-primary">Import More</button>
-            <button onClick={() => setActiveTab(myRole === 'ARTIFACTS' ? 'All Drawings' : tabs[0])} className="btn btn-secondary">View Drawings</button>
+            <button onClick={() => setActiveTab(myRole === 'CONSULTANT' ? 'All Drawings' : tabs[0])} className="btn btn-secondary">View Drawings</button>
           </div>
         </div>
       ) : importRows.length > 0 ? (
@@ -1289,7 +1289,7 @@ export default function ArchitecturePage() {
             <h1 className="text-2xl font-bold text-[#e8e4dc]">Architecture</h1>
             <p className="text-sm text-[rgba(232,228,220,0.45)] mt-0.5">Drawing register, sets &amp; version control</p>
           </div>
-          {myRole === 'ARTIFACTS' && (
+          {myRole === 'CONSULTANT' && (
             <button onClick={() => setShowCreateSet(true)} className="btn btn-primary flex items-center gap-2">
               <Plus className="w-4 h-4" />New Set
             </button>
@@ -1337,7 +1337,7 @@ export default function ArchitecturePage() {
               <div className="card p-10 text-center">
                 <Layers className="w-8 h-8 text-[rgba(232,228,220,0.2)] mx-auto mb-3" />
                 <p className="text-[rgba(232,228,220,0.45)] text-sm">No drawing sets yet.</p>
-                {myRole === 'ARTIFACTS' && (
+                {myRole === 'CONSULTANT' && (
                   <button onClick={() => setShowCreateSet(true)} className="btn btn-primary mt-4 mx-auto">Create First Set</button>
                 )}
               </div>

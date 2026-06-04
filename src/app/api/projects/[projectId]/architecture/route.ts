@@ -13,28 +13,11 @@ export async function GET(
     const { projectId } = await params;
     const auth = await requireProjectAuth(projectId);
 
-    const isVendor = auth.role === 'VENDOR';
+    // VENDOR: can view overview stats (counts only — no sensitive cost data)
 
-    // Vendor only sees approved rows from approved sets
     const [sets, rows] = await Promise.all([
-      isVendor
-        ? prisma.drawingSet.findMany({
-            where: { projectId, status: 'APPROVED' },
-            select: { id: true, status: true },
-          })
-        : prisma.drawingSet.findMany({
-            where: { projectId },
-            select: { id: true, status: true },
-          }),
-      isVendor
-        ? prisma.drawingRow.findMany({
-            where: { projectId, status: 'APPROVED', set: { status: 'APPROVED' } },
-            select: { id: true, status: true },
-          })
-        : prisma.drawingRow.findMany({
-            where: { projectId },
-            select: { id: true, status: true },
-          }),
+      prisma.drawingSet.findMany({ where: { projectId }, select: { id: true, status: true } }),
+      prisma.drawingRow.findMany({ where: { projectId }, select: { id: true, status: true } }),
     ]);
 
     const setsTotal = sets.length;
@@ -47,8 +30,7 @@ export async function GET(
     const rowsApproved = rows.filter((r) => r.status === 'APPROVED').length;
     const rowsRejected = rows.filter((r) => r.status === 'REJECTED').length;
 
-    // Pending review count (versions PENDING review)
-    const pendingReview = isVendor ? 0 : await prisma.drawingVersion.count({
+    const pendingReview = await prisma.drawingVersion.count({
       where: {
         drawingRow: { projectId },
         reviewStatus: 'PENDING',

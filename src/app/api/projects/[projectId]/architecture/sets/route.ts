@@ -22,12 +22,12 @@ export async function GET(
   try {
     const { projectId } = await params;
     const auth = await requireProjectAuth(projectId);
-    const isVendor = auth.role === 'VENDOR';
+
+    // VENDOR sees only APPROVED or PAID sets (read-only)
+    const vendorFilter = auth.role === 'VENDOR' ? { status: { in: ['APPROVED', 'PAID'] } } : {};
 
     const sets = await prisma.drawingSet.findMany({
-      where: isVendor
-        ? { projectId, status: 'APPROVED' }
-        : { projectId },
+      where: { projectId, ...vendorFilter },
       include: {
         createdBy: { select: { id: true, name: true, email: true } },
         requestedBy: { select: { id: true, name: true } },
@@ -100,8 +100,8 @@ export async function POST(
     const { projectId } = await params;
     const auth = await requireProjectAuth(projectId);
 
-    if (auth.role !== 'ARTIFACTS') {
-      return NextResponse.json({ success: false, error: 'Only Architects can create drawing sets' }, { status: 403 });
+    if (auth.role !== 'CONSULTANT') {
+      return NextResponse.json({ success: false, error: 'Only Consultants can create drawing sets' }, { status: 403 });
     }
 
     const body = await request.json();

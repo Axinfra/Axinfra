@@ -4,7 +4,7 @@ import { ProjectAuthContext } from '@/lib/auth';
 /**
  * RoleGuard - Server-side role enforcement.
  *
- * Allowed roles: OWNER, PMC, VENDOR, VIEWER, ARTIFACTS
+ * Allowed roles: OWNER, PMC, VENDOR, VIEWER, CONSULTANT
  */
 export class RoleGuard {
   static requireRole(auth: ProjectAuthContext, allowedRoles: Role[]): void {
@@ -14,7 +14,7 @@ export class RoleGuard {
   }
 
   static canRead(auth: ProjectAuthContext): boolean {
-    return ([Role.OWNER, Role.PMC, Role.VENDOR, Role.VIEWER, Role.ARTIFACTS] as string[]).includes(auth.role);
+    return ([Role.OWNER, Role.PMC, Role.VENDOR, Role.VIEWER, Role.CONSULTANT] as string[]).includes(auth.role);
   }
 
   static canManageProject(auth: ProjectAuthContext): boolean {
@@ -42,7 +42,7 @@ export class RoleGuard {
   }
 
   static canReviewEvidence(auth: ProjectAuthContext): boolean {
-    return auth.role === Role.OWNER || auth.role === Role.PMC || auth.role === Role.ARTIFACTS;
+    return auth.role === Role.OWNER || auth.role === Role.PMC || auth.role === Role.CONSULTANT;
   }
 
   static canVerify(auth: ProjectAuthContext): boolean {
@@ -66,7 +66,7 @@ export class RoleGuard {
   }
 
   static canExportAuditLog(auth: ProjectAuthContext): boolean {
-    return auth.role === Role.OWNER || auth.role === Role.PMC || auth.role === Role.ARTIFACTS;
+    return auth.role === Role.OWNER || auth.role === Role.PMC || auth.role === Role.CONSULTANT;
   }
 
   static canResolveFollowUp(auth: ProjectAuthContext): boolean {
@@ -80,7 +80,7 @@ export class RoleGuard {
 
   /** Artifacts role: upload/manage project documents, drawings, and deliverables */
   static canManageArtifacts(auth: ProjectAuthContext): boolean {
-    return auth.role === Role.OWNER || auth.role === Role.PMC || auth.role === Role.ARTIFACTS;
+    return auth.role === Role.OWNER || auth.role === Role.PMC || auth.role === Role.CONSULTANT;
   }
 
   static validateNotSelfApproval(reviewerId: string, submitterId: string): void {

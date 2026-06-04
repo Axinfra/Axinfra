@@ -22,7 +22,9 @@ export async function GET(
   try {
     const { projectId } = await params;
     const auth = await requireProjectAuth(projectId);
-    const isVendor = auth.role === 'VENDOR';
+
+    // VENDOR sees only APPROVED rows (read-only)
+    const vendorFilter = auth.role === 'VENDOR' ? { status: 'APPROVED' } : {};
 
     const { searchParams } = new URL(request.url);
     const setId = searchParams.get('setId');
@@ -33,9 +35,9 @@ export async function GET(
     const rows = await prisma.drawingRow.findMany({
       where: {
         projectId,
-        ...(isVendor ? { status: 'APPROVED', set: { status: 'APPROVED' } } : {}),
+        ...vendorFilter,
         ...(setId ? { setId } : {}),
-        ...(status && !isVendor ? { status } : {}),
+        ...(status && !vendorFilter.status ? { status } : {}),
         ...(floor ? { floor } : {}),
         ...(category ? { category } : {}),
       },
@@ -43,7 +45,7 @@ export async function GET(
         set: { select: { id: true, name: true, status: true } },
         createdBy: { select: { id: true, name: true } },
         versions: {
-          where: isVendor ? { reviewStatus: 'APPROVED', isCurrent: true } : { isCurrent: true },
+          where: { isCurrent: true },
           orderBy: { versionNumber: 'desc' },
           take: 1,
           include: {
@@ -73,7 +75,7 @@ export async function POST(
     const { projectId } = await params;
     const auth = await requireProjectAuth(projectId);
 
-    if (!['PMC', 'ARTIFACTS'].includes(auth.role)) {
+    if (!['PMC', 'CONSULTANT'].includes(auth.role)) {
       return NextResponse.json({ success: false, error: 'Forbidden' }, { status: 403 });
     }
 

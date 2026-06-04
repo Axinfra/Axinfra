@@ -100,6 +100,7 @@ export async function GET(
       data: {
         ...project,
         myRole: auth.role,
+        myUserId: auth.userId,
         permissions: RoleGuard.getPermissions(auth.role),
       },
     });

@@ -4,7 +4,7 @@ import bcrypt from 'bcryptjs';
 const prisma = new PrismaClient();
 
 // ─── String-based enums (matches src/types/index.ts) ────────────────────────
-const Role = { OWNER: 'OWNER', PMC: 'PMC', VENDOR: 'VENDOR', VIEWER: 'VIEWER', ARTIFACTS: 'ARTIFACTS' } as const;
+const Role = { OWNER: 'OWNER', PMC: 'PMC', VENDOR: 'VENDOR', VIEWER: 'VIEWER', CONSULTANT: 'CONSULTANT' } as const;
 const BOQStatus = { DRAFT: 'DRAFT', APPROVED: 'APPROVED', REVISED: 'REVISED' } as const;
 const MilestoneState = {
   DRAFT: 'DRAFT', IN_PROGRESS: 'IN_PROGRESS', SUBMITTED: 'SUBMITTED',
@@ -36,6 +36,8 @@ async function main() {
 
   // ── 1. Wipe all data (respects FK order) ─────────────────────────────────
   console.log('  Clearing existing data…');
+  await prisma.vendorRequestFile.deleteMany();
+  await prisma.vendorRequest.deleteMany();
   await prisma.drawingVersion.deleteMany();
   await prisma.drawingRow.deleteMany();
   await prisma.setRequest.deleteMany();
@@ -89,8 +91,8 @@ async function main() {
   const viewer = await prisma.user.create({
     data: { name: 'Vera Viewer', email: 'viewer@example.com', hashedPassword: hash },
   });
-  const architect = await prisma.user.create({
-    data: { name: 'Arthur Architect', email: 'architect@example.com', hashedPassword: hash },
+  const consultant = await prisma.user.create({
+    data: { name: 'Arthur Consultant', email: 'consultant@example.com', hashedPassword: hash },
   });
   console.log('  Created 7 users (1 admin + 6 demo)');
 
@@ -103,7 +105,7 @@ async function main() {
         cost: 90000,
         currency: 'INR',
         status: 'DRAFT',
-        createdById: architect.id,
+        createdById: consultant.id,
       },
     });
 
@@ -115,7 +117,7 @@ async function main() {
         cost: 125000,
         currency: 'INR',
         status: 'REQUESTED',
-        createdById: architect.id,
+        createdById: consultant.id,
         requestedById: pmc.id,
         requestedAt: daysAgo(4),
         dueDate: daysFromNow(8),
@@ -130,7 +132,7 @@ async function main() {
         cost: 150000,
         currency: 'INR',
         status: 'APPROVED',
-        createdById: architect.id,
+        createdById: consultant.id,
         requestedById: pmc.id,
         requestedAt: daysAgo(20),
         deliveredAt: daysAgo(14),
@@ -149,7 +151,7 @@ async function main() {
         description: 'Updated layout with circulation revision',
         status: 'SUBMITTED',
         dueDate: daysFromNow(8),
-        createdById: architect.id,
+        createdById: consultant.id,
       },
     });
     await prisma.drawingVersion.create({
@@ -159,7 +161,7 @@ async function main() {
         uploadType: 'URL',
         fileUrl: 'https://example.com/drawings/ground-floor-layout-v1.pdf',
         fileName: 'ground-floor-layout-v1.pdf',
-        uploadedById: architect.id,
+        uploadedById: consultant.id,
         reviewStatus: 'PENDING',
         isCurrent: true,
       },
@@ -175,7 +177,7 @@ async function main() {
         floor: 'ALL_FLOORS',
         description: 'Final coordinated section',
         status: 'APPROVED',
-        createdById: architect.id,
+        createdById: consultant.id,
       },
     });
     await prisma.drawingVersion.create({
@@ -185,7 +187,7 @@ async function main() {
         uploadType: 'URL',
         fileUrl: 'https://example.com/drawings/section-aa-v2.pdf',
         fileName: 'section-aa-v2.pdf',
-        uploadedById: architect.id,
+        uploadedById: consultant.id,
         reviewStatus: 'APPROVED',
         reviewedById: pmc.id,
         reviewedAt: daysAgo(11),
@@ -203,7 +205,7 @@ async function main() {
         floor: 'ALL_FLOORS',
         description: 'Facade control line draft',
         status: 'PENDING',
-        createdById: architect.id,
+        createdById: consultant.id,
       },
     });
     await prisma.drawingVersion.create({
@@ -213,7 +215,7 @@ async function main() {
         uploadType: 'URL',
         fileUrl: 'https://example.com/drawings/south-elevation-v0.pdf',
         fileName: 'south-elevation-v0.pdf',
-        uploadedById: architect.id,
+        uploadedById: consultant.id,
         reviewStatus: 'REJECTED',
         reviewedById: pmc.id,
         reviewedAt: daysAgo(7),
@@ -238,8 +240,8 @@ async function main() {
       data: [
         {
           projectId,
-          actorId: architect.id,
-          role: Role.ARTIFACTS,
+          actorId: consultant.id,
+          role: Role.CONSULTANT,
           actionType: 'PROJECT_UPDATE',
           entityType: 'DrawingSet',
           entityId: draftSet.id,
@@ -292,7 +294,7 @@ async function main() {
       { projectId: p1.id, userId: vendor1.id, role: Role.VENDOR },
       { projectId: p1.id, userId: vendor2.id, role: Role.VENDOR },
       { projectId: p1.id, userId: viewer.id, role: Role.VIEWER },
-      { projectId: p1.id, userId: architect.id, role: Role.ARTIFACTS },
+      { projectId: p1.id, userId: consultant.id, role: Role.CONSULTANT },
     ],
   });
 
@@ -670,7 +672,7 @@ async function main() {
       { projectId: p2.id, userId: pmc.id, role: Role.PMC },
       { projectId: p2.id, userId: vendor1.id, role: Role.VENDOR },
       { projectId: p2.id, userId: viewer.id, role: Role.VIEWER },
-      { projectId: p2.id, userId: architect.id, role: Role.ARTIFACTS },
+      { projectId: p2.id, userId: consultant.id, role: Role.CONSULTANT },
     ],
   });
 
@@ -854,7 +856,7 @@ async function main() {
       { projectId: p3.id, userId: pmc.id, role: Role.PMC },
       { projectId: p3.id, userId: vendor2.id, role: Role.VENDOR },
       { projectId: p3.id, userId: viewer.id, role: Role.VIEWER },
-      { projectId: p3.id, userId: architect.id, role: Role.ARTIFACTS },
+      { projectId: p3.id, userId: consultant.id, role: Role.CONSULTANT },
     ],
   });
 
@@ -996,15 +998,213 @@ async function main() {
   await seedArchitectureForProject(p3.id, 'Warehouse');
   console.log('     + Architecture demo: sets, rows, versions, set request, audit logs\n');
 
+  // ── Project Communications (bidirectional — any role → any role) ─────────
+  console.log('  Seeding project communications (bidirectional)…');
+  await Promise.all([
+    // ── VENDOR → PMC ──────────────────────────────────────────────────────
+    // P1: Vendor RFI — RESOLVED
+    prisma.vendorRequest.create({
+      data: {
+        projectId: p1.id, submittedById: vendor1.id, senderRole: 'VENDOR',
+        category: 'REQUEST', type: 'RFI', priority: 'HIGH',
+        title: 'Clarification on concrete grade for columns',
+        description: 'The BOQ specifies M30 grade concrete for columns, but the drawing notes indicate M25. Please clarify which grade to use for the structural columns on floors 1-5.',
+        sendTo: 'PMC', status: 'RESOLVED',
+        dueDate: daysAgo(5),
+        responseNote: 'Use M30 grade as specified in the BOQ. The drawing note was an error from an earlier revision. Please use M30 for all structural columns.',
+        respondedById: pmc.id, respondedAt: daysAgo(4),
+        createdAt: daysAgo(8), updatedAt: daysAgo(4),
+      },
+    }),
+    // P1: Vendor Material Approval — ACKNOWLEDGED
+    prisma.vendorRequest.create({
+      data: {
+        projectId: p1.id, submittedById: vendor1.id, senderRole: 'VENDOR',
+        category: 'REQUEST', type: 'MATERIAL_APPROVAL', priority: 'URGENT',
+        title: 'Material Approval — Rebar supplier change',
+        description: 'Our original rebar supplier (TISCO) is facing delivery delays of 3 weeks due to logistics issues. We request approval to switch to JSW Steel for the remaining quantities. JSW Steel meets IS:1786 Fe-500D specification.',
+        sendTo: 'PMC', status: 'ACKNOWLEDGED',
+        dueDate: daysFromNow(3),
+        responseNote: 'Acknowledged. We are reviewing the JSW Steel specifications. Will respond within 48 hours.',
+        respondedById: pmc.id, respondedAt: daysAgo(1),
+        createdAt: daysAgo(2), updatedAt: daysAgo(1),
+      },
+    }),
+    // P1: Vendor — site access, both PMC & Consultant — PENDING
+    prisma.vendorRequest.create({
+      data: {
+        projectId: p1.id, submittedById: vendor2.id, senderRole: 'VENDOR',
+        category: 'REQUEST', type: 'SITE_INSTRUCTION', priority: 'HIGH',
+        title: 'Site access for Sunday — MEP pre-installation',
+        description: 'We need site access on Sunday 8 June from 7am to 5pm for MEP conduit pre-installation on floors 3 and 4. This is needed before the slab cast on Monday. Please confirm if site can be opened.',
+        sendTo: 'BOTH', status: 'PENDING',
+        dueDate: daysFromNow(2),
+        createdAt: daysAgo(1), updatedAt: daysAgo(1),
+      },
+    }),
+    // P1: Vendor invoice submission — PENDING
+    prisma.vendorRequest.create({
+      data: {
+        projectId: p1.id, submittedById: vendor1.id, senderRole: 'VENDOR',
+        category: 'SUBMISSION', type: 'INVOICE', priority: 'NORMAL',
+        title: 'Invoice #INV-2024-047 — Steel Framework L1-5',
+        description: 'Submitting invoice for completed structural steel framework floors 1-5. Milestone verified by PMC. Amount: ₹2,50,000 as per BOQ rate. Payment certificate attached.',
+        sendTo: 'OWNER', status: 'PENDING',
+        dueDate: daysFromNow(15),
+        createdAt: daysAgo(3), updatedAt: daysAgo(3),
+      },
+    }),
+
+    // ── PMC → VENDOR ──────────────────────────────────────────────────────
+    // P1: PMC issues work order to vendor — ACKNOWLEDGED
+    prisma.vendorRequest.create({
+      data: {
+        projectId: p1.id, submittedById: pmc.id, senderRole: 'PMC',
+        category: 'REQUEST', type: 'WORK_ORDER', priority: 'HIGH',
+        title: 'Work Order — MEP rough-in floors 6-10',
+        description: 'Following BOQ approval, issue formal work order for MEP rough-in on floors 6-10. Please mobilize within 5 working days. Refer to drawing MEP-WD-006 to MEP-WD-010 for scope. Report daily progress to site supervisor.',
+        sendTo: 'VENDOR', status: 'ACKNOWLEDGED',
+        dueDate: daysFromNow(45),
+        responseNote: 'Received and acknowledged. Will mobilize team by Monday. Daily reports will be submitted as requested.',
+        respondedById: vendor1.id, respondedAt: daysAgo(1),
+        createdAt: daysAgo(3), updatedAt: daysAgo(1),
+      },
+    }),
+    // P1: PMC issues snag list to vendor — PENDING
+    prisma.vendorRequest.create({
+      data: {
+        projectId: p1.id, submittedById: pmc.id, senderRole: 'PMC',
+        category: 'SUBMISSION', type: 'INSPECTION_REPORT', priority: 'HIGH',
+        title: 'Snag List — Floor Slab L1-3 inspection',
+        description: 'Attached is the snag list from the L1-3 slab inspection dated 30 May. Items requiring rectification before final payment release: (1) Cold joint at grid C4 — repair required; (2) Cover block missing at column B2; (3) Curing compound not applied to east wing. Please rectify within 7 days and submit photo evidence.',
+        sendTo: 'VENDOR', status: 'PENDING',
+        dueDate: daysFromNow(7),
+        createdAt: daysAgo(2), updatedAt: daysAgo(2),
+      },
+    }),
+
+    // ── PMC → CONSULTANT ─────────────────────────────────────────────────
+    // P1: PMC requests design query from Consultant — IN_REVIEW
+    prisma.vendorRequest.create({
+      data: {
+        projectId: p1.id, submittedById: pmc.id, senderRole: 'PMC',
+        category: 'REQUEST', type: 'DESIGN_QUERY', priority: 'NORMAL',
+        title: 'Design Query — Column splice detail at level 5',
+        description: 'The structural drawing SD-014 shows a column splice at level 5 but does not give adequate detail for the bolted connection. Contractor is requesting this clarification before fabrication. Please provide a detailed splice connection drawing or spec note.',
+        sendTo: 'CONSULTANT', status: 'IN_REVIEW',
+        dueDate: daysFromNow(5),
+        responseNote: 'Noted. Preparing detailed splice connection drawing. Will issue by end of week.',
+        respondedById: consultant.id, respondedAt: daysAgo(1),
+        createdAt: daysAgo(4), updatedAt: daysAgo(1),
+      },
+    }),
+
+    // ── CONSULTANT → VENDOR ──────────────────────────────────────────────
+    // P1: Consultant issues design clarification to vendor — PENDING
+    prisma.vendorRequest.create({
+      data: {
+        projectId: p1.id, submittedById: consultant.id, senderRole: 'CONSULTANT',
+        category: 'REQUEST', type: 'DESIGN_CLARIFICATION', priority: 'NORMAL',
+        title: 'Design Clarification — Facade anchor bracket spacing',
+        description: 'The installed facade brackets on the south elevation (between grids A2-A5) do not match the approved bracket spacing of 900mm c/c. Site measurements show 1100mm c/c in some locations. Please clarify: was this a deviation, or were alternative brackets used? Refer to drawing FA-003.',
+        sendTo: 'VENDOR', status: 'PENDING',
+        dueDate: daysFromNow(4),
+        createdAt: daysAgo(1), updatedAt: daysAgo(1),
+      },
+    }),
+    // P2: Consultant issues drawing revision notice — RESOLVED
+    prisma.vendorRequest.create({
+      data: {
+        projectId: p2.id, submittedById: consultant.id, senderRole: 'CONSULTANT',
+        category: 'SUBMISSION', type: 'DRAWING_ISSUE', priority: 'HIGH',
+        title: 'Drawing Issue — Updated pile cap PCA-002 Rev C',
+        description: 'Issuing updated pile cap drawing PCA-002 Rev C incorporating the modified reinforcement for the rock founding condition encountered at RL -2.0m. This supersedes Rev B. Please ensure site team uses only Rev C for construction.',
+        sendTo: 'VENDOR', status: 'RESOLVED',
+        dueDate: daysAgo(5),
+        responseNote: 'Drawing received. Rev C has been distributed to site team and Rev B has been recalled. Construction proceeding per Rev C.',
+        respondedById: vendor1.id, respondedAt: daysAgo(8),
+        createdAt: daysAgo(10), updatedAt: daysAgo(8),
+      },
+    }),
+
+    // ── P2 / P3 additional ────────────────────────────────────────────────
+    // P2: Vendor variation — IN_REVIEW
+    prisma.vendorRequest.create({
+      data: {
+        projectId: p2.id, submittedById: vendor1.id, senderRole: 'VENDOR',
+        category: 'REQUEST', type: 'VARIATION', priority: 'HIGH',
+        title: 'Variation — Additional pile cap reinforcement',
+        description: 'During excavation we encountered rock at 2m depth instead of 5m as per soil report. This requires modified pile cap design with additional reinforcement. Estimated additional cost: ₹85,000. Please approve variation.',
+        sendTo: 'PMC', status: 'IN_REVIEW',
+        dueDate: daysFromNow(5),
+        responseNote: 'Under review — structural engineer has been consulted. Awaiting revised design before approval.',
+        respondedById: pmc.id, respondedAt: daysAgo(2),
+        createdAt: daysAgo(5), updatedAt: daysAgo(2),
+      },
+    }),
+    // P2: Vendor clarification to Consultant — PENDING
+    prisma.vendorRequest.create({
+      data: {
+        projectId: p2.id, submittedById: vendor1.id, senderRole: 'VENDOR',
+        category: 'REQUEST', type: 'CLARIFICATION', priority: 'NORMAL',
+        title: 'Clarification on waterproofing spec for podium deck',
+        description: 'The drawing specifies Fosroc Brushbond TGP but the BOQ lists generic "APP membrane". Which system should we use? The Fosroc system costs ₹12,000 more per 100sqm.',
+        sendTo: 'CONSULTANT', status: 'PENDING',
+        dueDate: daysFromNow(7),
+        createdAt: daysAgo(1), updatedAt: daysAgo(1),
+      },
+    }),
+    // P3: Vendor material approval — REJECTED
+    prisma.vendorRequest.create({
+      data: {
+        projectId: p3.id, submittedById: vendor2.id, senderRole: 'VENDOR',
+        category: 'REQUEST', type: 'MATERIAL_APPROVAL', priority: 'NORMAL',
+        title: 'Request to use alternative insulated panel brand',
+        description: 'We propose to use KoolTherm K12 panels instead of the specified Rockwool panels. KoolTherm is thinner (100mm vs 150mm) but achieves same U-value. This would save ₹42,000.',
+        sendTo: 'PMC', status: 'REJECTED',
+        dueDate: daysAgo(3),
+        responseNote: 'Request rejected. The specified Rockwool panels are required for fire rating compliance (60-min). KoolTherm K12 does not meet the fire rating requirement in this application.',
+        respondedById: pmc.id, respondedAt: daysAgo(2),
+        createdAt: daysAgo(6), updatedAt: daysAgo(2),
+      },
+    }),
+    // P3: Vendor RFI — PENDING
+    prisma.vendorRequest.create({
+      data: {
+        projectId: p3.id, submittedById: vendor2.id, senderRole: 'VENDOR',
+        category: 'REQUEST', type: 'RFI', priority: 'HIGH',
+        title: 'RFI — Drainage outlet position cold room B',
+        description: 'Drawing SK-102 shows a floor drain in cold room B at grid E3 but the slab already has a service duct at that location from Phase 0 work. Please advise revised drain position before we proceed with floor screed.',
+        sendTo: 'CONSULTANT', status: 'PENDING',
+        dueDate: daysFromNow(3),
+        createdAt: daysAgo(0), updatedAt: daysAgo(0),
+      },
+    }),
+    // P3: PMC → Vendor inspection notice — PENDING
+    prisma.vendorRequest.create({
+      data: {
+        projectId: p3.id, submittedById: pmc.id, senderRole: 'PMC',
+        category: 'REQUEST', type: 'INSPECTION_NOTICE', priority: 'NORMAL',
+        title: 'Inspection Notice — Cold storage insulation panels',
+        description: 'Formal notice of upcoming inspection of cold storage insulated panels scheduled for 10 June at 10:00 AM. Vendor representative must be present. Refer to quality checklist QC-CS-001. All panels installed to date will be inspected for correct installation, sealing, and continuity.',
+        sendTo: 'VENDOR', status: 'PENDING',
+        dueDate: daysFromNow(8),
+        createdAt: daysAgo(0), updatedAt: daysAgo(0),
+      },
+    }),
+  ]);
+  console.log('  ✓ 14 project communications seeded (bidirectional, across 3 projects)\n');
+
   // ── Summary ──────────────────────────────────────────────────────────────
   console.log('========================================');
   console.log('  ✅ Database seeded successfully!');
   console.log('========================================\n');
   console.log('  3 Projects');
-  console.log('  7 Users (1 admin + 6 demo incl. Architects role)');
+  console.log('  7 Users (1 admin + 6 demo incl. Consultants role)');
   console.log('  9 Phases total (3-4 per project)');
   console.log('  9 BOQs (6 APPROVED, 1 DRAFT, 1 REVISED, 1 APPROVED+BLOCKED)');
   console.log('  11 Milestones (linked to phases) + 1 Extra milestone (isExtra=true)');
+  console.log('  7 Vendor Requests (across all projects — various statuses)');
   console.log('  All milestones have phaseId set correctly\n');
   console.log('  BOQ States visible in UI:');
   console.log('    APPROVED  — Phase 0,1,2 of Downtown + Phase 0,1 of Warehouse');
@@ -1023,7 +1223,7 @@ async function main() {
   console.log('    Vendor 1      : vendor@example.com        (password: password123)');
   console.log('    Vendor 2      : vendor2@example.com       (password: password123)');
   console.log('    Viewer        : viewer@example.com        (password: password123)');
-  console.log('    Architects    : architect@example.com     (password: password123)');
+  console.log('    Consultant    : consultant@example.com     (password: password123)');
   console.log('');
 }
 

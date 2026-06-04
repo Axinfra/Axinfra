@@ -3,7 +3,7 @@ export const Role = {
   PMC: 'PMC',
   VENDOR: 'VENDOR',
   VIEWER: 'VIEWER',
-  ARTIFACTS: 'ARTIFACTS',
+  CONSULTANT: 'CONSULTANT',
 } as const;
 export type Role = (typeof Role)[keyof typeof Role];
 
@@ -454,6 +454,8 @@ export const AuditActionTypes = {
   FOLLOWUP_ESCALATE: 'FOLLOWUP_ESCALATE',
   CASH_ADJUSTMENT_CREATE: 'CASH_ADJUSTMENT_CREATE',
   PRIVATE_COST_CREATE: 'PRIVATE_COST_CREATE',
+  VENDOR_REQUEST_SUBMIT: 'VENDOR_REQUEST_SUBMIT',
+  VENDOR_REQUEST_RESPOND: 'VENDOR_REQUEST_RESPOND',
 } as const;
 
 export type AuditActionType = (typeof AuditActionTypes)[keyof typeof AuditActionTypes];

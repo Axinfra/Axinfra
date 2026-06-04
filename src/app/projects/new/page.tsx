@@ -10,7 +10,7 @@ import Layout from '@/components/Layout';
 type AssignedUser = { email: string; status: 'pending' | 'success' | 'error'; message?: string };
 
 interface RoleSection {
-  role: 'PMC' | 'ARTIFACTS';
+  role: 'PMC' | 'CONSULTANT';
   label: string;
   description: string;
   icon: React.ReactNode;
@@ -28,7 +28,7 @@ function PMCIcon() {
   );
 }
 
-function ArchitectsIcon() {
+function ConsultantsIcon() {
   return (
     <svg className="w-5 h-5" fill="none" viewBox="0 0 24 24" strokeWidth={1.5} stroke="currentColor">
       <path strokeLinecap="round" strokeLinejoin="round"
@@ -92,7 +92,7 @@ export default function NewProjectPage() {
   // ── Step 2: Assign a single role by email ────────────────────────────────
   const assignRole = async (
     email: string,
-    role: 'PMC' | 'ARTIFACTS',
+    role: 'PMC' | 'CONSULTANT',
     setAdding: (v: boolean) => void,
     setList: React.Dispatch<React.SetStateAction<AssignedUser[]>>,
     clearInput: () => void,
@@ -409,10 +409,10 @@ export default function NewProjectPage() {
               })}
 
               {renderRoleSection({
-                role: 'ARTIFACTS',
-                label: 'Architects — Document Controller',
+                role: 'CONSULTANT',
+                label: 'Consultants — Document Controller',
                 description: 'Manages project documents, drawings, and deliverables. Can review submitted evidence.',
-                icon: <ArchitectsIcon />,
+                icon: <ConsultantsIcon />,
                 assigned: assignedArtifacts,
               })}
             </div>
@@ -427,7 +427,7 @@ export default function NewProjectPage() {
                 )}
                 {assignedArtifacts.filter((u) => u.status === 'success').length > 0 && (
                   <span className="text-xs px-2.5 py-1 rounded-full bg-[rgba(255,255,255,0.06)] text-[rgba(232,228,220,0.7)]">
-                    {assignedArtifacts.filter((u) => u.status === 'success').length} Architects added
+                    {assignedArtifacts.filter((u) => u.status === 'success').length} Consultants added
                   </span>
                 )}
               </div>

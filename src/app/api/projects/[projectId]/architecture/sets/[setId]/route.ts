@@ -18,12 +18,12 @@ export async function GET(
   try {
     const { projectId, setId } = await params;
     const auth = await requireProjectAuth(projectId);
-    const isVendor = auth.role === 'VENDOR';
+
+    // VENDOR can only see APPROVED or PAID sets
+    const vendorFilter = auth.role === 'VENDOR' ? { status: { in: ['APPROVED', 'PAID'] } } : {};
 
     const set = await prisma.drawingSet.findFirst({
-      where: isVendor
-        ? { id: setId, projectId, status: 'APPROVED' }
-        : { id: setId, projectId },
+      where: { id: setId, projectId, ...vendorFilter },
       include: {
         createdBy: { select: { id: true, name: true, email: true } },
         requestedBy: { select: { id: true, name: true } },
@@ -31,9 +31,7 @@ export async function GET(
         rows: {
           include: {
             versions: {
-              where: isVendor ? { reviewStatus: 'APPROVED', isCurrent: true } : undefined,
               orderBy: { versionNumber: 'desc' },
-              take: isVendor ? 1 : undefined,
               include: {
                 uploadedBy: { select: { id: true, name: true } },
                 reviewedBy: { select: { id: true, name: true } },
@@ -62,7 +60,7 @@ export async function GET(
   }
 }
 
-// PATCH /api/projects/[projectId]/architecture/sets/[setId] — Architect edits own set
+// PATCH /api/projects/[projectId]/architecture/sets/[setId] — Consultant edits own set
 export async function PATCH(
   request: NextRequest,
   { params }: { params: Promise<{ projectId: string; setId: string }> }
@@ -74,8 +72,8 @@ export async function PATCH(
     const set = await prisma.drawingSet.findFirst({ where: { id: setId, projectId } });
     if (!set) return NextResponse.json({ success: false, error: 'Not found' }, { status: 404 });
 
-    // Architect can edit their own sets in DRAFT only; Owner can edit anytime
-    if (auth.role === 'ARTIFACTS') {
+    // Consultant can edit their own sets in DRAFT only; Owner can edit anytime
+    if (auth.role === 'CONSULTANT') {
       if (set.createdById !== auth.userId) {
         return NextResponse.json({ success: false, error: 'Can only edit your own sets' }, { status: 403 });
       }
@@ -119,8 +117,8 @@ export async function DELETE(
       return NextResponse.json({ success: false, error: 'Can only delete DRAFT sets' }, { status: 400 });
     }
 
-    if (auth.role !== 'ARTIFACTS') {
-      return NextResponse.json({ success: false, error: 'Only the Architect can delete sets' }, { status: 403 });
+    if (auth.role !== 'CONSULTANT') {
+      return NextResponse.json({ success: false, error: 'Only the Consultant can delete sets' }, { status: 403 });
     }
 
     if (set.createdById !== auth.userId) {

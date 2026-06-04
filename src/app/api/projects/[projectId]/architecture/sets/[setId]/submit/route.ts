@@ -11,7 +11,7 @@ export async function POST(
     const { projectId, setId } = await params;
     const auth = await requireProjectAuth(projectId);
 
-    if (auth.role !== 'ARTIFACTS') {
+    if (auth.role !== 'CONSULTANT') {
       return NextResponse.json({ success: false, error: 'Only Architects can submit sets' }, { status: 403 });
     }
 

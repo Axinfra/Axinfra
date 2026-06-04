@@ -25,7 +25,7 @@ export async function POST(
     const { projectId } = await params;
     const auth = await requireProjectAuth(projectId);
 
-    if (!['PMC', 'ARTIFACTS'].includes(auth.role)) {
+    if (!['PMC', 'CONSULTANT'].includes(auth.role)) {
       return NextResponse.json({ success: false, error: 'Forbidden' }, { status: 403 });
     }
 

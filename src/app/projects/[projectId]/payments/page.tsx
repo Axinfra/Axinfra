@@ -10,7 +10,7 @@ import { formatCurrency, formatDate } from '@/lib/utils';
 import { BlockingReasonLabels } from '@/types';
 import { useProject } from '@/lib/contexts/ProjectContext';
 import { jsonFetcher } from '@/lib/fetcher';
-import { ChevronDown, ChevronRight, Layers, CheckCircle2, Clock, AlertCircle } from 'lucide-react';
+import { ChevronDown, ChevronRight, Layers, CheckCircle2, Clock, AlertCircle, FileText, Ban, Hourglass, TrendingUp } from 'lucide-react';
 import { ListPageSkeleton } from '@/components/ui/SkeletonPage';
 
 // ── Types ─────────────────────────────────────────────────────────────────────
@@ -236,6 +236,16 @@ export default function PaymentsPage() {
 
   if (projectLoading) return <Layout><ListPageSkeleton /></Layout>;
 
+  // ── Vendor: completely separate invoice view ────────────────────────────────
+  if (myRole === 'VENDOR') {
+    return (
+      <Layout>
+        <Navbar projectId={projectId} projectName={projectName} role={myRole} />
+        <VendorInvoiceView milestones={milestones} projectName={projectName} />
+      </Layout>
+    );
+  }
+
   // ── Derived data ───────────────────────────────────────────────────────────
 
   const phaseMap = new Map<string, Milestone[]>();
@@ -270,7 +280,7 @@ export default function PaymentsPage() {
 
   const TABS = [
     { id: 'milestones' as const,    label: 'Phases & Milestones', badge: dueMs.length > 0 ? dueMs.length : null },
-    { id: 'architecture' as const,  label: 'Architecture Fees',   badge: null },
+    { id: 'architecture' as const,  label: 'Consultant Fees',   badge: null },
   ];
 
   return (
@@ -699,6 +709,254 @@ export default function PaymentsPage() {
         </div>
       )}
     </Layout>
+  );
+}
+
+// ── Vendor Invoice View ───────────────────────────────────────────────────────
+
+function VendorInvoiceView({ milestones, projectName }: { milestones: Milestone[]; projectName: string }) {
+  type InvoiceStatus = 'received' | 'due' | 'upcoming' | 'blocked';
+
+  function getInvoiceStatus(m: Milestone): InvoiceStatus {
+    const e = m.paymentEligibility;
+    if (!e) return 'upcoming';
+    if (e.state === 'MARKED_PAID') return 'received';
+    if (e.state === 'BLOCKED') return 'blocked';
+    if (e.state === 'FULLY_ELIGIBLE' || e.state === 'PARTIALLY_ELIGIBLE') return 'due';
+    return 'upcoming';
+  }
+
+  const invoices = milestones
+    .filter((m) => m.value > 0 || m.paymentEligibility)
+    .map((m) => ({ ...m, invoiceStatus: getInvoiceStatus(m) }))
+    .sort((a, b) => {
+      const order: Record<InvoiceStatus, number> = { due: 0, blocked: 1, upcoming: 2, received: 3 };
+      return order[a.invoiceStatus] - order[b.invoiceStatus];
+    });
+
+  const received  = invoices.filter((m) => m.invoiceStatus === 'received');
+  const due       = invoices.filter((m) => m.invoiceStatus === 'due');
+  const upcoming  = invoices.filter((m) => m.invoiceStatus === 'upcoming');
+  const blocked   = invoices.filter((m) => m.invoiceStatus === 'blocked');
+
+  const totalReceived = received.reduce((s, m) => s + (m.paymentEligibility?.eligibleAmount ?? m.value), 0);
+  const totalDue      = due.reduce((s, m) => s + (m.paymentEligibility?.eligibleAmount ?? m.value), 0);
+  const totalBlocked  = blocked.reduce((s, m) => s + (m.paymentEligibility?.eligibleAmount ?? m.value), 0);
+  const totalContract = invoices.reduce((s, m) => s + m.value, 0);
+
+  const STATUS_CFG = {
+    received: {
+      label: 'Received',
+      labelFull: 'Payment Received',
+      dot:   'bg-[#5cba80]',
+      pill:  'bg-[rgba(92,186,128,0.12)] text-[#5cba80] border-[rgba(92,186,128,0.25)]',
+      row:   'bg-[rgba(92,186,128,0.025)]',
+      icon:  <CheckCircle2 className="w-3.5 h-3.5 text-[#5cba80]" />,
+    },
+    due: {
+      label: 'Due Now',
+      labelFull: 'Payment Due',
+      dot:   'bg-[#fb923c] animate-pulse',
+      pill:  'bg-[rgba(251,146,60,0.15)] text-[#fb923c] border-[rgba(251,146,60,0.35)]',
+      row:   'bg-[rgba(251,146,60,0.025)]',
+      icon:  <TrendingUp className="w-3.5 h-3.5 text-[#fb923c]" />,
+    },
+    upcoming: {
+      label: 'Upcoming',
+      labelFull: 'Upcoming',
+      dot:   'bg-[rgba(232,228,220,0.25)]',
+      pill:  'bg-[rgba(255,255,255,0.06)] text-[rgba(232,228,220,0.5)] border-[rgba(255,255,255,0.1)]',
+      row:   '',
+      icon:  <Hourglass className="w-3.5 h-3.5 text-[rgba(232,228,220,0.35)]" />,
+    },
+    blocked: {
+      label: 'Blocked',
+      labelFull: 'Blocked',
+      dot:   'bg-[#e06050]',
+      pill:  'bg-[rgba(224,96,80,0.12)] text-[#e06050] border-[rgba(224,96,80,0.25)]',
+      row:   'bg-[rgba(224,96,80,0.02)]',
+      icon:  <Ban className="w-3.5 h-3.5 text-[#e06050]" />,
+    },
+  };
+
+  function InvoiceStatusPill({ status }: { status: InvoiceStatus }) {
+    const cfg = STATUS_CFG[status];
+    return (
+      <span className={`inline-flex items-center gap-1.5 text-[11px] font-medium px-2 py-0.5 rounded-full border ${cfg.pill}`}>
+        <span className={`w-1.5 h-1.5 rounded-full ${cfg.dot}`} />
+        {cfg.labelFull}
+      </span>
+    );
+  }
+
+  function InvoiceSection({ title, items, emptyText }: { title: string; items: typeof invoices; emptyText?: string }) {
+    if (items.length === 0 && !emptyText) return null;
+    return (
+      <div className="space-y-2">
+        <h3 className="text-xs font-semibold text-[rgba(232,228,220,0.4)] uppercase tracking-widest px-1">{title}</h3>
+        {items.length === 0
+          ? <p className="text-sm text-[rgba(232,228,220,0.3)] px-1">{emptyText}</p>
+          : (
+            <div className="card overflow-hidden divide-y divide-[rgba(255,255,255,0.04)]">
+              {items.map((m, idx) => {
+                const cfg = STATUS_CFG[m.invoiceStatus];
+                const amount = m.paymentEligibility?.eligibleAmount ?? m.value;
+                return (
+                  <div key={m.id} className={`flex items-center gap-4 px-5 py-4 ${cfg.row}`}>
+                    {/* Index + icon */}
+                    <div className="shrink-0 flex flex-col items-center gap-1 w-7">
+                      <span className="text-[10px] font-mono text-[rgba(232,228,220,0.25)]">{String(idx + 1).padStart(2, '0')}</span>
+                      {cfg.icon}
+                    </div>
+
+                    {/* Main info */}
+                    <div className="flex-1 min-w-0">
+                      <div className="flex items-center gap-2 flex-wrap">
+                        <span className="text-sm font-medium text-[#e8e4dc] truncate">{m.title}</span>
+                        <InvoiceStatusPill status={m.invoiceStatus} />
+                      </div>
+                      <div className="flex items-center gap-3 mt-1 text-[11px] text-[rgba(232,228,220,0.4)] flex-wrap">
+                        {m.plannedEnd && (
+                          <span className="flex items-center gap-1">
+                            <Clock className="w-3 h-3" />
+                            {m.invoiceStatus === 'received' ? 'Completed' : 'Due'} {formatDate(m.plannedEnd)}
+                          </span>
+                        )}
+                        {m.paymentEligibility?.markedPaidAt && (
+                          <span className="text-[#5cba80] flex items-center gap-1">
+                            <CheckCircle2 className="w-3 h-3" />
+                            Received {formatDate(m.paymentEligibility.markedPaidAt)}
+                          </span>
+                        )}
+                        {m.invoiceStatus === 'blocked' && m.paymentEligibility?.blockExplanation && (
+                          <span className="text-[#e06050] italic">"{m.paymentEligibility.blockExplanation}"</span>
+                        )}
+                        {m.paymentEligibility?.paidExplanation && m.invoiceStatus === 'received' && (
+                          <span className="italic opacity-60">"{m.paymentEligibility.paidExplanation}"</span>
+                        )}
+                      </div>
+                    </div>
+
+                    {/* Amount */}
+                    <div className="shrink-0 text-right">
+                      <p className={`text-base font-bold ${
+                        m.invoiceStatus === 'received' ? 'text-[#5cba80]' :
+                        m.invoiceStatus === 'due'      ? 'text-[#fb923c]' :
+                        m.invoiceStatus === 'blocked'  ? 'text-[#e06050]' :
+                                                         'text-[rgba(232,228,220,0.5)]'
+                      }`}>
+                        {formatCurrency(amount)}
+                      </p>
+                      {m.paymentModel && m.paymentModel !== 'FIXED' && (
+                        <p className="text-[10px] text-[rgba(232,228,220,0.3)] mt-0.5">{m.paymentModel}</p>
+                      )}
+                    </div>
+                  </div>
+                );
+              })}
+            </div>
+          )
+        }
+      </div>
+    );
+  }
+
+  return (
+    <div className="space-y-6 max-w-3xl">
+      {/* Header */}
+      <div className="flex items-start justify-between">
+        <div>
+          <div className="flex items-center gap-2 mb-1">
+            <FileText className="w-5 h-5 text-[#c4a35a]" />
+            <h1 className="text-2xl font-bold text-[#e8e4dc]">My Invoices</h1>
+          </div>
+          <p className="text-sm text-[rgba(232,228,220,0.4)]">{projectName} · Payment ledger</p>
+        </div>
+        <div className="text-right">
+          <p className="text-[10px] text-[rgba(232,228,220,0.35)] uppercase tracking-wider">Contract Value</p>
+          <p className="text-xl font-bold text-[#e8e4dc]">{formatCurrency(totalContract)}</p>
+        </div>
+      </div>
+
+      {/* Summary strip */}
+      <div className="grid grid-cols-3 gap-3">
+        <div className="card">
+          <div className="card-body py-3">
+            <div className="flex items-center gap-2 mb-1">
+              <CheckCircle2 className="w-3.5 h-3.5 text-[#5cba80]" />
+              <p className="text-[10px] text-[rgba(232,228,220,0.45)] uppercase tracking-wider">Received</p>
+            </div>
+            <p className="text-xl font-bold text-[#5cba80]">{formatCurrency(totalReceived)}</p>
+            <p className="text-[10px] text-[rgba(232,228,220,0.35)] mt-0.5">{received.length} invoice{received.length !== 1 ? 's' : ''}</p>
+          </div>
+        </div>
+        <div className="card">
+          <div className="card-body py-3">
+            <div className="flex items-center gap-2 mb-1">
+              <TrendingUp className="w-3.5 h-3.5 text-[#fb923c]" />
+              <p className="text-[10px] text-[rgba(232,228,220,0.45)] uppercase tracking-wider">Due Now</p>
+            </div>
+            <p className="text-xl font-bold text-[#fb923c]">{formatCurrency(totalDue)}</p>
+            <p className="text-[10px] text-[rgba(232,228,220,0.35)] mt-0.5">{due.length} pending</p>
+          </div>
+        </div>
+        <div className="card">
+          <div className="card-body py-3">
+            <div className="flex items-center gap-2 mb-1">
+              <Ban className="w-3.5 h-3.5 text-[#e06050]" />
+              <p className="text-[10px] text-[rgba(232,228,220,0.45)] uppercase tracking-wider">Blocked</p>
+            </div>
+            <p className="text-xl font-bold text-[#e06050]">{formatCurrency(totalBlocked)}</p>
+            <p className="text-[10px] text-[rgba(232,228,220,0.35)] mt-0.5">{blocked.length} on hold</p>
+          </div>
+        </div>
+      </div>
+
+      {/* Progress bar */}
+      {totalContract > 0 && (
+        <div className="card px-5 py-4">
+          <div className="flex items-center justify-between mb-2">
+            <span className="text-xs text-[rgba(232,228,220,0.5)]">Collection progress</span>
+            <span className="text-xs font-medium text-[#e8e4dc]">
+              {Math.round((totalReceived / totalContract) * 100)}% collected
+            </span>
+          </div>
+          <div className="h-2 w-full rounded-full overflow-hidden bg-[rgba(255,255,255,0.06)] flex gap-px">
+            {totalReceived > 0 && (
+              <div className="bg-[#5cba80] transition-all rounded-l-full"
+                style={{ width: `${(totalReceived / totalContract) * 100}%` }} />
+            )}
+            {totalDue > 0 && (
+              <div className="bg-[#fb923c] transition-all"
+                style={{ width: `${(totalDue / totalContract) * 100}%` }} />
+            )}
+            {totalBlocked > 0 && (
+              <div className="bg-[#e06050] transition-all"
+                style={{ width: `${(totalBlocked / totalContract) * 100}%` }} />
+            )}
+          </div>
+          <div className="flex gap-4 mt-2 text-[10px] text-[rgba(232,228,220,0.4)]">
+            {totalReceived > 0 && <span className="text-[#5cba80]">● Received {formatCurrency(totalReceived)}</span>}
+            {totalDue > 0      && <span className="text-[#fb923c]">● Due {formatCurrency(totalDue)}</span>}
+            {totalBlocked > 0  && <span className="text-[#e06050]">● Blocked {formatCurrency(totalBlocked)}</span>}
+          </div>
+        </div>
+      )}
+
+      {/* Empty state */}
+      {invoices.length === 0 && (
+        <div className="card p-12 text-center">
+          <FileText className="w-8 h-8 text-[rgba(232,228,220,0.15)] mx-auto mb-3" />
+          <p className="text-sm text-[rgba(232,228,220,0.35)]">No invoices yet for this project.</p>
+        </div>
+      )}
+
+      {/* Invoice sections */}
+      <InvoiceSection title="Due Now" items={due} />
+      <InvoiceSection title="Blocked" items={blocked} />
+      <InvoiceSection title="Upcoming" items={upcoming} />
+      <InvoiceSection title="Received" items={received} />
+    </div>
   );
 }
 

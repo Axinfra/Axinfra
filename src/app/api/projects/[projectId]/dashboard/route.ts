@@ -33,7 +33,7 @@ export async function GET(
       case Role.VIEWER:
         dashboardData = await cached(`dash:viewer:${projectId}`, TTL, () => getViewerDashboard(projectId));
         break;
-      case Role.ARTIFACTS:
+      case Role.CONSULTANT:
         dashboardData = await cached(`dash:artifacts:${projectId}:${auth.userId}`, TTL, () => getArtifactsDashboard(projectId, auth.userId));
         break;
     }

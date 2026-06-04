@@ -7,31 +7,31 @@ import { prisma } from '../lib/db';
 import { FollowUpScheduler } from '../services/FollowUpScheduler';
 
 async function main() {
-  console.log('Running follow-up checks...');
-  console.log('Time:', new Date().toISOString());
-  console.log('---');
+  // console.log('Running follow-up checks...');
+  // console.log('Time:', new Date().toISOString());
+  // console.log('---');
 
   const projects = await prisma.project.findMany({
     select: { id: true, name: true },
   });
 
-  console.log(`Found ${projects.length} project(s)`);
+  // console.log(`Found ${projects.length} project(s)`);
 
   let totalCreated = 0;
 
   for (const project of projects) {
-    console.log(`\nProcessing: ${project.name}`);
+    // console.log(`\nProcessing: ${project.name}`);
 
     try {
       const result = await FollowUpScheduler.runProjectChecks(project.id);
 
-      console.log(`  Created: ${result.created} follow-up(s)`);
+      // console.log(`  Created: ${result.created} follow-up(s)`);
 
       if (result.created > 0) {
-        console.log('  Breakdown:');
+        // console.log('  Breakdown:');
         for (const [type, count] of Object.entries(result.types)) {
           if (count > 0) {
-            console.log(`    - ${type}: ${count}`);
+            // console.log(`    - ${type}: ${count}`);
           }
         }
       }
@@ -42,9 +42,9 @@ async function main() {
     }
   }
 
-  console.log('\n---');
-  console.log(`Total follow-ups created: ${totalCreated}`);
-  console.log('Done.');
+  // console.log('\n---');
+  // console.log(`Total follow-ups created: ${totalCreated}`);
+  // console.log('Done.');
 }
 
 main()

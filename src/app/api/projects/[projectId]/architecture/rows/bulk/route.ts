@@ -19,7 +19,7 @@ export async function PATCH(
     const { projectId } = await params;
     const auth = await requireProjectAuth(projectId);
 
-    if (auth.role !== 'ARTIFACTS') {
+    if (auth.role !== 'CONSULTANT') {
       return NextResponse.json({ success: false, error: 'Forbidden' }, { status: 403 });
     }
 

@@ -35,7 +35,7 @@ export default function DashboardPage() {
 
   const projectName = project?.name ?? '';
   const myRole = project?.myRole ?? '';
-  const roleLabel = myRole === 'ARTIFACTS' ? 'ARCHITECTS' : myRole;
+  const roleLabel = myRole === 'CONSULTANT' ? 'CONSULTANTS' : myRole;
   const loading = projectLoading || dashboardLoading;
 
   if (loading) {
@@ -67,7 +67,7 @@ export default function DashboardPage() {
         {myRole === 'PMC' && <PMCDashboard data={dashboard} />}
         {myRole === 'VENDOR' && <VendorDashboard data={dashboard} />}
         {myRole === 'VIEWER' && <ViewerDashboard data={dashboard} />}
-        {myRole === 'ARTIFACTS' && <ArtifactsDashboard data={dashboard} />}
+        {myRole === 'CONSULTANT' && <ArtifactsDashboard data={dashboard} />}
       </div>
     </Layout>
   );

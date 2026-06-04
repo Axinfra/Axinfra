@@ -44,13 +44,13 @@ export default function LoginPage() {
     }
   };
 
-  const fillDemo = (role: 'admin' | 'owner' | 'pmc' | 'vendor' | 'viewer') => {
+  const fillDemo = (role: 'admin' | 'owner' | 'pmc' | 'vendor' | 'consultant') => {
     const emails: Record<string, string> = {
       admin: 'admin@axinfra.local',
       owner: 'owner@example.com',
       pmc: 'pmc@example.com',
       vendor: 'vendor@example.com',
-      viewer: 'viewer@example.com',
+      consultant: 'consultant@example.com',
     };
     // Only auto-fill passwords in development mode
     if (process.env.NODE_ENV === 'development') {
@@ -59,7 +59,7 @@ export default function LoginPage() {
         owner: 'password123',
         pmc: 'password123',
         vendor: 'password123',
-        viewer: 'password123',
+        consultant: 'password123',
       };
       setPassword(passwords[role]);
     }
@@ -192,7 +192,7 @@ export default function LoginPage() {
               <span className="text-[rgba(255,255,255,0.12)]">·</span>
               <button type="button" onClick={() => fillDemo('vendor')} className="hover:text-[#c4a35a] transition-colors">Vendor</button>
               <span className="text-[rgba(255,255,255,0.12)]">·</span>
-              <button type="button" onClick={() => fillDemo('viewer')} className="hover:text-[#c4a35a] transition-colors">Viewer</button>
+              <button type="button" onClick={() => fillDemo('consultant')} className="hover:text-[#c4a35a] transition-colors">consultant</button>
             </div>
           </div>
         </div>

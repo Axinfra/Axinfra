@@ -43,7 +43,7 @@ function prettyAction(actionType: string): string {
 function roleBadgeClass(role: string): string {
   if (role === 'OWNER') return 'bg-[rgba(167,139,250,0.15)] text-[#a78bfa] border-[rgba(167,139,250,0.35)]';
   if (role === 'PMC') return 'bg-[rgba(251,146,60,0.15)] text-[#fb923c] border-[rgba(251,146,60,0.35)]';
-  if (role === 'ARTIFACTS') return 'bg-[rgba(56,189,248,0.15)] text-[#38bdf8] border-[rgba(56,189,248,0.35)]';
+  if (role === 'CONSULTANT') return 'bg-[rgba(56,189,248,0.15)] text-[#38bdf8] border-[rgba(56,189,248,0.35)]';
   if (role === 'VENDOR') return 'bg-[rgba(110,231,183,0.15)] text-[#6ee7b7] border-[rgba(110,231,183,0.35)]';
   return 'bg-[rgba(255,255,255,0.08)] text-[rgba(232,228,220,0.7)] border-[rgba(255,255,255,0.2)]';
 }

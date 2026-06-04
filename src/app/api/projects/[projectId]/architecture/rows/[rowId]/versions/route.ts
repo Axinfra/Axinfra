@@ -49,7 +49,7 @@ export async function POST(
     const { projectId, rowId } = await params;
     const auth = await requireProjectAuth(projectId);
 
-    if (auth.role !== 'ARTIFACTS') {
+    if (auth.role !== 'CONSULTANT') {
       return NextResponse.json({ success: false, error: 'Only Architects can upload drawing versions' }, { status: 403 });
     }
 
