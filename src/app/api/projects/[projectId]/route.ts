@@ -235,7 +235,7 @@ export async function DELETE(
 
     const now = new Date();
 
-    // SOFT DELETE: Set deletedAt on project and cascade to children
+    // SOFT DELETE: Set deletedAt on project and hard-delete associated communications
     await prisma.$transaction(async (tx) => {
       // Soft-delete the project
       await tx.project.update({
@@ -243,8 +243,8 @@ export async function DELETE(
         data: { deletedAt: now },
       });
 
-      // Cascade soft-delete to milestones (we don't have deletedAt on Milestone,
-      // but the project-level deletedAt filter ensures they're excluded from queries)
+      // Hard-delete vendor requests (inbox/sent) — VendorRequestFile cascades automatically
+      await tx.vendorRequest.deleteMany({ where: { projectId } });
     });
 
     // Drop every cached auth entry for this project so revoked users

@@ -59,6 +59,7 @@ export async function GET() {
         projectId: { in: projectIds },
         eventType: { in: eventTypes },
         createdAt: { gte: cutoff },
+        project: { deletedAt: null },
       },
       include: {
         project: { select: { name: true } },

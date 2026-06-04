@@ -40,9 +40,23 @@ export async function POST(
     const file = formData.get('file') as File | null;
     if (!file) return NextResponse.json({ success: false, error: 'No file uploaded' }, { status: 400 });
 
-    const allowedTypes = ['application/pdf', 'image/jpeg', 'image/png', 'image/webp', 'image/gif'];
-    if (!allowedTypes.includes(file.type)) {
-      return NextResponse.json({ success: false, error: 'Only PDF and image files are allowed' }, { status: 400 });
+    const allowedTypes = [
+      'application/pdf',
+      'image/jpeg', 'image/png', 'image/webp', 'image/gif',
+      // Office documents
+      'application/msword',
+      'application/vnd.openxmlformats-officedocument.wordprocessingml.document',
+      'application/vnd.ms-excel',
+      'application/vnd.openxmlformats-officedocument.spreadsheetml.sheet',
+      // CAD files (browsers report varying MIME types for DWG/DXF)
+      'application/acad', 'image/vnd.dwg', 'application/x-autocad',
+      'application/dxf', 'image/vnd.dxf', 'application/x-dxf',
+      'application/octet-stream', // fallback for CAD files with no recognized MIME
+    ];
+    const fileExt = (file.name.split('.').pop() ?? '').toLowerCase();
+    const allowedExts = ['pdf','jpg','jpeg','png','webp','gif','doc','docx','xls','xlsx','dwg','dxf'];
+    if (!allowedTypes.includes(file.type) && !allowedExts.includes(fileExt)) {
+      return NextResponse.json({ success: false, error: 'File type not allowed' }, { status: 400 });
     }
 
     const maxSize = 20 * 1024 * 1024;
@@ -51,7 +65,7 @@ export async function POST(
     }
 
     const buffer = Buffer.from(await file.arrayBuffer());
-    const ext = file.name.split('.').pop() ?? 'bin';
+    const ext = fileExt || 'bin';
     const key = `vendor-requests/${projectId}/${requestId}/${randomUUID()}.${ext}`;
     const storagePath = await fileStorage.save(key, buffer, file.type);
 
