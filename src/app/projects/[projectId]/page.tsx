@@ -493,7 +493,7 @@ interface MsgCtx {
   replyFiles: File[];
   setReplyFiles: React.Dispatch<React.SetStateAction<File[]>>;
   replySubmitting: boolean;
-  replyFileInputRef: React.RefObject<HTMLInputElement | null>;
+  replyFileInputRef: React.RefObject<HTMLInputElement>;
   sendReply: (id: string) => Promise<void>;
   withdrawRequest: (id: string) => Promise<void>;
 }
