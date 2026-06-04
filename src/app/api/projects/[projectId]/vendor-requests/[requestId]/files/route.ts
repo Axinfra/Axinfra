@@ -66,15 +66,18 @@ export async function POST(
 
     const buffer = Buffer.from(await file.arrayBuffer());
     const ext = fileExt || 'bin';
+    // Normalise MIME: browsers report '' for DWG/DXF and other unknown types.
+    // An empty Content-Type header is invalid and will throw in Next.js's WHATWG Headers.
+    const mimeType = file.type || 'application/octet-stream';
     const key = `vendor-requests/${projectId}/${requestId}/${randomUUID()}.${ext}`;
-    const storagePath = await fileStorage.save(key, buffer, file.type);
+    const storagePath = await fileStorage.save(key, buffer, mimeType);
 
     const attachment = await prisma.vendorRequestFile.create({
       data: {
         requestId,
         storageKey: storagePath,
         fileName: file.name,
-        mimeType: file.type,
+        mimeType,
         fileSize: file.size,
         uploadedById: auth.userId,
       },
@@ -85,6 +88,7 @@ export async function POST(
     if (error instanceof Error && error.message === 'UNAUTHORIZED') {
       return NextResponse.json({ success: false, error: 'Unauthorized' }, { status: 401 });
     }
+    console.error('[vendor-request file upload]', error);
     return NextResponse.json({ success: false, error: 'Internal server error' }, { status: 500 });
   }
 }

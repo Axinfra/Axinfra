@@ -64,13 +64,13 @@ export async function GET(
         { status: 404 }
       );
     }
-    const safeFileName = file.fileName.replace(/[^\x20-\x7E]/g, "_");
-    // Return file with proper headers - convert Buffer to Uint8Array for NextResponse
+    const contentType = file.mimeType || 'application/octet-stream';
+    const safeName = encodeURIComponent(file.fileName).replace(/'/g, '%27');
     return new NextResponse(new Uint8Array(file.buffer), {
       headers: {
-        'Content-Type': file.mimeType,
-        'Content-Disposition': `inline; filename="${safeFileName}"`,
-        'Content-Length': file.buffer.length.toString(),
+        'Content-Type': contentType,
+        'Content-Disposition': `inline; filename*=UTF-8''${safeName}`,
+        'Content-Length': file.buffer.byteLength.toString(),
       },
     });
   } catch (error) {

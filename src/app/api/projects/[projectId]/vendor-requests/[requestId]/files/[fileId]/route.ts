@@ -22,12 +22,17 @@ export async function GET(
     const buffer = await fileStorage.read(file.storageKey);
     if (!buffer) return NextResponse.json({ success: false, error: 'File not found' }, { status: 404 });
 
-    const download = request.nextUrl.searchParams.get('download') === '1';
+    // Guard: empty mimeType (legacy rows or unknown types) would throw in WHATWG Headers
+    const contentType = file.mimeType || 'application/octet-stream';
+    // RFC 5987 — encode the filename so quotes/special chars don't break the header
+    const safeName = encodeURIComponent(file.fileName).replace(/'/g, '%27');
+    const disposition = request.nextUrl.searchParams.get('download') === '1' ? 'attachment' : 'inline';
+
     return new NextResponse(new Uint8Array(buffer), {
       headers: {
-        'Content-Type': file.mimeType,
-        'Content-Disposition': `${download ? 'attachment' : 'inline'}; filename="${file.fileName}"`,
-        'Content-Length': String(buffer.length),
+        'Content-Type': contentType,
+        'Content-Disposition': `${disposition}; filename*=UTF-8''${safeName}`,
+        'Content-Length': String(buffer.byteLength),
         'Cache-Control': 'private, max-age=3600',
       },
     });
@@ -35,6 +40,7 @@ export async function GET(
     if (error instanceof Error && error.message === 'UNAUTHORIZED') {
       return NextResponse.json({ success: false, error: 'Unauthorized' }, { status: 401 });
     }
+    console.error('[vendor-request file serve]', error);
     return NextResponse.json({ success: false, error: 'Internal server error' }, { status: 500 });
   }
 }
