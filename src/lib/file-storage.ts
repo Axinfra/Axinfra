@@ -156,10 +156,10 @@ export class S3Storage implements FileStorageAdapter {
 export class VercelBlobStorage implements FileStorageAdapter {
   async save(key: string, data: Buffer, mimeType: string): Promise<string> {
     const { put } = await import('@vercel/blob');
-    // Use public access so the stored URL is permanently readable via the token-authenticated
-    // serve API route (/api/.../files/[fileId]). The app's own auth layer controls access.
+    // Keep private access (matches store default settings).
+    // The serve API routes use getDownloadUrl() or redirect to handle private blob reads.
     const blob = await put(key, data, {
-      access: 'public',
+      access: 'private',
       contentType: mimeType,
     });
     return blob.url;
