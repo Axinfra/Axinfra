@@ -433,8 +433,8 @@ function AnalyticsSkeleton() {
 }
 
 function formatCurrency(n: number) {
-  return new Intl.NumberFormat('en-US', {
-    style: 'currency', currency: 'USD',
+  return new Intl.NumberFormat('en-IN', {
+    style: 'currency', currency: 'INR',
     notation: n >= 1_000_000 ? 'compact' : 'standard',
     maximumFractionDigits: n >= 1_000_000 ? 1 : 0,
   }).format(n);

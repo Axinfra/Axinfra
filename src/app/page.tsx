@@ -503,7 +503,7 @@ export default function HomePage() {
           </div>
           <div className="dash-body">
             <div className="dash-metrics">
-              {([['Verified Value', '$365,000', ''], ['Paid Value', '$115,000', 'green'], ['Unpaid Value', '$250,000', 'gold'], ['Blocked Value', '$0', 'red'], ['Advance Exposure', '$0', 'purple'], ['BOQ Overruns', '0', 'gold']] as const).map(([l, v, c]) => (
+              {([['Verified Value', '₹3,06,60,000', ''], ['Paid Value', '₹96,60,000', 'green'], ['Unpaid Value', '₹2,10,00,000', 'gold'], ['Blocked Value', '₹0', 'red'], ['Advance Exposure', '₹0', 'purple'], ['BOQ Overruns', '0', 'gold']] as const).map(([l, v, c]) => (
                 <div className="m-card" key={l}><div className="m-label">{l}</div><div className={`m-val ${c}`}>{v}</div></div>
               ))}
             </div>

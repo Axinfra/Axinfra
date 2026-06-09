@@ -37,7 +37,7 @@ function getStatusBadge(status: string) {
 }
 
 function formatCurrency(amount: number) {
-  return new Intl.NumberFormat('en-AE', { style: 'currency', currency: 'AED', maximumFractionDigits: 0 }).format(amount);
+  return new Intl.NumberFormat('en-IN', { style: 'currency', currency: 'INR', maximumFractionDigits: 0 }).format(amount);
 }
 
 function formatDate(date: string | null) {

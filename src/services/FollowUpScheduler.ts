@@ -220,7 +220,7 @@ export class FollowUpScheduler {
           type: FollowUpType.PAYMENT_DUE_SOON,
           targetEntity: 'PaymentEligibility',
           targetEntityId: item.id,
-          description: `Payment for "${item.milestone.title}" due in ${daysUntilDue} days ($${item.eligibleAmount.toFixed(2)})`,
+          description: `Payment for "${item.milestone.title}" due in ${daysUntilDue} days (₹${item.eligibleAmount.toFixed(2)})`,
           status: FollowUpStatus.OPEN,
         };
       });
@@ -322,7 +322,7 @@ export class FollowUpScheduler {
         type: FollowUpType.HIGH_VENDOR_EXPOSURE,
         targetEntity: 'User',
         targetEntityId: exposure.vendorId,
-        description: `Vendor "${exposure.vendorName}" has exposure of $${exposure.exposure.toFixed(2)} (Advance: $${exposure.advancePaid.toFixed(2)}, Verified: $${exposure.verifiedWork.toFixed(2)})`,
+        description: `Vendor "${exposure.vendorName}" has exposure of ₹${exposure.exposure.toFixed(2)} (Advance: ₹${exposure.advancePaid.toFixed(2)}, Verified: ₹${exposure.verifiedWork.toFixed(2)})`,
         status: FollowUpStatus.OPEN,
       }));
 
