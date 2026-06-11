@@ -60,7 +60,7 @@ async function computeAnalytics(projectId: string, auth: { role: string; userId:
           },
           verifications: { orderBy: { verifiedAt: 'asc' }, take: 1 },
           vendorUser: { select: { id: true, name: true } },
-          predecessorDependencies: {
+          successorDependencies: {
             select: { predecessorId: true, successorId: true, lagDays: true },
           },
         },
@@ -97,13 +97,13 @@ async function computeAnalytics(projectId: string, auth: { role: string; userId:
         plannedStart: m.plannedStart,
         plannedEnd: m.plannedEnd,
         sortOrder: m.sortOrder,
-        predecessorIds: m.predecessorDependencies.map((d) => d.predecessorId),
+        predecessorIds: m.successorDependencies.map((d) => d.predecessorId),
       })),
       projectStartDate,
     );
     const lagMap = new Map<string, number>();
     for (const m of filtered) {
-      for (const dep of m.predecessorDependencies) {
+      for (const dep of m.successorDependencies) {
         lagMap.set(`${dep.predecessorId}→${m.id}`, dep.lagDays);
       }
     }

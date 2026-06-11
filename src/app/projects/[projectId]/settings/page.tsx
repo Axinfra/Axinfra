@@ -132,7 +132,7 @@ export default function ProjectSettingsPage() {
   }
 
   // Only OWNER can access settings
-  if (myRole !== 'OWNER') {
+  if (myRole !== 'CLIENT') {
     return (
       <Layout>
         <Navbar projectId={projectId} projectName={project?.name || ''} role={myRole} />

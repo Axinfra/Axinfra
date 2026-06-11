@@ -12,6 +12,7 @@ import PaymentStatusBadge from '@/components/PaymentStatusBadge';
 import { formatCurrency, formatDate, formatDateTime } from '@/lib/utils';
 import { useProject } from '@/lib/contexts/ProjectContext';
 import { jsonFetcher } from '@/lib/fetcher';
+import DependencyManager from '@/components/milestones/DependencyManager';
 
 interface MilestoneData {
   id: string;
@@ -59,6 +60,13 @@ interface MilestoneData {
     blockReasonCode?: string | null;
     blockedAt?: string | null;
   };
+  predecessors?: Array<{
+    id: string;
+    title: string;
+    state: string;
+    dependencyType: string;
+    lagDays: number;
+  }>;
 }
 
 export default function MilestoneDetailPage() {
@@ -145,11 +153,31 @@ export default function MilestoneDetailPage() {
     CLOSED: 'Closed',
   };
 
+  // Dependency violations — computed once, used in both banner and action gating
+  const depViolations: Array<{ title: string; type: string; issue: string }> = [];
+  for (const p of milestone.predecessors ?? []) {
+    const isStarting = milestone.state === 'DRAFT';
+    const isClosing  = milestone.state === 'VERIFIED';
+    if (isStarting) {
+      if (p.dependencyType === 'FS' && p.state !== 'CLOSED')
+        depViolations.push({ title: p.title, type: 'FS', issue: `must be completed first (currently ${p.state.replace('_', ' ')})` });
+      if (p.dependencyType === 'SS' && p.state === 'DRAFT')
+        depViolations.push({ title: p.title, type: 'SS', issue: `must be started first (currently ${p.state})` });
+    }
+    if (isClosing) {
+      if (p.dependencyType === 'FF' && p.state !== 'CLOSED')
+        depViolations.push({ title: p.title, type: 'FF', issue: `must be completed before this can close (currently ${p.state.replace('_', ' ')})` });
+      if (p.dependencyType === 'SF' && p.state === 'DRAFT')
+        depViolations.push({ title: p.title, type: 'SF', issue: `must be started before this can close (currently ${p.state})` });
+    }
+  }
+  const hasDependencyWarning = depViolations.length > 0;
+
   // Determine what action card to show
   const showStartWork = myRole === 'VENDOR' && milestone.state === 'DRAFT';
   const showSubmitEvidence = milestone.permissions.canSubmitEvidence && milestone.state === 'IN_PROGRESS';
   const showReviewEvidence = milestone.permissions.canVerify && milestone.state === 'SUBMITTED';
-  const showPaymentLink = (myRole === 'OWNER' || myRole === 'PMC') && milestone.paymentEligibility && milestone.state === 'VERIFIED';
+  const showPaymentLink = (myRole === 'CLIENT' || myRole === 'PMC') && milestone.paymentEligibility && milestone.state === 'VERIFIED';
 
   return (
     <Layout>
@@ -175,6 +203,35 @@ export default function MilestoneDetailPage() {
 
         {error && <div className="alert alert-error">{error}</div>}
 
+        {/* Dependency Warning Banner */}
+        {hasDependencyWarning && (
+          <div className="rounded-xl border border-[rgba(224,160,48,0.35)] bg-[rgba(224,160,48,0.07)] p-4">
+            <div className="flex items-start gap-3">
+              <svg className="w-5 h-5 text-[#e0a030] shrink-0 mt-0.5" fill="none" viewBox="0 0 24 24" strokeWidth={2} stroke="currentColor">
+                <path strokeLinecap="round" strokeLinejoin="round" d="M12 9v3.75m-9.303 3.376c-.866 1.5.217 3.374 1.948 3.374h14.71c1.73 0 2.813-1.874 1.948-3.374L13.949 3.378c-.866-1.5-3.032-1.5-3.898 0L2.697 16.126zM12 15.75h.007v.008H12v-.008z" />
+              </svg>
+              <div className="flex-1">
+                <p className="text-sm font-semibold text-[#e0a030] mb-2">
+                  Predecessor dependencies not met
+                </p>
+                <ul className="space-y-1">
+                  {depViolations.map((v, i) => (
+                    <li key={i} className="text-sm text-[rgba(224,160,48,0.85)] flex items-start gap-2">
+                      <span className="inline-block px-1.5 py-0.5 rounded text-[10px] font-bold bg-[rgba(224,160,48,0.15)] text-[#e0a030] border border-[rgba(224,160,48,0.2)] shrink-0 mt-0.5">
+                        {v.type}
+                      </span>
+                      <span><strong className="text-[#e0a030]">{v.title}</strong> — {v.issue}</span>
+                    </li>
+                  ))}
+                </ul>
+                <p className="text-xs text-[rgba(224,160,48,0.6)] mt-2">
+                  In real construction, this milestone should not {milestone.state === 'DRAFT' ? 'start' : 'close'} until the above work is done. Proceeding out of sequence may cause schedule and payment issues.
+                </p>
+              </div>
+            </div>
+          </div>
+        )}
+
         {/* Extra Approval Banner */}
         {milestone.isExtra && (
           <div className={`border rounded-lg p-4 ${
@@ -193,7 +250,7 @@ export default function MilestoneDetailPage() {
                     : 'This milestone is outside the approved BOQ.'}
                 </p>
               </div>
-              {!milestone.extraApprovedAt && myRole === 'OWNER' && (
+              {!milestone.extraApprovedAt && myRole === 'CLIENT' && (
                 <button
                   onClick={() => setConfirmApproveExtra(true)}
                   disabled={approvingExtra}
@@ -344,7 +401,7 @@ export default function MilestoneDetailPage() {
                     {formatCurrency(milestone.paymentEligibility.eligibleAmount)}
                   </span>
                 </div>
-                {(myRole === 'OWNER' || myRole === 'PMC') && (
+                {(myRole === 'CLIENT' || myRole === 'PMC') && (
                   <Link href={`/projects/${projectId}/payments`} className="btn btn-secondary text-sm">
                     View Payments
                   </Link>
@@ -417,6 +474,13 @@ export default function MilestoneDetailPage() {
             )}
           </div>
         </div>
+
+        {/* Dependencies */}
+        <DependencyManager
+          projectId={projectId}
+          milestoneId={milestoneId}
+          canEdit={myRole === 'CLIENT' || myRole === 'PMC'}
+        />
 
         {/* State History */}
         <div className="card">

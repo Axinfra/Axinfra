@@ -38,6 +38,20 @@ interface Phase {
   name: string;
 }
 
+interface ExistingMilestone {
+  id: string;
+  title: string;
+  state: string;
+  phaseName: string | null;
+}
+
+interface PredecessorEntry {
+  milestoneId: string;
+  title: string;
+  dependencyType: string;
+  lagDays: number;
+}
+
 export default function CreateMilestonePage() {
   const params = useParams();
   const router = useRouter();
@@ -47,10 +61,16 @@ export default function CreateMilestonePage() {
 
   const [submitting, setSubmitting] = useState(false);
   const [error, setError] = useState('');
+  const [predecessors, setPredecessors] = useState<PredecessorEntry[]>([]);
+  const [addingPred, setAddingPred] = useState(false);
+  const [newPredId, setNewPredId] = useState('');
+  const [newPredType, setNewPredType] = useState('FS');
+  const [newPredLag, setNewPredLag] = useState(0);
 
   const [form, setForm] = useState({
     title: '',
     description: '',
+    plannedStart: '',
     plannedEnd: '',
     value: '',
     advancePercent: '',
@@ -66,8 +86,8 @@ export default function CreateMilestonePage() {
   const myRole = project?.myRole ?? '';
   const canEdit =
     ((project?.permissions ?? {}) as Record<string, boolean>).canEditMilestones === true;
-  const isOwner = myRole === 'OWNER';
-  const isOwnerOrPMC = myRole === 'OWNER' || myRole === 'PMC';
+  const isOwner = myRole === 'CLIENT';
+  const isOwnerOrPMC = myRole === 'CLIENT' || myRole === 'PMC';
 
   const { data: boqs, isLoading: boqLoading } = useSWR<BOQ[]>(
     projectId ? `/api/projects/${projectId}/boq` : null,
@@ -86,6 +106,18 @@ export default function CreateMilestonePage() {
     jsonFetcher,
     { revalidateOnFocus: true, dedupingInterval: 5_000 },
   );
+
+  // Fetch existing milestones so the user can pick predecessors
+  // jsonFetcher already unwraps body.data, so the result is the array directly
+  const { data: existingMsRaw } = useSWR<ExistingMilestone[]>(
+    projectId ? `/api/projects/${projectId}/milestones?all=true` : null,
+    jsonFetcher,
+    { revalidateOnFocus: false, dedupingInterval: 30_000 },
+  );
+  const existingMilestones: ExistingMilestone[] = (existingMsRaw ?? []).map((m: { id: string; title: string; state: string; phaseId?: string | null }) => ({
+    id: m.id, title: m.title, state: m.state,
+    phaseName: phases.find((p) => p.id === m.phaseId)?.name ?? null,
+  }));
 
   const boqItems: BOQItem[] = (() => {
     if (!form.phaseId) return [];
@@ -113,6 +145,10 @@ export default function CreateMilestonePage() {
       setError('Title is required');
       return;
     }
+    if (form.plannedStart && form.plannedEnd && new Date(form.plannedEnd) < new Date(form.plannedStart)) {
+      setError('Planned end date must be after planned start date.');
+      return;
+    }
 
     setSubmitting(true);
     setError('');
@@ -130,6 +166,7 @@ export default function CreateMilestonePage() {
         body: JSON.stringify({
           title: form.title,
           description: form.description || undefined,
+          plannedStart: form.plannedStart || undefined,
           plannedEnd: form.plannedEnd || undefined,
           value: form.value ? parseFloat(form.value) : 0,
           advancePercent: form.advancePercent ? parseFloat(form.advancePercent) : 0,
@@ -137,6 +174,9 @@ export default function CreateMilestonePage() {
           vendorUserId: form.vendorUserId || null,
           phaseId: effectiveIsExtra ? null : form.phaseId || null,
           boqLinks,
+          predecessorLinks: predecessors.length > 0
+            ? predecessors.map(p => ({ predecessorId: p.milestoneId, dependencyType: p.dependencyType, lagDays: p.lagDays }))
+            : undefined,
         }),
       });
 
@@ -214,15 +254,30 @@ export default function CreateMilestonePage() {
                 />
               </div>
 
-              <div>
-                <label className="label">Due Date</label>
-                <input
-                  type="date"
-                  className="input"
-                  value={form.plannedEnd}
-                  onChange={(e) => updateForm({ plannedEnd: e.target.value })}
-                />
+              <div className="grid grid-cols-2 gap-4">
+                <div>
+                  <label className="label">Planned Start</label>
+                  <input
+                    type="date"
+                    className="input"
+                    value={form.plannedStart}
+                    onChange={(e) => updateForm({ plannedStart: e.target.value })}
+                  />
+                </div>
+                <div>
+                  <label className="label">Planned End</label>
+                  <input
+                    type="date"
+                    className="input"
+                    value={form.plannedEnd}
+                    min={form.plannedStart || undefined}
+                    onChange={(e) => updateForm({ plannedEnd: e.target.value })}
+                  />
+                </div>
               </div>
+              {form.plannedStart && form.plannedEnd && new Date(form.plannedEnd) < new Date(form.plannedStart) && (
+                <p className="text-xs text-[#e06050]">Planned end must be after planned start.</p>
+              )}
 
               {isOwner ? (
                 <div>
@@ -457,6 +512,137 @@ export default function CreateMilestonePage() {
               </div>
             </div>
           )}
+
+          {/* ── Section 4: Predecessor Dependencies ── */}
+          <div className="card">
+            <div className="card-header flex items-center justify-between">
+              <div>
+                <h2 className="font-semibold">Predecessor Dependencies</h2>
+                <p className="text-xs text-[rgba(232,228,220,0.4)] mt-0.5">
+                  Milestones that must be completed before this one can start
+                </p>
+              </div>
+              {!addingPred && existingMilestones.length > predecessors.length && (
+                <button
+                  type="button"
+                  onClick={() => { setAddingPred(true); setNewPredId(''); setNewPredType('FS'); setNewPredLag(0); }}
+                  className="flex items-center gap-1.5 px-3 py-1.5 rounded-lg text-[12.5px] font-semibold"
+                  style={{ background: 'rgba(196,163,90,0.1)', color: '#c4a35a', border: '1px solid rgba(196,163,90,0.2)' }}
+                >
+                  <svg className="w-3.5 h-3.5" fill="none" viewBox="0 0 24 24" strokeWidth={2.5} stroke="currentColor">
+                    <path strokeLinecap="round" strokeLinejoin="round" d="M12 4.5v15m7.5-7.5h-15" />
+                  </svg>
+                  Add
+                </button>
+              )}
+            </div>
+            <div className="card-body space-y-3">
+
+              {/* Add form */}
+              {addingPred && (
+                <div className="rounded-xl border border-[rgba(196,163,90,0.2)] bg-[rgba(196,163,90,0.05)] p-4 space-y-3">
+                  <div>
+                    <label className="label">Predecessor Milestone</label>
+                    <select
+                      className="input"
+                      value={newPredId}
+                      onChange={e => setNewPredId(e.target.value)}
+                    >
+                      <option value="">— Select milestone —</option>
+                      {existingMilestones
+                        .filter(m => !predecessors.find(p => p.milestoneId === m.id))
+                        .map(m => (
+                          <option key={m.id} value={m.id}>
+                            {m.phaseName ? `[${m.phaseName}] ` : ''}{m.title}
+                          </option>
+                        ))}
+                    </select>
+                  </div>
+                  <div className="flex gap-3">
+                    <div className="flex-1">
+                      <label className="label">Dependency Type</label>
+                      <select className="input" value={newPredType} onChange={e => setNewPredType(e.target.value)}>
+                        <option value="FS">FS — Finish to Start (most common)</option>
+                        <option value="SS">SS — Start to Start</option>
+                        <option value="FF">FF — Finish to Finish</option>
+                        <option value="SF">SF — Start to Finish</option>
+                      </select>
+                    </div>
+                    <div className="w-32">
+                      <label className="label">Lag days</label>
+                      <input
+                        type="number"
+                        className="input"
+                        value={newPredLag}
+                        onChange={e => setNewPredLag(parseInt(e.target.value) || 0)}
+                        placeholder="0"
+                      />
+                    </div>
+                  </div>
+                  <div className="flex gap-2">
+                    <button
+                      type="button"
+                      disabled={!newPredId}
+                      onClick={() => {
+                        const ms = existingMilestones.find(m => m.id === newPredId);
+                        if (!ms) return;
+                        setPredecessors(prev => [...prev, { milestoneId: ms.id, title: ms.title, dependencyType: newPredType, lagDays: newPredLag }]);
+                        setAddingPred(false);
+                      }}
+                      className="btn btn-primary disabled:opacity-40 disabled:cursor-not-allowed"
+                    >
+                      Add Predecessor
+                    </button>
+                    <button type="button" onClick={() => setAddingPred(false)} className="btn btn-secondary">
+                      Cancel
+                    </button>
+                  </div>
+                </div>
+              )}
+
+              {/* Predecessor list */}
+              {predecessors.length > 0 ? (
+                predecessors.map((p, i) => (
+                  <div key={i} className="flex items-center gap-3 px-3 py-3 rounded-xl border border-[rgba(255,255,255,0.06)] bg-[rgba(255,255,255,0.02)]">
+                    <span className="text-[rgba(232,228,220,0.3)] text-[11px]">←</span>
+                    <div className="flex-1 min-w-0">
+                      <div className="text-[13px] font-semibold text-[#e8e4dc] truncate">{p.title}</div>
+                      <div className="text-[11px] text-[rgba(232,228,220,0.4)] mt-0.5">
+                        {p.dependencyType === 'FS' ? 'Must finish before this starts' :
+                         p.dependencyType === 'SS' ? 'Must start before this starts' :
+                         p.dependencyType === 'FF' ? 'Must finish before this finishes' :
+                         'Must start before this finishes'}
+                      </div>
+                    </div>
+                    <span className="text-[11px] font-bold px-2 py-0.5 rounded bg-[rgba(196,163,90,0.1)] text-[#c4a35a] border border-[rgba(196,163,90,0.2)]">
+                      {p.dependencyType}{p.lagDays !== 0 ? ` ${p.lagDays > 0 ? '+' : ''}${p.lagDays}d` : ''}
+                    </span>
+                    <button
+                      type="button"
+                      onClick={() => setPredecessors(prev => prev.filter((_, j) => j !== i))}
+                      className="p-1.5 rounded-lg text-[rgba(232,228,220,0.3)] hover:text-[#e06050] hover:bg-[rgba(224,96,80,0.08)] transition-all"
+                    >
+                      <svg className="w-4 h-4" fill="none" viewBox="0 0 24 24" strokeWidth={2} stroke="currentColor">
+                        <path strokeLinecap="round" strokeLinejoin="round" d="M6 18L18 6M6 6l12 12" />
+                      </svg>
+                    </button>
+                  </div>
+                ))
+              ) : !addingPred && (
+                <div className="rounded-xl border border-dashed border-[rgba(255,255,255,0.08)] bg-[rgba(255,255,255,0.01)] px-4 py-5 text-center">
+                  {existingMilestones.length === 0 ? (
+                    <p className="text-sm text-[rgba(232,228,220,0.3)]">
+                      No other milestones in this project yet. Create more milestones to set up dependencies.
+                    </p>
+                  ) : (
+                    <p className="text-sm text-[rgba(232,228,220,0.3)]">
+                      No predecessors — this milestone can start independently.
+                    </p>
+                  )}
+                </div>
+              )}
+            </div>
+          </div>
 
           {/* ── Action bar ── */}
           <div className="flex items-center justify-end gap-3 pt-2 pb-10">

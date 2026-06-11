@@ -139,8 +139,8 @@ export class PaymentEligibilityEngine {
       ) {
         // Keep the human-set state unless this is an unblock or mark-paid event
         if (
-          eventType !== EligibilityEventType.UNBLOCKED_BY_OWNER &&
-          eventType !== EligibilityEventType.MARKED_PAID_BY_OWNER &&
+          eventType !== EligibilityEventType.UNBLOCKED_BY_CLIENT &&
+          eventType !== EligibilityEventType.MARKED_PAID_BY_CLIENT &&
           eventType !== EligibilityEventType.MARKED_PAID_BY_PMC
         ) {
           newState = previousState;
@@ -152,7 +152,7 @@ export class PaymentEligibilityEngine {
         // If invalid transition, keep the current state unless it's a system override
         if (
           eventType !== EligibilityEventType.RECALCULATION_TRIGGERED &&
-          eventType !== EligibilityEventType.UNBLOCKED_BY_OWNER
+          eventType !== EligibilityEventType.UNBLOCKED_BY_CLIENT
         ) {
           newState = previousState;
         }
@@ -388,7 +388,7 @@ export class PaymentEligibilityEngine {
     projectId: string
   ): Promise<{ success: boolean; error?: string }> {
     // Validate role
-    if (actorRole !== Role.OWNER && actorRole !== Role.PMC) {
+    if (actorRole !== Role.CLIENT && actorRole !== Role.PMC) {
       return { success: false, error: 'Only Owner or PMC can block payments' };
     }
 
@@ -417,8 +417,8 @@ export class PaymentEligibilityEngine {
 
     const previousState = eligibility.state;
     const eventType =
-      actorRole === Role.OWNER
-        ? EligibilityEventType.BLOCKED_BY_OWNER
+      actorRole === Role.CLIENT
+        ? EligibilityEventType.BLOCKED_BY_CLIENT
         : EligibilityEventType.BLOCKED_BY_PMC;
 
     // Atomic: update eligibility + create event + audit log together
@@ -488,7 +488,7 @@ export class PaymentEligibilityEngine {
     projectId: string
   ): Promise<{ success: boolean; error?: string }> {
     // Only Owner can unblock
-    if (actorRole !== Role.OWNER) {
+    if (actorRole !== Role.CLIENT) {
       return { success: false, error: 'Only Owner can unblock payments' };
     }
 
@@ -560,7 +560,7 @@ export class PaymentEligibilityEngine {
       await tx.eligibilityEvent.create({
         data: {
           paymentEligibilityId: eligibility.id,
-          eventType: EligibilityEventType.UNBLOCKED_BY_OWNER,
+          eventType: EligibilityEventType.UNBLOCKED_BY_CLIENT,
           fromState: EligibilityState.BLOCKED,
           toState: newState,
           actorId,
@@ -606,7 +606,7 @@ export class PaymentEligibilityEngine {
     actorRole: Role,
     projectId: string
   ): Promise<{ success: boolean; error?: string }> {
-    if (actorRole !== Role.OWNER && actorRole !== Role.PMC) {
+    if (actorRole !== Role.CLIENT && actorRole !== Role.PMC) {
       return { success: false, error: 'Only Owner or PMC can mark payments as paid' };
     }
 
@@ -643,8 +643,8 @@ export class PaymentEligibilityEngine {
 
     const previousState = eligibility.state;
     const eventType =
-      actorRole === Role.OWNER
-        ? EligibilityEventType.MARKED_PAID_BY_OWNER
+      actorRole === Role.CLIENT
+        ? EligibilityEventType.MARKED_PAID_BY_CLIENT
         : EligibilityEventType.MARKED_PAID_BY_PMC;
 
     // Atomic: update eligibility + create event + audit log
@@ -709,7 +709,7 @@ export class PaymentEligibilityEngine {
     actorRole: Role,
     projectId: string
   ): Promise<{ success: boolean; error?: string }> {
-    if (actorRole !== Role.OWNER && actorRole !== Role.PMC) {
+    if (actorRole !== Role.CLIENT && actorRole !== Role.PMC) {
       return { success: false, error: 'Only Owner or PMC can mark payments as paid' };
     }
 
@@ -745,8 +745,8 @@ export class PaymentEligibilityEngine {
 
     const previousEligibilityState = eligibility.state;
     const eventType =
-      actorRole === Role.OWNER
-        ? EligibilityEventType.MARKED_PAID_BY_OWNER
+      actorRole === Role.CLIENT
+        ? EligibilityEventType.MARKED_PAID_BY_CLIENT
         : EligibilityEventType.MARKED_PAID_BY_PMC;
 
     // Single atomic transaction: mark paid + close milestone

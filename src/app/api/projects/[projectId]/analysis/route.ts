@@ -25,7 +25,7 @@ export async function GET(
     const auth = await requireProjectAuth(projectId);
 
     // Only OWNER and PMC can access analysis
-    RoleGuard.requireRole(auth, ['OWNER', 'PMC']);
+    RoleGuard.requireRole(auth, ['CLIENT', 'PMC']);
 
     // Get tab parameter for partial loading
     const searchParams = request.nextUrl.searchParams;

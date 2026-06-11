@@ -22,11 +22,11 @@ const VALID_TRANSITIONS: Record<MilestoneState, MilestoneState[]> = {
  * Roles allowed to perform each transition.
  */
 const TRANSITION_PERMISSIONS: Record<string, Role[]> = {
-  [`${MilestoneState.DRAFT}->${MilestoneState.IN_PROGRESS}`]: [Role.OWNER, Role.PMC, Role.VENDOR],
+  [`${MilestoneState.DRAFT}->${MilestoneState.IN_PROGRESS}`]: [Role.CLIENT, Role.PMC, Role.VENDOR],
   [`${MilestoneState.IN_PROGRESS}->${MilestoneState.SUBMITTED}`]: [Role.VENDOR],
-  [`${MilestoneState.SUBMITTED}->${MilestoneState.VERIFIED}`]: [Role.OWNER, Role.PMC],
-  [`${MilestoneState.SUBMITTED}->${MilestoneState.IN_PROGRESS}`]: [Role.OWNER, Role.PMC],
-  [`${MilestoneState.VERIFIED}->${MilestoneState.CLOSED}`]: [Role.OWNER, Role.PMC],
+  [`${MilestoneState.SUBMITTED}->${MilestoneState.VERIFIED}`]: [Role.CLIENT, Role.PMC],
+  [`${MilestoneState.SUBMITTED}->${MilestoneState.IN_PROGRESS}`]: [Role.CLIENT, Role.PMC],
+  [`${MilestoneState.VERIFIED}->${MilestoneState.CLOSED}`]: [Role.CLIENT, Role.PMC],
 };
 
 function isValidTransition(fromState: MilestoneState, toState: MilestoneState): boolean {
@@ -102,7 +102,7 @@ describe('MilestoneStateMachine', () => {
   describe('canPerformTransition - Role Permissions', () => {
     describe('DRAFT -> IN_PROGRESS', () => {
       it('should allow OWNER', () => {
-        expect(canPerformTransition(MilestoneState.DRAFT, MilestoneState.IN_PROGRESS, Role.OWNER)).toBe(true);
+        expect(canPerformTransition(MilestoneState.DRAFT, MilestoneState.IN_PROGRESS, Role.CLIENT)).toBe(true);
       });
 
       it('should allow PMC', () => {
@@ -124,7 +124,7 @@ describe('MilestoneStateMachine', () => {
       });
 
       it('should NOT allow OWNER (vendor submits work)', () => {
-        expect(canPerformTransition(MilestoneState.IN_PROGRESS, MilestoneState.SUBMITTED, Role.OWNER)).toBe(false);
+        expect(canPerformTransition(MilestoneState.IN_PROGRESS, MilestoneState.SUBMITTED, Role.CLIENT)).toBe(false);
       });
 
       it('should NOT allow PMC', () => {
@@ -134,7 +134,7 @@ describe('MilestoneStateMachine', () => {
 
     describe('SUBMITTED -> VERIFIED', () => {
       it('should allow OWNER', () => {
-        expect(canPerformTransition(MilestoneState.SUBMITTED, MilestoneState.VERIFIED, Role.OWNER)).toBe(true);
+        expect(canPerformTransition(MilestoneState.SUBMITTED, MilestoneState.VERIFIED, Role.CLIENT)).toBe(true);
       });
 
       it('should allow PMC', () => {
@@ -148,7 +148,7 @@ describe('MilestoneStateMachine', () => {
 
     describe('SUBMITTED -> IN_PROGRESS (rejection)', () => {
       it('should allow OWNER', () => {
-        expect(canPerformTransition(MilestoneState.SUBMITTED, MilestoneState.IN_PROGRESS, Role.OWNER)).toBe(true);
+        expect(canPerformTransition(MilestoneState.SUBMITTED, MilestoneState.IN_PROGRESS, Role.CLIENT)).toBe(true);
       });
 
       it('should allow PMC', () => {
@@ -162,7 +162,7 @@ describe('MilestoneStateMachine', () => {
 
     describe('VERIFIED -> CLOSED', () => {
       it('should allow OWNER', () => {
-        expect(canPerformTransition(MilestoneState.VERIFIED, MilestoneState.CLOSED, Role.OWNER)).toBe(true);
+        expect(canPerformTransition(MilestoneState.VERIFIED, MilestoneState.CLOSED, Role.CLIENT)).toBe(true);
       });
 
       it('should allow PMC', () => {

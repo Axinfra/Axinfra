@@ -9,6 +9,7 @@ import {
 } from 'recharts';
 import Layout from '@/components/Layout';
 import EINav from '@/components/execution-intelligence/EINav';
+import { DARK_TOOLTIP } from '@/lib/chartConfig';
 import { useProject } from '@/lib/contexts/ProjectContext';
 import { jsonFetcher } from '@/lib/fetcher';
 
@@ -113,15 +114,15 @@ function SCurveTab({ data }: { data: AnalyticsData }) {
     <div className="grid md:grid-cols-2 gap-4">
       {/* S-Curve */}
       <ChartCard title="Planned vs Actual Progress" subtitle="Cumulative completion % over time">
-        {sCurve.length < 2 ? (
-          <EmptyChart />
+        {sCurve.length === 0 ? (
+          <EmptyChart message="No milestones have planned end dates set. Add planned dates to see the S-curve." />
         ) : (
           <ResponsiveContainer width="100%" height={280}>
             <LineChart data={sCurve} margin={{ top: 4, right: 12, left: -20, bottom: 0 }}>
               <CartesianGrid strokeDasharray="3 3" stroke="rgba(255,255,255,0.05)" />
               <XAxis dataKey="date" tick={{ fontSize: 10, fill: 'rgba(232,228,220,0.45)' }} tickFormatter={(v) => v.slice(5)} />
               <YAxis tick={{ fontSize: 10, fill: 'rgba(232,228,220,0.45)' }} unit="%" domain={[0, 100]} />
-              <Tooltip formatter={(v: number) => `${v}%`} labelFormatter={(l) => `Date: ${l}`} />
+              <Tooltip {...DARK_TOOLTIP} formatter={(v: number) => `${v}%`} labelFormatter={(l) => `Date: ${l}`} />
               <Legend wrapperStyle={{ fontSize: 11 }} />
               <Line type="monotone" dataKey="plannedCumulative" name="Planned" stroke="rgba(232,228,220,0.3)" strokeWidth={1.5} dot={false} />
               <Line type="monotone" dataKey="actualCumulative" name="Actual" stroke="#3b82f6" strokeWidth={2} dot={false} />
@@ -132,15 +133,15 @@ function SCurveTab({ data }: { data: AnalyticsData }) {
 
       {/* Burndown */}
       <ChartCard title="Burn-Down Chart" subtitle="Remaining work over time">
-        {burndown.length < 2 ? (
-          <EmptyChart />
+        {burndown.length === 0 ? (
+          <EmptyChart message="No milestones have planned end dates set. Add planned dates to see the burn-down." />
         ) : (
           <ResponsiveContainer width="100%" height={280}>
             <LineChart data={burndown} margin={{ top: 4, right: 12, left: -20, bottom: 0 }}>
               <CartesianGrid strokeDasharray="3 3" stroke="rgba(255,255,255,0.05)" />
               <XAxis dataKey="date" tick={{ fontSize: 10, fill: 'rgba(232,228,220,0.45)' }} tickFormatter={(v) => v.slice(5)} />
               <YAxis tick={{ fontSize: 10, fill: 'rgba(232,228,220,0.45)' }} unit="%" domain={[0, 100]} />
-              <Tooltip formatter={(v: number) => `${v}%`} />
+              <Tooltip {...DARK_TOOLTIP} formatter={(v: number) => `${v}%`} />
               <Legend wrapperStyle={{ fontSize: 11 }} />
               <Line type="monotone" dataKey="plannedRemaining" name="Planned" stroke="rgba(232,228,220,0.3)" strokeWidth={1.5} dot={false} />
               <Line type="monotone" dataKey="actualRemaining" name="Actual" stroke="#f59e0b" strokeWidth={2} dot={false} />
@@ -159,7 +160,7 @@ function SCurveTab({ data }: { data: AnalyticsData }) {
               <CartesianGrid strokeDasharray="3 3" stroke="rgba(255,255,255,0.05)" />
               <XAxis dataKey="week" tick={{ fontSize: 10, fill: 'rgba(232,228,220,0.45)' }} tickFormatter={(v) => v.slice(5)} />
               <YAxis tick={{ fontSize: 10, fill: 'rgba(232,228,220,0.45)' }} allowDecimals={false} />
-              <Tooltip />
+              <Tooltip {...DARK_TOOLTIP} />
               <Bar dataKey="count" name="Escalations" fill="#ef4444" radius={[3, 3, 0, 0]} />
             </BarChart>
           </ResponsiveContainer>
@@ -260,7 +261,7 @@ function VendorTab({ data, role }: { data: AnalyticsData; role: string }) {
             <CartesianGrid strokeDasharray="3 3" stroke="rgba(255,255,255,0.05)" horizontal={false} />
             <XAxis type="number" domain={[0, 100]} tick={{ fontSize: 10, fill: 'rgba(232,228,220,0.45)' }} unit="%" />
             <YAxis dataKey="vendorName" type="category" tick={{ fontSize: 11, fill: 'rgba(232,228,220,0.55)' }} width={76} />
-            <Tooltip formatter={(v: number) => `${v}%`} />
+            <Tooltip {...DARK_TOOLTIP} formatter={(v: number) => `${v}%`} />
             <ReferenceLine x={80} stroke="#22c55e" strokeDasharray="3 2" label={{ value: '80%', fontSize: 9, fill: '#22c55e' }} />
             <Bar dataKey="onTimePct" name="On-Time %" radius={[0, 3, 3, 0]}>
               {vendors.map((v) => (
@@ -285,7 +286,7 @@ function DelayTab({ data }: { data: AnalyticsData }) {
             <CartesianGrid strokeDasharray="3 3" stroke="rgba(255,255,255,0.05)" />
             <XAxis dataKey="bucket" tick={{ fontSize: 10, fill: 'rgba(232,228,220,0.45)' }} angle={-30} textAnchor="end" />
             <YAxis tick={{ fontSize: 10, fill: 'rgba(232,228,220,0.45)' }} allowDecimals={false} />
-            <Tooltip />
+            <Tooltip {...DARK_TOOLTIP} formatter={(v: number) => `${v} milestone${v !== 1 ? 's' : ''}`} />
             <Bar dataKey="count" name="Milestones" radius={[3, 3, 0, 0]}>
               {data.delayHistogram.map((d) => {
                 const isLate = d.bucket.startsWith('>') || d.bucket.startsWith('1') || d.bucket.startsWith('8');
@@ -304,7 +305,7 @@ function DelayTab({ data }: { data: AnalyticsData }) {
             <CartesianGrid strokeDasharray="3 3" stroke="rgba(255,255,255,0.05)" />
             <XAxis dataKey="bucket" tick={{ fontSize: 10, fill: 'rgba(232,228,220,0.45)' }} />
             <YAxis tick={{ fontSize: 10, fill: 'rgba(232,228,220,0.45)' }} allowDecimals={false} />
-            <Tooltip formatter={(v: number) => `${v} milestones`} />
+            <Tooltip {...DARK_TOOLTIP} formatter={(v: number) => `${v} milestones`} />
             <Bar dataKey="count" name="Milestones" fill="#8b5cf6" radius={[3, 3, 0, 0]} />
           </BarChart>
         </ResponsiveContainer>

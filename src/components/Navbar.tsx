@@ -29,7 +29,7 @@ interface NavbarProps {
 }
 
 const roleColors: Record<string, "default" | "secondary" | "outline" | "destructive" | "success" | "warning" | "neutral"> = {
-  OWNER: 'default',
+  CLIENT: 'default',
   PMC: 'warning',
   VENDOR: 'success',
   VIEWER: 'secondary',
@@ -48,19 +48,19 @@ export default function Navbar({ projectId, projectName, role }: NavbarProps) {
   // so the click feels instant.
   const navItems = [
     { href: `/projects/${projectId}`, label: 'Overview', icon: LayoutDashboard, always: true, prefetchApi: [`/api/projects/${projectId}`] },
-    { href: `/projects/${projectId}/architecture`, label: 'Architecture', icon: Ruler, roles: ['OWNER', 'PMC', 'CONSULTANT', 'VIEWER', 'VENDOR'], prefetchApi: [`/api/projects/${projectId}/architecture`] },
-    { href: `/projects/${projectId}/boq`, label: role === 'OWNER' ? 'View BOQ' : 'BOQ', icon: FileText, roles: ['OWNER', 'PMC', 'CONSULTANT', 'VIEWER'], prefetchApi: [`/api/projects/${projectId}/boq`] },
+    { href: `/projects/${projectId}/architecture`, label: 'Architecture', icon: Ruler, roles: ['CLIENT', 'PMC', 'CONSULTANT', 'VIEWER', 'VENDOR'], prefetchApi: [`/api/projects/${projectId}/architecture`] },
+    { href: `/projects/${projectId}/boq`, label: role === 'CLIENT' ? 'View BOQ' : 'BOQ', icon: FileText, roles: ['CLIENT', 'PMC', 'CONSULTANT', 'VIEWER'], prefetchApi: [`/api/projects/${projectId}/boq`] },
     { href: `/projects/${projectId}/milestones`, label: 'Milestones', icon: Flag, always: true, prefetchApi: [`/api/projects/${projectId}/milestones`] },
     { href: `/projects/${projectId}/views`, label: 'Views', icon: Layers, always: true, prefetchApi: [`/api/projects/${projectId}/views`] },
-    { href: `/projects/${projectId}/analysis`, label: 'Analysis', icon: BarChart2, roles: ['OWNER', 'PMC'], prefetchApi: [`/api/projects/${projectId}/analysis`] },
-    { href: `/projects/${projectId}/evidence-review`, label: 'Evidence', icon: FileCheck, roles: ['OWNER', 'PMC'] },
-    { href: `/projects/${projectId}/payments`, label: role === 'VENDOR' ? 'My Invoices' : 'Payments', icon: CreditCard, roles: ['OWNER', 'PMC', 'VENDOR'], prefetchApi: [`/api/projects/${projectId}/payment-eligibility`] },
-    { href: `/projects/${projectId}/follow-ups`, label: 'Follow-ups', icon: BellRing, roles: ['OWNER', 'PMC'], prefetchApi: [`/api/projects/${projectId}/follow-ups`] },
+    { href: `/projects/${projectId}/analysis`, label: 'Analysis', icon: BarChart2, roles: ['CLIENT', 'PMC'], prefetchApi: [`/api/projects/${projectId}/analysis`] },
+    { href: `/projects/${projectId}/evidence-review`, label: 'Evidence', icon: FileCheck, roles: ['CLIENT', 'PMC'] },
+    { href: `/projects/${projectId}/payments`, label: role === 'VENDOR' ? 'My Invoices' : 'Payments', icon: CreditCard, roles: ['CLIENT', 'PMC', 'VENDOR'], prefetchApi: [`/api/projects/${projectId}/payment-eligibility`] },
+    { href: `/projects/${projectId}/follow-ups`, label: 'Follow-ups', icon: BellRing, roles: ['CLIENT', 'PMC'], prefetchApi: [`/api/projects/${projectId}/follow-ups`] },
     { href: `/projects/${projectId}/dashboard`, label: 'Dashboard', icon: BarChart2, always: true, prefetchApi: [`/api/projects/${projectId}/dashboard`] },
     { href: `/projects/${projectId}/audit-log`, label: 'Audit Log', icon: History, always: true, prefetchApi: [`/api/projects/${projectId}/audit-log`] },
-{ href: `/projects/${projectId}/roles`, label: 'Roles', icon: Users, roles: ['OWNER'], prefetchApi: [`/api/projects/${projectId}/roles`] },
-    { href: `/projects/${projectId}/settings`, label: 'Settings', icon: Settings, roles: ['OWNER'] },
-    { href: `/projects`, label: 'Manage Projects', icon: FolderOpen, roles: ['OWNER'] },
+{ href: `/projects/${projectId}/roles`, label: 'Roles', icon: Users, roles: ['CLIENT'], prefetchApi: [`/api/projects/${projectId}/roles`] },
+    { href: `/projects/${projectId}/settings`, label: 'Settings', icon: Settings, roles: ['CLIENT'] },
+    { href: `/projects`, label: 'Manage Projects', icon: FolderOpen, roles: ['CLIENT'] },
   ];
 
   const visibleItems = navItems.filter(

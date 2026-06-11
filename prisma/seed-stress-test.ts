@@ -325,14 +325,14 @@ function getPhaseBoqItems(phase: number): BOQItemDef[] {
 
 // ─── Cleanup ─────────────────────────────────────────────────────────────────
 async function cleanup() {
-  console.log('🧹 Cleaning up stress test data...');
+  // console.log('🧹 Cleaning up stress test data...');
 
   const project = await prisma.project.findFirst({
     where: { name: PROJECT_NAME },
   });
 
   if (!project) {
-    console.log('  No stress test project found. Nothing to clean.');
+    // console.log('  No stress test project found. Nothing to clean.');
     return;
   }
 
@@ -388,7 +388,7 @@ async function cleanup() {
     where: { email: { in: ['vendor2@stresstest.axinfra.io', 'vendor3@stresstest.axinfra.io'] } },
   });
 
-  console.log('  ✓ Cleanup complete.\n');
+  // console.log('  ✓ Cleanup complete.\n');
 }
 
 // ─── Main seed function ──────────────────────────────────────────────────────
@@ -403,14 +403,14 @@ async function main() {
   // Check if project already exists (idempotent)
   const existing = await prisma.project.findFirst({ where: { name: PROJECT_NAME } });
   if (existing) {
-    console.log(`⚠️  Project "${PROJECT_NAME}" already exists. Use --clean flag to recreate.`);
+    // console.log(`⚠️  Project "${PROJECT_NAME}" already exists. Use --clean flag to recreate.`);
     return;
   }
 
-  console.log('🏗️  Seeding Marina Tower stress test data...\n');
+  // console.log('🏗️  Seeding Marina Tower stress test data...\n');
 
   // ── Step 0: Query existing users ──────────────────────────────────────────
-  console.log('Step 0: Finding existing users...');
+  // console.log('Step 0: Finding existing users...');
 
   const ownerRole = await prisma.projectRole.findFirst({
     where: { role: Role.OWNER },
@@ -439,8 +439,8 @@ async function main() {
   const pmcUser = pmcRole.user;
   const viewerUser = viewerRole?.user;
 
-  console.log(`  Owner:  ${ownerUser.email} (${ownerUser.name})`);
-  console.log(`  PMC:    ${pmcUser.email} (${pmcUser.name})`);
+  // console.log(`  Owner:  ${ownerUser.email} (${ownerUser.name})`);
+  // console.log(`  PMC:    ${pmcUser.email} (${pmcUser.name})`);
   if (viewerUser) console.log(`  Viewer: ${viewerUser.email} (${viewerUser.name})`);
 
   // Get/create vendor users
@@ -473,11 +473,11 @@ async function main() {
     }
   }
 
-  console.log(`  Vendors: ${vendorUsers.map(v => v.email).join(', ')}`);
-  console.log('');
+  // console.log(`  Vendors: ${vendorUsers.map(v => v.email).join(', ')}`);
+  // console.log('');
 
   // ── Step 1: Create project ────────────────────────────────────────────────
-  console.log('Step 1: Creating project...');
+  // console.log('Step 1: Creating project...');
 
   const project = await prisma.project.create({
     data: {
@@ -519,10 +519,10 @@ async function main() {
     },
   });
 
-  console.log(`  ✓ Project created: ${project.id}`);
+  // console.log(`  ✓ Project created: ${project.id}`);
 
   // ── Step 2: Create milestones ─────────────────────────────────────────────
-  console.log('\nStep 2: Creating 150 milestones...');
+  // console.log('\nStep 2: Creating 150 milestones...');
 
   const milestoneDefs = generateMilestoneDefinitions();
   const phaseCounts = getPhaseMilestoneCounts();
@@ -624,7 +624,7 @@ async function main() {
     const phaseStart = phase === 1 ? 0 : (phase === 2 ? 4 : phase === 3 ? 12 : phase === 4 ? 16 : 20);
     const phaseEnd = phase === 1 ? 5 : (phase === 2 ? 14 : phase === 3 ? 18 : phase === 4 ? 22 : 24);
 
-    console.log(`  Phase ${phase}: Inserting milestones ${globalIdx + 1}–${globalIdx + count}...`);
+    // console.log(`  Phase ${phase}: Inserting milestones ${globalIdx + 1}–${globalIdx + count}...`);
 
     const milestoneData = [];
     for (let i = 0; i < count; i++) {
@@ -706,10 +706,10 @@ async function main() {
     createdMilestones[i].id = allMilestones[i].id;
   }
 
-  console.log(`  ✓ 150 milestones created.`);
+  // console.log(`  ✓ 150 milestones created.`);
 
   // ── Step 3: Payment Eligibility ───────────────────────────────────────────
-  console.log('\nStep 3: Creating payment eligibility records...');
+  // console.log('\nStep 3: Creating payment eligibility records...');
 
   // Determine which approved milestones to mark as paid (~AED 6.5M)
   let cumPaid = 0;
@@ -822,10 +822,10 @@ async function main() {
       });
     }
   }
-  console.log('  ✓ Payment eligibility records created.');
+  // console.log('  ✓ Payment eligibility records created.');
 
   // ── Step 4: Evidence records ──────────────────────────────────────────────
-  console.log('\nStep 4: Creating evidence records...');
+  // console.log('\nStep 4: Creating evidence records...');
 
   let evidenceCount = 0;
   for (const ms of createdMilestones) {
@@ -905,10 +905,10 @@ async function main() {
       evidenceCount++;
     }
   }
-  console.log(`  ✓ ${evidenceCount} evidence records created.`);
+  // console.log(`  ✓ ${evidenceCount} evidence records created.`);
 
   // ── Step 4b: Verification records ─────────────────────────────────────────
-  console.log('\nStep 4b: Creating verification records for approved milestones...');
+  // console.log('\nStep 4b: Creating verification records for approved milestones...');
 
   let verificationCount = 0;
   for (const ms of createdMilestones) {
@@ -927,10 +927,10 @@ async function main() {
       verificationCount++;
     }
   }
-  console.log(`  ✓ ${verificationCount} verification records created.`);
+  // console.log(`  ✓ ${verificationCount} verification records created.`);
 
   // ── Step 5: BOQ entries ───────────────────────────────────────────────────
-  console.log('\nStep 5: Creating BOQ entries...');
+  // console.log('\nStep 5: Creating BOQ entries...');
 
   const boq = await prisma.bOQ.create({
     data: {
@@ -966,10 +966,10 @@ async function main() {
       boqItemCount++;
     }
   }
-  console.log(`  ✓ ${boqItemCount} BOQ line items created.`);
+  // console.log(`  ✓ ${boqItemCount} BOQ line items created.`);
 
   // ── Step 5b: MilestoneBOQLinks ─────────────────────────────────────────────
-  console.log('\nStep 5b: Creating MilestoneBOQLinks...');
+  // console.log('\nStep 5b: Creating MilestoneBOQLinks...');
 
   const phaseRanges = [
     { phase: 1, start: 0, end: 19 },
@@ -1000,7 +1000,7 @@ async function main() {
       linkCount++;
     }
   }
-  console.log(`  ✓ ${linkCount} MilestoneBOQLinks created.`);
+  // console.log(`  ✓ ${linkCount} MilestoneBOQLinks created.`);
 
   // Update Phase 2 verification qtyVerified for 9% overrun detection
   for (const ms of createdMilestones.filter(m => m.status === 'APPROVED' && m.phase === 2)) {
@@ -1022,11 +1022,11 @@ async function main() {
       });
     }
   }
-  console.log('  ✓ Phase 2 verification qtyVerified adjusted for 9% overrun.');
-  console.log('  ✓ Phase 3 verification qtyVerified adjusted for 3% underrun.');
+  // console.log('  ✓ Phase 2 verification qtyVerified adjusted for 9% overrun.');
+  // console.log('  ✓ Phase 3 verification qtyVerified adjusted for 3% underrun.');
 
   // ── Step 6: Monthly cost snapshots ────────────────────────────────────────
-  console.log('\nStep 6: Creating monthly cost snapshots...');
+  // console.log('\nStep 6: Creating monthly cost snapshots...');
 
   // Phase-specific variance: months 1-6 ±1%, months 7-14 +9%, months 15-18 -3%, months 19-24 ±1%
   const actualSpend = MONTHLY_ACTUAL_SPEND.map((val, month) => {
@@ -1063,10 +1063,10 @@ async function main() {
       },
     });
   }
-  console.log('  ✓ 24 monthly cost snapshots created (phase-specific variances).');
+  // console.log('  ✓ 24 monthly cost snapshots created (phase-specific variances).');
 
   // ── Step 7: Vendor metrics ────────────────────────────────────────────────
-  console.log('\nStep 7: Creating vendor performance metrics...');
+  // console.log('\nStep 7: Creating vendor performance metrics...');
 
   const vendorPerformance = [
     { pct: 0.92, label: 'primary' },
@@ -1096,10 +1096,10 @@ async function main() {
       },
     });
   }
-  console.log('  ✓ Vendor metrics created.');
+  // console.log('  ✓ Vendor metrics created.');
 
   // ── Step 8: Audit log entries ─────────────────────────────────────────────
-  console.log('\nStep 8: Creating audit log entries...');
+  // console.log('\nStep 8: Creating audit log entries...');
 
   let auditCount = 0;
   const auditEntries: Array<{
@@ -1255,14 +1255,14 @@ async function main() {
     const batch = auditEntries.slice(i, i + BATCH_SIZE);
     await prisma.auditLog.createMany({ data: batch });
     if ((i + BATCH_SIZE) % 200 === 0 || i + BATCH_SIZE >= auditEntries.length) {
-      console.log(`  Audit log: ${Math.min(i + BATCH_SIZE, auditEntries.length)}/${auditEntries.length} entries written...`);
+      // console.log(`  Audit log: ${Math.min(i + BATCH_SIZE, auditEntries.length)}/${auditEntries.length} entries written...`);
     }
   }
   auditCount = auditEntries.length;
-  console.log(`  ✓ ${auditCount} audit log entries created.`);
+  // console.log(`  ✓ ${auditCount} audit log entries created.`);
 
   // ── Step 9: Eligibility events ──────────────────────────────────────────────
-  console.log('\nStep 9: Creating eligibility events...');
+  // console.log('\nStep 9: Creating eligibility events...');
 
   let eventCount = 0;
   for (const ms of createdMilestones.filter(m => m.status === 'APPROVED')) {
@@ -1322,24 +1322,24 @@ async function main() {
     });
     eventCount++;
   }
-  console.log(`  ✓ ${eventCount} eligibility events created.`);
+  // console.log(`  ✓ ${eventCount} eligibility events created.`);
 
   // ── Summary ───────────────────────────────────────────────────────────────
-  console.log('\n' + '═'.repeat(60));
-  console.log('  ✓ Project created: Marina Tower — Dubai (Stress Test)');
-  console.log(`  ✓ Owner: ${ownerUser.email}`);
-  console.log(`  ✓ PMC: ${pmcUser.email}`);
-  console.log(`  ✓ Vendors: ${vendorUsers.map(v => v.email).join(', ')}`);
-  console.log(`  ✓ Milestones seeded: 150`);
-  console.log(`  ✓ Verifications: ${verificationCount}`);
-  console.log(`  ✓ BOQ line items: ${boqItemCount}`);
-  console.log(`  ✓ MilestoneBOQLinks: ${linkCount}`);
-  console.log(`  ✓ Evidence records: ${evidenceCount}`);
-  console.log(`  ✓ Eligibility events: ${eventCount}`);
-  console.log(`  ✓ Audit log entries: ${auditCount}`);
-  console.log(`  ✓ Monthly cost snapshots: 24 (phase-specific variances)`);
-  console.log(`  ✓ Login with your existing Owner/PMC/Vendor credentials to view the project`);
-  console.log('═'.repeat(60));
+  // console.log('\n' + '═'.repeat(60));
+  // console.log('  ✓ Project created: Marina Tower — Dubai (Stress Test)');
+  // console.log(`  ✓ Owner: ${ownerUser.email}`);
+  // console.log(`  ✓ PMC: ${pmcUser.email}`);
+  // console.log(`  ✓ Vendors: ${vendorUsers.map(v => v.email).join(', ')}`);
+  // console.log(`  ✓ Milestones seeded: 150`);
+  // console.log(`  ✓ Verifications: ${verificationCount}`);
+  // console.log(`  ✓ BOQ line items: ${boqItemCount}`);
+  // console.log(`  ✓ MilestoneBOQLinks: ${linkCount}`);
+  // console.log(`  ✓ Evidence records: ${evidenceCount}`);
+  // console.log(`  ✓ Eligibility events: ${eventCount}`);
+  // console.log(`  ✓ Audit log entries: ${auditCount}`);
+  // console.log(`  ✓ Monthly cost snapshots: 24 (phase-specific variances)`);
+  // console.log(`  ✓ Login with your existing Owner/PMC/Vendor credentials to view the project`);
+  // console.log('═'.repeat(60));
 }
 
 main()

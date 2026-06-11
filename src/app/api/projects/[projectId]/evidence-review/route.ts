@@ -12,7 +12,7 @@ export async function GET(
   try {
     const { projectId } = await params;
     const auth = await requireProjectAuth(projectId);
-    RoleGuard.requireRole(auth, ['OWNER', 'PMC']);
+    RoleGuard.requireRole(auth, ['CLIENT', 'PMC']);
 
     const items = await EvidenceService.getPendingReviews(projectId);
 

@@ -7,15 +7,18 @@ import { z } from 'zod';
 
 export const dynamic = 'force-dynamic';
 
+const VALID_ROLES = ['CLIENT', 'PMC', 'VENDOR', 'CONSULTANT', 'VIEWER'] as const;
+
 const loginSchema = z.object({
   email: z.string().email(),
   password: z.string().min(1),
+  preferredRole: z.enum(VALID_ROLES).optional(),
 });
 
 export async function POST(request: NextRequest) {
   try {
     const body = await request.json();
-    const { email, password } = loginSchema.parse(body);
+    const { email, password, preferredRole } = loginSchema.parse(body);
 
     // Rate limiting: 5 attempts per 10 minutes per IP+email
     const clientIp = request.headers.get('x-forwarded-for')?.split(',')[0]?.trim()
@@ -47,7 +50,15 @@ export async function POST(request: NextRequest) {
 
     if (!user) {
       return NextResponse.json(
-        { success: false, error: 'Invalid credentials' },
+        { success: false, error: 'No account found with this email. Please create an account first.' },
+        { status: 401 }
+      );
+    }
+
+    // Google-only account — no password set
+    if (!user.hashedPassword) {
+      return NextResponse.json(
+        { success: false, error: 'This account uses Google sign-in. Please use "Continue with Google".' },
         { status: 401 }
       );
     }
@@ -55,13 +66,32 @@ export async function POST(request: NextRequest) {
     const passwordValid = await bcrypt.compare(password, user.hashedPassword);
     if (!passwordValid) {
       return NextResponse.json(
-        { success: false, error: 'Invalid credentials' },
+        { success: false, error: 'Incorrect password. Please try again.' },
         { status: 401 }
+      );
+    }
+
+    const ADMIN_EMAILS = (process.env.ADMIN_EMAILS ?? 'admin@axinfra.local')
+      .split(',').map(e => e.trim().toLowerCase());
+    const isAdmin = ADMIN_EMAILS.includes(user.email.toLowerCase());
+
+    if (!isAdmin && !user.preferredRole) {
+      return NextResponse.json(
+        { success: false, error: 'Your account has no role assigned. Please sign up again and select your role.' },
+        { status: 403 }
       );
     }
 
     // Successful login — reset rate limiter counter
     loginRateLimiter.reset(rateLimitKey);
+
+    // Save preferred role if provided
+    if (preferredRole) {
+      await prisma.user.update({
+        where: { id: user.id },
+        data: { preferredRole },
+      });
+    }
 
     const [token, projectRoles] = await Promise.all([
       createSession({ id: user.id, email: user.email, name: user.name }),
@@ -79,7 +109,9 @@ export async function POST(request: NextRequest) {
           name: user.name,
           email: user.email,
         },
+        preferredRole: user.preferredRole,
         projectRoles: projectRoles.map((pr) => ({ role: pr.role })),
+        isAdmin,
       },
     });
 

@@ -41,7 +41,7 @@ export default function AnalysisPage() {
   const { project, isLoading: projectLoading } = useProject();
   const projectName = project?.name ?? '';
   const myRole = project?.myRole ?? '';
-  const hasAccess = ['OWNER', 'PMC'].includes(myRole);
+  const hasAccess = ['CLIENT', 'PMC'].includes(myRole);
 
   // SWR per-tab — each tab data is keyed by tab id, so flipping tabs is
   // instant after first load. dedupingInterval matches the route's 120s

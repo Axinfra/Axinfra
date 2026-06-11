@@ -16,6 +16,14 @@
     border-color: rgba(255, 255, 255, 0.08);
   }
 
+  button, [role="button"], a, select, label[for], summary {
+    cursor: pointer;
+  }
+
+  button:disabled {
+    cursor: not-allowed;
+  }
+
   html {
     font-feature-settings: 'cv11', 'ss01';
     -webkit-font-smoothing: antialiased;

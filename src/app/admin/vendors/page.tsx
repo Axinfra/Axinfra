@@ -1,45 +1,45 @@
 import { redirect } from 'next/navigation';
-import Layout from '@/components/Layout';
 import VendorOnboardingClient from '@/components/vendor/VendorOnboardingClient';
 import { getSession } from '@/lib/auth';
+import { requireAdminAccess } from '@/lib/adminAuth';
 import { prisma } from '@/lib/db';
 import { Role } from '@/types';
 
 export const dynamic = 'force-dynamic';
 
-export default async function VendorOnboardingPage() {
+export default async function AdminVendorsPage() {
   const session = await getSession();
-  if (!session) {
-    redirect('/auth/login');
-  }
+  if (!session) redirect('/auth/login');
 
-  // Fetch admin (OWNER/PMC) projects for this user, ordered most recent first.
-  const adminRoles = await prisma.projectRole.findMany({
-    where: {
-      userId: session.userId,
-      role: { in: [Role.OWNER, Role.PMC] },
-      project: { deletedAt: null },
-    },
-    include: {
-      project: { select: { id: true, name: true } },
-    },
-    orderBy: { createdAt: 'desc' },
-  });
-
-  if (adminRoles.length === 0) {
+  try {
+    await requireAdminAccess(session.email);
+  } catch {
     redirect('/projects');
   }
 
-  const projects = adminRoles.map((r) => ({
-    projectId: r.project.id,
-    projectName: r.project.name,
-    role: r.role,
+  // Platform admin sees ALL projects, not just ones they manage
+  const allProjects = await prisma.project.findMany({
+    where: { deletedAt: null },
+    select: { id: true, name: true },
+    orderBy: { createdAt: 'desc' },
+  });
+
+  if (allProjects.length === 0) {
+    return (
+      <div className="px-8 py-10 text-[rgba(232,228,220,0.45)] text-sm">
+        No projects exist yet.
+      </div>
+    );
+  }
+
+  const projects = allProjects.map((p) => ({
+    projectId: p.id,
+    projectName: p.name,
+    role: Role.CLIENT,
   }));
 
   const initialProjectId = projects[0].projectId;
 
-  // Pre-fetch the initial vendor list so the table renders on first paint.
-  // Switching projects in the client uses SWR to refetch from the existing API.
   const initialVendorRoles = await prisma.projectRole.findMany({
     where: { projectId: initialProjectId, role: Role.VENDOR },
     include: {
@@ -58,12 +58,18 @@ export default async function VendorOnboardingPage() {
   }));
 
   return (
-    <Layout>
+    <div className="px-8 py-8 max-w-[1200px]">
+      <div className="mb-6">
+        <h1 className="text-2xl font-bold text-[#e8e4dc]">Vendors</h1>
+        <p className="text-[13.5px] text-[rgba(232,228,220,0.45)] mt-1">
+          Manage vendor accounts and project assignments across the platform
+        </p>
+      </div>
       <VendorOnboardingClient
         projects={projects}
         initialProjectId={initialProjectId}
         initialVendors={initialVendors}
       />
-    </Layout>
+    </div>
   );
 }

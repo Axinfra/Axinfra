@@ -89,6 +89,7 @@ model CustomView {
   isDefault Boolean  @default(false)
   createdAt DateTime @default(now())
   updatedAt DateTime @updatedAt
+  project   Project  @relation(fields: [projectId], references: [id], onDelete: Cascade)
 
   @@unique([projectId, userId, name])
   @@index([projectId])
@@ -311,11 +312,13 @@ model Project {
   systemEvents     SystemEvent[]
   cashAdjustments  CashAdjustment[]
   privateCosts     PrivateCostEntry[]
+  customViews      CustomView[]
   // Architecture module
   drawingSets      DrawingSet[]
   drawingRows      DrawingRow[]
   setRequests      SetRequest[]
   vendorRequests   VendorRequest[]
+  projectInvites   ProjectInvite[]
 }
 
 /// Dependency link between two milestones (CPM / Gantt edges)
@@ -371,7 +374,10 @@ model User {
   id                      String                     @id @default(uuid())
   name                    String
   email                   String                     @unique
-  hashedPassword          String
+  hashedPassword          String?
+  googleId                String?                    @unique
+  avatarUrl               String?
+  preferredRole           String?
   createdAt               DateTime                   @default(now())
   updatedAt               DateTime                   @updatedAt
   auditLogs               AuditLog[]
@@ -398,6 +404,7 @@ model User {
   vendorRequestsSubmitted  VendorRequest[]     @relation("VendorRequestSubmitter")
   vendorRequestsResponded  VendorRequest[]     @relation("VendorRequestResponder")
   vendorRequestFiles       VendorRequestFile[] @relation("VendorRequestFileUploader")
+  projectInvitesSent       ProjectInvite[]     @relation("ProjectInviteInviter")
 }
 
 model Verification {
@@ -695,6 +702,28 @@ model VendorRequest {
   @@index([projectId, createdAt])
   @@index([projectId, sendTo])
   @@index([projectId, submittedById])
+}
+
+/// Pending invitation for a user who is not yet on the platform
+model ProjectInvite {
+  id          String   @id @default(uuid())
+  projectId   String
+  email       String
+  role        String
+  token       String   @unique
+  status      String   @default("PENDING") // PENDING | ACCEPTED | EXPIRED
+  invitedById String
+  expiresAt   DateTime
+  createdAt   DateTime @default(now())
+
+  project   Project @relation(fields: [projectId], references: [id], onDelete: Cascade)
+  invitedBy User    @relation("ProjectInviteInviter", fields: [invitedById], references: [id])
+
+  @@unique([projectId, email])
+  @@index([projectId])
+  @@index([email])
+  @@index([token])
+  @@index([status])
 }
 
 /// File attachment for a vendor request

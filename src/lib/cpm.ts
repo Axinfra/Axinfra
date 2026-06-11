@@ -60,6 +60,45 @@ function topologicalSort(
   return { order, hasCycle: order.length !== nodes.length };
 }
 
+function describeCycle(
+  nodes: CpmInput[],
+  edges: Map<string, { successors: string[]; predecessors: string[] }>,
+): string {
+  const nodeMap = new Map(nodes.map((n) => [n.id, n]));
+  const visiting = new Set<string>();
+  const visited = new Set<string>();
+  const stack: string[] = [];
+
+  function visit(id: string): string[] | null {
+    if (visiting.has(id)) {
+      const start = stack.indexOf(id);
+      return [...stack.slice(Math.max(0, start)), id];
+    }
+    if (visited.has(id)) return null;
+
+    visiting.add(id);
+    stack.push(id);
+    for (const successorId of edges.get(id)?.successors ?? []) {
+      const cycle = visit(successorId);
+      if (cycle) return cycle;
+    }
+    stack.pop();
+    visiting.delete(id);
+    visited.add(id);
+    return null;
+  }
+
+  for (const node of nodes) {
+    const cycle = visit(node.id);
+    if (cycle) {
+      const names = cycle.map((id) => nodeMap.get(id)?.title ?? id);
+      return `Circular dependency: ${names.join(' → ')}. Remove one link in this loop.`;
+    }
+  }
+
+  return 'A circular dependency was found. Remove one link in the loop to restore the flow.';
+}
+
 // -------------------------------------------------------------------------
 // Public API
 // -------------------------------------------------------------------------
@@ -106,8 +145,7 @@ export function computeCPM(
       criticalPath: [],
       projectDuration: 0,
       hasCycle: true,
-      cycleDescription:
-        'A dependency cycle was detected. Resolve circular dependencies to enable CPM.',
+      cycleDescription: describeCycle(milestones, edges),
     };
   }
 

@@ -1,6 +1,7 @@
 import type { Metadata } from 'next';
 import { Inter, Playfair_Display } from 'next/font/google';
 import SWRProvider from '@/components/SWRProvider';
+import DBWakeup from '@/components/DBWakeup';
 import './globals.css';
 
 const inter = Inter({
@@ -28,7 +29,7 @@ export default function RootLayout({
 }) {
   return (
     <html lang="en" className={`${inter.variable} ${playfair.variable}`}>
-      <body className={`${inter.className} antialiased`}><SWRProvider>{children}</SWRProvider></body>
+      <body className={`${inter.className} antialiased`}><SWRProvider><DBWakeup />{children}</SWRProvider></body>
     </html>
   );
 }

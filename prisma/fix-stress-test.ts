@@ -55,14 +55,14 @@ function randomInt(min: number, max: number) {
 }
 
 async function main() {
-  console.log('🔍 STEP 1: Finding Marina Tower project...\n');
+  // console.log('🔍 STEP 1: Finding Marina Tower project...\n');
 
   const project = await prisma.project.findFirst({ where: { name: PROJECT_NAME } });
   if (!project) {
     console.error('❌ Project not found. Run seed:stress first.');
     process.exit(1);
   }
-  console.log(`  Project ID: ${project.id}\n`);
+  // console.log(`  Project ID: ${project.id}\n`);
 
   // Get users
   const roles = await prisma.projectRole.findMany({
@@ -73,12 +73,12 @@ async function main() {
   const pmcUser = roles.find(r => r.role === Role.PMC)!.user;
   const vendorUsers = roles.filter(r => r.role === Role.VENDOR).map(r => r.user);
 
-  console.log(`  Owner: ${ownerUser.email}`);
-  console.log(`  PMC: ${pmcUser.email}`);
-  console.log(`  Vendors: ${vendorUsers.map(v => v.email).join(', ')}\n`);
+  // console.log(`  Owner: ${ownerUser.email}`);
+  // console.log(`  PMC: ${pmcUser.email}`);
+  // console.log(`  Vendors: ${vendorUsers.map(v => v.email).join(', ')}\n`);
 
   // ── STEP 2: DIAGNOSE CURRENT STATE ──────────────────────────────────────────
-  console.log('🔍 STEP 2: Diagnosing current state...\n');
+  // console.log('🔍 STEP 2: Diagnosing current state...\n');
 
   const milestones = await prisma.milestone.findMany({
     where: { projectId: project.id },
@@ -91,14 +91,14 @@ async function main() {
     },
   });
 
-  console.log(`  Total milestones: ${milestones.length}`);
+  // console.log(`  Total milestones: ${milestones.length}`);
 
   // Count by state
   const stateCounts: Record<string, number> = {};
   for (const m of milestones) {
     stateCounts[m.state] = (stateCounts[m.state] || 0) + 1;
   }
-  console.log('  Current state distribution:', stateCounts);
+  // console.log('  Current state distribution:', stateCounts);
 
   // Count evidence
   const evidenceCounts: Record<string, number> = {};
@@ -107,7 +107,7 @@ async function main() {
       evidenceCounts[e.status] = (evidenceCounts[e.status] || 0) + 1;
     }
   }
-  console.log('  Evidence statuses:', evidenceCounts);
+  // console.log('  Evidence statuses:', evidenceCounts);
 
   // Count payment eligibility states
   const eligCounts: Record<string, number> = {};
@@ -116,44 +116,44 @@ async function main() {
       eligCounts[m.paymentEligibility.state] = (eligCounts[m.paymentEligibility.state] || 0) + 1;
     }
   }
-  console.log('  Payment eligibility states:', eligCounts);
+  // console.log('  Payment eligibility states:', eligCounts);
 
   // Check values
   const nullValues = milestones.filter(m => !m.value || m.value === 0).length;
   const totalValue = milestones.reduce((s, m) => s + m.value, 0);
-  console.log(`  Milestones with null/zero value: ${nullValues}`);
-  console.log(`  Total milestone value: AED ${totalValue.toLocaleString()}`);
+  // console.log(`  Milestones with null/zero value: ${nullValues}`);
+  // console.log(`  Total milestone value: AED ${totalValue.toLocaleString()}`);
 
   // Check verifications
   const totalVerifications = milestones.reduce((s, m) => s + m.verifications.length, 0);
-  console.log(`  Total verification records: ${totalVerifications}`);
+  // console.log(`  Total verification records: ${totalVerifications}`);
 
   // Check BOQ links
   const totalBoqLinks = milestones.reduce((s, m) => s + m.boqLinks.length, 0);
-  console.log(`  Total BOQ links: ${totalBoqLinks}`);
+  // console.log(`  Total BOQ links: ${totalBoqLinks}`);
 
   // Check null vendorUserId
   const nullVendor = milestones.filter(m => !m.vendorUserId).length;
-  console.log(`  Milestones with null vendorUserId: ${nullVendor}`);
+  // console.log(`  Milestones with null vendorUserId: ${nullVendor}`);
 
   // BOQ items
   const boq = await prisma.bOQ.findFirst({
     where: { projectId: project.id },
     include: { items: true },
   });
-  console.log(`  BOQ items: ${boq?.items.length || 0}`);
+  // console.log(`  BOQ items: ${boq?.items.length || 0}`);
 
   // Audit log count
   const auditCount = await prisma.auditLog.count({ where: { projectId: project.id } });
-  console.log(`  Audit log entries: ${auditCount}`);
+  // console.log(`  Audit log entries: ${auditCount}`);
 
-  console.log('\n');
+  // console.log('\n');
 
   // ── STEP 3: FIX MILESTONE STATES ───────────────────────────────────────────
   // Target: 80 CLOSED, 20 SUBMITTED, 35 DRAFT, 15 IN_PROGRESS
   // Current: 80 CLOSED, 20 SUBMITTED, 40 DRAFT, 10 IN_PROGRESS
   // Fix: change 5 DRAFT milestones (idx 135-139) to IN_PROGRESS
-  console.log('🔧 STEP 3: Fixing milestone state distribution...\n');
+  // console.log('🔧 STEP 3: Fixing milestone state distribution...\n');
 
   // Current distribution per seed:
   // idx 0-79: CLOSED (approved)
@@ -199,7 +199,7 @@ async function main() {
       stateFixCount++;
     }
   }
-  console.log(`  Fixed ${stateFixCount} milestone states.`);
+  // console.log(`  Fixed ${stateFixCount} milestone states.`);
 
   // Verify new distribution
   const updatedMilestones = await prisma.milestone.findMany({
@@ -211,10 +211,10 @@ async function main() {
   for (const m of updatedMilestones) {
     newStateCounts[m.state] = (newStateCounts[m.state] || 0) + 1;
   }
-  console.log('  New state distribution:', newStateCounts);
+  // console.log('  New state distribution:', newStateCounts);
 
   // ── STEP 3b: FIX EVIDENCE FOR STATE CHANGES ─────────────────────────────────
-  console.log('\n🔧 STEP 3b: Fixing evidence for state-changed milestones...\n');
+  // console.log('\n🔧 STEP 3b: Fixing evidence for state-changed milestones...\n');
 
   // Delete old evidence for milestones that changed state (idx 125-149)
   // idx 125-134: were IN_PROGRESS (rejected) with REJECTED evidence → now DRAFT (pending), delete evidence
@@ -230,7 +230,7 @@ async function main() {
       await prisma.evidence.deleteMany({ where: { milestoneId: m.id } });
     }
   }
-  console.log('  Deleted evidence for 10 milestones changed from IN_PROGRESS to DRAFT.');
+  // console.log('  Deleted evidence for 10 milestones changed from IN_PROGRESS to DRAFT.');
 
   // Create REJECTED evidence for idx 135-149
   let newEvidenceCount = 0;
@@ -266,10 +266,10 @@ async function main() {
       newEvidenceCount++;
     }
   }
-  console.log(`  Created ${newEvidenceCount} REJECTED evidence records for newly-rejected milestones.`);
+  // console.log(`  Created ${newEvidenceCount} REJECTED evidence records for newly-rejected milestones.`);
 
   // ── STEP 4: CREATE VERIFICATION RECORDS ─────────────────────────────────────
-  console.log('\n🔧 STEP 4: Creating Verification records for CLOSED milestones...\n');
+  // console.log('\n🔧 STEP 4: Creating Verification records for CLOSED milestones...\n');
 
   // Delete any existing verifications first
   const closedMilestoneIds = updatedMilestones.filter(m => m.state === MilestoneState.CLOSED).map(m => m.id);
@@ -294,10 +294,10 @@ async function main() {
     });
     verificationCount++;
   }
-  console.log(`  Created ${verificationCount} verification records.`);
+  // console.log(`  Created ${verificationCount} verification records.`);
 
   // ── STEP 5: FIX PAYMENT ELIGIBILITY ─────────────────────────────────────────
-  console.log('\n🔧 STEP 5: Fixing payment eligibility records...\n');
+  // console.log('\n🔧 STEP 5: Fixing payment eligibility records...\n');
 
   // Calculate which milestones to mark as paid to reach ~AED 6.5M
   let cumPaid = 0;
@@ -307,7 +307,7 @@ async function main() {
     cumPaid += updatedMilestones[i].value;
     paidIndices.push(i);
   }
-  console.log(`  Milestones marked as paid: ${paidIndices.length} (total: AED ${cumPaid.toLocaleString()})`);
+  // console.log(`  Milestones marked as paid: ${paidIndices.length} (total: AED ${cumPaid.toLocaleString()})`);
 
   // Indices for different payment states
   const fullyEligibleReadyIndices = [paidIndices.length, paidIndices.length + 1, paidIndices.length + 2, paidIndices.length + 3, paidIndices.length + 4]; // 5 ready
@@ -449,13 +449,13 @@ async function main() {
     _count: true,
     _sum: { eligibleAmount: true, blockedAmount: true },
   });
-  console.log('  Payment eligibility distribution:');
+  // console.log('  Payment eligibility distribution:');
   for (const pe of peStates) {
-    console.log(`    ${pe.state}: ${pe._count} records, eligible=AED ${(pe._sum.eligibleAmount || 0).toLocaleString()}, blocked=AED ${(pe._sum.blockedAmount || 0).toLocaleString()}`);
+    // console.log(`    ${pe.state}: ${pe._count} records, eligible=AED ${(pe._sum.eligibleAmount || 0).toLocaleString()}, blocked=AED ${(pe._sum.blockedAmount || 0).toLocaleString()}`);
   }
 
   // ── STEP 6: CREATE MILESTONE-BOQ LINKS ──────────────────────────────────────
-  console.log('\n🔧 STEP 6: Creating MilestoneBOQLinks...\n');
+  // console.log('\n🔧 STEP 6: Creating MilestoneBOQLinks...\n');
 
   if (!boq) {
     console.error('  ❌ No BOQ found!');
@@ -508,13 +508,13 @@ async function main() {
         linkCount++;
       }
     }
-    console.log(`  Created ${linkCount} MilestoneBOQLinks.`);
+    // console.log(`  Created ${linkCount} MilestoneBOQLinks.`);
 
     // ── STEP 6b: Create BOQ overrun data via Verification qtyVerified ────────
     // For Phase 2 milestones (idx 20-59), the verifications should have qtyVerified > proportionalQty
     // This triggers detectBOQOverruns which checks verifiedQty > plannedQty per BOQ item
 
-    console.log('\n🔧 STEP 6b: Adjusting verification qtyVerified for Phase 2 BOQ overrun...\n');
+    // console.log('\n🔧 STEP 6b: Adjusting verification qtyVerified for Phase 2 BOQ overrun...\n');
 
     // For Phase 2 BOQ items, we need total verifiedQty > plannedQty (9% overrun)
     // Each Phase 2 milestone verification qtyVerified was set to 100 (percentage)
@@ -553,12 +553,12 @@ async function main() {
       }
     }
 
-    console.log('  Phase 2 verifications adjusted for 9% overrun.');
-    console.log('  Phase 3 verifications adjusted for 3% underrun.');
+    // console.log('  Phase 2 verifications adjusted for 9% overrun.');
+    // console.log('  Phase 3 verifications adjusted for 3% underrun.');
   }
 
   // ── STEP 7: FIX MONTHLY COST SNAPSHOTS ──────────────────────────────────────
-  console.log('\n🔧 STEP 7: Fixing monthly ProjectMetrics with cost variances...\n');
+  // console.log('\n🔧 STEP 7: Fixing monthly ProjectMetrics with cost variances...\n');
 
   // Delete existing metrics
   await prisma.projectMetrics.deleteMany({ where: { projectId: project.id } });
@@ -614,13 +614,13 @@ async function main() {
       },
     });
   }
-  console.log('  ✓ 24 monthly cost snapshots recreated with phase-specific variances.');
-  console.log(`    Months 7-14 (Phase 2): +9% overrun`);
-  console.log(`    Months 15-18 (Phase 3): -3% underrun`);
-  console.log(`    Other months: ±1%`);
+  // console.log('  ✓ 24 monthly cost snapshots recreated with phase-specific variances.');
+  // console.log(`    Months 7-14 (Phase 2): +9% overrun`);
+  // console.log(`    Months 15-18 (Phase 3): -3% underrun`);
+  // console.log(`    Other months: ±1%`);
 
   // ── STEP 8: FIX AUDIT LOG ──────────────────────────────────────────────────
-  console.log('\n🔧 STEP 8: Adding missing audit log entries...\n');
+  // console.log('\n🔧 STEP 8: Adding missing audit log entries...\n');
 
   const now = new Date();
   const projectStart = new Date(now.getTime() - 24 * 30.44 * 86_400_000);
@@ -753,13 +753,13 @@ async function main() {
     const batch = newAuditEntries.slice(i, i + BATCH_SIZE);
     await prisma.auditLog.createMany({ data: batch });
   }
-  console.log(`  Added ${newAuditEntries.length} new audit log entries.`);
+  // console.log(`  Added ${newAuditEntries.length} new audit log entries.`);
 
   const finalAuditCount = await prisma.auditLog.count({ where: { projectId: project.id } });
-  console.log(`  Total audit log entries: ${finalAuditCount}`);
+  // console.log(`  Total audit log entries: ${finalAuditCount}`);
 
   // ── STEP 9: CREATE ELIGIBILITY EVENTS ───────────────────────────────────────
-  console.log('\n🔧 STEP 9: Creating eligibility events for payment state transitions...\n');
+  // console.log('\n🔧 STEP 9: Creating eligibility events for payment state transitions...\n');
 
   // Delete existing eligibility events
   await prisma.eligibilityEvent.deleteMany({
@@ -860,12 +860,12 @@ async function main() {
     eventCount++;
   }
 
-  console.log(`  Created ${eventCount} eligibility events.`);
+  // console.log(`  Created ${eventCount} eligibility events.`);
 
   // ── FINAL SUMMARY ──────────────────────────────────────────────────────────
-  console.log('\n' + '═'.repeat(60));
-  console.log('  ✅ DATA FIX COMPLETE');
-  console.log('═'.repeat(60));
+  // console.log('\n' + '═'.repeat(60));
+  // console.log('  ✅ DATA FIX COMPLETE');
+  // console.log('═'.repeat(60));
 
   // Final verification queries
   const finalMilestones = await prisma.milestone.findMany({
@@ -891,13 +891,13 @@ async function main() {
   const verifiedTotal = closedValue;
   const blockedTotal = finalPE.filter(p => p.state === EligibilityState.BLOCKED).reduce((s, p) => s + p.blockedAmount, 0);
 
-  console.log(`\n  Milestone States: ${JSON.stringify(finalStateCounts)}`);
-  console.log(`  Total Contract Value: AED ${CONTRACT_VALUE.toLocaleString()}`);
-  console.log(`  Verified Value (CLOSED milestones): AED ${verifiedTotal.toLocaleString()}`);
-  console.log(`  Exposed Value (SUBMITTED + DRAFT): AED ${(submittedValue + draftValue).toLocaleString()}`);
-  console.log(`  Released Payments (MARKED_PAID): AED ${paidTotal.toLocaleString()}`);
-  console.log(`  Blocked Payments: AED ${blockedTotal.toLocaleString()}`);
-  console.log(`  Unpaid (Verified - Paid): AED ${(verifiedTotal - paidTotal).toLocaleString()}`);
+  // console.log(`\n  Milestone States: ${JSON.stringify(finalStateCounts)}`);
+  // console.log(`  Total Contract Value: AED ${CONTRACT_VALUE.toLocaleString()}`);
+  // console.log(`  Verified Value (CLOSED milestones): AED ${verifiedTotal.toLocaleString()}`);
+  // console.log(`  Exposed Value (SUBMITTED + DRAFT): AED ${(submittedValue + draftValue).toLocaleString()}`);
+  // console.log(`  Released Payments (MARKED_PAID): AED ${paidTotal.toLocaleString()}`);
+  // console.log(`  Blocked Payments: AED ${blockedTotal.toLocaleString()}`);
+  // console.log(`  Unpaid (Verified - Paid): AED ${(verifiedTotal - paidTotal).toLocaleString()}`);
 
   const finalAudit = await prisma.auditLog.count({ where: { projectId: project.id } });
   const finalEvidence = await prisma.evidence.count({ where: { milestone: { projectId: project.id } } });
@@ -905,12 +905,12 @@ async function main() {
   const finalLinks = await prisma.milestoneBOQLink.count({ where: { milestone: { projectId: project.id } } });
   const finalEvents = await prisma.eligibilityEvent.count({ where: { paymentEligibility: { milestone: { projectId: project.id } } } });
 
-  console.log(`\n  Evidence records: ${finalEvidence}`);
-  console.log(`  Verification records: ${finalVerifications}`);
-  console.log(`  BOQ links: ${finalLinks}`);
-  console.log(`  Eligibility events: ${finalEvents}`);
-  console.log(`  Audit log entries: ${finalAudit}`);
-  console.log('═'.repeat(60));
+  // console.log(`\n  Evidence records: ${finalEvidence}`);
+  // console.log(`  Verification records: ${finalVerifications}`);
+  // console.log(`  BOQ links: ${finalLinks}`);
+  // console.log(`  Eligibility events: ${finalEvents}`);
+  // console.log(`  Audit log entries: ${finalAudit}`);
+  // console.log('═'.repeat(60));
 }
 
 main()

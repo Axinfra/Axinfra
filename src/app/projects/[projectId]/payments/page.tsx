@@ -159,7 +159,7 @@ export default function PaymentsPage() {
   const myRole = project?.myRole ?? '';
   const projectName = project?.name ?? '';
   const permissions = (project?.permissions ?? {}) as Record<string, boolean>;
-  const isOwner = myRole === 'OWNER';
+  const isOwner = myRole === 'CLIENT';
 
   // ── Tab state ───────────────────────────────────────────────────────────────
   const [activeTab, setActiveTab] = useState<'milestones' | 'architecture'>('milestones');
@@ -879,7 +879,7 @@ function VendorInvoiceView({ milestones, projectName }: { milestones: Milestone[
       </div>
 
       {/* Summary strip */}
-      <div className="grid grid-cols-3 gap-3">
+      <div className="grid grid-cols-1 sm:grid-cols-3 gap-3">
         <div className="card">
           <div className="card-body py-3">
             <div className="flex items-center gap-2 mb-1">

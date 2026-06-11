@@ -223,6 +223,10 @@ export function computeSCurve(
   let cursor = startOfDay(from);
   const end = startOfDay(to);
 
+  // Adapt step size so short-range projects (few days) still produce enough points
+  const totalDays = Math.max(1, Math.ceil((end.getTime() - cursor.getTime()) / 86_400_000));
+  const adaptiveStep = Math.max(1, Math.min(stepDays, Math.floor(totalDays / 10)));
+
   while (!isAfter(cursor, end)) {
     const dateStr = cursor.toISOString().slice(0, 10);
     const plannedCumulative =
@@ -237,12 +241,11 @@ export function computeSCurve(
 
     points.push({
       date: dateStr,
-      plannedCumulative: Math.round(plannedCumulative * 1000) / 10, // 0–100%
+      plannedCumulative: Math.round(plannedCumulative * 1000) / 10,
       actualCumulative: Math.round(actualCumulative * 1000) / 10,
     });
 
-    // Advance cursor by stepDays
-    cursor = new Date(cursor.getTime() + stepDays * 24 * 60 * 60 * 1000);
+    cursor = new Date(cursor.getTime() + adaptiveStep * 24 * 60 * 60 * 1000);
   }
 
   return points;
@@ -263,6 +266,8 @@ export function computeBurndown(
 
   let cursor = startOfDay(from);
   const end = startOfDay(to);
+  const totalDays = Math.max(1, Math.ceil((end.getTime() - cursor.getTime()) / 86_400_000));
+  const adaptiveStep = Math.max(1, Math.min(stepDays, Math.floor(totalDays / 10)));
 
   while (!isAfter(cursor, end)) {
     const dateStr = cursor.toISOString().slice(0, 10);
@@ -285,7 +290,7 @@ export function computeBurndown(
       actualRemaining: Math.round(actualRemaining * 1000) / 10,
     });
 
-    cursor = new Date(cursor.getTime() + stepDays * 24 * 60 * 60 * 1000);
+    cursor = new Date(cursor.getTime() + adaptiveStep * 24 * 60 * 60 * 1000);
   }
 
   return points;

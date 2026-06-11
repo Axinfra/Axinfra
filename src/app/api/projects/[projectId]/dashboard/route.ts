@@ -21,7 +21,7 @@ export async function GET(
 
     const TTL = 120_000; // 120s cache
     switch (auth.role) {
-      case Role.OWNER:
+      case Role.CLIENT:
         dashboardData = await cached(`dash:owner:${projectId}`, TTL, () => getOwnerDashboard(projectId));
         break;
       case Role.PMC:

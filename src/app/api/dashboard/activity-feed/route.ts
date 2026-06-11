@@ -27,7 +27,7 @@ export async function GET(request: NextRequest) {
     }
 
     const auth = await requireProjectAuth(projectId);
-    if (auth.role !== Role.OWNER && auth.role !== Role.PMC) {
+    if (auth.role !== Role.CLIENT && auth.role !== Role.PMC) {
       return NextResponse.json(
         { success: false, error: 'Owner or PMC access required' },
         { status: 403 },
@@ -43,7 +43,7 @@ export async function GET(request: NextRequest) {
 
     // Hide private cash module entries from PMC; only OWNER sees those.
     const excludeActionTypes =
-      auth.role === Role.OWNER ? [] : ['CASH_ADJUSTMENT_CREATE', 'PRIVATE_COST_CREATE'];
+      auth.role === Role.CLIENT ? [] : ['CASH_ADJUSTMENT_CREATE', 'PRIVATE_COST_CREATE'];
 
     const [logs, totalCount] = await Promise.all([
       prisma.auditLog.findMany({

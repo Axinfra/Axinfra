@@ -24,7 +24,7 @@ interface ActivityFeedPayload {
 const PAGE_SIZE = 20;
 
 const ROLE_STYLE: Record<string, { bg: string; color: string; label: string }> = {
-  OWNER: { bg: 'rgba(255,255,255,0.10)', color: '#ffffff', label: 'Owner' },
+  CLIENT: { bg: 'rgba(255,255,255,0.10)', color: '#ffffff', label: 'Client' },
   PMC: { bg: 'rgba(74,144,217,0.18)', color: '#4A90D9', label: 'PMC' },
   VENDOR: { bg: 'rgba(245,166,35,0.18)', color: '#F5A623', label: 'Vendor' },
   VIEWER: { bg: 'rgba(232,228,220,0.10)', color: 'rgba(232,228,220,0.55)', label: 'Viewer' },

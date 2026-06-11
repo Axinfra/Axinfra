@@ -8,6 +8,7 @@ import {
 } from 'recharts';
 import Layout from '@/components/Layout';
 import ViseronNav from '@/components/viseron/ViseronNav';
+import { DARK_TOOLTIP } from '@/lib/chartConfig';
 import HealthGauge from '@/components/viseron/HealthGauge';
 import RiskPanel from '@/components/viseron/RiskPanel';
 import { useProject } from '@/lib/contexts/ProjectContext';
@@ -158,18 +159,9 @@ export default function ViseronDashboardPage() {
                           ))}
                         </Pie>
                         <Tooltip
-                          formatter={(value: number, name: string) => [
-                            value,
-                            STATE_LABELS[name] || name,
-                          ]}
-                          contentStyle={{
-                            borderRadius: 10,
-                            border: '1px solid rgba(255,255,255,0.1)',
-                            background: '#1a1c22',
-                            boxShadow: '0 4px 12px rgba(0,0,0,0.4)',
-                            fontSize: 12,
-                            color: '#e8e4dc',
-                          }}
+                          formatter={(value: number, name: string) => [value, STATE_LABELS[name] || name]}
+                          contentStyle={{ borderRadius: 10, border: '1px solid rgba(255,255,255,0.1)', background: '#1a1c22', boxShadow: '0 4px 12px rgba(0,0,0,0.4)', fontSize: 12, color: '#e8e4dc' }}
+                          wrapperStyle={{ outline: 'none' }}
                         />
                       </PieChart>
                     </ResponsiveContainer>
@@ -225,7 +217,7 @@ export default function ViseronDashboardPage() {
                       tick={{ fontSize: 11, fill: 'rgba(232,228,220,0.55)' }}
                       width={90}
                     />
-                    <Tooltip formatter={(v: number) => `${v}%`} />
+                    <Tooltip {...DARK_TOOLTIP} formatter={(v: number) => `${v}%`} />
                     <Bar dataKey="reliability" name="Reliability" radius={[0, 4, 4, 0]} barSize={18}>
                       {data.vendorScores.slice(0, 6).map((v) => (
                         <Cell

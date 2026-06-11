@@ -37,7 +37,7 @@ export async function GET() {
       120_000,
       async () => {
         const ownerProjects = await prisma.projectRole.findMany({
-          where: { userId: auth.userId, role: Role.OWNER, project: { deletedAt: null } },
+          where: { userId: auth.userId, role: Role.CLIENT, project: { deletedAt: null } },
           select: { projectId: true },
         });
         const projectIds = ownerProjects.map((p) => p.projectId);

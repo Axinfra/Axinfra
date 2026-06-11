@@ -2,7 +2,7 @@
 
 import { useRouter, usePathname } from 'next/navigation';
 import Link from 'next/link';
-import { useState, useEffect, useRef } from 'react';
+import { useState, useEffect, useRef, FormEvent } from 'react';
 
 interface LayoutProps {
   children: React.ReactNode;
@@ -41,6 +41,36 @@ export default function Layout({ children }: LayoutProps) {
   const [isVendorOnly, setIsVendorOnly] = useState(false);
   const [vendorProjects, setVendorProjects] = useState<ProjectRoleInfo[]>([]);
 
+  // Support modal
+  const [supportOpen, setSupportOpen] = useState(false);
+  const [support, setSupport] = useState({ name: '', email: '', subject: '', message: '' });
+  const [supportState, setSupportState] = useState<'idle' | 'sending' | 'sent' | 'error'>('idle');
+  const [supportError, setSupportError] = useState('');
+
+  async function handleSupportSubmit(e: FormEvent) {
+    e.preventDefault();
+    setSupportState('sending');
+    setSupportError('');
+    try {
+      const res = await fetch('/api/contact', {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify(support),
+      });
+      const data = await res.json();
+      if (data.success) {
+        setSupportState('sent');
+        setSupport({ name: '', email: '', subject: '', message: '' });
+      } else {
+        setSupportState('error');
+        setSupportError(data.error || 'Something went wrong');
+      }
+    } catch {
+      setSupportState('error');
+      setSupportError('Network error. Please email dev@axinfra.in directly.');
+    }
+  }
+
   // Notifications
   const [notifications, setNotifications] = useState<Notification[]>([]);
   const [notifOpen, setNotifOpen] = useState(false);
@@ -58,7 +88,7 @@ export default function Layout({ children }: LayoutProps) {
         if (data.success) {
           setUser(data.data.user);
           const roles: ProjectRoleInfo[] = data.data.projectRoles || [];
-          setIsAdminUser(roles.some((r) => r.role === 'OWNER' || r.role === 'PMC'));
+          setIsAdminUser(roles.some((r) => r.role === 'CLIENT' || r.role === 'PMC'));
           const vendorOnly = roles.length > 0 && roles.every((r) => r.role === 'VENDOR');
           setIsVendorOnly(vendorOnly);
           if (vendorOnly) {
@@ -206,6 +236,17 @@ export default function Layout({ children }: LayoutProps) {
           )}
         </nav>
 
+        {/* Support button */}
+        <div className="px-3 pb-2 shrink-0">
+          <button
+            onClick={() => { setSupportOpen(true); setSupportState('idle'); }}
+            className="w-full flex items-center gap-2.5 px-3 py-2 rounded-lg text-[13px] font-medium text-[rgba(232,228,220,0.5)] hover:bg-[rgba(255,255,255,0.05)] hover:text-[#e8e4dc] transition-colors duration-100"
+          >
+            <SupportIcon className="w-[18px] h-[18px] shrink-0" />
+            Support
+          </button>
+        </div>
+
         {/* User section */}
         {user && (
           <div className="border-t border-[rgba(255,255,255,0.07)] px-3 py-3 shrink-0">
@@ -328,6 +369,106 @@ export default function Layout({ children }: LayoutProps) {
           </div>
         </main>
       </div>
+
+      {/* Support Modal */}
+      {supportOpen && (
+        <div className="fixed inset-0 bg-black/70 flex items-end sm:items-center justify-center z-[60] p-4">
+          <div className="bg-[#13151a] border border-[rgba(255,255,255,0.1)] rounded-2xl w-full max-w-lg max-h-[90vh] overflow-y-auto">
+            <div className="sticky top-0 bg-[#13151a] px-6 py-4 border-b border-[rgba(255,255,255,0.07)] flex items-center justify-between">
+              <div>
+                <h2 className="text-base font-semibold text-[#e8e4dc]">Support</h2>
+                <p className="text-xs text-[rgba(232,228,220,0.4)] mt-0.5">We&apos;ll get back within 1–2 business days.</p>
+              </div>
+              <button
+                onClick={() => setSupportOpen(false)}
+                className="p-1.5 rounded-lg text-[rgba(232,228,220,0.4)] hover:text-[#e8e4dc] hover:bg-[rgba(255,255,255,0.06)] transition-colors"
+                aria-label="Close"
+              >
+                <CloseIcon className="w-4 h-4" />
+              </button>
+            </div>
+
+            <div className="p-6">
+              {supportState === 'sent' ? (
+                <div className="text-center py-6">
+                  <div className="w-12 h-12 rounded-full bg-[rgba(92,186,128,0.1)] flex items-center justify-center mx-auto mb-4">
+                    <svg className="w-6 h-6 text-[#5cba80]" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                      <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M5 13l4 4L19 7" />
+                    </svg>
+                  </div>
+                  <h3 className="text-base font-semibold text-[#e8e4dc] mb-2">Message sent!</h3>
+                  <p className="text-sm text-[rgba(232,228,220,0.5)] mb-5">We&apos;ve sent a confirmation to your email and will be in touch shortly.</p>
+                  <button onClick={() => setSupportOpen(false)} className="btn btn-secondary text-sm">
+                    Close
+                  </button>
+                </div>
+              ) : (
+                <form onSubmit={handleSupportSubmit} className="space-y-4">
+                  <div className="grid grid-cols-2 gap-3">
+                    <div>
+                      <label className="label text-xs">Name *</label>
+                      <input
+                        type="text" required className="input text-sm"
+                        value={support.name}
+                        onChange={e => setSupport(s => ({ ...s, name: e.target.value }))}
+                        placeholder="Your name"
+                      />
+                    </div>
+                    <div>
+                      <label className="label text-xs">Email *</label>
+                      <input
+                        type="email" required className="input text-sm"
+                        value={support.email}
+                        onChange={e => setSupport(s => ({ ...s, email: e.target.value }))}
+                        placeholder="you@company.com"
+                      />
+                    </div>
+                  </div>
+
+                  <div>
+                    <label className="label text-xs">Subject *</label>
+                    <select
+                      required className="input text-sm"
+                      value={support.subject}
+                      onChange={e => setSupport(s => ({ ...s, subject: e.target.value }))}
+                    >
+                      <option value="" disabled>Select a topic…</option>
+                      <option value="Bug report">Bug report</option>
+                      <option value="Feature request">Feature request</option>
+                      <option value="Account or login issue">Account or login issue</option>
+                      <option value="Billing or payment query">Billing or payment query</option>
+                      <option value="General inquiry">General inquiry</option>
+                    </select>
+                  </div>
+
+                  <div>
+                    <label className="label text-xs">Message *</label>
+                    <textarea
+                      required rows={4} className="input text-sm resize-none"
+                      value={support.message}
+                      onChange={e => setSupport(s => ({ ...s, message: e.target.value }))}
+                      placeholder="Describe your issue or question…"
+                    />
+                  </div>
+
+                  {supportState === 'error' && (
+                    <div className="alert alert-error text-sm">{supportError}</div>
+                  )}
+
+                  <div className="flex justify-end gap-3 pt-1">
+                    <button type="button" onClick={() => setSupportOpen(false)} className="btn btn-secondary text-sm">
+                      Cancel
+                    </button>
+                    <button type="submit" disabled={supportState === 'sending'} className="btn btn-primary text-sm">
+                      {supportState === 'sending' ? 'Sending…' : 'Send Message'}
+                    </button>
+                  </div>
+                </form>
+              )}
+            </div>
+          </div>
+        </div>
+      )}
     </div>
   );
 }
@@ -396,6 +537,22 @@ function ViseronNavIcon({ className }: { className?: string }) {
       <path strokeLinecap="round" strokeLinejoin="round" d="M12 3L20 7.5V16.5L12 21L4 16.5V7.5L12 3Z" />
       <circle cx="12" cy="12" r="3" strokeWidth={1.5} />
       <path strokeLinecap="round" d="M12 6V9M12 15V18M7 8.5L9.5 10M14.5 14L17 15.5M7 15.5L9.5 14M14.5 10L17 8.5" strokeWidth="1" opacity="0.5" />
+    </svg>
+  );
+}
+
+function SupportIcon({ className }: { className?: string }) {
+  return (
+    <svg className={className} fill="none" viewBox="0 0 24 24" strokeWidth={1.5} stroke="currentColor">
+      <path strokeLinecap="round" strokeLinejoin="round" d="M9.879 7.519c1.171-1.025 3.071-1.025 4.242 0 1.172 1.025 1.172 2.687 0 3.712-.203.179-.43.326-.67.442-.745.361-1.45.999-1.45 1.827v.75M21 12a9 9 0 1 1-18 0 9 9 0 0 1 18 0Zm-9 5.25h.008v.008H12v-.008Z" />
+    </svg>
+  );
+}
+
+function CloseIcon({ className }: { className?: string }) {
+  return (
+    <svg className={className} fill="none" viewBox="0 0 24 24" strokeWidth={1.5} stroke="currentColor">
+      <path strokeLinecap="round" strokeLinejoin="round" d="M6 18 18 6M6 6l12 12" />
     </svg>
   );
 }

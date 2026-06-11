@@ -2,7 +2,7 @@ import { NextRequest, NextResponse } from 'next/server';
 import { prisma } from '@/lib/db';
 import { requireProjectAuth, invalidateProjectAuthForProject } from '@/lib/auth';
 import { RoleGuard } from '@/services/RoleGuard';
-import { requireProjectOwner } from '@/lib/guards/requireOwner';
+import { requireProjectOwner } from '@/lib/guards/requireClient';
 import { AuditLogger } from '@/services/AuditLogger';
 import { AuditActionTypes, Role } from '@/types';
 import { cached } from '@/lib/cache';
@@ -37,7 +37,7 @@ export async function GET(
     const auth = await requireProjectAuth(projectId);
 
     // Role-based include: Owner/PMC see everything; Vendor/Viewer see only what's scoped to them.
-    const isOwnerOrPMC = auth.role === Role.OWNER || auth.role === Role.PMC;
+    const isOwnerOrPMC = auth.role === Role.CLIENT || auth.role === Role.PMC;
 
     // Cache key includes userId because Vendor/Viewer queries are scoped to auth.userId,
     // so two vendors on the same project must not share cache entries.
@@ -209,7 +209,14 @@ export async function PATCH(
   }
 }
 
-// DELETE /api/projects/[projectId] - Soft-delete project (OWNER only)
+// DELETE /api/projects/[projectId] — Hard-delete project (CLIENT only).
+// All child records are removed by DB-level ON DELETE CASCADE:
+//   Phases, Milestones, Evidence, BOQ/Items, MilestoneDependencies,
+//   PaymentEligibility, EligibilityEvents, Verifications, Transitions,
+//   DrawingSets, DrawingRows, DrawingVersions, SetRequests,
+//   VendorRequests, VendorRequestFiles, ProjectRoles, ScheduleConfig,
+//   AuditLogs, FollowUps, VendorMetrics, ProjectMetrics, SystemEvents,
+//   CashAdjustments, PrivateCosts, CustomViews.
 export async function DELETE(
   request: NextRequest,
   { params }: { params: Promise<{ projectId: string }> }
@@ -218,12 +225,12 @@ export async function DELETE(
     const { projectId } = await params;
     const auth = await requireProjectAuth(projectId);
 
-    // Verify requesting owner is the owner of this specific project
+    // Only the CLIENT role for this specific project may delete it
     await requireProjectOwner(auth, projectId);
 
-    // Get project details before soft-deletion
     const project = await prisma.project.findUnique({
       where: { id: projectId, deletedAt: null },
+      select: { id: true, name: true, status: true },
     });
 
     if (!project) {
@@ -233,58 +240,28 @@ export async function DELETE(
       );
     }
 
-    const now = new Date();
+    // Invalidate all caches BEFORE deletion so in-flight requests
+    // don't see stale data after the row is gone.
+    await Promise.all([
+      invalidateProjectAuthForProject(projectId),
+      invalidateProjectAndMemberCaches(projectId),
+    ]);
 
-    // SOFT DELETE: Set deletedAt on project and hard-delete associated communications
-    await prisma.$transaction(async (tx) => {
-      // Soft-delete the project
-      await tx.project.update({
-        where: { id: projectId },
-        data: { deletedAt: now },
-      });
-
-      // Hard-delete vendor requests (inbox/sent) — VendorRequestFile cascades automatically
-      await tx.vendorRequest.deleteMany({ where: { projectId } });
-    });
-
-    // Drop every cached auth entry for this project so revoked users
-    // can't keep using a stale cache to access dashboard/milestones routes.
-    await invalidateProjectAuthForProject(projectId);
-    await invalidateProjectAndMemberCaches(projectId);
-
-    // Audit log (project still exists for audit purposes)
-    await AuditLogger.log({
-      projectId,
-      actorId: auth.userId,
-      role: auth.role,
-      actionType: AuditActionTypes.PROJECT_DELETE,
-      entityType: 'Project',
-      entityId: projectId,
-      beforeJson: { name: project.name, status: project.status },
-      afterJson: { deletedAt: now.toISOString() },
-    });
+    // Hard-delete — all child tables cascade automatically via FK constraints.
+    await prisma.project.delete({ where: { id: projectId } });
 
     return NextResponse.json({
       success: true,
-      data: { success: true, message: 'Project archived successfully' },
+      data: { message: `Project "${project.name}" permanently deleted.` },
     });
   } catch (error) {
     if (error instanceof Error && error.message === 'UNAUTHORIZED') {
-      return NextResponse.json(
-        { success: false, error: 'Unauthorized' },
-        { status: 401 }
-      );
+      return NextResponse.json({ success: false, error: 'Unauthorized' }, { status: 401 });
     }
     if (error instanceof Error && error.message.startsWith('FORBIDDEN')) {
-      return NextResponse.json(
-        { success: false, error: error.message },
-        { status: 403 }
-      );
+      return NextResponse.json({ success: false, error: error.message }, { status: 403 });
     }
     console.error('Project delete error:', error);
-    return NextResponse.json(
-      { success: false, error: 'Internal server error' },
-      { status: 500 }
-    );
+    return NextResponse.json({ success: false, error: 'Internal server error' }, { status: 500 });
   }
 }

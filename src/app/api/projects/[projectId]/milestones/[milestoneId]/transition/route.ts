@@ -21,7 +21,7 @@ export async function POST(
     const { projectId, milestoneId } = await params;
     const auth = await requireProjectAuth(projectId);
 
-    RoleGuard.requireRole(auth, ['OWNER', 'PMC', 'VENDOR']);
+    RoleGuard.requireRole(auth, ['CLIENT', 'PMC', 'VENDOR']);
 
     const milestone = await validateMilestoneOwnership(milestoneId, projectId);
     if (!milestone) {

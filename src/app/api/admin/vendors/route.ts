@@ -28,7 +28,7 @@ async function requireAdminCaller(userId: string) {
   const adminRole = await prisma.projectRole.findFirst({
     where: {
       userId,
-      role: { in: [Role.OWNER, Role.PMC] },
+      role: { in: [Role.CLIENT, Role.PMC] },
     },
   });
   if (!adminRole) {
@@ -54,7 +54,7 @@ export async function GET(request: NextRequest) {
     const callerRole = await prisma.projectRole.findUnique({
       where: { projectId_userId: { projectId, userId: auth.userId } },
     });
-    if (!callerRole || (callerRole.role !== Role.OWNER && callerRole.role !== Role.PMC)) {
+    if (!callerRole || (callerRole.role !== Role.CLIENT && callerRole.role !== Role.PMC)) {
       return NextResponse.json(
         { success: false, error: 'You must be Owner or PMC of this project' },
         { status: 403 },
@@ -120,7 +120,7 @@ export async function POST(request: NextRequest) {
       );
     }
 
-    if (!callerRole || (callerRole.role !== Role.OWNER && callerRole.role !== Role.PMC)) {
+    if (!callerRole || (callerRole.role !== Role.CLIENT && callerRole.role !== Role.PMC)) {
       return NextResponse.json(
         { success: false, error: 'You must be Owner or PMC of this project' },
         { status: 403 },

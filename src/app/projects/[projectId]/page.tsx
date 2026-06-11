@@ -86,7 +86,7 @@ const REQUEST_TYPES: Record<string, { value: string; label: string }[]> = {
     { value: 'TECHNICAL_QUERY',      label: 'Technical Query' },
     { value: 'CLARIFICATION',        label: 'Clarification' },
   ],
-  OWNER: [
+  CLIENT: [
     { value: 'CHANGE_REQUEST',    label: 'Change Request' },
     { value: 'APPROVAL_REQUEST',  label: 'Approval Request' },
     { value: 'QUERY',             label: 'General Query' },
@@ -118,7 +118,7 @@ const SUBMISSION_TYPES: Record<string, { value: string; label: string }[]> = {
     { value: 'DESIGN_REPORT',      label: 'Design Report' },
     { value: 'RFI_RESPONSE',       label: 'RFI Response' },
   ],
-  OWNER: [
+  CLIENT: [
     { value: 'PAYMENT_INSTRUCTION',label: 'Payment Instruction' },
     { value: 'APPROVAL',           label: 'Approval Document' },
     { value: 'DIRECTIVE',          label: 'Directive / Notice' },
@@ -130,23 +130,23 @@ const SEND_TO_OPTIONS: Record<string, { value: string; label: string }[]> = {
   VENDOR: [
     { value: 'PMC',        label: 'PMC' },
     { value: 'CONSULTANT', label: 'Consultant' },
-    { value: 'OWNER',      label: 'Owner' },
+    { value: 'CLIENT',      label: 'Client' },
     { value: 'BOTH',       label: 'PMC & Consultant' },
     { value: 'ALL',        label: 'All (PMC, Consultant & Owner)' },
   ],
   PMC: [
     { value: 'VENDOR',     label: 'Vendor' },
     { value: 'CONSULTANT', label: 'Consultant' },
-    { value: 'OWNER',      label: 'Owner' },
+    { value: 'CLIENT',      label: 'Client' },
     { value: 'ALL',        label: 'All Parties' },
   ],
   CONSULTANT: [
     { value: 'VENDOR',     label: 'Vendor' },
     { value: 'PMC',        label: 'PMC' },
-    { value: 'OWNER',      label: 'Owner' },
+    { value: 'CLIENT',      label: 'Client' },
     { value: 'ALL',        label: 'All Parties' },
   ],
-  OWNER: [
+  CLIENT: [
     { value: 'VENDOR',     label: 'Vendor' },
     { value: 'PMC',        label: 'PMC' },
     { value: 'CONSULTANT', label: 'Consultant' },
@@ -194,7 +194,7 @@ const STATUS_CFG: Record<string, { label: string; pill: string }> = {
 
 function parseSendToLabel(sendTo: string): string {
   const map: Record<string, string> = {
-    PMC: 'PMC', CONSULTANT: 'Consultant', OWNER: 'Owner', VENDOR: 'Vendor',
+    PMC: 'PMC', CONSULTANT: 'Consultant', CLIENT: 'Client', VENDOR: 'Vendor',
     BOTH: 'PMC & Consultant', ALL: 'All Parties',
   };
   return map[sendTo] ?? sendTo;
@@ -241,7 +241,7 @@ export default function ProjectDetailPage() {
   const tabs = [
     { key: 'overview', label: 'Overview' },
     ...(!isViewer ? [
-      { key: 'inbox', label: myRole === 'OWNER' ? 'All Communications' : 'Inbox' },
+      { key: 'inbox', label: myRole === 'CLIENT' ? 'All Communications' : 'Inbox' },
       { key: 'sent',  label: 'Sent' },
     ] : []),
   ];
@@ -528,14 +528,14 @@ function MessageCard({ r, ctx }: { r: VendorRequest; ctx: MsgCtx }) {
   const isMine = r.submittedBy.id === myUserId;
   const isClosed = ['RESOLVED', 'REJECTED', 'WITHDRAWN'].includes(r.status);
   const pcfg = PRIORITY_CFG[r.priority] ?? PRIORITY_CFG.NORMAL;
-  const canReply = view === 'inbox' && (myRole === 'OWNER' || myRoleSendTos.includes(r.sendTo)) && !isClosed;
+  const canReply = view === 'inbox' && (myRole === 'CLIENT' || myRoleSendTos.includes(r.sendTo)) && !isClosed;
 
   const senderFiles = r.files.filter((f) => f.uploadedById === r.submittedBy.id);
   const replyAttachments = r.files.filter((f) => f.uploadedById !== r.submittedBy.id);
 
   const roleColors: Record<string, string> = {
     VENDOR: 'text-[#5cba80]', PMC: 'text-[#c4a35a]',
-    CONSULTANT: 'text-[#818cf8]', OWNER: 'text-[#38bdf8]',
+    CONSULTANT: 'text-[#818cf8]', CLIENT: 'text-[#38bdf8]',
   };
   const senderColor = roleColors[r.senderRole] ?? 'text-[rgba(232,228,220,0.5)]';
 
@@ -740,14 +740,14 @@ function CommunicationTab({
     myRole === 'PMC'        ? ['PMC', 'BOTH', 'ALL'] :
     myRole === 'CONSULTANT' ? ['CONSULTANT', 'BOTH', 'ALL'] :
     myRole === 'VENDOR'     ? ['VENDOR', 'BOTH', 'ALL'] :
-    myRole === 'OWNER'      ? ['OWNER', 'ALL'] :
+    myRole === 'CLIENT'      ? ['CLIENT', 'ALL'] :
     [];
 
   const inbox = all.filter((r) => myRoleSendTos.includes(r.sendTo) && r.submittedBy.id !== myUserId);
   const sent  = all.filter((r) => r.submittedBy.id === myUserId);
 
   // For OWNER inbox: show everything not sent by owner (all communications)
-  const inboxItems = myRole === 'OWNER'
+  const inboxItems = myRole === 'CLIENT'
     ? all.filter((r) => r.submittedBy.id !== myUserId)
     : inbox;
 
@@ -894,7 +894,7 @@ function CommunicationTab({
     sendReply, withdrawRequest,
   };
 
-  const isOwnerAllView = myRole === 'OWNER' && view === 'inbox';
+  const isOwnerAllView = myRole === 'CLIENT' && view === 'inbox';
   const inboxLabel = isOwnerAllView
     ? 'All Project Communications'
     : `Inbox — Received by ${myRole}`;

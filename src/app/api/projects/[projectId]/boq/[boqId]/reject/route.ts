@@ -20,7 +20,7 @@ export async function POST(
     const { projectId, boqId } = await params;
     const auth = await requireProjectAuth(projectId);
 
-    RoleGuard.requireRole(auth, ['OWNER']);
+    RoleGuard.requireRole(auth, ['CLIENT']);
 
     const ownershipCheck = await validateBOQOwnership(boqId, projectId);
     if (!ownershipCheck) {

@@ -29,17 +29,17 @@ const VALID_TRANSITIONS: Record<MilestoneState, MilestoneState[]> = {
  */
 const TRANSITION_PERMISSIONS: Record<string, Role[]> = {
   // From DRAFT
-  [`${MilestoneState.DRAFT}->${MilestoneState.IN_PROGRESS}`]: [Role.OWNER, Role.PMC, Role.VENDOR],
+  [`${MilestoneState.DRAFT}->${MilestoneState.IN_PROGRESS}`]: [Role.CLIENT, Role.PMC, Role.VENDOR],
 
   // From IN_PROGRESS
   [`${MilestoneState.IN_PROGRESS}->${MilestoneState.SUBMITTED}`]: [Role.VENDOR],
 
   // From SUBMITTED
   [`${MilestoneState.SUBMITTED}->${MilestoneState.VERIFIED}`]: [Role.PMC],
-  [`${MilestoneState.SUBMITTED}->${MilestoneState.IN_PROGRESS}`]: [Role.OWNER, Role.PMC], // Rejection
+  [`${MilestoneState.SUBMITTED}->${MilestoneState.IN_PROGRESS}`]: [Role.CLIENT, Role.PMC], // Rejection
 
   // From VERIFIED
-  [`${MilestoneState.VERIFIED}->${MilestoneState.CLOSED}`]: [Role.OWNER, Role.PMC],
+  [`${MilestoneState.VERIFIED}->${MilestoneState.CLOSED}`]: [Role.CLIENT, Role.PMC],
 };
 
 export interface TransitionResult {
@@ -167,6 +167,45 @@ export class MilestoneStateMachine {
         if (fromState === MilestoneState.SUBMITTED && toState === MilestoneState.IN_PROGRESS) {
           if (!reason) {
             throw new TransitionError('Rejection requires a reason');
+          }
+        }
+
+        // Dependency warnings — checked for start (DRAFT→IN_PROGRESS) and close (VERIFIED→CLOSED)
+        const isStarting = fromState === MilestoneState.DRAFT && toState === MilestoneState.IN_PROGRESS;
+        const isClosing  = fromState === MilestoneState.VERIFIED && toState === MilestoneState.CLOSED;
+
+        if (isStarting || isClosing) {
+          const deps = await tx.milestoneDependency.findMany({
+            where: { successorId: milestoneId },
+            include: { predecessor: { select: { id: true, title: true, state: true } } },
+          });
+
+          const violations: string[] = [];
+          for (const dep of deps) {
+            const ps = dep.predecessor.state;
+            const title = dep.predecessor.title;
+            if (isStarting) {
+              if (dep.dependencyType === 'FS' && ps !== MilestoneState.CLOSED) {
+                violations.push(`"${title}" must be CLOSED first (FS dependency — currently ${ps})`);
+              }
+              if (dep.dependencyType === 'SS' && ps === MilestoneState.DRAFT) {
+                violations.push(`"${title}" must be started first (SS dependency — currently ${ps})`);
+              }
+            }
+            if (isClosing) {
+              if (dep.dependencyType === 'FF' && ps !== MilestoneState.CLOSED) {
+                violations.push(`"${title}" must be CLOSED first (FF dependency — currently ${ps})`);
+              }
+              if (dep.dependencyType === 'SF' && ps === MilestoneState.DRAFT) {
+                violations.push(`"${title}" must be started first (SF dependency — currently ${ps})`);
+              }
+            }
+          }
+
+          if (violations.length > 0) {
+            throw new TransitionError(
+              `Dependency violation: ${violations.join('; ')}`
+            );
           }
         }
 

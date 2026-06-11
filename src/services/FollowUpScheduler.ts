@@ -386,7 +386,7 @@ export class FollowUpScheduler {
     role: Role,
     projectId: string
   ): Promise<{ success: boolean; error?: string }> {
-    if (role !== Role.OWNER && role !== Role.PMC) {
+    if (role !== Role.CLIENT && role !== Role.PMC) {
       return { success: false, error: 'Only Owner or PMC can resolve follow-ups' };
     }
 

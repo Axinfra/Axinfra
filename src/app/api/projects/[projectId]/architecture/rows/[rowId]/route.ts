@@ -48,7 +48,7 @@ export async function PATCH(
       if ('dueDate' in body) {
         return NextResponse.json({ success: false, error: 'Architects cannot set due dates' }, { status: 403 });
       }
-    } else if (auth.role !== 'OWNER') {
+    } else if (auth.role !== 'CLIENT') {
       return NextResponse.json({ success: false, error: 'Forbidden' }, { status: 403 });
     }
 

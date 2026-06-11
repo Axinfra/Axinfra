@@ -68,6 +68,11 @@ const createMilestoneSchema = z.object({
     boqItemId: z.string().uuid(),
     plannedQty: z.number().positive(),
   })).optional(),
+  predecessorLinks: z.array(z.object({
+    predecessorId: z.string().uuid(),
+    dependencyType: z.enum(['FS', 'SS', 'FF', 'SF']).default('FS'),
+    lagDays: z.number().int().default(0),
+  })).optional(),
 });
 
 // GET /api/projects/[projectId]/milestones - List milestones
@@ -139,11 +144,11 @@ export async function POST(
     const { projectId } = await params;
     const auth = await requireProjectAuth(projectId);
 
-    RoleGuard.requireRole(auth, ['OWNER', 'PMC']);
+    RoleGuard.requireRole(auth, ['CLIENT', 'PMC']);
 
     const body = await request.json();
     const data = createMilestoneSchema.parse(body);
-    const isExtra = auth.role === Role.OWNER || data.isExtra || !data.phaseId;
+    const isExtra = auth.role === Role.CLIENT || data.isExtra || !data.phaseId;
     const phaseId = isExtra ? null : data.phaseId ?? null;
     const boqLinks = isExtra ? undefined : data.boqLinks;
 
@@ -177,6 +182,19 @@ export async function POST(
             boqItemId: link.boqItemId,
             plannedQty: link.plannedQty,
           })),
+        });
+      }
+
+      // Create predecessor dependency links if provided
+      if (data.predecessorLinks && data.predecessorLinks.length > 0) {
+        await tx.milestoneDependency.createMany({
+          data: data.predecessorLinks.map((link) => ({
+            predecessorId: link.predecessorId,
+            successorId: milestone.id,
+            dependencyType: link.dependencyType,
+            lagDays: link.lagDays,
+          })),
+          skipDuplicates: true,
         });
       }
 

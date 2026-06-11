@@ -14,15 +14,15 @@ export class RoleGuard {
   }
 
   static canRead(auth: ProjectAuthContext): boolean {
-    return ([Role.OWNER, Role.PMC, Role.VENDOR, Role.VIEWER, Role.CONSULTANT] as string[]).includes(auth.role);
+    return ([Role.CLIENT, Role.PMC, Role.VENDOR, Role.VIEWER, Role.CONSULTANT] as string[]).includes(auth.role);
   }
 
   static canManageProject(auth: ProjectAuthContext): boolean {
-    return auth.role === Role.OWNER;
+    return auth.role === Role.CLIENT;
   }
 
   static canManageRoles(auth: ProjectAuthContext): boolean {
-    return auth.role === Role.OWNER;
+    return auth.role === Role.CLIENT;
   }
 
   static canEditBOQ(auth: ProjectAuthContext): boolean {
@@ -30,11 +30,11 @@ export class RoleGuard {
   }
 
   static canApproveBOQ(auth: ProjectAuthContext): boolean {
-    return auth.role === Role.OWNER;
+    return auth.role === Role.CLIENT;
   }
 
   static canEditMilestones(auth: ProjectAuthContext): boolean {
-    return auth.role === Role.OWNER || auth.role === Role.PMC;
+    return auth.role === Role.CLIENT || auth.role === Role.PMC;
   }
 
   static canSubmitEvidence(auth: ProjectAuthContext): boolean {
@@ -42,7 +42,7 @@ export class RoleGuard {
   }
 
   static canReviewEvidence(auth: ProjectAuthContext): boolean {
-    return auth.role === Role.OWNER || auth.role === Role.PMC || auth.role === Role.CONSULTANT;
+    return auth.role === Role.CLIENT || auth.role === Role.PMC || auth.role === Role.CONSULTANT;
   }
 
   static canVerify(auth: ProjectAuthContext): boolean {
@@ -50,37 +50,37 @@ export class RoleGuard {
   }
 
   static canBlockPayment(auth: ProjectAuthContext): boolean {
-    return auth.role === Role.OWNER || auth.role === Role.PMC;
+    return auth.role === Role.CLIENT || auth.role === Role.PMC;
   }
 
   static canMarkPaid(auth: ProjectAuthContext): boolean {
-    return auth.role === Role.OWNER || auth.role === Role.PMC;
+    return auth.role === Role.CLIENT || auth.role === Role.PMC;
   }
 
   static canUnblockPayment(auth: ProjectAuthContext): boolean {
-    return auth.role === Role.OWNER;
+    return auth.role === Role.CLIENT;
   }
 
   static canViewPayments(auth: ProjectAuthContext): boolean {
-    return auth.role === Role.OWNER || auth.role === Role.PMC || auth.role === Role.VENDOR;
+    return auth.role === Role.CLIENT || auth.role === Role.PMC || auth.role === Role.VENDOR;
   }
 
   static canExportAuditLog(auth: ProjectAuthContext): boolean {
-    return auth.role === Role.OWNER || auth.role === Role.PMC || auth.role === Role.CONSULTANT;
+    return auth.role === Role.CLIENT || auth.role === Role.PMC || auth.role === Role.CONSULTANT;
   }
 
   static canResolveFollowUp(auth: ProjectAuthContext): boolean {
-    return auth.role === Role.OWNER || auth.role === Role.PMC;
+    return auth.role === Role.CLIENT || auth.role === Role.PMC;
   }
 
   /** Cash module access - OWNER only */
   static canAccessCashModule(auth: ProjectAuthContext): boolean {
-    return auth.role === Role.OWNER;
+    return auth.role === Role.CLIENT;
   }
 
   /** Artifacts role: upload/manage project documents, drawings, and deliverables */
   static canManageArtifacts(auth: ProjectAuthContext): boolean {
-    return auth.role === Role.OWNER || auth.role === Role.PMC || auth.role === Role.CONSULTANT;
+    return auth.role === Role.CLIENT || auth.role === Role.PMC || auth.role === Role.CONSULTANT;
   }
 
   static validateNotSelfApproval(reviewerId: string, submitterId: string): void {

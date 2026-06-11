@@ -7,7 +7,7 @@ import bcrypt from 'bcryptjs';
  */
 
 // ─── Simulated types (matching app types) ───────────────────────────────────
-const Role = { OWNER: 'OWNER', PMC: 'PMC', VENDOR: 'VENDOR', VIEWER: 'VIEWER' } as const;
+const Role = { CLIENT: 'CLIENT', PMC: 'PMC', VENDOR: 'VENDOR', VIEWER: 'VIEWER' } as const;
 type Role = (typeof Role)[keyof typeof Role];
 
 interface ProjectRole {
@@ -33,7 +33,7 @@ interface Milestone {
 
 /** Check if a user can manage vendors */
 function canManageVendors(role: Role): boolean {
-  return role === Role.OWNER || role === Role.PMC;
+  return role === Role.CLIENT || role === Role.PMC;
 }
 
 /** Check if a user can access vendor portal */
@@ -86,7 +86,7 @@ function isValidUsername(username: string): boolean {
 
 describe('Vendor Onboarding', () => {
   it('Owner can manage vendors', () => {
-    expect(canManageVendors(Role.OWNER)).toBe(true);
+    expect(canManageVendors(Role.CLIENT)).toBe(true);
   });
 
   it('PMC can manage vendors', () => {
@@ -205,7 +205,7 @@ describe('Vendor Route Access Control', () => {
   });
 
   it('non-vendor cannot access vendor portal routes', () => {
-    expect(canVendorAccessRoute('/vendor/overview', Role.OWNER)).toBe(false);
+    expect(canVendorAccessRoute('/vendor/overview', Role.CLIENT)).toBe(false);
     expect(canVendorAccessRoute('/vendor/gantt', Role.PMC)).toBe(false);
   });
 });
@@ -221,7 +221,7 @@ describe('Vendor-only Detection', () => {
   it('user with VENDOR + OWNER is not vendor-only', () => {
     const roles: ProjectRole[] = [
       { userId: 'u1', projectId: 'p1', role: Role.VENDOR },
-      { userId: 'u1', projectId: 'p2', role: Role.OWNER },
+      { userId: 'u1', projectId: 'p2', role: Role.CLIENT },
     ];
     expect(isVendorOnly(roles)).toBe(false);
   });
@@ -232,7 +232,7 @@ describe('Vendor-only Detection', () => {
 
   it('user with OWNER role is not vendor-only', () => {
     const roles: ProjectRole[] = [
-      { userId: 'u1', projectId: 'p1', role: Role.OWNER },
+      { userId: 'u1', projectId: 'p1', role: Role.CLIENT },
     ];
     expect(isVendorOnly(roles)).toBe(false);
   });
@@ -363,7 +363,7 @@ describe('Milestone Vendor Assignment Validation', () => {
   it('vendor dropdown should only list VENDOR role users', () => {
     // Simulates the /api/admin/vendors response filtering
     const allProjectRoles: ProjectRole[] = [
-      { userId: 'u1', projectId: 'p1', role: Role.OWNER },
+      { userId: 'u1', projectId: 'p1', role: Role.CLIENT },
       { userId: 'u2', projectId: 'p1', role: Role.VENDOR },
       { userId: 'u3', projectId: 'p1', role: Role.PMC },
       { userId: 'u4', projectId: 'p1', role: Role.VENDOR },

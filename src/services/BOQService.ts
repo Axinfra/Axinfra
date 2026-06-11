@@ -247,7 +247,7 @@ export class BOQService {
     role: Role,
     projectId: string
   ): Promise<{ success: boolean; error?: string }> {
-    if (role !== Role.OWNER) {
+    if (role !== Role.CLIENT) {
       return { success: false, error: 'Only Owner can approve BOQ' };
     }
 
@@ -308,7 +308,7 @@ export class BOQService {
     role: Role,
     projectId: string
   ): Promise<{ success: boolean; revisionNumber?: number; error?: string }> {
-    if (role !== Role.OWNER) {
+    if (role !== Role.CLIENT) {
       return { success: false, error: 'Only Owner can request BOQ revision' };
     }
 

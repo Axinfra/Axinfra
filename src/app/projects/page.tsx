@@ -4,7 +4,7 @@ import { ProjectsListSkeleton } from '@/components/ui/SkeletonPage';
 import { useState, useEffect, useCallback } from 'react';
 import Link from 'next/link';
 import Layout from '@/components/Layout';
-import OwnerOnly from '@/components/auth/OwnerOnly';
+import ClientOnly from '@/components/auth/ClientOnly';
 import { formatDate } from '@/lib/utils';
 import { Plus, Pencil, Trash2, X, Loader2 } from 'lucide-react';
 
@@ -57,12 +57,13 @@ export default function ProjectsPage() {
       .then((data) => {
         if (data.success) {
           setProjects(data.data);
-          // Get the user's highest role across projects
+          // Derive role from projects first; fall back to preferredRole for new users with no projects
           const roles = data.data.map((p: Project) => p.myRole);
-          if (roles.includes('OWNER')) setUserRole('OWNER');
+          if (roles.includes('CLIENT')) setUserRole('CLIENT');
           else if (roles.includes('PMC')) setUserRole('PMC');
           else if (roles.includes('VENDOR')) setUserRole('VENDOR');
           else if (roles.includes('VIEWER')) setUserRole('VIEWER');
+          else if (data.preferredRole) setUserRole(data.preferredRole);
         } else {
           setError(data.error);
         }
@@ -159,14 +160,14 @@ export default function ProjectsPage() {
             id: data.data.id,
             name: form.name,
             description: form.description || undefined,
-            myRole: 'OWNER',
+            myRole: 'CLIENT',
             milestoneCount: 0,
             createdAt: new Date().toISOString(),
             metadata: meta,
           },
           ...prev,
         ]);
-        setUserRole('OWNER');
+        setUserRole('CLIENT');
       }
     } catch (err) {
       setModalError(err instanceof Error ? err.message : 'Something went wrong');
@@ -220,12 +221,12 @@ export default function ProjectsPage() {
 
       <div className="flex justify-between items-center mb-6">
         <h1 className="text-2xl font-bold text-[#e8e4dc]">Projects</h1>
-        <OwnerOnly role={userRole}>
+        <ClientOnly role={userRole}>
           <button onClick={openCreateModal} className="btn btn-primary flex items-center gap-2">
             <Plus className="w-4 h-4" />
             Add Project
           </button>
-        </OwnerOnly>
+        </ClientOnly>
       </div>
 
       {error && <div className="alert alert-error mb-4">{error}</div>}
@@ -233,12 +234,19 @@ export default function ProjectsPage() {
       {projects.length === 0 ? (
         <div className="card">
           <div className="card-body text-center py-12">
-            <p className="text-[rgba(232,228,220,0.55)]">No projects yet</p>
-            <OwnerOnly role={userRole}>
-              <button onClick={openCreateModal} className="btn btn-primary mt-4">
-                Create your first project
-              </button>
-            </OwnerOnly>
+            <p className="text-lg font-semibold text-[#e8e4dc] mb-2">No projects yet</p>
+            {userRole === 'CLIENT' ? (
+              <>
+                <p className="text-sm text-[rgba(232,228,220,0.45)] mb-6">Create your first project to get started.</p>
+                <button onClick={openCreateModal} className="btn btn-primary">
+                  Create your first project
+                </button>
+              </>
+            ) : (
+              <p className="text-sm text-[rgba(232,228,220,0.45)] mt-1">
+                You haven&apos;t been added to any projects yet. Ask a project owner to invite you.
+              </p>
+            )}
           </div>
         </div>
       ) : (
@@ -281,7 +289,7 @@ export default function ProjectsPage() {
                 </div>
               </Link>
               {/* Owner-only action buttons */}
-              {project.myRole === 'OWNER' && (
+              {project.myRole === 'CLIENT' && (
                 <div className="absolute top-3 right-12 flex gap-1 opacity-0 group-hover:opacity-100 transition-opacity">
                   <button
                     onClick={(e) => { e.preventDefault(); e.stopPropagation(); openEditModal(project); }}

@@ -1,8 +1,8 @@
 /**
  * GET /api/execution-intelligence/[projectId]/gantt
  *
- * Returns milestones with schedule fields + dependency edges for Gantt rendering.
- * Filters by project + role (vendor sees only their own milestones).
+ * Returns phases + milestones with schedule fields + dependency edges.
+ * Vendor role sees only their assigned milestones.
  */
 
 import { NextRequest, NextResponse } from 'next/server';
@@ -22,10 +22,11 @@ export async function GET(
       `gantt:${params.projectId}:${auth.userId}`,
       60_000,
       async () => {
-        const [milestones, scheduleConfig] = await Promise.all([
+        const [milestones, phases, scheduleConfig] = await Promise.all([
           prisma.milestone.findMany({
             where: { projectId: params.projectId },
             include: {
+              phase: { select: { id: true, name: true, sortOrder: true } },
               predecessorDependencies: {
                 select: { id: true, predecessorId: true, successorId: true, dependencyType: true, lagDays: true },
               },
@@ -40,6 +41,11 @@ export async function GET(
               },
             },
             orderBy: [{ sortOrder: 'asc' }, { plannedStart: 'asc' }, { createdAt: 'asc' }],
+          }),
+          prisma.phase.findMany({
+            where: { projectId: params.projectId },
+            orderBy: { sortOrder: 'asc' },
+            select: { id: true, name: true, sortOrder: true },
           }),
           prisma.projectScheduleConfig.findUnique({ where: { projectId: params.projectId } }),
         ]);
@@ -59,14 +65,15 @@ export async function GET(
             plannedStart: m.plannedStart,
             plannedEnd: m.plannedEnd,
             sortOrder: m.sortOrder,
-            predecessorIds: m.predecessorDependencies.map((d) => d.predecessorId),
+            // successorDependencies = deps where this milestone IS the successor (incoming edges)
+            predecessorIds: m.successorDependencies.map((d) => d.predecessorId),
           })),
           projectStartDate,
         );
 
         const lagMap = new Map<string, number>();
         for (const m of filteredMilestones) {
-          for (const dep of m.predecessorDependencies) {
+          for (const dep of m.successorDependencies) {
             lagMap.set(`${dep.predecessorId}→${m.id}`, dep.lagDays);
           }
         }
@@ -96,13 +103,20 @@ export async function GET(
             totalFloat: cpmNode?.totalFloat ?? null,
             earlyStart: cpmNode?.earlyStart ?? null,
             earlyFinish: cpmNode?.earlyFinish ?? null,
-            predecessors: m.predecessorDependencies,
-            successors: m.successorDependencies,
+            // successorDependencies = incoming edges (what this depends on); predecessorId = the prerequisite
+            predecessors: m.successorDependencies,
+            // predecessorDependencies = outgoing edges (what depends on this); successorId = the dependant
+            successors: m.predecessorDependencies,
+            // Phase info
+            phaseId: m.phase?.id ?? null,
+            phaseName: m.phase?.name ?? null,
+            phaseOrder: m.phase?.sortOrder ?? 9999,
           };
         });
 
         return {
           milestones: ganttMilestones,
+          phases,
           cpm: {
             projectDuration: cpmResult.projectDuration,
             criticalPath: cpmResult.criticalPath,

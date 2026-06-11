@@ -16,7 +16,7 @@ export async function PATCH(
 ) {
   try {
     const auth = await requireProjectAuth(params.projectId);
-    if (auth.role !== 'OWNER' && auth.role !== 'PMC') {
+    if (auth.role !== 'CLIENT' && auth.role !== 'PMC') {
       return NextResponse.json({ success: false, error: 'Forbidden' }, { status: 403 });
     }
 

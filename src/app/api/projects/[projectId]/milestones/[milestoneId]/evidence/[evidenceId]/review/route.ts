@@ -20,7 +20,7 @@ export async function POST(
     const auth = await requireProjectAuth(projectId);
 
     // Only Owner and PMC can review evidence
-    RoleGuard.requireRole(auth, ['OWNER', 'PMC']);
+    RoleGuard.requireRole(auth, ['CLIENT', 'PMC']);
 
     // IDOR guard: verify evidence belongs to this project
     const ownershipCheck = await validateEvidenceOwnership(evidenceId, projectId);

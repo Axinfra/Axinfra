@@ -19,7 +19,7 @@ export async function POST(
     const { projectId, rowId, versionId } = await params;
     const auth = await requireProjectAuth(projectId);
 
-    if (!['PMC', 'OWNER'].includes(auth.role)) {
+    if (!['PMC', 'CLIENT'].includes(auth.role)) {
       return NextResponse.json({ success: false, error: 'Only PMC can review drawings' }, { status: 403 });
     }
 

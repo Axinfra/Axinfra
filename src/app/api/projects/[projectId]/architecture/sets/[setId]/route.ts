@@ -77,7 +77,7 @@ export async function PATCH(
       if (set.createdById !== auth.userId) {
         return NextResponse.json({ success: false, error: 'Can only edit your own sets' }, { status: 403 });
       }
-    } else if (auth.role !== 'OWNER') {
+    } else if (auth.role !== 'CLIENT') {
       return NextResponse.json({ success: false, error: 'Forbidden' }, { status: 403 });
     }
 

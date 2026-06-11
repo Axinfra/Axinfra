@@ -1,6 +1,8 @@
 @import url('https://fonts.googleapis.com/css2?family=DM+Serif+Display:ital@0;1&family=Instrument+Sans:wght@400;500;600&family=JetBrains+Mono:wght@400;500&display=swap');
 
 *{box-sizing:border-box;margin:0;padding:0}
+button,a,select,[role="button"],label[for],summary{cursor:pointer}
+button:disabled{cursor:not-allowed}
 :root{
   --gold:#c9a84c;--gold-l:#e8c97a;--gold-d:#7a5e20;
   --green:#1d9e75;--green-l:#9fe1cb;--green-d:#0a4a33;

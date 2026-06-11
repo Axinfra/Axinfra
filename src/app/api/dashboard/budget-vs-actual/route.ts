@@ -26,7 +26,7 @@ export async function GET() {
         const ownerProjects = await prisma.projectRole.findMany({
           where: {
             userId: auth.userId,
-            role: Role.OWNER,
+            role: Role.CLIENT,
             project: { deletedAt: null },
           },
           select: { projectId: true, project: { select: { id: true, name: true } } },

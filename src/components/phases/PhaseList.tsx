@@ -23,7 +23,7 @@ interface Phase {
 
 interface Props {
   projectId: string;
-  userRole: 'OWNER' | 'PMC' | 'VENDOR' | 'VIEWER' | string;
+  userRole: 'CLIENT' | 'PMC' | 'VENDOR' | 'VIEWER' | string;
 }
 
 function BOQStatusBadge({ status }: { status: string }) {
@@ -51,8 +51,8 @@ function BOQStatusBadge({ status }: { status: string }) {
 export default function PhaseList({ projectId, userRole }: Props) {
   const router = useRouter();
 
-  const canEdit = userRole === 'OWNER' || userRole === 'PMC';
-  const canDelete = userRole === 'OWNER';
+  const canEdit = userRole === 'CLIENT' || userRole === 'PMC';
+  const canDelete = userRole === 'CLIENT';
 
   const {
     data: phases = [],

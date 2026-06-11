@@ -13,7 +13,7 @@ export async function POST(
     const { projectId, rowId } = await params;
     const auth = await requireProjectAuth(projectId);
 
-    if (auth.role !== 'OWNER') {
+    if (auth.role !== 'CLIENT') {
       return NextResponse.json({ success: false, error: 'Only Owner can release payment' }, { status: 403 });
     }
 

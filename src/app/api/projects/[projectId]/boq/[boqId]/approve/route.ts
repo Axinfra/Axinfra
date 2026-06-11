@@ -16,7 +16,7 @@ export async function POST(
     const auth = await requireProjectAuth(projectId);
 
     // Only Owner can approve BOQ
-    RoleGuard.requireRole(auth, ['OWNER']);
+    RoleGuard.requireRole(auth, ['CLIENT']);
 
     // IDOR guard: verify BOQ belongs to this project
     const ownershipCheck = await validateBOQOwnership(boqId, projectId);

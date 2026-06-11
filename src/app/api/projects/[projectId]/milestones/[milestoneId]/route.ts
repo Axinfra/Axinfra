@@ -71,6 +71,14 @@ export async function GET(
         vendorUser: {
           select: { id: true, name: true, email: true },
         },
+        // Predecessors: deps where this milestone is the successor
+        successorDependencies: {
+          include: {
+            predecessor: {
+              select: { id: true, title: true, state: true },
+            },
+          },
+        },
       },
     });
 
@@ -89,12 +97,21 @@ export async function GET(
       return sum + link.plannedQty * link.boqItem.rate;
     }, 0);
 
+    const predecessors = milestone.successorDependencies.map((dep) => ({
+      id: dep.predecessor.id,
+      title: dep.predecessor.title,
+      state: dep.predecessor.state,
+      dependencyType: dep.dependencyType,
+      lagDays: dep.lagDays,
+    }));
+
     return NextResponse.json({
       success: true,
       data: {
         ...milestone,
         plannedValue,
         validNextStates,
+        predecessors,
         permissions: RoleGuard.getPermissions(auth.role),
       },
     });
@@ -123,7 +140,7 @@ export async function DELETE(
     const auth = await requireProjectAuth(projectId);
 
     // Only OWNER can delete milestones
-    RoleGuard.requireRole(auth, ['OWNER']);
+    RoleGuard.requireRole(auth, ['CLIENT']);
 
     // Get milestone details before deletion for audit log — validate ownership
     const milestone = await prisma.milestone.findFirst({

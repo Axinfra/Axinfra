@@ -9,7 +9,7 @@ export const dynamic = 'force-dynamic';
  * Returns recent SystemEvent notifications relevant to the current user.
  * - VENDOR:  sees MILESTONE_VERIFIED and REVISION_REQUESTED events
  * - PMC:     sees EVIDENCE_SUBMITTED events
- * - OWNER:   sees PAYMENT_REQUIRED events
+ * - CLIENT:   sees PAYMENT_REQUIRED events
  */
 export async function GET() {
   try {
@@ -33,7 +33,7 @@ export async function GET() {
         'BOQ_APPROVED', 'BOQ_REVISION_REQUESTED',
         'ARCH_SET_SUBMITTED', 'ARCH_DRAWING_SUBMITTED', 'ARCH_SET_PAID',
       ],
-      OWNER: [
+      CLIENT: [
         'PAYMENT_REQUIRED', 'MILESTONE_VERIFIED',
         'BOQ_SUBMITTED', 'ARCH_SET_APPROVED',
       ],

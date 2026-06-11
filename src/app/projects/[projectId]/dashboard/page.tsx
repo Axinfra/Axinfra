@@ -63,7 +63,7 @@ export default function DashboardPage() {
           {roleLabel} Dashboard
         </h1>
 
-        {myRole === 'OWNER' && <OwnerDashboard data={dashboard} projectId={projectId} />}
+        {myRole === 'CLIENT' && <OwnerDashboard data={dashboard} projectId={projectId} />}
         {myRole === 'PMC' && <PMCDashboard data={dashboard} />}
         {myRole === 'VENDOR' && <VendorDashboard data={dashboard} />}
         {myRole === 'VIEWER' && <ViewerDashboard data={dashboard} />}

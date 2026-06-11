@@ -56,7 +56,7 @@ export async function POST(
     const { projectId } = await params;
     const auth = await requireProjectAuth(projectId);
 
-    RoleGuard.requireRole(auth, ['OWNER', 'PMC']);
+    RoleGuard.requireRole(auth, ['CLIENT', 'PMC']);
 
     const body = await request.json();
     const name: string = (body.name ?? '').trim();

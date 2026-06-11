@@ -32,21 +32,24 @@ export async function GET() {
   try {
     const auth = await requireAuth();
 
-    const projectRoles = await cached(
-      `projects:list:${auth.userId}`,
-      300_000,
-      () => prisma.projectRole.findMany({
-        where: { userId: auth.userId, project: { deletedAt: null } },
-        include: {
-          project: {
-            include: {
-              roles: { include: { user: { select: { id: true, name: true, email: true } } } },
-              _count: { select: { milestones: true } },
+    const [projectRoles, user] = await Promise.all([
+      cached(
+        `projects:list:${auth.userId}`,
+        300_000,
+        () => prisma.projectRole.findMany({
+          where: { userId: auth.userId, project: { deletedAt: null } },
+          include: {
+            project: {
+              include: {
+                roles: { include: { user: { select: { id: true, name: true, email: true } } } },
+                _count: { select: { milestones: true } },
+              },
             },
           },
-        },
-      }),
-    );
+        }),
+      ),
+      prisma.user.findUnique({ where: { id: auth.userId }, select: { preferredRole: true } }),
+    ]);
 
     const projects = projectRoles.map((pr) => ({
       id: pr.project.id,
@@ -64,7 +67,7 @@ export async function GET() {
       createdAt: pr.project.createdAt,
     }));
 
-    return NextResponse.json({ success: true, data: projects });
+    return NextResponse.json({ success: true, data: projects, preferredRole: user?.preferredRole ?? null });
   } catch (error) {
     if (error instanceof Error && error.message === 'UNAUTHORIZED') {
       return NextResponse.json(
@@ -80,8 +83,7 @@ export async function GET() {
   }
 }
 
-// POST /api/projects - Create a new project (any authenticated user can create, becomes OWNER)
-// SECURITY: Only users who are already OWNER in at least one project, or if no projects exist yet
+// POST /api/projects - Create a new project (CLIENT role only)
 export async function POST(request: NextRequest) {
   try {
     const auth = await requireAuth();
@@ -89,22 +91,16 @@ export async function POST(request: NextRequest) {
     const parsed = createProjectSchema.parse(body);
     const { name, description, location, contractValue, currency, startDate, endDate } = parsed;
 
-    // Check if user has OWNER or PMC role in any project (gatekeep project creation)
-    const existingRole = await prisma.projectRole.findFirst({
-      where: {
-        userId: auth.userId,
-        role: { in: [Role.OWNER, Role.PMC] },
-      },
+    // Only users whose account role is CLIENT (project owner) can create projects
+    const user = await prisma.user.findUnique({
+      where: { id: auth.userId },
+      select: { preferredRole: true },
     });
-    // Allow if user is already an owner/PMC, or if there are no projects at all (bootstrap)
-    if (!existingRole) {
-      const projectCount = await prisma.project.count();
-      if (projectCount > 0) {
-        return NextResponse.json(
-          { success: false, error: 'Only project owners can create new projects' },
-          { status: 403 }
-        );
-      }
+    if (user?.preferredRole !== 'CLIENT') {
+      return NextResponse.json(
+        { success: false, error: 'Only project owners can create new projects.' },
+        { status: 403 },
+      );
     }
 
     // Build metadata from optional fields
@@ -128,7 +124,7 @@ export async function POST(request: NextRequest) {
         data: {
           projectId: project.id,
           userId: auth.userId,
-          role: Role.OWNER,
+          role: Role.CLIENT,
         },
       });
 
@@ -141,7 +137,7 @@ export async function POST(request: NextRequest) {
     await AuditLogger.log({
       projectId: project.id,
       actorId: auth.userId,
-      role: Role.OWNER,
+      role: Role.CLIENT,
       actionType: AuditActionTypes.PROJECT_CREATE,
       entityType: 'Project',
       entityId: project.id,

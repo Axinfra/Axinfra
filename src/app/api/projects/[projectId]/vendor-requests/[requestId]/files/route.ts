@@ -8,7 +8,7 @@ export const dynamic = 'force-dynamic';
 
 function isInvolved(role: string, userId: string, sendTo: string, submittedById: string): boolean {
   if (submittedById === userId) return true;
-  if (role === 'OWNER') return true;
+  if (role === 'CLIENT') return true;
   if (role === 'PMC')        return ['PMC', 'BOTH', 'ALL'].includes(sendTo);
   if (role === 'CONSULTANT') return ['CONSULTANT', 'BOTH', 'ALL'].includes(sendTo);
   if (role === 'VENDOR')     return ['VENDOR', 'BOTH', 'ALL'].includes(sendTo);

@@ -141,7 +141,7 @@ export default function ArchitecturePage() {
   const tabs = (() => {
     if (myRole === 'CONSULTANT') return ['Overview', 'My Sets', 'All Drawings', 'Import'];
     if (myRole === 'PMC')       return ['Overview', 'Drawing Sets', 'Review Queue'];
-    if (myRole === 'OWNER')     return ['Overview', 'Drawing Sets', 'All Drawings'];
+    if (myRole === 'CLIENT')     return ['Overview', 'Drawing Sets', 'All Drawings'];
     if (myRole === 'VENDOR')    return ['Approved Drawings'];
     return ['Overview', 'Drawing Sets', 'All Drawings'];
   })();
@@ -665,7 +665,7 @@ export default function ArchitecturePage() {
     const isLoading = actionLoading === set.id;
     const isRequested = set.status === 'REQUESTED';
     const isJustCreated = justCreatedSetId === set.id;
-    const canOpenSetRows = ['CONSULTANT', 'PMC', 'OWNER'].includes(myRole);
+    const canOpenSetRows = ['CONSULTANT', 'PMC', 'CLIENT'].includes(myRole);
     return (
       <div
         key={set.id}
@@ -733,7 +733,7 @@ export default function ArchitecturePage() {
               <button onClick={(e) => { e.stopPropagation(); void doSetAction(set.id, 'approve'); }} disabled={isLoading}
                 className="btn btn-sm btn-success disabled:opacity-50">{isLoading ? '…' : 'Approve Set ✓'}</button>
             )}
-            {myRole === 'OWNER' && set.status === 'APPROVED' && (
+            {myRole === 'CLIENT' && set.status === 'APPROVED' && (
               <button onClick={(e) => { e.stopPropagation(); void doSetAction(set.id, 'payment'); }} disabled={isLoading}
                 className="btn btn-sm bg-[rgba(167,139,250,0.15)] text-[#a78bfa] border border-[rgba(167,139,250,0.3)] hover:bg-[rgba(167,139,250,0.25)] disabled:opacity-50">
                 {isLoading ? '…' : `Release ₹${set.cost.toLocaleString('en-IN')}`}
@@ -836,8 +836,8 @@ export default function ArchitecturePage() {
   const renderRowCells = (row: DrawingRow) => {
     const currentVersion = row.versions[0];
     const canUpload = myRole === 'CONSULTANT' && row.status !== 'APPROVED';
-    const canReview = ['PMC', 'OWNER'].includes(myRole) && currentVersion?.reviewStatus === 'PENDING';
-    const canViewHistory = ['OWNER', 'PMC', 'CONSULTANT'].includes(myRole);
+    const canReview = ['PMC', 'CLIENT'].includes(myRole) && currentVersion?.reviewStatus === 'PENDING';
+    const canViewHistory = ['CLIENT', 'PMC', 'CONSULTANT'].includes(myRole);
     const isVendor = myRole === 'VENDOR';
     const setRequested = row.set?.status === 'REQUESTED';
     const isSelected = selectedIds.has(row.id);

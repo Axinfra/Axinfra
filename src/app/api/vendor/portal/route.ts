@@ -39,18 +39,24 @@ export async function GET(request: NextRequest) {
 
     if (vendorRoles.length === 0) {
       return NextResponse.json(
-        { success: false, error: 'No vendor access. You are not assigned as a vendor to any project.' },
+        { success: false, error: 'You are not assigned as a vendor to any active project. Ask the project owner to add you.' },
         { status: 403 },
       );
     }
 
-    // Use first vendor project (demo phase — single project)
-    const projectRole = vendorRoles[0];
+    // Support multi-project: vendor can pass ?projectId= to switch context.
+    // Default to first project when not specified.
+    const requestedProjectId = request.nextUrl.searchParams.get('projectId');
+    const projectRole = requestedProjectId
+      ? (vendorRoles.find(r => r.projectId === requestedProjectId) ?? vendorRoles[0])
+      : vendorRoles[0];
     const projectId = projectRole.projectId;
     const projectName = projectRole.project.name;
+    // Pass all project options to the client so it can render a switcher
+    const allProjects = vendorRoles.map(r => ({ id: r.projectId, name: r.project.name }));
 
     // Validate view up-front so we don't cache a 400.
-    if (view !== 'overview' && view !== 'gantt' && view !== 'analytics') {
+    if (view !== 'overview' && view !== 'gantt' && view !== 'analytics' && view !== 'all') {
       return NextResponse.json(
         { success: false, error: `Unknown view: ${view}` },
         { status: 400 },
@@ -174,6 +180,7 @@ export async function GET(request: NextRequest) {
 
       return {
         success: true,
+        allProjects,
         data: {
           projectId,
           projectName,
@@ -214,14 +221,14 @@ export async function GET(request: NextRequest) {
           plannedStart: m.plannedStart,
           plannedEnd: m.plannedEnd,
           sortOrder: m.sortOrder,
-          predecessorIds: m.predecessorDependencies.map((d) => d.predecessorId),
+          predecessorIds: m.successorDependencies.map((d) => d.predecessorId),
         })),
         projectStartDate,
       );
 
       const lagMap = new Map<string, number>();
       for (const m of vendorMilestones) {
-        for (const dep of m.predecessorDependencies) {
+        for (const dep of m.successorDependencies) {
           lagMap.set(`${dep.predecessorId}→${m.id}`, dep.lagDays);
         }
       }
@@ -252,13 +259,14 @@ export async function GET(request: NextRequest) {
           earlyStart: cpmNode?.earlyStart ?? null,
           earlyFinish: cpmNode?.earlyFinish ?? null,
           // No predecessor/successor editing for vendors
-          predecessors: m.predecessorDependencies,
-          successors: m.successorDependencies,
+          predecessors: m.successorDependencies,
+          successors: m.predecessorDependencies,
         };
       });
 
       return {
         success: true,
+        allProjects,
         data: {
           projectId,
           projectName,
@@ -336,6 +344,7 @@ export async function GET(request: NextRequest) {
 
       return {
         success: true,
+        allProjects,
         data: {
           projectId,
           projectName,
@@ -347,6 +356,124 @@ export async function GET(request: NextRequest) {
           delayHistogram: delayBuckets,
           paymentCycleDays,
           onTimeTrend,
+        },
+      };
+    }
+
+    // view === 'all' — compute everything in one shot so the layout can fetch once
+    // and share data across all three tabs without additional round-trips.
+    if (view === 'all') {
+      const milestoneMetrics = rawMilestones.map((m) =>
+        computeMilestoneScheduleMetrics(m, today),
+      );
+      const cycleTimes = rawMilestones
+        .map((m) => m.approvalCycleDays)
+        .filter((d): d is number => d !== null && d >= 0);
+      const avgApprovalCycleDays =
+        cycleTimes.length > 0 ? cycleTimes.reduce((s, d) => s + d, 0) / cycleTimes.length : 0;
+
+      const vendorMilestoneIds = vendorMilestones.map((m) => m.id);
+      const thirtyDaysAgo = subDays(today, 30);
+      const [escalations, paymentCycleDays] = await Promise.all([
+        prisma.followUp.count({
+          where: { projectId, status: 'ESCALATED', createdAt: { gte: thirtyDaysAgo }, targetEntityId: { in: vendorMilestoneIds } },
+        }),
+        buildVendorPaymentCycleDays(vendorMilestoneIds),
+      ]);
+
+      const completed = milestoneMetrics.filter((m) => m.isComplete);
+      const onTimePct = completed.length > 0
+        ? Math.round((completed.filter((m) => m.timeSavedDays >= 0).length / completed.length) * 100)
+        : 0;
+      const delays = milestoneMetrics
+        .filter((m) => m.overrunDays > 0 || m.projectedOverrun > 0)
+        .map((m) => m.overrunDays + m.projectedOverrun);
+      const avgDelay = delays.length > 0
+        ? Math.round((delays.reduce((s, d) => s + d, 0) / delays.length) * 10) / 10
+        : 0;
+
+      // Gantt / CPM
+      const scheduleConfig = await prisma.projectScheduleConfig.findUnique({ where: { projectId } });
+      const projectStartDate = scheduleConfig?.projectStartDate ?? new Date();
+      const cpmInputs = milestonesCpmInputs(
+        vendorMilestones.map((m) => ({
+          id: m.id, title: m.title,
+          plannedStart: m.plannedStart, plannedEnd: m.plannedEnd,
+          sortOrder: m.sortOrder,
+          predecessorIds: m.successorDependencies.map((d) => d.predecessorId),
+        })),
+        projectStartDate,
+      );
+      const lagMap = new Map<string, number>();
+      for (const m of vendorMilestones) {
+        for (const dep of m.successorDependencies) {
+          lagMap.set(`${dep.predecessorId}→${m.id}`, dep.lagDays);
+        }
+      }
+      const cpmResult = computeCPM(cpmInputs, lagMap);
+      const criticalSet = new Set(cpmResult.criticalPath);
+      const cpmByMilestone = new Map(cpmResult.nodes.map((n) => [n.milestoneId, n]));
+
+      const ganttMilestones = vendorMilestones.map((m) => {
+        const cpmNode = cpmByMilestone.get(m.id);
+        return {
+          id: m.id, title: m.title, state: m.state, sortOrder: m.sortOrder,
+          plannedStart: m.plannedStart, plannedEnd: m.plannedEnd,
+          actualStart: m.actualStart, actualEnd: m.actualVerification ?? m.actualSubmission ?? null,
+          baselinePlannedStart: m.baselinePlannedStart, baselinePlannedEnd: m.baselinePlannedEnd,
+          value: m.value, vendorId: m.vendorUser?.id ?? null, vendorName: m.vendorUser?.name ?? null,
+          isCritical: criticalSet.has(m.id), totalFloat: cpmNode?.totalFloat ?? null,
+          predecessors: m.successorDependencies, successors: m.predecessorDependencies,
+        };
+      });
+
+      // Analytics charts
+      const analyticsKpis = computeProjectScheduleKPIs(
+        { milestones: rawMilestones, avgApprovalCycleDays, criticalMilestoneCount: cpmResult.criticalPath.length, escalationsLast30Days: escalations },
+        today,
+      );
+      const milestonesWithDates = rawMilestones.filter((m) => m.plannedEnd !== null);
+      const allDates = milestonesWithDates.flatMap((m) =>
+        [m.plannedStart, m.plannedEnd, m.actualEnd].filter((d): d is Date => d !== null),
+      );
+      const sCurveFrom = allDates.length > 0 ? new Date(Math.min(...allDates.map((d) => d.getTime()))) : subDays(today, 90);
+      const sCurveTo   = allDates.length > 0 ? new Date(Math.max(...allDates.map((d) => d.getTime()))) : today;
+      const sCurve = computeSCurve(
+        milestonesWithDates.map((m) => ({ id: m.id, plannedEnd: m.plannedEnd, actualEnd: m.actualEnd, value: m.value })),
+        sCurveFrom, sCurveTo,
+      );
+
+      return {
+        success: true,
+        allProjects,
+        data: {
+          projectId, projectName, role: Role.VENDOR,
+          overview: {
+            kpis: {
+              totalMilestones: rawMilestones.length,
+              completedMilestones: completed.length,
+              onTimePct, avgDelayDays: avgDelay,
+              avgApprovalCycleDays: Math.round(avgApprovalCycleDays * 10) / 10,
+              escalationsLast30Days: escalations,
+            },
+            milestones: rawMilestones.map((m) => ({
+              id: m.id, title: m.title, state: m.state,
+              plannedStart: m.plannedStart, plannedEnd: m.plannedEnd,
+              actualEnd: m.actualEnd, value: m.value,
+            })),
+          },
+          gantt: {
+            milestones: ganttMilestones,
+            cpm: { projectDuration: cpmResult.projectDuration, criticalPath: cpmResult.criticalPath, hasCycle: cpmResult.hasCycle },
+            scheduleConfig: scheduleConfig ?? null,
+          },
+          analytics: {
+            kpis: analyticsKpis,
+            sCurve,
+            delayHistogram: buildDelayHistogram(milestoneMetrics),
+            paymentCycleDays,
+            onTimeTrend: buildOnTimeTrend(rawMilestones, today),
+          },
         },
       };
     }

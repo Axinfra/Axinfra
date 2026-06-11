@@ -13,7 +13,7 @@ export async function PATCH(
     const { projectId, phaseId } = await params;
     const auth = await requireProjectAuth(projectId);
 
-    RoleGuard.requireRole(auth, ['OWNER', 'PMC']);
+    RoleGuard.requireRole(auth, ['CLIENT', 'PMC']);
 
     const phase = await prisma.phase.findFirst({
       where: { id: phaseId, projectId },
@@ -76,7 +76,7 @@ export async function DELETE(
     const { projectId, phaseId } = await params;
     const auth = await requireProjectAuth(projectId);
 
-    RoleGuard.requireRole(auth, ['OWNER']);
+    RoleGuard.requireRole(auth, ['CLIENT']);
 
     const phase = await prisma.phase.findFirst({
       where: { id: phaseId, projectId },

@@ -1,6 +1,6 @@
 'use client';
 
-import { useState, useEffect, useRef } from 'react';
+import { useState, useEffect, useRef, FormEvent } from 'react';
 import Link from 'next/link';
 import './landing-page.css';
 import {
@@ -155,7 +155,7 @@ function FlowDiagram() {
 
       {/* ── swimlane headers ── */}
       {[
-        { x: '30',  label: 'OWNER',     color: GOLD,  x2: '200' },
+        { x: '30',  label: 'CLIENT',     color: GOLD,  x2: '200' },
         { x: '230', label: 'CONSULTANT', color: ARCH,  x2: '385' },
         { x: '450', label: 'PMC',       color: '#aaa',x2: '610' },
         { x: '660', label: 'VENDOR',    color: GREEN, x2: '845' },
@@ -170,7 +170,7 @@ function FlowDiagram() {
       <line x1="648" y1="46" x2="648" y2="535" stroke="#fff" strokeWidth=".4" opacity=".05" />
 
       {/* ── row 1: Creates project → Designs plans → Creates BOQ ── */}
-      <Node x={30}  y={76} w={160} h={48} stroke={GOLD} roleColor={GOLD} role="OWNER"     label="Creates project" pulse />
+      <Node x={30}  y={76} w={160} h={48} stroke={GOLD} roleColor={GOLD} role="CLIENT"     label="Creates project" pulse />
       <Connector d="M190 100 L230 100" stroke={GOLD} dur={1.2} />
       <Node x={230} y={76} w={160} h={48} stroke={ARCH} roleColor={ARCH} role="CONSULTANT" label="Designs plans"  pulse />
       <Connector d="M390 100 L450 100" stroke={ARCH} dur={1.4} />
@@ -180,7 +180,7 @@ function FlowDiagram() {
       <Connector d="M530 124 L530 160 L110 160 L110 188" stroke={GOLD} dur={2.2} />
 
       {/* ── row 2: Owner approves BOQ ── */}
-      <Diamond cx={110} cy={232} size={44} stroke={GOLD} roleColor={GOLD} role="OWNER" label="Approve BOQ?" pulse />
+      <Diamond cx={110} cy={232} size={44} stroke={GOLD} roleColor={GOLD} role="CLIENT" label="Approve BOQ?" pulse />
       <text x={166} y={228} fill={GREEN} fontSize="10" fontFamily="Instrument Sans,sans-serif" fontWeight="600">✓ Approve</text>
       <text x={10}  y={302} fill={RED}   fontSize="10" fontFamily="Instrument Sans,sans-serif" fontWeight="600">✗ Reject</text>
 
@@ -212,20 +212,20 @@ function FlowDiagram() {
 
       {/* ── row 4: Owner releases payment ── */}
       <Connector d="M486 384 L110 384 L110 460" stroke={GREEN} dur={2.5} />
-      <Node x={30} y={460} w={160} h={52} stroke={GREEN} roleColor={GREEN} role="OWNER" label="Releases payment" sub="Milestone closed" pulse />
+      <Node x={30} y={460} w={160} h={52} stroke={GREEN} roleColor={GREEN} role="CLIENT" label="Releases payment" sub="Milestone closed" pulse />
     </svg>
   );
 }
 
 /* ─── Data ───────────────────────────────────────────────────────────────── */
 const GANTT_TASKS = [
-  { name: 'Project kickoff', role: 'OWNER', color: 'gold', start: 0, len: 0.8 },
+  { name: 'Project kickoff', role: 'CLIENT', color: 'gold', start: 0, len: 0.8 },
   { name: 'BOQ — Phase 0 Foundation', role: 'PMC', color: 'gold', start: 0.6, len: 1.4 },
-  { name: 'BOQ Approval', role: 'OWNER', color: 'gold', start: 2, len: 0.5 },
+  { name: 'BOQ Approval', role: 'CLIENT', color: 'gold', start: 2, len: 0.5 },
   { name: 'Foundation milestones', role: 'PMC', color: 'green', start: 2.4, len: 1.2 },
   { name: 'Foundation work', role: 'VENDOR', color: 'green', start: 2.8, len: 1.8 },
   { name: 'Evidence review — Phase 0', role: 'PMC', color: 'gold', start: 4.6, len: 0.5 },
-  { name: 'Payment release — Phase 0', role: 'OWNER', color: 'green', start: 5.1, len: 0.5 },
+  { name: 'Payment release — Phase 0', role: 'CLIENT', color: 'green', start: 5.1, len: 0.5 },
   { name: 'BOQ — Structural Works', role: 'PMC', color: 'gold', start: 2, len: 1.2 },
   { name: 'Structural milestones', role: 'PMC', color: 'green', start: 3, len: 0.6 },
   { name: 'Structural work', role: 'VENDOR', color: 'green', start: 3.4, len: 2.8 },
@@ -260,11 +260,77 @@ const AUDIT_LOG = [
   { time: '2026-05-21 10:00', actor: 'Ravi Kumar (Owner)', action: 'created project — Downtown Office Building', badge: 'badge-gold', label: 'Project Created' },
 ];
 
+const NAV_LINKS = [
+  { label: 'Platform',      href: '#platform' },
+  { label: 'How it Works',  href: '#how-it-works' },
+  { label: 'Dashboard',     href: '#dashboard' },
+  { label: 'Support',       href: '#support' },
+];
+
 /* ─── Main component ─────────────────────────────────────────────────────── */
 export default function HomePage() {
-   const [counters, setCounters] = useState({ a: 0, b: 0, c: 0 });
+  const [counters, setCounters] = useState({ a: 0, b: 0, c: 0 });
   const [menuOpen, setMenuOpen] = useState(false);
   const statsRef = useRef(null);
+
+  // Demo request modal
+  const [demoOpen, setDemoOpen] = useState(false);
+  const [demo, setDemo] = useState({ name: '', email: '', company: '', phone: '', message: '' });
+  const [demoState, setDemoState] = useState<'idle' | 'sending' | 'sent' | 'error'>('idle');
+  const [demoError, setDemoError] = useState('');
+
+  async function handleDemoSubmit(e: FormEvent) {
+    e.preventDefault();
+    setDemoState('sending');
+    setDemoError('');
+    try {
+      const res = await fetch('/api/demo-request', {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify(demo),
+      });
+      const data = await res.json();
+      if (data.success) {
+        setDemoState('sent');
+        setDemo({ name: '', email: '', company: '', phone: '', message: '' });
+      } else {
+        setDemoState('error');
+        setDemoError(data.error || 'Something went wrong');
+      }
+    } catch {
+      setDemoState('error');
+      setDemoError('Network error. Please email dev@axinfra.in directly.');
+    }
+  }
+
+  // Support form state
+  const [support, setSupport] = useState({ name: '', email: '', subject: '', message: '' });
+  const [supportState, setSupportState] = useState<'idle' | 'sending' | 'sent' | 'error'>('idle');
+  const [supportError, setSupportError] = useState('');
+
+  async function handleSupportSubmit(e: FormEvent) {
+    e.preventDefault();
+    setSupportState('sending');
+    setSupportError('');
+    try {
+      const res = await fetch('/api/contact', {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify(support),
+      });
+      const data = await res.json();
+      if (data.success) {
+        setSupportState('sent');
+        setSupport({ name: '', email: '', subject: '', message: '' });
+      } else {
+        setSupportState('error');
+        setSupportError(data.error || 'Something went wrong');
+      }
+    } catch {
+      setSupportState('error');
+      setSupportError('Network error. Please email dev@axinfra.in directly.');
+    }
+  }
 
   useEffect(() => {
     const obs = new IntersectionObserver(entries => {
@@ -294,14 +360,14 @@ export default function HomePage() {
         </div>
 
         <div className="ax-navlinks">
-          {['Platform', 'How it Works', 'Dashboard', 'Pricing', 'Clients'].map((l) => (
-            <a key={l} href={`#${l.toLowerCase().replace(/ /g, '-')}`}>{l}</a>
+          {NAV_LINKS.map(({ label, href }) => (
+            <a key={label} href={href}>{label}</a>
           ))}
         </div>
 
         <div className="ax-navcta">
           <Link href="/auth/login" className="btn-ghost">Log in</Link>
-          <Link href="/auth/login" className="btn-primary">Request Demo</Link>
+          <button onClick={() => { setDemoOpen(true); setDemoState('idle'); }} className="btn-primary">Request Demo</button>
         </div>
 
         <button className="ax-hamburger" onClick={() => setMenuOpen((o) => !o)} aria-label="Menu">
@@ -318,12 +384,19 @@ export default function HomePage() {
             exit={{ opacity: 0, y: -12 }}
             transition={{ duration: 0.22 }}
           >
-            {['Platform', 'How it Works', 'Dashboard', 'Pricing', 'Clients'].map((l) => (
-              <a key={l} href={`#${l.toLowerCase().replace(/ /g, '-')}`} onClick={() => setMenuOpen(false)}>{l}</a>
-            ))}
-            <Link href="/auth/login" className="btn-primary" style={{ marginTop: 8, justifyContent: 'center' }} onClick={() => setMenuOpen(false)}>
+            <button
+              onClick={() => { setMenuOpen(false); setDemoOpen(true); setDemoState('idle'); }}
+              className="btn-primary"
+              style={{ marginBottom: 4, justifyContent: 'center' }}
+            >
               Request Demo
+            </button>
+            <Link href="/auth/login" className="btn-ghost" style={{ justifyContent: 'center' }} onClick={() => setMenuOpen(false)}>
+              Log in
             </Link>
+            {NAV_LINKS.map(({ label, href }) => (
+              <a key={label} href={href} onClick={() => setMenuOpen(false)}>{label}</a>
+            ))}
           </motion.div>
         )}
       </AnimatePresence>
@@ -369,7 +442,7 @@ export default function HomePage() {
           animate={{ opacity: 1, y: 0 }}
           transition={{ duration: 0.6, delay: 0.48 }}
         >
-          <Link href="/auth/login" className="btn-hero">Request a Demo →</Link>
+          <button onClick={() => { setDemoOpen(true); setDemoState('idle'); }} className="btn-hero">Request a Demo →</button>
           <a href="#how-it-works" className="btn-outline">See Live Dashboard</a>
         </motion.div>
 
@@ -646,6 +719,183 @@ export default function HomePage() {
 
       <div className="ax-divider" />
 
+      {/* ── SUPPORT ── */}
+      <section className="ax-section" id="support" style={{ background: 'var(--bg1)' }}>
+        <Section className="sec-head-row">
+          <div>
+            <div className="sec-tag">Customer Support</div>
+            <h2 className="sec-title">Got a question<br /><em>or an issue?</em></h2>
+          </div>
+          <p className="sec-sub">
+            Send us a message and we&apos;ll get back to you within 1–2 business days.
+            For urgent issues you can also email us directly at{' '}
+            <a href="mailto:dev@axinfra.in" style={{ color: 'var(--gold)', textDecoration: 'none' }}>dev@axinfra.in</a>.
+          </p>
+        </Section>
+
+        <Section style={{ marginTop: 48, maxWidth: 600, marginLeft: 'auto', marginRight: 'auto' }}>
+          {supportState === 'sent' ? (
+            <motion.div
+              initial={{ opacity: 0, y: 16 }}
+              animate={{ opacity: 1, y: 0 }}
+              style={{
+                background: 'rgba(29,158,117,0.08)',
+                border: '1px solid rgba(29,158,117,0.25)',
+                borderRadius: 16,
+                padding: '40px 32px',
+                textAlign: 'center',
+              }}
+            >
+              <div style={{ fontSize: 40, marginBottom: 16 }}>✓</div>
+              <h3 style={{ fontSize: 20, fontWeight: 800, color: '#e8e4dc', margin: '0 0 8px' }}>Message sent!</h3>
+              <p style={{ fontSize: 14, color: 'rgba(232,228,220,0.55)', margin: '0 0 24px' }}>
+                We&apos;ve also sent a confirmation to your email. Our team will be in touch shortly.
+              </p>
+              <button
+                onClick={() => setSupportState('idle')}
+                style={{
+                  background: 'rgba(29,158,117,0.12)',
+                  color: '#1d9e75',
+                  border: '1px solid rgba(29,158,117,0.3)',
+                  borderRadius: 10,
+                  padding: '10px 24px',
+                  fontSize: 13,
+                  fontWeight: 700,
+                  cursor: 'pointer',
+                }}
+              >
+                Send another message
+              </button>
+            </motion.div>
+          ) : (
+            <form
+              onSubmit={handleSupportSubmit}
+              style={{
+                background: 'rgba(255,255,255,0.02)',
+                border: '1px solid rgba(255,255,255,0.07)',
+                borderRadius: 16,
+                padding: '32px',
+                display: 'flex',
+                flexDirection: 'column',
+                gap: 20,
+              }}
+            >
+              <div style={{ display: 'grid', gridTemplateColumns: '1fr 1fr', gap: 16 }}>
+                <div>
+                  <label style={{ display: 'block', fontSize: 11.5, fontWeight: 600, color: 'rgba(232,228,220,0.45)', textTransform: 'uppercase', letterSpacing: '0.07em', marginBottom: 6 }}>
+                    Your Name *
+                  </label>
+                  <input
+                    type="text"
+                    required
+                    value={support.name}
+                    onChange={e => setSupport(s => ({ ...s, name: e.target.value }))}
+                    placeholder="Rahul Sharma"
+                    style={{
+                      width: '100%', boxSizing: 'border-box',
+                      background: '#0d0d11', border: '1px solid rgba(255,255,255,0.1)',
+                      borderRadius: 10, padding: '11px 14px',
+                      fontSize: 13.5, color: '#e8e4dc', outline: 'none',
+                    }}
+                  />
+                </div>
+                <div>
+                  <label style={{ display: 'block', fontSize: 11.5, fontWeight: 600, color: 'rgba(232,228,220,0.45)', textTransform: 'uppercase', letterSpacing: '0.07em', marginBottom: 6 }}>
+                    Email Address *
+                  </label>
+                  <input
+                    type="email"
+                    required
+                    value={support.email}
+                    onChange={e => setSupport(s => ({ ...s, email: e.target.value }))}
+                    placeholder="you@company.com"
+                    style={{
+                      width: '100%', boxSizing: 'border-box',
+                      background: '#0d0d11', border: '1px solid rgba(255,255,255,0.1)',
+                      borderRadius: 10, padding: '11px 14px',
+                      fontSize: 13.5, color: '#e8e4dc', outline: 'none',
+                    }}
+                  />
+                </div>
+              </div>
+
+              <div>
+                <label style={{ display: 'block', fontSize: 11.5, fontWeight: 600, color: 'rgba(232,228,220,0.45)', textTransform: 'uppercase', letterSpacing: '0.07em', marginBottom: 6 }}>
+                  Subject *
+                </label>
+                <select
+                  required
+                  value={support.subject}
+                  onChange={e => setSupport(s => ({ ...s, subject: e.target.value }))}
+                  style={{
+                    width: '100%',
+                    background: '#0d0d11', border: '1px solid rgba(255,255,255,0.1)',
+                    borderRadius: 10, padding: '11px 14px',
+                    fontSize: 13.5, color: support.subject ? '#e8e4dc' : 'rgba(232,228,220,0.3)', outline: 'none',
+                    appearance: 'none', cursor: 'pointer',
+                  }}
+                >
+                  <option value="" disabled>Select a topic…</option>
+                  <option value="Bug report">Bug report</option>
+                  <option value="Feature request">Feature request</option>
+                  <option value="Account or login issue">Account or login issue</option>
+                  <option value="Billing or payment query">Billing or payment query</option>
+                  <option value="General inquiry">General inquiry</option>
+                  <option value="Demo request">Demo request</option>
+                </select>
+              </div>
+
+              <div>
+                <label style={{ display: 'block', fontSize: 11.5, fontWeight: 600, color: 'rgba(232,228,220,0.45)', textTransform: 'uppercase', letterSpacing: '0.07em', marginBottom: 6 }}>
+                  Message *
+                </label>
+                <textarea
+                  required
+                  rows={5}
+                  value={support.message}
+                  onChange={e => setSupport(s => ({ ...s, message: e.target.value }))}
+                  placeholder="Describe your issue or question in detail…"
+                  style={{
+                    width: '100%', boxSizing: 'border-box', resize: 'vertical',
+                    background: '#0d0d11', border: '1px solid rgba(255,255,255,0.1)',
+                    borderRadius: 10, padding: '11px 14px',
+                    fontSize: 13.5, color: '#e8e4dc', outline: 'none',
+                    fontFamily: 'inherit', lineHeight: 1.6,
+                  }}
+                />
+              </div>
+
+              {supportState === 'error' && (
+                <div style={{
+                  background: 'rgba(224,96,80,0.1)', border: '1px solid rgba(224,96,80,0.25)',
+                  borderRadius: 10, padding: '10px 14px',
+                  fontSize: 13, color: '#e06050',
+                }}>
+                  {supportError}
+                </div>
+              )}
+
+              <button
+                type="submit"
+                disabled={supportState === 'sending'}
+                style={{
+                  background: supportState === 'sending' ? 'rgba(196,163,90,0.5)' : '#c4a35a',
+                  color: '#0d0d11', border: 'none', borderRadius: 12,
+                  padding: '14px 28px', fontSize: 14, fontWeight: 700,
+                  cursor: supportState === 'sending' ? 'not-allowed' : 'pointer',
+                  transition: 'opacity 0.2s',
+                  alignSelf: 'flex-start',
+                }}
+              >
+                {supportState === 'sending' ? 'Sending…' : 'Send Message →'}
+              </button>
+            </form>
+          )}
+        </Section>
+      </section>
+
+      <div className="ax-divider" />
+
       {/* ── FOOTER ── */}
       <footer className="ax-footer">
         <div className="footer-grid">
@@ -663,10 +913,9 @@ export default function HomePage() {
           </div>
           <div className="footer-col">
             <h4>Company</h4>
-            <a href="#">About</a>
-            <a href="#">Clients</a>
-            <a href="#">Pricing</a>
-            <Link href="/auth/login">Request Demo</Link>
+            <a href="#support">Support</a>
+            <a href="mailto:dev@axinfra.in">Contact Us</a>
+            <button onClick={() => { setDemoOpen(true); setDemoState('idle'); }} style={{ background: 'none', border: 'none', padding: 0, cursor: 'pointer', color: 'inherit', font: 'inherit', textAlign: 'left' }}>Request Demo</button>
           </div>
           <div className="footer-col">
             <h4>Legal</h4>
@@ -680,6 +929,156 @@ export default function HomePage() {
           <p>axinfra.in →</p>
         </div>
       </footer>
+
+      {/* ── DEMO REQUEST MODAL ── */}
+      <AnimatePresence>
+        {demoOpen && (
+          <motion.div
+            className="fixed inset-0 z-50 flex items-center justify-center p-4"
+            style={{ background: 'rgba(0,0,0,0.75)' }}
+            initial={{ opacity: 0 }}
+            animate={{ opacity: 1 }}
+            exit={{ opacity: 0 }}
+            onClick={(e) => { if (e.target === e.currentTarget) setDemoOpen(false); }}
+          >
+            <motion.div
+              style={{
+                background: '#13151a',
+                border: '1px solid rgba(255,255,255,0.1)',
+                borderRadius: 20,
+                width: '100%',
+                maxWidth: 500,
+                maxHeight: '90vh',
+                overflowY: 'auto',
+              }}
+              initial={{ opacity: 0, y: 24, scale: 0.97 }}
+              animate={{ opacity: 1, y: 0, scale: 1 }}
+              exit={{ opacity: 0, y: 16, scale: 0.97 }}
+              transition={{ duration: 0.25, ease: [0.22, 1, 0.36, 1] }}
+            >
+              {/* Header */}
+              <div style={{ padding: '24px 28px 0', display: 'flex', alignItems: 'flex-start', justifyContent: 'space-between' }}>
+                <div>
+                  <div style={{ fontSize: 11, fontWeight: 700, color: '#c4a35a', textTransform: 'uppercase', letterSpacing: '0.1em', marginBottom: 6 }}>Request a Demo</div>
+                  <h2 style={{ fontSize: 22, fontWeight: 800, color: '#e8e4dc', margin: 0 }}>See Axinfra in action</h2>
+                  <p style={{ fontSize: 13, color: 'rgba(232,228,220,0.5)', marginTop: 6, lineHeight: 1.5 }}>
+                    Fill in your details and we&apos;ll schedule a personalised walkthrough within 1 business day.
+                  </p>
+                </div>
+                <button
+                  onClick={() => setDemoOpen(false)}
+                  style={{ background: 'none', border: 'none', color: 'rgba(232,228,220,0.35)', cursor: 'pointer', padding: 4, marginLeft: 12, marginTop: -2 }}
+                  aria-label="Close"
+                >
+                  <svg width="20" height="20" fill="none" stroke="currentColor" strokeWidth="1.5" viewBox="0 0 24 24">
+                    <path strokeLinecap="round" strokeLinejoin="round" d="M6 18 18 6M6 6l12 12" />
+                  </svg>
+                </button>
+              </div>
+
+              <div style={{ padding: '24px 28px 28px' }}>
+                {demoState === 'sent' ? (
+                  <div style={{ textAlign: 'center', padding: '24px 0' }}>
+                    <div style={{ fontSize: 48, marginBottom: 16 }}>✓</div>
+                    <h3 style={{ fontSize: 18, fontWeight: 800, color: '#e8e4dc', margin: '0 0 8px' }}>Request received!</h3>
+                    <p style={{ fontSize: 14, color: 'rgba(232,228,220,0.55)', margin: '0 0 24px', lineHeight: 1.6 }}>
+                      We&apos;ve also sent a confirmation to your email. Our team will reach out within 1 business day to schedule your demo.
+                    </p>
+                    <button
+                      onClick={() => setDemoOpen(false)}
+                      style={{
+                        background: 'rgba(196,163,90,0.1)', color: '#c4a35a',
+                        border: '1px solid rgba(196,163,90,0.25)', borderRadius: 10,
+                        padding: '10px 24px', fontSize: 13, fontWeight: 700, cursor: 'pointer',
+                      }}
+                    >
+                      Close
+                    </button>
+                  </div>
+                ) : (
+                  <form onSubmit={handleDemoSubmit} style={{ display: 'flex', flexDirection: 'column', gap: 16 }}>
+                    <div style={{ display: 'grid', gridTemplateColumns: '1fr 1fr', gap: 12 }}>
+                      <div>
+                        <label style={{ display: 'block', fontSize: 11, fontWeight: 700, color: 'rgba(232,228,220,0.45)', textTransform: 'uppercase', letterSpacing: '0.07em', marginBottom: 5 }}>Full Name *</label>
+                        <input
+                          type="text" required value={demo.name}
+                          onChange={e => setDemo(d => ({ ...d, name: e.target.value }))}
+                          placeholder="Rahul Sharma"
+                          style={{ width: '100%', boxSizing: 'border-box', background: '#0d0d11', border: '1px solid rgba(255,255,255,0.1)', borderRadius: 10, padding: '10px 13px', fontSize: 13.5, color: '#e8e4dc', outline: 'none' }}
+                        />
+                      </div>
+                      <div>
+                        <label style={{ display: 'block', fontSize: 11, fontWeight: 700, color: 'rgba(232,228,220,0.45)', textTransform: 'uppercase', letterSpacing: '0.07em', marginBottom: 5 }}>Work Email *</label>
+                        <input
+                          type="email" required value={demo.email}
+                          onChange={e => setDemo(d => ({ ...d, email: e.target.value }))}
+                          placeholder="you@company.com"
+                          style={{ width: '100%', boxSizing: 'border-box', background: '#0d0d11', border: '1px solid rgba(255,255,255,0.1)', borderRadius: 10, padding: '10px 13px', fontSize: 13.5, color: '#e8e4dc', outline: 'none' }}
+                        />
+                      </div>
+                    </div>
+
+                    <div style={{ display: 'grid', gridTemplateColumns: '1fr 1fr', gap: 12 }}>
+                      <div>
+                        <label style={{ display: 'block', fontSize: 11, fontWeight: 700, color: 'rgba(232,228,220,0.45)', textTransform: 'uppercase', letterSpacing: '0.07em', marginBottom: 5 }}>Company *</label>
+                        <input
+                          type="text" required value={demo.company}
+                          onChange={e => setDemo(d => ({ ...d, company: e.target.value }))}
+                          placeholder="PMC Firm / Developer"
+                          style={{ width: '100%', boxSizing: 'border-box', background: '#0d0d11', border: '1px solid rgba(255,255,255,0.1)', borderRadius: 10, padding: '10px 13px', fontSize: 13.5, color: '#e8e4dc', outline: 'none' }}
+                        />
+                      </div>
+                      <div>
+                        <label style={{ display: 'block', fontSize: 11, fontWeight: 700, color: 'rgba(232,228,220,0.45)', textTransform: 'uppercase', letterSpacing: '0.07em', marginBottom: 5 }}>Phone</label>
+                        <input
+                          type="tel" value={demo.phone}
+                          onChange={e => setDemo(d => ({ ...d, phone: e.target.value }))}
+                          placeholder="+91 98765 43210"
+                          style={{ width: '100%', boxSizing: 'border-box', background: '#0d0d11', border: '1px solid rgba(255,255,255,0.1)', borderRadius: 10, padding: '10px 13px', fontSize: 13.5, color: '#e8e4dc', outline: 'none' }}
+                        />
+                      </div>
+                    </div>
+
+                    <div>
+                      <label style={{ display: 'block', fontSize: 11, fontWeight: 700, color: 'rgba(232,228,220,0.45)', textTransform: 'uppercase', letterSpacing: '0.07em', marginBottom: 5 }}>Anything specific you&apos;d like to see?</label>
+                      <textarea
+                        rows={3} value={demo.message}
+                        onChange={e => setDemo(d => ({ ...d, message: e.target.value }))}
+                        placeholder="e.g. payment governance, vendor milestone tracking, Viseron AI risk detection…"
+                        style={{ width: '100%', boxSizing: 'border-box', background: '#0d0d11', border: '1px solid rgba(255,255,255,0.1)', borderRadius: 10, padding: '10px 13px', fontSize: 13.5, color: '#e8e4dc', outline: 'none', resize: 'vertical', fontFamily: 'inherit', lineHeight: 1.6 }}
+                      />
+                    </div>
+
+                    {demoState === 'error' && (
+                      <div style={{ background: 'rgba(224,96,80,0.1)', border: '1px solid rgba(224,96,80,0.25)', borderRadius: 10, padding: '10px 14px', fontSize: 13, color: '#e06050' }}>
+                        {demoError}
+                      </div>
+                    )}
+
+                    <button
+                      type="submit"
+                      disabled={demoState === 'sending'}
+                      style={{
+                        background: demoState === 'sending' ? 'rgba(196,163,90,0.5)' : '#c4a35a',
+                        color: '#0d0d11', border: 'none', borderRadius: 12,
+                        padding: '14px 28px', fontSize: 14, fontWeight: 700,
+                        cursor: demoState === 'sending' ? 'not-allowed' : 'pointer',
+                        transition: 'opacity 0.2s', marginTop: 4,
+                      }}
+                    >
+                      {demoState === 'sending' ? 'Submitting…' : 'Request Demo →'}
+                    </button>
+
+                    <p style={{ fontSize: 11.5, color: 'rgba(232,228,220,0.25)', margin: 0, textAlign: 'center' }}>
+                      No spam. We&apos;ll only contact you about your demo request.
+                    </p>
+                  </form>
+                )}
+              </div>
+            </motion.div>
+          </motion.div>
+        )}
+      </AnimatePresence>
     </>
   );
 }

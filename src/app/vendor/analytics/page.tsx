@@ -1,229 +1,198 @@
 'use client';
 
-import { useState, useEffect, useCallback } from 'react';
-import { useRouter } from 'next/navigation';
+import { useState } from 'react';
 import Layout from '@/components/Layout';
 import VendorNav from '@/components/vendor/VendorNav';
-import { Loader2 } from 'lucide-react';
+import { useVendorPortal } from '@/lib/contexts/VendorPortalContext';
+import { DARK_TOOLTIP } from '@/lib/chartConfig';
+import { Loader2, AlertTriangle, TrendingUp, TrendingDown, Clock, CheckCircle2, ChevronDown } from 'lucide-react';
 import {
-  ResponsiveContainer,
-  LineChart,
-  Line,
-  BarChart,
-  Bar,
-  XAxis,
-  YAxis,
-  CartesianGrid,
-  Tooltip,
-  Legend,
-  AreaChart,
-  Area,
+  ResponsiveContainer, AreaChart, Area, BarChart, Bar,
+  LineChart, Line, XAxis, YAxis, CartesianGrid, Tooltip, Legend,
 } from 'recharts';
 
-interface SCurvePoint {
-  date: string;
-  plannedCumulative: number;
-  actualCumulative: number;
-}
+type Tab = 'scurve' | 'delay' | 'payment' | 'ontime';
+const TABS: { id: Tab; label: string }[] = [
+  { id: 'scurve',  label: 'S-Curve'       },
+  { id: 'delay',   label: 'Delay Dist.'   },
+  { id: 'payment', label: 'Payment Cycle' },
+  { id: 'ontime',  label: 'On-time Trend' },
+];
 
-interface DelayBucket {
-  bucket: string;
-  count: number;
-}
-
-interface OnTimeTrend {
-  month: string;
-  onTimePct: number;
-}
-
-interface VendorAnalyticsKPIs {
-  netScheduleDays: number;
-  totalSavedDays: number;
-  totalOverrunDays: number;
-  onTimePct: number;
-  avgApprovalCycleDays: number;
-  completedMilestones: number;
-  totalMilestones: number;
+function EmptyChart({ message }: { message?: string }) {
+  return (
+    <div className="flex flex-col items-center justify-center h-[280px] text-center">
+      <div className="w-10 h-10 rounded-full bg-[rgba(255,255,255,0.04)] border border-[rgba(255,255,255,0.07)] flex items-center justify-center mb-3">
+        <TrendingUp className="w-4 h-4 text-[rgba(232,228,220,0.25)]" />
+      </div>
+      <p className="text-sm text-[rgba(232,228,220,0.35)]">{message ?? 'No data yet'}</p>
+      <p className="text-xs text-[rgba(232,228,220,0.25)] mt-1">Data will appear as milestones are completed</p>
+    </div>
+  );
 }
 
 export default function VendorAnalyticsPage() {
-  const router = useRouter();
-  const [loading, setLoading] = useState(true);
-  const [error, setError] = useState('');
-  const [projectName, setProjectName] = useState('');
-  const [activeTab, setActiveTab] = useState<'scurve' | 'delay' | 'payment' | 'ontime'>('scurve');
+  const { data, loading, error, reload } = useVendorPortal();
+  const [activeTab, setActiveTab] = useState<Tab>('scurve');
 
-  const [kpis, setKpis] = useState<VendorAnalyticsKPIs | null>(null);
-  const [sCurve, setSCurve] = useState<SCurvePoint[]>([]);
-  const [delayHistogram, setDelayHistogram] = useState<DelayBucket[]>([]);
-  const [paymentCycleDays, setPaymentCycleDays] = useState<{ avg: number }>({ avg: 0 });
-  const [onTimeTrend, setOnTimeTrend] = useState<OnTimeTrend[]>([]);
+  if (loading) return <Layout><div className="flex items-center justify-center py-20"><Loader2 className="w-6 h-6 animate-spin text-[rgba(232,228,220,0.35)]" /></div></Layout>;
+  if (error)   return <Layout><div className="flex flex-col items-center justify-center py-20 text-center px-4"><AlertTriangle className="w-8 h-8 text-[#e06050] mb-3" /><p className="text-[#e06050] font-semibold mb-1">Failed to load analytics</p><p className="text-sm text-[rgba(232,228,220,0.45)]">{error}</p></div></Layout>;
+  if (!data)   return null;
 
-  const load = useCallback(async () => {
-    try {
-      const res = await fetch('/api/vendor/portal?view=analytics');
-      const data = await res.json();
-      if (!data.success) {
-        if (res.status === 401) { router.push('/auth/login'); return; }
-        if (res.status === 403) { router.push('/projects'); return; }
-        setError(data.error);
-        return;
-      }
-      setProjectName(data.data.projectName);
-      setKpis(data.data.kpis);
-      setSCurve(data.data.sCurve);
-      setDelayHistogram(data.data.delayHistogram);
-      setPaymentCycleDays(data.data.paymentCycleDays);
-      setOnTimeTrend(data.data.onTimeTrend);
-    } catch {
-      setError('Failed to load analytics');
-    } finally {
-      setLoading(false);
-    }
-  }, [router]);
-
-  useEffect(() => { load(); }, [load]);
-
-  if (loading) {
-    return (
-      <Layout>
-        <div className="flex items-center justify-center py-20">
-          <Loader2 className="w-6 h-6 animate-spin text-[rgba(232,228,220,0.35)]" />
-        </div>
-      </Layout>
-    );
-  }
-
-  if (error) {
-    return (
-      <Layout>
-        <div className="text-center py-20 text-[#e06050]">{error}</div>
-      </Layout>
-    );
-  }
-
-  const tabs = [
-    { id: 'scurve' as const, label: 'S-Curve' },
-    { id: 'delay' as const, label: 'Delay Distribution' },
-    { id: 'payment' as const, label: 'Payment Cycle' },
-    { id: 'ontime' as const, label: 'On-time % Trend' },
-  ];
+  const { projectName, allProjects, analytics } = data;
+  const { kpis, sCurve, delayHistogram, paymentCycleDays, onTimeTrend } = analytics;
+  const completionPct = kpis.totalMilestones > 0 ? Math.round((kpis.completedMilestones / kpis.totalMilestones) * 100) : 0;
 
   return (
     <Layout>
       <VendorNav projectName={projectName} />
+      <div className="space-y-5">
 
-      <div className="space-y-6">
-        {/* KPI summary */}
-        {kpis && (
-          <div className="grid grid-cols-2 md:grid-cols-4 gap-4">
-            <MiniKpi label="On-time %" value={`${kpis.onTimePct}%`} />
-            <MiniKpi label="Schedule Days" value={kpis.netScheduleDays >= 0 ? `+${kpis.netScheduleDays}d` : `${kpis.netScheduleDays}d`} />
-            <MiniKpi label="Approval Cycle" value={`${kpis.avgApprovalCycleDays}d`} />
-            <MiniKpi label="Completed" value={`${kpis.completedMilestones}/${kpis.totalMilestones}`} />
+        {allProjects.length > 1 && (
+          <div className="flex items-center gap-3">
+            <span className="text-xs font-medium text-[rgba(232,228,220,0.45)] uppercase tracking-wider shrink-0">Project</span>
+            <div className="relative">
+              <select value={data.projectId} onChange={e => reload(e.target.value)}
+                className="appearance-none bg-[rgba(255,255,255,0.04)] border border-[rgba(255,255,255,0.09)] rounded-lg pl-3 pr-8 py-2 text-sm text-[#e8e4dc] outline-none focus:border-[rgba(196,163,90,0.4)] cursor-pointer">
+                {allProjects.map(p => <option key={p.id} value={p.id}>{p.name}</option>)}
+              </select>
+              <ChevronDown className="absolute right-2.5 top-1/2 -translate-y-1/2 w-3.5 h-3.5 text-[rgba(232,228,220,0.35)] pointer-events-none" />
+            </div>
           </div>
         )}
 
-        {/* Sub-tabs */}
-        <div className="flex items-center gap-1 bg-[rgba(255,255,255,0.03)] p-1 rounded-lg w-fit">
-          {tabs.map((tab) => (
-            <button
-              key={tab.id}
-              onClick={() => setActiveTab(tab.id)}
-              className={`px-3 py-1.5 text-[12px] font-medium rounded-md transition-colors
-                ${activeTab === tab.id
-                  ? 'bg-[rgba(255,255,255,0.03)] text-[#e8e4dc] shadow-none'
-                  : 'text-[rgba(232,228,220,0.55)] hover:text-[#e8e4dc]'
-                }`}
-            >
-              {tab.label}
-            </button>
-          ))}
+        {/* KPI cards */}
+        <div className="grid grid-cols-2 sm:grid-cols-4 gap-3">
+          <div className="bg-[rgba(255,255,255,0.03)] border border-[rgba(255,255,255,0.07)] rounded-xl p-4">
+            <div className="flex items-center gap-2 mb-2"><CheckCircle2 className="w-4 h-4 text-[#5cba80]" /><span className="text-[10.5px] font-semibold text-[rgba(232,228,220,0.45)] uppercase tracking-wider">On-time</span></div>
+            <p className={`text-2xl font-bold ${kpis.onTimePct >= 80 ? 'text-[#5cba80]' : kpis.onTimePct >= 50 ? 'text-[#c4a35a]' : 'text-[#e06050]'}`}>{kpis.onTimePct}%</p>
+          </div>
+          <div className="bg-[rgba(255,255,255,0.03)] border border-[rgba(255,255,255,0.07)] rounded-xl p-4">
+            <div className="flex items-center gap-2 mb-2">
+              {kpis.netScheduleDays >= 0 ? <TrendingUp className="w-4 h-4 text-[#5cba80]" /> : <TrendingDown className="w-4 h-4 text-[#e06050]" />}
+              <span className="text-[10.5px] font-semibold text-[rgba(232,228,220,0.45)] uppercase tracking-wider">Schedule</span>
+            </div>
+            <p className={`text-2xl font-bold ${kpis.netScheduleDays >= 0 ? 'text-[#5cba80]' : 'text-[#e06050]'}`}>{kpis.netScheduleDays >= 0 ? '+' : ''}{kpis.netScheduleDays}d</p>
+            <p className="text-[10.5px] text-[rgba(232,228,220,0.35)] mt-0.5">{kpis.netScheduleDays >= 0 ? 'Ahead of plan' : 'Behind plan'}</p>
+          </div>
+          <div className="bg-[rgba(255,255,255,0.03)] border border-[rgba(255,255,255,0.07)] rounded-xl p-4">
+            <div className="flex items-center gap-2 mb-2"><Clock className="w-4 h-4 text-[#c4a35a]" /><span className="text-[10.5px] font-semibold text-[rgba(232,228,220,0.45)] uppercase tracking-wider">Approval</span></div>
+            <p className="text-2xl font-bold text-[#e8e4dc]">{kpis.avgApprovalCycleDays}d</p>
+            <p className="text-[10.5px] text-[rgba(232,228,220,0.35)] mt-0.5">Evidence → verified</p>
+          </div>
+          <div className="bg-[rgba(255,255,255,0.03)] border border-[rgba(255,255,255,0.07)] rounded-xl p-4">
+            <div className="flex items-center gap-2 mb-2"><CheckCircle2 className="w-4 h-4 text-[rgba(232,228,220,0.35)]" /><span className="text-[10.5px] font-semibold text-[rgba(232,228,220,0.45)] uppercase tracking-wider">Progress</span></div>
+            <p className="text-2xl font-bold text-[#e8e4dc]">{kpis.completedMilestones}<span className="text-base text-[rgba(232,228,220,0.35)] font-normal">/{kpis.totalMilestones}</span></p>
+            <div className="h-1.5 rounded-full bg-[rgba(255,255,255,0.06)] mt-2 overflow-hidden">
+              <div className="h-full rounded-full bg-[#c4a35a] transition-all" style={{ width: `${completionPct}%` }} />
+            </div>
+          </div>
         </div>
 
-        {/* Chart area */}
-        <div className="bg-[rgba(255,255,255,0.03)] border border-[rgba(255,255,255,0.07)] rounded-xl p-6">
-          {activeTab === 'scurve' && (
-            <div>
-              <h3 className="text-sm font-semibold text-[#e8e4dc] mb-4">S-Curve (Cumulative Value)</h3>
-              {sCurve.length === 0 ? (
-                <p className="text-sm text-[rgba(232,228,220,0.35)] text-center py-10">No data available</p>
-              ) : (
-                <ResponsiveContainer width="100%" height={320}>
-                  <AreaChart data={sCurve}>
-                    <CartesianGrid strokeDasharray="3 3" stroke="rgba(255,255,255,0.07)" />
-                    <XAxis dataKey="date" tick={{ fontSize: 11 }} />
-                    <YAxis tick={{ fontSize: 11 }} />
-                    <Tooltip />
-                    <Legend />
-                    <Area type="monotone" dataKey="plannedCumulative" stroke="#14b8a6" fill="#ccfbf1" name="Planned" />
-                    <Area type="monotone" dataKey="actualCumulative" stroke="#3b82f6" fill="#dbeafe" name="Actual" />
-                  </AreaChart>
-                </ResponsiveContainer>
-              )}
-            </div>
-          )}
+        {/* Chart panel */}
+        <div className="bg-[rgba(255,255,255,0.03)] border border-[rgba(255,255,255,0.07)] rounded-xl overflow-hidden">
+          <div className="flex border-b border-[rgba(255,255,255,0.07)] overflow-x-auto">
+            {TABS.map(tab => (
+              <button key={tab.id} onClick={() => setActiveTab(tab.id)}
+                className="px-5 py-3 text-[12.5px] font-medium whitespace-nowrap border-b-2 -mb-px transition-colors"
+                style={{ borderBottomColor: activeTab === tab.id ? '#c4a35a' : 'transparent', color: activeTab === tab.id ? '#c4a35a' : 'rgba(232,228,220,0.5)' }}>
+                {tab.label}
+              </button>
+            ))}
+          </div>
 
-          {activeTab === 'delay' && (
-            <div>
-              <h3 className="text-sm font-semibold text-[#e8e4dc] mb-4">Delay Distribution</h3>
-              {delayHistogram.length === 0 ? (
-                <p className="text-sm text-[rgba(232,228,220,0.35)] text-center py-10">No data available</p>
-              ) : (
-                <ResponsiveContainer width="100%" height={320}>
-                  <BarChart data={delayHistogram}>
-                    <CartesianGrid strokeDasharray="3 3" stroke="rgba(255,255,255,0.07)" />
-                    <XAxis dataKey="bucket" tick={{ fontSize: 11 }} />
-                    <YAxis tick={{ fontSize: 11 }} allowDecimals={false} />
-                    <Tooltip />
-                    <Bar dataKey="count" fill="#14b8a6" radius={[4, 4, 0, 0]} name="Milestones" />
-                  </BarChart>
-                </ResponsiveContainer>
-              )}
-            </div>
-          )}
+          <div className="p-5">
+            {activeTab === 'scurve' && (
+              <div>
+                <div className="flex items-start justify-between mb-4 gap-2 flex-wrap">
+                  <div><h3 className="text-sm font-semibold text-[#e8e4dc]">S-Curve — Cumulative Value</h3><p className="text-xs text-[rgba(232,228,220,0.4)] mt-0.5">Planned vs actual work completed over time</p></div>
+                  <div className="flex items-center gap-4 text-[11px] text-[rgba(232,228,220,0.55)]">
+                    <span className="flex items-center gap-1.5"><span className="w-3 h-0.5 rounded-full bg-[#c4a35a] inline-block"/>Planned</span>
+                    <span className="flex items-center gap-1.5"><span className="w-3 h-0.5 rounded-full bg-[#3b82f6] inline-block"/>Actual</span>
+                  </div>
+                </div>
+                {sCurve.length === 0 ? <EmptyChart message="No scheduled milestones with planned dates" /> : (
+                  <ResponsiveContainer width="100%" height={300}>
+                    <AreaChart data={sCurve} margin={{ top: 4, right: 8, bottom: 4, left: 8 }}>
+                      <defs>
+                        <linearGradient id="gP" x1="0" y1="0" x2="0" y2="1"><stop offset="5%" stopColor="#c4a35a" stopOpacity={0.25}/><stop offset="95%" stopColor="#c4a35a" stopOpacity={0.02}/></linearGradient>
+                        <linearGradient id="gA" x1="0" y1="0" x2="0" y2="1"><stop offset="5%" stopColor="#3b82f6" stopOpacity={0.25}/><stop offset="95%" stopColor="#3b82f6" stopOpacity={0.02}/></linearGradient>
+                      </defs>
+                      <CartesianGrid strokeDasharray="3 3" stroke="rgba(255,255,255,0.06)" />
+                      <XAxis dataKey="date" tick={{ fontSize: 10.5, fill: 'rgba(232,228,220,0.4)' }} axisLine={false} tickLine={false} />
+                      <YAxis tick={{ fontSize: 10.5, fill: 'rgba(232,228,220,0.4)' }} axisLine={false} tickLine={false} width={40} />
+                      <Tooltip {...DARK_TOOLTIP} />
+                      <Area type="monotone" dataKey="plannedCumulative" stroke="#c4a35a" strokeWidth={2} fill="url(#gP)" name="Planned" dot={false} />
+                      <Area type="monotone" dataKey="actualCumulative"  stroke="#3b82f6" strokeWidth={2} fill="url(#gA)" name="Actual"  dot={false} />
+                    </AreaChart>
+                  </ResponsiveContainer>
+                )}
+              </div>
+            )}
 
-          {activeTab === 'payment' && (
-            <div>
-              <h3 className="text-sm font-semibold text-[#e8e4dc] mb-4">Payment Cycle Days</h3>
-              <div className="flex items-center justify-center py-12">
-                <div className="text-center">
-                  <p className="text-4xl font-bold text-teal-600">{paymentCycleDays.avg}</p>
-                  <p className="text-sm text-[rgba(232,228,220,0.55)] mt-2">Avg days from evidence to payment eligibility</p>
+            {activeTab === 'delay' && (
+              <div>
+                <div className="mb-4"><h3 className="text-sm font-semibold text-[#e8e4dc]">Delay Distribution</h3><p className="text-xs text-[rgba(232,228,220,0.4)] mt-0.5">How many milestones fell into each delay bucket (days late)</p></div>
+                {delayHistogram.length === 0 ? <EmptyChart message="No completed milestones with delay data" /> : (
+                  <ResponsiveContainer width="100%" height={300}>
+                    <BarChart data={delayHistogram} margin={{ top: 4, right: 8, bottom: 4, left: 8 }}>
+                      <CartesianGrid strokeDasharray="3 3" stroke="rgba(255,255,255,0.06)" />
+                      <XAxis dataKey="bucket" tick={{ fontSize: 10.5, fill: 'rgba(232,228,220,0.4)' }} axisLine={false} tickLine={false} />
+                      <YAxis tick={{ fontSize: 10.5, fill: 'rgba(232,228,220,0.4)' }} axisLine={false} tickLine={false} allowDecimals={false} width={30} />
+                      <Tooltip {...DARK_TOOLTIP} />
+                      <Bar dataKey="count" name="Milestones" radius={[4,4,0,0]} fill="rgba(196,163,90,0.7)" />
+                    </BarChart>
+                  </ResponsiveContainer>
+                )}
+              </div>
+            )}
+
+            {activeTab === 'payment' && (
+              <div>
+                <div className="mb-4"><h3 className="text-sm font-semibold text-[#e8e4dc]">Payment Cycle</h3><p className="text-xs text-[rgba(232,228,220,0.4)] mt-0.5">Average days from evidence submission to payment eligibility</p></div>
+                <div className="grid sm:grid-cols-3 gap-4">
+                  <div className="sm:col-span-1 flex flex-col items-center justify-center bg-[rgba(255,255,255,0.02)] border border-[rgba(255,255,255,0.06)] rounded-xl py-10 px-4 text-center">
+                    <p className="text-5xl font-bold text-[#c4a35a]">{paymentCycleDays.avg}</p>
+                    <p className="text-sm text-[rgba(232,228,220,0.55)] mt-2">days avg</p>
+                    <p className="text-xs text-[rgba(232,228,220,0.3)] mt-1">Evidence → payment eligible</p>
+                  </div>
+                  <div className="sm:col-span-2 space-y-3 flex flex-col justify-center">
+                    {[
+                      {icon:'📄',label:'Evidence submitted',sub:'Vendor uploads photos/docs'},
+                      {icon:'🔍',label:'PMC review',sub:'Checked against BOQ'},
+                      {icon:'✅',label:'Owner verification',sub:'Final approval'},
+                      {icon:'💳',label:'Payment released',sub:'Eligible amount unlocked'},
+                    ].map((s,i) => (
+                      <div key={i} className="flex items-center gap-3">
+                        <div className="w-7 h-7 rounded-full bg-[rgba(196,163,90,0.1)] border border-[rgba(196,163,90,0.2)] flex items-center justify-center text-base shrink-0">{s.icon}</div>
+                        <div><p className="text-[12.5px] font-medium text-[#e8e4dc]">{s.label}</p><p className="text-[11px] text-[rgba(232,228,220,0.4)]">{s.sub}</p></div>
+                      </div>
+                    ))}
+                  </div>
                 </div>
               </div>
-            </div>
-          )}
+            )}
 
-          {activeTab === 'ontime' && (
-            <div>
-              <h3 className="text-sm font-semibold text-[#e8e4dc] mb-4">On-time % Trend (6 months)</h3>
-              {onTimeTrend.length === 0 ? (
-                <p className="text-sm text-[rgba(232,228,220,0.35)] text-center py-10">No data available</p>
-              ) : (
-                <ResponsiveContainer width="100%" height={320}>
-                  <LineChart data={onTimeTrend}>
-                    <CartesianGrid strokeDasharray="3 3" stroke="rgba(255,255,255,0.07)" />
-                    <XAxis dataKey="month" tick={{ fontSize: 11 }} />
-                    <YAxis tick={{ fontSize: 11 }} domain={[0, 100]} />
-                    <Tooltip />
-                    <Line type="monotone" dataKey="onTimePct" stroke="#14b8a6" strokeWidth={2} dot={{ r: 4 }} name="On-time %" />
-                  </LineChart>
-                </ResponsiveContainer>
-              )}
-            </div>
-          )}
+            {activeTab === 'ontime' && (
+              <div>
+                <div className="mb-4"><h3 className="text-sm font-semibold text-[#e8e4dc]">On-time % Trend</h3><p className="text-xs text-[rgba(232,228,220,0.4)] mt-0.5">Monthly on-time delivery rate over the last 6 months</p></div>
+                {onTimeTrend.length === 0 ? <EmptyChart message="Not enough completed milestones to show a trend yet" /> : (
+                  <ResponsiveContainer width="100%" height={300}>
+                    <LineChart data={onTimeTrend} margin={{ top: 4, right: 8, bottom: 4, left: 8 }}>
+                      <CartesianGrid strokeDasharray="3 3" stroke="rgba(255,255,255,0.06)" />
+                      <XAxis dataKey="month" tick={{ fontSize: 10.5, fill: 'rgba(232,228,220,0.4)' }} axisLine={false} tickLine={false} />
+                      <YAxis tick={{ fontSize: 10.5, fill: 'rgba(232,228,220,0.4)' }} domain={[0,100]} axisLine={false} tickLine={false} width={32} tickFormatter={v=>`${v}%`} />
+                      <Tooltip {...DARK_TOOLTIP} formatter={(v:number) => [`${v}%`,'On-time']} />
+                      <Legend wrapperStyle={{ fontSize: 11.5, color: 'rgba(232,228,220,0.5)' }} formatter={() => 'On-time %'} />
+                      <Line type="monotone" dataKey="onTimePct" stroke="#5cba80" strokeWidth={2.5} dot={{ r:4, fill:'#5cba80', strokeWidth:0 }} activeDot={{ r:6, fill:'#5cba80' }} name="On-time %" />
+                    </LineChart>
+                  </ResponsiveContainer>
+                )}
+              </div>
+            )}
+          </div>
         </div>
       </div>
     </Layout>
-  );
-}
-
-function MiniKpi({ label, value }: { label: string; value: string }) {
-  return (
-    <div className="bg-[rgba(255,255,255,0.03)] border border-[rgba(255,255,255,0.07)] rounded-xl p-4">
-      <p className="text-[11px] font-medium text-[rgba(232,228,220,0.55)] uppercase tracking-wider mb-1">{label}</p>
-      <p className="text-lg font-semibold text-[#e8e4dc]">{value}</p>
-    </div>
   );
 }
