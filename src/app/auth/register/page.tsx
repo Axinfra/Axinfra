@@ -45,10 +45,24 @@ function RegisterContent() {
   const [showPassword, setShowPassword]   = useState(false);
   const [error, setError]                 = useState('');
   const [loading, setLoading]             = useState(false);
+  const [inviteEmail, setInviteEmail]     = useState<string | null>(null);
 
   useEffect(() => {
     if (searchParams.get('error') === 'no_account') {
       setError('No account found for that Google email. Please sign up below and select your role.');
+    }
+
+    const inviteToken = searchParams.get('invite');
+    if (inviteToken) {
+      fetch(`/api/invite/${inviteToken}`)
+        .then(r => r.json())
+        .then(data => {
+          if (data.success && data.data?.email) {
+            setInviteEmail(data.data.email);
+            setEmail(data.data.email);
+          }
+        })
+        .catch(() => {});
     }
   }, [searchParams]);
 
@@ -207,8 +221,15 @@ function RegisterContent() {
               <label htmlFor="email" className="text-xs font-medium text-[rgba(232,228,220,0.55)] uppercase tracking-wider block">
                 Work email
               </label>
-              <Input id="email" type="email" value={email} onChange={e => setEmail(e.target.value)}
-                placeholder="name@company.com" required autoComplete="email" />
+              <Input id="email" type="email" value={email} onChange={e => !inviteEmail && setEmail(e.target.value)}
+                placeholder="name@company.com" required autoComplete="email"
+                readOnly={!!inviteEmail}
+                className={inviteEmail ? 'opacity-70 cursor-not-allowed' : ''} />
+              {inviteEmail && (
+                <p className="text-[11px] text-[rgba(196,163,90,0.7)]">
+                  You must register with this email to accept the invitation.
+                </p>
+              )}
             </div>
 
             <div className="space-y-1.5">
