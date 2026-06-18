@@ -15,7 +15,7 @@ export async function GET() {
     const [
       totalUsers,
       newUsers30d,
-      roleDistribution,
+      roleDistributionRaw,
       totalProjects,
       activeProjects,
       newProjects30d,
@@ -29,7 +29,16 @@ export async function GET() {
     ] = await Promise.all([
       prisma.user.count(),
       prisma.user.count({ where: { createdAt: { gte: thirtyDaysAgo } } }),
-      prisma.projectRole.groupBy({ by: ['role'], _count: { _all: true } }),
+      prisma.$queryRaw<{ role: string; count: bigint }[]>`
+        SELECT role, COUNT(DISTINCT id) as count FROM (
+          SELECT role, "userId" AS id FROM "ProjectRole"
+          UNION ALL
+          SELECT "preferredRole" AS role, id FROM "User"
+          WHERE "preferredRole" IS NOT NULL
+          AND id NOT IN (SELECT DISTINCT "userId" FROM "ProjectRole")
+        ) combined
+        GROUP BY role
+      `,
       prisma.project.count({ where: { deletedAt: null } }),
       prisma.project.count({ where: { deletedAt: null, status: 'ONGOING' } }),
       prisma.project.count({ where: { deletedAt: null, createdAt: { gte: thirtyDaysAgo } } }),
@@ -62,7 +71,7 @@ export async function GET() {
       success: true,
       data: {
         users: { total: totalUsers, new30Days: newUsers30d },
-        roleDistribution: Object.fromEntries(roleDistribution.map((r) => [r.role, r._count._all])),
+        roleDistribution: Object.fromEntries(roleDistributionRaw.map((r) => [r.role, Number(r.count)])),
         projects: {
           total: totalProjects,
           active: activeProjects,

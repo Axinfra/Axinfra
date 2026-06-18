@@ -451,7 +451,10 @@ export default function AdminUsersPage() {
 
   const filtered = useMemo(() => {
     let list = users;
-    if (roleFilter !== 'ALL') list = list.filter(u => u.projectRoles.some(r => r.role === roleFilter));
+    if (roleFilter !== 'ALL') list = list.filter(u =>
+      u.projectRoles.some(r => r.role === roleFilter) ||
+      (u.projectRoles.length === 0 && u.preferredRole === roleFilter)
+    );
     if (search.trim()) {
       const q = search.toLowerCase();
       list = list.filter(u => u.name.toLowerCase().includes(q) || u.email.toLowerCase().includes(q));
@@ -461,10 +464,18 @@ export default function AdminUsersPage() {
 
   const roleCounts = useMemo(() => {
     const counts: Record<string, Set<string>> = {};
-    users.forEach(u => u.projectRoles.forEach(r => {
-      if (!counts[r.role]) counts[r.role] = new Set();
-      counts[r.role].add(u.id);
-    }));
+    users.forEach(u => {
+      const projectRoleSet = new Set(u.projectRoles.map(r => r.role));
+      if (projectRoleSet.size > 0) {
+        projectRoleSet.forEach(role => {
+          if (!counts[role]) counts[role] = new Set();
+          counts[role].add(u.id);
+        });
+      } else if (u.preferredRole) {
+        if (!counts[u.preferredRole]) counts[u.preferredRole] = new Set();
+        counts[u.preferredRole].add(u.id);
+      }
+    });
     return Object.fromEntries(Object.entries(counts).map(([k, v]) => [k, v.size]));
   }, [users]);
 

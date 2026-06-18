@@ -110,7 +110,7 @@ export default function AdminDashboard() {
         {/* Role Distribution */}
         <div className="bg-[var(--ax-surface)] border border-[var(--ax-border)] rounded-xl p-4 sm:p-5">
           <div className="text-[13px] font-semibold text-[var(--ax-text)] mb-0.5">User Roles</div>
-          <div className="text-[11px] text-[rgba(var(--ax-text-rgb),0.4)] mb-3">Role assignments across projects</div>
+          <div className="text-[11px] text-[rgba(var(--ax-text-rgb),0.4)] mb-3">All users by their platform role</div>
           <ResponsiveContainer width="100%" height={180}>
             <PieChart>
               <Pie data={roleData} cx="50%" cy="50%" innerRadius={44} outerRadius={68} paddingAngle={3} dataKey="value">
