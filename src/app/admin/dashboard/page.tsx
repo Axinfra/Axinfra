@@ -33,9 +33,9 @@ function fmt(d: string) {
 function ChartTooltip({ active, payload }: { active?: boolean; payload?: { name: string; value: number; payload: { fill: string } }[] }) {
   if (!active || !payload?.length) return null;
   return (
-    <div className="bg-[#1e1e26] border border-[rgba(255,255,255,0.1)] rounded-lg px-3 py-2">
+    <div className="bg-[var(--ax-modal)] border border-[var(--ax-border)] rounded-lg px-3 py-2">
       <div className="text-[13px] font-semibold" style={{ color: payload[0].payload.fill }}>{payload[0].name}</div>
-      <div className="text-[14px] font-bold text-[#e8e4dc]">{payload[0].value}</div>
+      <div className="text-[14px] font-bold text-[var(--ax-text)]">{payload[0].value}</div>
     </div>
   );
 }
@@ -54,7 +54,7 @@ export default function AdminDashboard() {
   }, []);
 
   if (loading) return (
-    <div className="flex items-center justify-center h-screen text-[rgba(232,228,220,0.4)] text-sm">
+    <div className="flex items-center justify-center h-screen text-[rgba(var(--ax-text-rgb),0.4)] text-sm">
       Loading platform data…
     </div>
   );
@@ -87,19 +87,19 @@ export default function AdminDashboard() {
       {/* Header */}
       <div className="mb-6">
         <div className="flex items-center gap-2.5 mb-1">
-          <h1 className="text-xl sm:text-2xl font-bold text-[#e8e4dc]">Platform Dashboard</h1>
+          <h1 className="text-xl sm:text-2xl font-bold text-[var(--ax-text)]">Platform Dashboard</h1>
           <span className="text-[10px] font-bold text-[var(--ax-accent)] bg-[rgba(var(--ax-accent-rgb),0.12)] border border-[rgba(var(--ax-accent-rgb),0.25)] px-2 py-0.5 rounded-full uppercase tracking-wide">Admin</span>
         </div>
-        <p className="text-[13px] text-[rgba(232,228,220,0.45)]">Live overview of all users, projects, and platform activity</p>
+        <p className="text-[13px] text-[rgba(var(--ax-text-rgb),0.45)]">Live overview of all users, projects, and platform activity</p>
       </div>
 
       {/* KPI Cards — 2 cols on mobile, 3 on sm, 6 on xl */}
       <div className="grid grid-cols-2 sm:grid-cols-3 xl:grid-cols-6 gap-3 mb-6">
         {kpis.map(({ label, value, sub, color }) => (
-          <div key={label} className="bg-[#16161c] border border-[rgba(255,255,255,0.07)] rounded-xl p-4 sm:p-5">
-            <div className="text-[10px] sm:text-[11px] text-[rgba(232,228,220,0.45)] font-semibold uppercase tracking-wide mb-2">{label}</div>
+          <div key={label} className="bg-[var(--ax-surface)] border border-[var(--ax-border)] rounded-xl p-4 sm:p-5">
+            <div className="text-[10px] sm:text-[11px] text-[rgba(var(--ax-text-rgb),0.45)] font-semibold uppercase tracking-wide mb-2">{label}</div>
             <div className="text-2xl sm:text-3xl font-bold leading-none" style={{ color }}>{value}</div>
-            <div className="text-[10px] sm:text-[11px] text-[rgba(232,228,220,0.35)] mt-1.5 leading-snug">{sub}</div>
+            <div className="text-[10px] sm:text-[11px] text-[rgba(var(--ax-text-rgb),0.35)] mt-1.5 leading-snug">{sub}</div>
           </div>
         ))}
       </div>
@@ -108,44 +108,44 @@ export default function AdminDashboard() {
       <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-3 gap-4 mb-6">
 
         {/* Role Distribution */}
-        <div className="bg-[#16161c] border border-[rgba(255,255,255,0.07)] rounded-xl p-4 sm:p-5">
-          <div className="text-[13px] font-semibold text-[#e8e4dc] mb-0.5">User Roles</div>
-          <div className="text-[11px] text-[rgba(232,228,220,0.4)] mb-3">Role assignments across projects</div>
+        <div className="bg-[var(--ax-surface)] border border-[var(--ax-border)] rounded-xl p-4 sm:p-5">
+          <div className="text-[13px] font-semibold text-[var(--ax-text)] mb-0.5">User Roles</div>
+          <div className="text-[11px] text-[rgba(var(--ax-text-rgb),0.4)] mb-3">Role assignments across projects</div>
           <ResponsiveContainer width="100%" height={180}>
             <PieChart>
               <Pie data={roleData} cx="50%" cy="50%" innerRadius={44} outerRadius={68} paddingAngle={3} dataKey="value">
                 {roleData.map((e, i) => <Cell key={i} fill={e.fill} />)}
               </Pie>
               <Tooltip content={<ChartTooltip />} {...CUSTOM_TOOLTIP_WRAPPER} />
-              <Legend iconSize={8} formatter={(v) => <span className="text-[11px] text-[rgba(232,228,220,0.6)]">{v}</span>} />
+              <Legend iconSize={8} formatter={(v) => <span className="text-[11px] text-[rgba(var(--ax-text-rgb),0.6)]">{v}</span>} />
             </PieChart>
           </ResponsiveContainer>
         </div>
 
         {/* Project Status */}
-        <div className="bg-[#16161c] border border-[rgba(255,255,255,0.07)] rounded-xl p-4 sm:p-5">
-          <div className="text-[13px] font-semibold text-[#e8e4dc] mb-0.5">Project Status</div>
-          <div className="text-[11px] text-[rgba(232,228,220,0.4)] mb-3">{stats.projects.total} total projects</div>
+        <div className="bg-[var(--ax-surface)] border border-[var(--ax-border)] rounded-xl p-4 sm:p-5">
+          <div className="text-[13px] font-semibold text-[var(--ax-text)] mb-0.5">Project Status</div>
+          <div className="text-[11px] text-[rgba(var(--ax-text-rgb),0.4)] mb-3">{stats.projects.total} total projects</div>
           <ResponsiveContainer width="100%" height={180}>
             <PieChart>
               <Pie data={statusData} cx="50%" cy="50%" innerRadius={44} outerRadius={68} paddingAngle={3} dataKey="value">
                 {statusData.map((e, i) => <Cell key={i} fill={e.fill} />)}
               </Pie>
               <Tooltip content={<ChartTooltip />} {...CUSTOM_TOOLTIP_WRAPPER} />
-              <Legend iconSize={8} formatter={(v) => <span className="text-[11px] text-[rgba(232,228,220,0.6)]">{v}</span>} />
+              <Legend iconSize={8} formatter={(v) => <span className="text-[11px] text-[rgba(var(--ax-text-rgb),0.6)]">{v}</span>} />
             </PieChart>
           </ResponsiveContainer>
         </div>
 
         {/* Milestone Pipeline */}
-        <div className="bg-[#16161c] border border-[rgba(255,255,255,0.07)] rounded-xl p-4 sm:p-5 sm:col-span-2 lg:col-span-1">
-          <div className="text-[13px] font-semibold text-[#e8e4dc] mb-0.5">Milestone Pipeline</div>
-          <div className="text-[11px] text-[rgba(232,228,220,0.4)] mb-3">{stats.milestones.total} total milestones</div>
+        <div className="bg-[var(--ax-surface)] border border-[var(--ax-border)] rounded-xl p-4 sm:p-5 sm:col-span-2 lg:col-span-1">
+          <div className="text-[13px] font-semibold text-[var(--ax-text)] mb-0.5">Milestone Pipeline</div>
+          <div className="text-[11px] text-[rgba(var(--ax-text-rgb),0.4)] mb-3">{stats.milestones.total} total milestones</div>
           <ResponsiveContainer width="100%" height={180}>
             <BarChart data={stateData} barCategoryGap="30%">
               <XAxis dataKey="name" tick={{ fill: 'rgba(var(--ax-text-rgb),0.4)', fontSize: 10 }} axisLine={false} tickLine={false} />
               <YAxis tick={{ fill: 'rgba(var(--ax-text-rgb),0.4)', fontSize: 10 }} axisLine={false} tickLine={false} />
-              <Tooltip content={<ChartTooltip />} cursor={{ fill: 'rgba(255,255,255,0.04)' }} />
+              <Tooltip content={<ChartTooltip />} cursor={{ fill: 'var(--ax-overlay)' }} />
               <Bar dataKey="value" radius={[4, 4, 0, 0]}>
                 {stateData.map((e, i) => <Cell key={i} fill={e.fill} />)}
               </Bar>
@@ -158,33 +158,33 @@ export default function AdminDashboard() {
       <div className="grid grid-cols-1 lg:grid-cols-2 gap-4">
 
         {/* Recent Users */}
-        <div className="bg-[#16161c] border border-[rgba(255,255,255,0.07)] rounded-xl overflow-hidden">
-          <div className="px-4 sm:px-5 py-3.5 border-b border-[rgba(255,255,255,0.06)]">
-            <div className="text-[13px] font-semibold text-[#e8e4dc]">Recent Users</div>
-            <div className="text-[11px] text-[rgba(232,228,220,0.4)]">Newest accounts on the platform</div>
+        <div className="bg-[var(--ax-surface)] border border-[var(--ax-border)] rounded-xl overflow-hidden">
+          <div className="px-4 sm:px-5 py-3.5 border-b border-[var(--ax-border-subtle)]">
+            <div className="text-[13px] font-semibold text-[var(--ax-text)]">Recent Users</div>
+            <div className="text-[11px] text-[rgba(var(--ax-text-rgb),0.4)]">Newest accounts on the platform</div>
           </div>
           <div className="overflow-x-auto">
             <table className="w-full border-collapse min-w-[380px]">
               <thead>
-                <tr className="bg-[rgba(255,255,255,0.02)]">
+                <tr className="bg-[var(--ax-overlay)]">
                   {['User', 'Email', 'Joined'].map(h => (
-                    <th key={h} className="px-4 py-2.5 text-left text-[10px] font-semibold text-[rgba(232,228,220,0.35)] uppercase tracking-wide">{h}</th>
+                    <th key={h} className="px-4 py-2.5 text-left text-[10px] font-semibold text-[rgba(var(--ax-text-rgb),0.35)] uppercase tracking-wide">{h}</th>
                   ))}
                 </tr>
               </thead>
               <tbody>
                 {stats.recentUsers.map(u => (
-                  <tr key={u.id} className="border-t border-[rgba(255,255,255,0.04)] hover:bg-[rgba(255,255,255,0.02)]">
+                  <tr key={u.id} className="border-t border-[var(--ax-border-subtle)] hover:bg-[var(--ax-overlay)]">
                     <td className="px-4 py-3">
                       <div className="flex items-center gap-2.5">
                         <div className="w-7 h-7 rounded-full bg-[rgba(var(--ax-accent-rgb),0.15)] flex items-center justify-center text-[11px] font-bold text-[var(--ax-accent)] shrink-0">
                           {u.name.charAt(0).toUpperCase()}
                         </div>
-                        <span className="text-[13px] font-medium text-[#e8e4dc] truncate max-w-[100px]">{u.name}</span>
+                        <span className="text-[13px] font-medium text-[var(--ax-text)] truncate max-w-[100px]">{u.name}</span>
                       </div>
                     </td>
-                    <td className="px-4 py-3 text-[12px] text-[rgba(232,228,220,0.5)] truncate max-w-[140px]">{u.email}</td>
-                    <td className="px-4 py-3 text-[11.5px] text-[rgba(232,228,220,0.35)] whitespace-nowrap">{fmt(u.createdAt)}</td>
+                    <td className="px-4 py-3 text-[12px] text-[rgba(var(--ax-text-rgb),0.5)] truncate max-w-[140px]">{u.email}</td>
+                    <td className="px-4 py-3 text-[11.5px] text-[rgba(var(--ax-text-rgb),0.35)] whitespace-nowrap">{fmt(u.createdAt)}</td>
                   </tr>
                 ))}
               </tbody>
@@ -193,17 +193,17 @@ export default function AdminDashboard() {
         </div>
 
         {/* Recent Projects */}
-        <div className="bg-[#16161c] border border-[rgba(255,255,255,0.07)] rounded-xl overflow-hidden">
-          <div className="px-4 sm:px-5 py-3.5 border-b border-[rgba(255,255,255,0.06)]">
-            <div className="text-[13px] font-semibold text-[#e8e4dc]">Recent Projects</div>
-            <div className="text-[11px] text-[rgba(232,228,220,0.4)]">Latest projects created on the platform</div>
+        <div className="bg-[var(--ax-surface)] border border-[var(--ax-border)] rounded-xl overflow-hidden">
+          <div className="px-4 sm:px-5 py-3.5 border-b border-[var(--ax-border-subtle)]">
+            <div className="text-[13px] font-semibold text-[var(--ax-text)]">Recent Projects</div>
+            <div className="text-[11px] text-[rgba(var(--ax-text-rgb),0.4)]">Latest projects created on the platform</div>
           </div>
           <div className="overflow-x-auto">
             <table className="w-full border-collapse min-w-[360px]">
               <thead>
-                <tr className="bg-[rgba(255,255,255,0.02)]">
+                <tr className="bg-[var(--ax-overlay)]">
                   {['Project', 'Status', 'Team', 'Milestones'].map(h => (
-                    <th key={h} className="px-4 py-2.5 text-left text-[10px] font-semibold text-[rgba(232,228,220,0.35)] uppercase tracking-wide">{h}</th>
+                    <th key={h} className="px-4 py-2.5 text-left text-[10px] font-semibold text-[rgba(var(--ax-text-rgb),0.35)] uppercase tracking-wide">{h}</th>
                   ))}
                 </tr>
               </thead>
@@ -211,16 +211,16 @@ export default function AdminDashboard() {
                 {stats.recentProjects.map(p => {
                   const sc = { ONGOING: '#5cba80', COMPLETED: 'var(--ax-accent)', PAUSED: '#fb923c', CANCELLED: '#e06050' }[p.status] ?? '#888';
                   return (
-                    <tr key={p.id} className="border-t border-[rgba(255,255,255,0.04)] hover:bg-[rgba(255,255,255,0.02)]">
+                    <tr key={p.id} className="border-t border-[var(--ax-border-subtle)] hover:bg-[var(--ax-overlay)]">
                       <td className="px-4 py-3">
-                        <div className="text-[13px] font-medium text-[#e8e4dc] truncate max-w-[130px]">{p.name}</div>
-                        {p.isExampleProject && <div className="text-[10px] text-[rgba(232,228,220,0.3)]">Example</div>}
+                        <div className="text-[13px] font-medium text-[var(--ax-text)] truncate max-w-[130px]">{p.name}</div>
+                        {p.isExampleProject && <div className="text-[10px] text-[rgba(var(--ax-text-rgb),0.3)]">Example</div>}
                       </td>
                       <td className="px-4 py-3">
                         <span className="text-[10.5px] font-bold px-2 py-0.5 rounded-full" style={{ background: `${sc}22`, color: sc }}>{p.status}</span>
                       </td>
-                      <td className="px-4 py-3 text-[13px] text-[rgba(232,228,220,0.6)]">{p._count.roles}</td>
-                      <td className="px-4 py-3 text-[13px] text-[rgba(232,228,220,0.6)]">{p._count.milestones}</td>
+                      <td className="px-4 py-3 text-[13px] text-[rgba(var(--ax-text-rgb),0.6)]">{p._count.roles}</td>
+                      <td className="px-4 py-3 text-[13px] text-[rgba(var(--ax-text-rgb),0.6)]">{p._count.milestones}</td>
                     </tr>
                   );
                 })}

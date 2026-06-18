@@ -121,6 +121,25 @@ export async function GET(request: NextRequest) {
       .map((e) => e.trim().toLowerCase());
     const isAdmin = ADMIN_EMAILS.includes(user.email.toLowerCase());
 
+    const clientIp = request.headers.get('x-forwarded-for')?.split(',')[0]?.trim()
+      || request.headers.get('x-real-ip')
+      || 'unknown';
+
+    // Log sign-in event for admin visibility
+    prisma.systemEvent.create({
+      data: {
+        eventType: 'USER_SIGNIN',
+        severity: 'INFO',
+        actorId: user.id,
+        message: `${user.name} signed in via Google`,
+        metadata: JSON.stringify({
+          method: 'google',
+          role: user.preferredRole ?? null,
+          ip: clientIp,
+        }),
+      },
+    }).catch(() => {/* non-blocking */});
+
     const dest = loginRedirect(request, isAdmin, user.preferredRole ?? '');
 
     const response = NextResponse.redirect(dest);

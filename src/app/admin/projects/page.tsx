@@ -113,8 +113,8 @@ export default function AdminProjectsPage() {
 
       {/* Header */}
       <div className="mb-5">
-        <h1 className="text-xl sm:text-2xl font-bold text-[#e8e4dc]">Projects</h1>
-        <p className="text-[13px] text-[rgba(232,228,220,0.45)] mt-1">
+        <h1 className="text-xl sm:text-2xl font-bold text-[var(--ax-text)]">Projects</h1>
+        <p className="text-[13px] text-[rgba(var(--ax-text-rgb),0.45)] mt-1">
           All projects grouped by client — click any project to view full details
         </p>
       </div>
@@ -128,8 +128,8 @@ export default function AdminProjectsPage() {
           { label: 'Paused', value: statusCounts['PAUSED'] ?? 0, color: '#fb923c' },
           { label: 'Clients', value: clientCount, color: '#60a5fa' },
         ].map(({ label, value, color }) => (
-          <div key={label} className="bg-[#16161c] border border-[rgba(255,255,255,0.07)] rounded-xl px-3 py-3">
-            <div className="text-[10px] text-[rgba(232,228,220,0.4)] font-semibold uppercase tracking-wide mb-1 truncate">{label}</div>
+          <div key={label} className="bg-[var(--ax-surface)] border border-[var(--ax-border)] rounded-xl px-3 py-3">
+            <div className="text-[10px] text-[rgba(var(--ax-text-rgb),0.4)] font-semibold uppercase tracking-wide mb-1 truncate">{label}</div>
             <div className="text-xl sm:text-2xl font-bold" style={{ color }}>{value}</div>
           </div>
         ))}
@@ -141,7 +141,7 @@ export default function AdminProjectsPage() {
           value={search}
           onChange={e => setSearch(e.target.value)}
           placeholder="Search projects, owners, emails…"
-          className="w-full sm:w-72 bg-[#16161c] border border-[rgba(255,255,255,0.1)] rounded-lg px-3.5 py-2.5 text-[13.5px] text-[#e8e4dc] outline-none placeholder:text-[rgba(232,228,220,0.3)]"
+          className="w-full sm:w-72 bg-[var(--ax-surface)] border border-[var(--ax-border)] rounded-lg px-3.5 py-2.5 text-[13.5px] text-[var(--ax-text)] outline-none placeholder:text-[rgba(var(--ax-text-rgb),0.3)]"
         />
         <div className="flex gap-2 overflow-x-auto pb-1 flex-nowrap">
           {['ALL', 'ONGOING', 'COMPLETED', 'PAUSED', 'CANCELLED'].map(s => {
@@ -151,9 +151,9 @@ export default function AdminProjectsPage() {
               <button key={s} onClick={() => setStatusFilter(s)}
                 className="shrink-0 px-3.5 py-1.5 rounded-full text-[12px] font-semibold cursor-pointer transition-all whitespace-nowrap"
                 style={{
-                  background: active ? (sst?.bg ?? 'rgba(var(--ax-accent-rgb),0.15)') : 'rgba(255,255,255,0.05)',
+                  background: active ? (sst?.bg ?? 'rgba(var(--ax-accent-rgb),0.15)') : 'var(--ax-overlay)',
                   color: active ? (sst?.fg ?? 'var(--ax-accent)') : 'rgba(var(--ax-text-rgb),0.5)',
-                  border: active ? `1px solid ${sst?.fg ?? 'var(--ax-accent)'}44` : '1px solid rgba(255,255,255,0.08)',
+                  border: active ? `1px solid ${sst?.fg ?? 'var(--ax-accent)'}44` : '1px solid var(--ax-border)',
                 }}>
                 {s === 'ALL' ? `All (${projects.length})` : `${s.charAt(0)+s.slice(1).toLowerCase()} (${statusCounts[s] ?? 0})`}
               </button>
@@ -165,7 +165,7 @@ export default function AdminProjectsPage() {
       {/* Results summary */}
       {!loading && !error && (
         <div className="flex items-center justify-between mb-4">
-          <p className="text-[12px] text-[rgba(232,228,220,0.35)]">
+          <p className="text-[12px] text-[rgba(var(--ax-text-rgb),0.35)]">
             {totalFilteredProjects} project{totalFilteredProjects !== 1 ? 's' : ''} · {totalGroups} client group{totalGroups !== 1 ? 's' : ''}
             {totalPages > 1 && <span className="ml-2">· Page {page + 1} of {totalPages}</span>}
           </p>
@@ -173,11 +173,11 @@ export default function AdminProjectsPage() {
       )}
 
       {loading ? (
-        <div className="text-center py-16 text-[rgba(232,228,220,0.35)] text-sm">Loading projects…</div>
+        <div className="text-center py-16 text-[rgba(var(--ax-text-rgb),0.35)] text-sm">Loading projects…</div>
       ) : error ? (
         <div className="p-4 text-[#e06050] text-sm">{error}</div>
       ) : ownerGroups.length === 0 ? (
-        <div className="text-center py-16 text-[rgba(232,228,220,0.25)] text-sm">No projects found</div>
+        <div className="text-center py-16 text-[rgba(var(--ax-text-rgb),0.25)] text-sm">No projects found</div>
       ) : (
         <>
           <div className="space-y-8">
@@ -187,47 +187,47 @@ export default function AdminProjectsPage() {
                 <div className="flex items-center gap-3 mb-4">
                   <div className="w-9 h-9 rounded-full flex items-center justify-center shrink-0 text-[13px] font-bold"
                     style={{
-                      background: group.isSpecial ? 'rgba(255,255,255,0.06)' : 'rgba(var(--ax-accent-rgb),0.15)',
-                      border: group.isSpecial ? '1px solid rgba(255,255,255,0.1)' : '1px solid rgba(var(--ax-accent-rgb),0.25)',
+                      background: group.isSpecial ? 'var(--ax-overlay)' : 'rgba(var(--ax-accent-rgb),0.15)',
+                      border: group.isSpecial ? '1px solid var(--ax-border)' : '1px solid rgba(var(--ax-accent-rgb),0.25)',
                       color: group.isSpecial ? 'rgba(var(--ax-text-rgb),0.5)' : 'var(--ax-accent)',
                     }}>
                     {group.owner.name.charAt(0).toUpperCase()}
                   </div>
                   <div>
                     <div className="flex items-center gap-2 flex-wrap">
-                      <span className="text-[14px] sm:text-[15px] font-semibold text-[#e8e4dc]">{group.owner.name}</span>
+                      <span className="text-[14px] sm:text-[15px] font-semibold text-[var(--ax-text)]">{group.owner.name}</span>
                       {!group.isSpecial && (
                         <span className="text-[10px] font-bold text-[var(--ax-accent)] bg-[rgba(var(--ax-accent-rgb),0.12)] border border-[rgba(var(--ax-accent-rgb),0.2)] px-2 py-0.5 rounded-full uppercase tracking-wide">Owner</span>
                       )}
-                      <span className="text-[12px] text-[rgba(232,228,220,0.35)]">
+                      <span className="text-[12px] text-[rgba(var(--ax-text-rgb),0.35)]">
                         · {group.projects.length} project{group.projects.length !== 1 ? 's' : ''}
                       </span>
                     </div>
                     {group.owner.email && !group.isSpecial && (
-                      <div className="text-[12px] text-[rgba(232,228,220,0.4)]">{group.owner.email}</div>
+                      <div className="text-[12px] text-[rgba(var(--ax-text-rgb),0.4)]">{group.owner.email}</div>
                     )}
                   </div>
-                  <div className="flex-1 h-px bg-[rgba(255,255,255,0.06)] ml-2 hidden sm:block" />
+                  <div className="flex-1 h-px bg-[var(--ax-overlay)] ml-2 hidden sm:block" />
                 </div>
 
                 {/* Project cards — equal height grid */}
                 <div className="grid grid-cols-1 sm:grid-cols-2 xl:grid-cols-3 gap-4 sm:pl-12">
                   {group.projects.map(p => {
-                    const st = STATUS_STYLE[p.status] ?? { bg: 'rgba(255,255,255,0.08)', fg: 'var(--ax-text)' };
+                    const st = STATUS_STYLE[p.status] ?? { bg: 'var(--ax-overlay)', fg: 'var(--ax-text)' };
                     const pmc      = p.roles.find(r => r.role === 'PMC');
                     const vendors  = p.roles.filter(r => r.role === 'VENDOR');
                     const consults = p.roles.filter(r => r.role === 'CONSULTANT');
                     return (
                       <Link key={p.id} href={`/admin/projects/${p.id}`} style={{ textDecoration: 'none' }}>
                         {/* flex flex-col h-full makes all cards same height in the row */}
-                        <div className="flex flex-col h-full bg-[#16161c] border border-[rgba(255,255,255,0.07)] rounded-xl p-5 hover:border-[rgba(var(--ax-accent-rgb),0.3)] hover:bg-[rgba(var(--ax-accent-rgb),0.03)] transition-all cursor-pointer group">
+                        <div className="flex flex-col h-full bg-[var(--ax-surface)] border border-[var(--ax-border)] rounded-xl p-5 hover:border-[rgba(var(--ax-accent-rgb),0.3)] hover:bg-[rgba(var(--ax-accent-rgb),0.03)] transition-all cursor-pointer group">
 
                           {/* Top — name + status */}
                           <div className="flex items-start justify-between gap-2 mb-3">
                             <div className="flex-1 min-w-0">
-                              <div className="text-[14px] font-semibold text-[#e8e4dc] group-hover:text-[var(--ax-accent)] transition-colors leading-snug">{p.name}</div>
+                              <div className="text-[14px] font-semibold text-[var(--ax-text)] group-hover:text-[var(--ax-accent)] transition-colors leading-snug">{p.name}</div>
                               {p.description && (
-                                <div className="text-[12px] text-[rgba(232,228,220,0.4)] mt-1 line-clamp-2 leading-snug">{p.description}</div>
+                                <div className="text-[12px] text-[rgba(var(--ax-text-rgb),0.4)] mt-1 line-clamp-2 leading-snug">{p.description}</div>
                               )}
                             </div>
                             <span className="shrink-0 text-[10.5px] font-bold px-2.5 py-1 rounded-full" style={{ background: st.bg, color: st.fg }}>
@@ -240,13 +240,13 @@ export default function AdminProjectsPage() {
                             {pmc && (
                               <div className="flex items-center gap-2">
                                 <span className="w-16 text-[10px] font-bold uppercase tracking-wide shrink-0" style={{ color: ROLE_COLOR['PMC'] }}>PMC</span>
-                                <span className="text-[12px] text-[rgba(232,228,220,0.65)] truncate">{pmc.user.name}</span>
+                                <span className="text-[12px] text-[rgba(var(--ax-text-rgb),0.65)] truncate">{pmc.user.name}</span>
                               </div>
                             )}
                             {vendors.length > 0 && (
                               <div className="flex items-center gap-2">
                                 <span className="w-16 text-[10px] font-bold uppercase tracking-wide shrink-0" style={{ color: ROLE_COLOR['VENDOR'] }}>Vendors</span>
-                                <span className="text-[12px] text-[rgba(232,228,220,0.65)] truncate">
+                                <span className="text-[12px] text-[rgba(var(--ax-text-rgb),0.65)] truncate">
                                   {vendors.slice(0, 2).map(v => v.user.name).join(', ')}
                                   {vendors.length > 2 && ` +${vendors.length - 2}`}
                                 </span>
@@ -255,14 +255,14 @@ export default function AdminProjectsPage() {
                             {consults.length > 0 && (
                               <div className="flex items-center gap-2">
                                 <span className="w-16 text-[10px] font-bold uppercase tracking-wide shrink-0" style={{ color: ROLE_COLOR['CONSULTANT'] }}>Consult</span>
-                                <span className="text-[12px] text-[rgba(232,228,220,0.65)] truncate">{consults[0].user.name}{consults.length > 1 && ` +${consults.length - 1}`}</span>
+                                <span className="text-[12px] text-[rgba(var(--ax-text-rgb),0.65)] truncate">{consults[0].user.name}{consults.length > 1 && ` +${consults.length - 1}`}</span>
                               </div>
                             )}
                           </div>
 
                           {/* Footer — always at bottom */}
-                          <div className="flex items-center justify-between pt-3 border-t border-[rgba(255,255,255,0.05)] mt-auto">
-                            <div className="flex items-center gap-2 text-[11.5px] text-[rgba(232,228,220,0.4)]">
+                          <div className="flex items-center justify-between pt-3 border-t border-[var(--ax-border-subtle)] mt-auto">
+                            <div className="flex items-center gap-2 text-[11.5px] text-[rgba(var(--ax-text-rgb),0.4)]">
                               <span>{p.roles.length} member{p.roles.length !== 1 ? 's' : ''}</span>
                               <span>·</span>
                               <span>{p._count.milestones} milestone{p._count.milestones !== 1 ? 's' : ''}</span>
@@ -291,9 +291,9 @@ export default function AdminProjectsPage() {
                 disabled={page === 0}
                 className="flex items-center gap-1.5 px-4 py-2 rounded-lg text-[13px] font-medium transition-all disabled:opacity-30 disabled:cursor-not-allowed"
                 style={{
-                  background: 'rgba(255,255,255,0.05)',
+                  background: 'var(--ax-overlay)',
                   color: 'rgba(var(--ax-text-rgb),0.7)',
-                  border: '1px solid rgba(255,255,255,0.08)',
+                  border: '1px solid var(--ax-border)',
                 }}>
                 <svg className="w-4 h-4" fill="none" viewBox="0 0 24 24" strokeWidth={2} stroke="currentColor">
                   <path strokeLinecap="round" strokeLinejoin="round" d="M10.5 19.5L3 12m0 0l7.5-7.5M3 12h18" />
@@ -307,9 +307,9 @@ export default function AdminProjectsPage() {
                   <button key={i} onClick={() => setPage(i)}
                     className="w-8 h-8 rounded-lg text-[12px] font-semibold transition-all"
                     style={{
-                      background: page === i ? 'rgba(var(--ax-accent-rgb),0.2)' : 'rgba(255,255,255,0.04)',
+                      background: page === i ? 'rgba(var(--ax-accent-rgb),0.2)' : 'var(--ax-overlay)',
                       color: page === i ? 'var(--ax-accent)' : 'rgba(var(--ax-text-rgb),0.5)',
-                      border: page === i ? '1px solid rgba(var(--ax-accent-rgb),0.4)' : '1px solid rgba(255,255,255,0.07)',
+                      border: page === i ? '1px solid rgba(var(--ax-accent-rgb),0.4)' : '1px solid var(--ax-border)',
                     }}>
                     {i + 1}
                   </button>
@@ -321,9 +321,9 @@ export default function AdminProjectsPage() {
                 disabled={page === totalPages - 1}
                 className="flex items-center gap-1.5 px-4 py-2 rounded-lg text-[13px] font-medium transition-all disabled:opacity-30 disabled:cursor-not-allowed"
                 style={{
-                  background: 'rgba(255,255,255,0.05)',
+                  background: 'var(--ax-overlay)',
                   color: 'rgba(var(--ax-text-rgb),0.7)',
-                  border: '1px solid rgba(255,255,255,0.08)',
+                  border: '1px solid var(--ax-border)',
                 }}>
                 Next
                 <svg className="w-4 h-4" fill="none" viewBox="0 0 24 24" strokeWidth={2} stroke="currentColor">

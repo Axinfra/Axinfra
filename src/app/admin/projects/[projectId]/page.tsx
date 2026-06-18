@@ -24,7 +24,7 @@ const STATUS_STYLE: Record<string, { bg: string; fg: string }> = {
   CANCELLED: { bg: 'rgba(224,96,80,0.15)',   fg: '#e06050' },
 };
 const MS_STATE: Record<string, { bg: string; fg: string }> = {
-  DRAFT:       { bg: 'rgba(232,228,220,0.07)', fg: 'rgba(var(--ax-text-rgb),0.45)' },
+  DRAFT:       { bg: 'rgba(var(--ax-text-rgb),0.07)', fg: 'rgba(var(--ax-text-rgb),0.45)' },
   IN_PROGRESS: { bg: 'rgba(96,165,250,0.13)',  fg: '#60a5fa' },
   SUBMITTED:   { bg: 'rgba(251,146,60,0.13)',  fg: '#fb923c' },
   VERIFIED:    { bg: 'rgba(92,186,128,0.13)',  fg: '#5cba80' },
@@ -64,14 +64,14 @@ function Pagination({ page, total, pageSize, onChange }: { page: number; total: 
   const totalPages = Math.ceil(total / pageSize);
   if (totalPages <= 1) return null;
   return (
-    <div className="flex items-center justify-between px-4 sm:px-5 py-3 border-t border-[rgba(255,255,255,0.05)]">
-      <span className="text-[11.5px] text-[rgba(232,228,220,0.35)]">
+    <div className="flex items-center justify-between px-4 sm:px-5 py-3 border-t border-[var(--ax-border-subtle)]">
+      <span className="text-[11.5px] text-[rgba(var(--ax-text-rgb),0.35)]">
         {page * pageSize + 1}–{Math.min((page + 1) * pageSize, total)} of {total}
       </span>
       <div className="flex items-center gap-1.5">
         <button onClick={() => onChange(page - 1)} disabled={page === 0}
           className="px-3 py-1.5 rounded-lg text-[12px] font-medium transition-all disabled:opacity-30 disabled:cursor-not-allowed"
-          style={{ background: 'rgba(255,255,255,0.05)', color: 'rgba(var(--ax-text-rgb),0.6)', border: '1px solid rgba(255,255,255,0.08)' }}>
+          style={{ background: 'var(--ax-overlay)', color: 'rgba(var(--ax-text-rgb),0.6)', border: '1px solid var(--ax-border)' }}>
           ← Prev
         </button>
         {Array.from({ length: Math.min(totalPages, 5) }, (_, i) => {
@@ -80,9 +80,9 @@ function Pagination({ page, total, pageSize, onChange }: { page: number; total: 
             <button key={p} onClick={() => onChange(p)}
               className="w-8 h-8 rounded-lg text-[12px] font-semibold transition-all"
               style={{
-                background: page === p ? 'rgba(var(--ax-accent-rgb),0.2)' : 'rgba(255,255,255,0.04)',
+                background: page === p ? 'rgba(var(--ax-accent-rgb),0.2)' : 'var(--ax-overlay)',
                 color: page === p ? 'var(--ax-accent)' : 'rgba(var(--ax-text-rgb),0.5)',
-                border: page === p ? '1px solid rgba(var(--ax-accent-rgb),0.4)' : '1px solid rgba(255,255,255,0.07)',
+                border: page === p ? '1px solid rgba(var(--ax-accent-rgb),0.4)' : '1px solid var(--ax-border)',
               }}>
               {p + 1}
             </button>
@@ -90,7 +90,7 @@ function Pagination({ page, total, pageSize, onChange }: { page: number; total: 
         })}
         <button onClick={() => onChange(page + 1)} disabled={page === totalPages - 1}
           className="px-3 py-1.5 rounded-lg text-[12px] font-medium transition-all disabled:opacity-30 disabled:cursor-not-allowed"
-          style={{ background: 'rgba(255,255,255,0.05)', color: 'rgba(var(--ax-text-rgb),0.6)', border: '1px solid rgba(255,255,255,0.08)' }}>
+          style={{ background: 'var(--ax-overlay)', color: 'rgba(var(--ax-text-rgb),0.6)', border: '1px solid var(--ax-border)' }}>
           Next →
         </button>
       </div>
@@ -119,12 +119,12 @@ export default function AdminProjectDetailPage() {
   useEffect(() => { setMsPage(0); }, [msFilter, tab]);
   useEffect(() => { setAuditPage(0); }, [tab]);
 
-  if (loading) return <div className="flex items-center justify-center h-screen text-[rgba(232,228,220,0.35)] text-sm">Loading project…</div>;
+  if (loading) return <div className="flex items-center justify-center h-screen text-[rgba(var(--ax-text-rgb),0.35)] text-sm">Loading project…</div>;
   if (error) return <div className="p-6 text-[#e06050] text-sm">{error}</div>;
   if (!data) return null;
 
   const { project, milestones, auditLogs, followUps } = data;
-  const st = STATUS_STYLE[project.status] ?? { bg: 'rgba(255,255,255,0.08)', fg: 'var(--ax-text)' };
+  const st = STATUS_STYLE[project.status] ?? { bg: 'var(--ax-overlay)', fg: 'var(--ax-text)' };
 
   const roleGroups: Record<string, UserRole[]> = {};
   project.roles.forEach(r => { (roleGroups[r.role] = roleGroups[r.role] ?? []).push(r); });
@@ -153,28 +153,28 @@ export default function AdminProjectDetailPage() {
     <div className="px-4 py-5 sm:px-6 sm:py-7 lg:px-9 lg:py-8 max-w-[1300px]">
 
       {/* Breadcrumb */}
-      <div className="flex items-center gap-2 text-[12px] text-[rgba(232,228,220,0.4)] mb-5">
+      <div className="flex items-center gap-2 text-[12px] text-[rgba(var(--ax-text-rgb),0.4)] mb-5">
         <Link href="/admin/projects" className="hover:text-[var(--ax-accent)] transition-colors">Projects</Link>
         <svg className="w-3 h-3" fill="none" viewBox="0 0 24 24" strokeWidth={2.5} stroke="currentColor"><path strokeLinecap="round" strokeLinejoin="round" d="M8.25 4.5l7.5 7.5-7.5 7.5" /></svg>
-        <span className="text-[#e8e4dc] truncate">{project.name}</span>
+        <span className="text-[var(--ax-text)] truncate">{project.name}</span>
       </div>
 
       {/* Project header card */}
-      <div className="bg-[#16161c] border border-[rgba(255,255,255,0.07)] rounded-xl p-4 sm:p-6 mb-5">
+      <div className="bg-[var(--ax-surface)] border border-[var(--ax-border)] rounded-xl p-4 sm:p-6 mb-5">
         <div className="flex flex-wrap items-start gap-3 mb-4">
           <div className="flex-1 min-w-0">
             <div className="flex flex-wrap items-center gap-2 mb-1">
-              <h1 className="text-[18px] sm:text-[22px] font-bold text-[#e8e4dc]">{project.name}</h1>
+              <h1 className="text-[18px] sm:text-[22px] font-bold text-[var(--ax-text)]">{project.name}</h1>
               <span className="text-[11px] font-bold px-2.5 py-0.5 rounded-full" style={{ background: st.bg, color: st.fg }}>{project.status}</span>
-              {project.isExampleProject && <span className="text-[10px] text-[rgba(232,228,220,0.3)] border border-[rgba(255,255,255,0.08)] px-2 py-0.5 rounded-full">Example</span>}
+              {project.isExampleProject && <span className="text-[10px] text-[rgba(var(--ax-text-rgb),0.3)] border border-[var(--ax-border)] px-2 py-0.5 rounded-full">Example</span>}
             </div>
-            {project.description && <p className="text-[13px] text-[rgba(232,228,220,0.5)]">{project.description}</p>}
-            <p className="text-[11.5px] text-[rgba(232,228,220,0.35)] mt-1">Created {fmt(project.createdAt)}</p>
+            {project.description && <p className="text-[13px] text-[rgba(var(--ax-text-rgb),0.5)]">{project.description}</p>}
+            <p className="text-[11.5px] text-[rgba(var(--ax-text-rgb),0.35)] mt-1">Created {fmt(project.createdAt)}</p>
           </div>
         </div>
 
         {/* Payment summary — 2×2 on mobile, 4-col on sm */}
-        <div className="grid grid-cols-2 sm:grid-cols-4 gap-3 sm:gap-4 pt-4 border-t border-[rgba(255,255,255,0.06)]">
+        <div className="grid grid-cols-2 sm:grid-cols-4 gap-3 sm:gap-4 pt-4 border-t border-[var(--ax-border-subtle)]">
           {[
             { label: 'Total Value',   value: formatCurrency(totalValue),  color: 'var(--ax-text)' },
             { label: 'Paid',          value: formatCurrency(paidValue),   color: 'var(--ax-accent)' },
@@ -182,7 +182,7 @@ export default function AdminProjectDetailPage() {
             { label: 'Blocked',       value: formatCurrency(blockedVal),  color: blockedVal > 0 ? '#e06050' : 'rgba(var(--ax-text-rgb),0.3)' },
           ].map(({ label, value, color }) => (
             <div key={label}>
-              <div className="text-[10.5px] text-[rgba(232,228,220,0.4)] font-semibold uppercase tracking-wide mb-1">{label}</div>
+              <div className="text-[10.5px] text-[rgba(var(--ax-text-rgb),0.4)] font-semibold uppercase tracking-wide mb-1">{label}</div>
               <div className="text-[15px] sm:text-[18px] font-bold leading-tight" style={{ color }}>{value}</div>
             </div>
           ))}
@@ -190,7 +190,7 @@ export default function AdminProjectDetailPage() {
       </div>
 
       {/* Tabs — scrollable on mobile */}
-      <div className="flex gap-0.5 mb-5 bg-[#16161c] border border-[rgba(255,255,255,0.07)] rounded-xl p-1 overflow-x-auto w-fit max-w-full">
+      <div className="flex gap-0.5 mb-5 bg-[var(--ax-surface)] border border-[var(--ax-border)] rounded-xl p-1 overflow-x-auto w-fit max-w-full">
         {tabs.map(({ key, label, alert }) => (
           <button key={key} onClick={() => setTab(key)}
             className="relative shrink-0 px-3 sm:px-4 py-2 rounded-lg text-[12.5px] sm:text-[13px] font-medium transition-colors whitespace-nowrap"
@@ -208,12 +208,12 @@ export default function AdminProjectDetailPage() {
             const members = roleGroups[role] ?? [];
             if (!members.length) return null;
             return (
-              <div key={role} className="bg-[#16161c] border border-[rgba(255,255,255,0.07)] rounded-xl overflow-hidden">
-                <div className="px-4 sm:px-5 py-3 border-b border-[rgba(255,255,255,0.06)] flex items-center gap-2.5">
+              <div key={role} className="bg-[var(--ax-surface)] border border-[var(--ax-border)] rounded-xl overflow-hidden">
+                <div className="px-4 sm:px-5 py-3 border-b border-[var(--ax-border-subtle)] flex items-center gap-2.5">
                   <span className="text-[11px] font-bold px-2.5 py-0.5 rounded-full" style={{ background: `${ROLE_COLOR[role]}22`, color: ROLE_COLOR[role] }}>{role}</span>
-                  <span className="text-[12px] text-[rgba(232,228,220,0.4)]">{members.length} member{members.length !== 1 ? 's' : ''}</span>
+                  <span className="text-[12px] text-[rgba(var(--ax-text-rgb),0.4)]">{members.length} member{members.length !== 1 ? 's' : ''}</span>
                 </div>
-                <div className="divide-y divide-[rgba(255,255,255,0.04)]">
+                <div className="divide-y divide-[var(--ax-border-subtle)]">
                   {members.map(m => (
                     <div key={m.user.id} className="flex items-center gap-3 sm:gap-4 px-4 sm:px-5 py-3.5">
                       <div className="w-9 h-9 rounded-full flex items-center justify-center shrink-0 text-[13px] font-bold"
@@ -221,10 +221,10 @@ export default function AdminProjectDetailPage() {
                         {m.user.name.split(' ').map(n => n[0]).join('').toUpperCase().slice(0, 2)}
                       </div>
                       <div className="flex-1 min-w-0">
-                        <div className="text-[14px] font-semibold text-[#e8e4dc] truncate">{m.user.name}</div>
-                        <div className="text-[12px] text-[rgba(232,228,220,0.45)] truncate">{m.user.email}</div>
+                        <div className="text-[14px] font-semibold text-[var(--ax-text)] truncate">{m.user.name}</div>
+                        <div className="text-[12px] text-[rgba(var(--ax-text-rgb),0.45)] truncate">{m.user.email}</div>
                       </div>
-                      <div className="text-[11.5px] text-[rgba(232,228,220,0.35)] whitespace-nowrap hidden sm:block">Since {fmt(m.createdAt)}</div>
+                      <div className="text-[11.5px] text-[rgba(var(--ax-text-rgb),0.35)] whitespace-nowrap hidden sm:block">Since {fmt(m.createdAt)}</div>
                     </div>
                   ))}
                 </div>
@@ -246,9 +246,9 @@ export default function AdminProjectDetailPage() {
                 <button key={s} onClick={() => setMsFilter(s)}
                   className="shrink-0 px-3 py-1.5 rounded-full text-[11.5px] font-semibold cursor-pointer transition-all whitespace-nowrap"
                   style={{
-                    background: active ? (sst?.bg ?? 'rgba(var(--ax-accent-rgb),0.12)') : 'rgba(255,255,255,0.04)',
+                    background: active ? (sst?.bg ?? 'rgba(var(--ax-accent-rgb),0.12)') : 'var(--ax-overlay)',
                     color: active ? (sst?.fg ?? 'var(--ax-accent)') : 'rgba(var(--ax-text-rgb),0.45)',
-                    border: active ? `1px solid ${sst?.fg ?? 'var(--ax-accent)'}44` : '1px solid rgba(255,255,255,0.07)',
+                    border: active ? `1px solid ${sst?.fg ?? 'var(--ax-accent)'}44` : '1px solid var(--ax-border)',
                   }}>
                   {s === 'ALL' ? `All (${milestones.length})` : `${fmtType(s)} (${msStateCounts[s] ?? 0})`}
                 </button>
@@ -259,19 +259,19 @@ export default function AdminProjectDetailPage() {
           {/* Mobile: Cards */}
           <div className="block lg:hidden space-y-3">
             {filteredMs.map(m => {
-              const mst = MS_STATE[m.state] ?? { bg: 'rgba(255,255,255,0.06)', fg: 'var(--ax-text)' };
+              const mst = MS_STATE[m.state] ?? { bg: 'var(--ax-overlay)', fg: 'var(--ax-text)' };
               const pFg = PAY_STATE[m.paymentEligibility?.state ?? 'NOT_DUE'] ?? 'rgba(var(--ax-text-rgb),0.3)';
               return (
-                <div key={m.id} className="bg-[#16161c] border border-[rgba(255,255,255,0.07)] rounded-xl p-4">
+                <div key={m.id} className="bg-[var(--ax-surface)] border border-[var(--ax-border)] rounded-xl p-4">
                   <div className="flex items-start justify-between gap-2 mb-2">
-                    <div className="text-[13.5px] font-semibold text-[#e8e4dc] flex-1">{m.title}</div>
+                    <div className="text-[13.5px] font-semibold text-[var(--ax-text)] flex-1">{m.title}</div>
                     <span className="shrink-0 text-[10.5px] font-bold px-2 py-0.5 rounded-full" style={{ background: mst.bg, color: mst.fg }}>{fmtType(m.state)}</span>
                   </div>
                   <div className="grid grid-cols-2 gap-2 text-[12px]">
-                    <div><span className="text-[rgba(232,228,220,0.4)]">Value </span><span className="font-semibold text-[#e8e4dc]">{formatCurrency(m.value ?? 0)}</span></div>
-                    <div><span className="text-[rgba(232,228,220,0.4)]">Eligible </span><span className="font-semibold" style={{ color: pFg }}>{m.paymentEligibility ? formatCurrency(m.paymentEligibility.eligibleAmount) : '—'}</span></div>
-                    <div><span className="text-[rgba(232,228,220,0.4)]">Vendor </span><span className="text-[#5cba80]">{m.vendorUser?.name ?? 'Unassigned'}</span></div>
-                    <div><span className="text-[rgba(232,228,220,0.4)]">Due </span><span className="text-[rgba(232,228,220,0.6)]">{fmt(m.plannedEnd)}</span></div>
+                    <div><span className="text-[rgba(var(--ax-text-rgb),0.4)]">Value </span><span className="font-semibold text-[var(--ax-text)]">{formatCurrency(m.value ?? 0)}</span></div>
+                    <div><span className="text-[rgba(var(--ax-text-rgb),0.4)]">Eligible </span><span className="font-semibold" style={{ color: pFg }}>{m.paymentEligibility ? formatCurrency(m.paymentEligibility.eligibleAmount) : '—'}</span></div>
+                    <div><span className="text-[rgba(var(--ax-text-rgb),0.4)]">Vendor </span><span className="text-[#5cba80]">{m.vendorUser?.name ?? 'Unassigned'}</span></div>
+                    <div><span className="text-[rgba(var(--ax-text-rgb),0.4)]">Due </span><span className="text-[rgba(var(--ax-text-rgb),0.6)]">{fmt(m.plannedEnd)}</span></div>
                   </div>
                   {m.paymentEligibility?.state && (
                     <div className="mt-2 text-[11.5px]" style={{ color: pFg }}>{fmtType(m.paymentEligibility.state)}</div>
@@ -282,39 +282,39 @@ export default function AdminProjectDetailPage() {
           </div>
 
           {/* Desktop: Table */}
-          <div className="hidden lg:block bg-[#16161c] border border-[rgba(255,255,255,0.07)] rounded-xl overflow-hidden">
+          <div className="hidden lg:block bg-[var(--ax-surface)] border border-[var(--ax-border)] rounded-xl overflow-hidden">
             <div className="overflow-x-auto">
               <table className="w-full border-collapse min-w-[700px]">
                 <thead>
-                  <tr className="bg-[rgba(255,255,255,0.02)]">
+                  <tr className="bg-[var(--ax-overlay)]">
                     {['Milestone', 'State', 'Value', 'Payment Status', 'Eligible', 'Vendor', 'Due Date'].map(h => (
-                      <th key={h} className="px-4 py-3 text-left text-[10.5px] font-semibold text-[rgba(232,228,220,0.35)] uppercase tracking-wide whitespace-nowrap">{h}</th>
+                      <th key={h} className="px-4 py-3 text-left text-[10.5px] font-semibold text-[rgba(var(--ax-text-rgb),0.35)] uppercase tracking-wide whitespace-nowrap">{h}</th>
                     ))}
                   </tr>
                 </thead>
                 <tbody>
                   {filteredMs.length === 0
-                    ? <tr><td colSpan={7} className="px-4 py-10 text-center text-[rgba(232,228,220,0.25)] text-sm">No milestones</td></tr>
+                    ? <tr><td colSpan={7} className="px-4 py-10 text-center text-[rgba(var(--ax-text-rgb),0.25)] text-sm">No milestones</td></tr>
                     : filteredMs.map(m => {
 
-                      const mst = MS_STATE[m.state] ?? { bg: 'rgba(255,255,255,0.06)', fg: 'var(--ax-text)' };
+                      const mst = MS_STATE[m.state] ?? { bg: 'var(--ax-overlay)', fg: 'var(--ax-text)' };
                       const pFg = PAY_STATE[m.paymentEligibility?.state ?? 'NOT_DUE'] ?? 'rgba(var(--ax-text-rgb),0.3)';
                       return (
-                        <tr key={m.id} className="border-t border-[rgba(255,255,255,0.04)] hover:bg-[rgba(255,255,255,0.02)]">
+                        <tr key={m.id} className="border-t border-[var(--ax-border-subtle)] hover:bg-[var(--ax-overlay)]">
                           <td className="px-4 py-3.5">
-                            <div className="text-[13.5px] font-semibold text-[#e8e4dc] max-w-[200px]">{m.title}</div>
-                            {m.plannedStart && <div className="text-[11px] text-[rgba(232,228,220,0.35)] mt-0.5">{fmt(m.plannedStart)} → {fmt(m.plannedEnd)}</div>}
+                            <div className="text-[13.5px] font-semibold text-[var(--ax-text)] max-w-[200px]">{m.title}</div>
+                            {m.plannedStart && <div className="text-[11px] text-[rgba(var(--ax-text-rgb),0.35)] mt-0.5">{fmt(m.plannedStart)} → {fmt(m.plannedEnd)}</div>}
                           </td>
                           <td className="px-4 py-3.5"><span className="text-[11px] font-bold px-2.5 py-1 rounded-full" style={{ background: mst.bg, color: mst.fg }}>{fmtType(m.state)}</span></td>
-                          <td className="px-4 py-3.5 text-[13px] font-semibold text-[#e8e4dc] whitespace-nowrap">{formatCurrency(m.value ?? 0)}</td>
+                          <td className="px-4 py-3.5 text-[13px] font-semibold text-[var(--ax-text)] whitespace-nowrap">{formatCurrency(m.value ?? 0)}</td>
                           <td className="px-4 py-3.5"><span className="text-[12px] font-medium" style={{ color: pFg }}>{fmtType(m.paymentEligibility?.state ?? 'NOT_DUE')}</span></td>
                           <td className="px-4 py-3.5 text-[13px] whitespace-nowrap" style={{ color: pFg }}>{m.paymentEligibility ? formatCurrency(m.paymentEligibility.eligibleAmount) : '—'}</td>
                           <td className="px-4 py-3.5">
                             {m.vendorUser
-                              ? <div><div className="text-[12.5px] text-[#5cba80] font-medium">{m.vendorUser.name}</div><div className="text-[11px] text-[rgba(232,228,220,0.35)]">{m.vendorUser.email}</div></div>
-                              : <span className="text-[rgba(232,228,220,0.25)] text-[12px]">Unassigned</span>}
+                              ? <div><div className="text-[12.5px] text-[#5cba80] font-medium">{m.vendorUser.name}</div><div className="text-[11px] text-[rgba(var(--ax-text-rgb),0.35)]">{m.vendorUser.email}</div></div>
+                              : <span className="text-[rgba(var(--ax-text-rgb),0.25)] text-[12px]">Unassigned</span>}
                           </td>
-                          <td className="px-4 py-3.5 text-[12px] text-[rgba(232,228,220,0.45)] whitespace-nowrap">{fmt(m.plannedEnd)}</td>
+                          <td className="px-4 py-3.5 text-[12px] text-[rgba(var(--ax-text-rgb),0.45)] whitespace-nowrap">{fmt(m.plannedEnd)}</td>
                         </tr>
                       );
                     })}
@@ -332,30 +332,30 @@ export default function AdminProjectDetailPage() {
 
       {/* ── AUDIT LOG ───────────────────────────────────────────────────── */}
       {tab === 'audit' && (
-        <div className="bg-[#16161c] border border-[rgba(255,255,255,0.07)] rounded-xl overflow-hidden">
-          <div className="px-4 sm:px-5 py-3.5 border-b border-[rgba(255,255,255,0.06)] flex items-center gap-2">
-            <span className="text-[13px] font-semibold text-[#e8e4dc]">Audit Trail</span>
-            <span className="text-[12px] text-[rgba(232,228,220,0.35)]">{auditLogs.length} entries</span>
+        <div className="bg-[var(--ax-surface)] border border-[var(--ax-border)] rounded-xl overflow-hidden">
+          <div className="px-4 sm:px-5 py-3.5 border-b border-[var(--ax-border-subtle)] flex items-center gap-2">
+            <span className="text-[13px] font-semibold text-[var(--ax-text)]">Audit Trail</span>
+            <span className="text-[12px] text-[rgba(var(--ax-text-rgb),0.35)]">{auditLogs.length} entries</span>
           </div>
           {auditLogs.length === 0
-            ? <div className="px-5 py-10 text-center text-[rgba(232,228,220,0.25)] text-sm">No audit logs</div>
-            : <><div className="divide-y divide-[rgba(255,255,255,0.04)]">
+            ? <div className="px-5 py-10 text-center text-[rgba(var(--ax-text-rgb),0.25)] text-sm">No audit logs</div>
+            : <><div className="divide-y divide-[var(--ax-border-subtle)]">
               {pagedAuditLogs.map(log => (
-                <div key={log.id} className="flex items-start gap-3 sm:gap-4 px-4 sm:px-5 py-3.5 hover:bg-[rgba(255,255,255,0.02)]">
+                <div key={log.id} className="flex items-start gap-3 sm:gap-4 px-4 sm:px-5 py-3.5 hover:bg-[var(--ax-overlay)]">
                   <div className="w-8 h-8 rounded-full bg-[rgba(var(--ax-accent-rgb),0.12)] border border-[rgba(var(--ax-accent-rgb),0.2)] flex items-center justify-center shrink-0 mt-0.5 text-[11px] font-bold text-[var(--ax-accent)]">
                     {log.actor?.name.charAt(0).toUpperCase() ?? '?'}
                   </div>
                   <div className="flex-1 min-w-0">
                     <div className="flex flex-wrap items-center gap-1.5">
-                      <span className="text-[13px] font-semibold text-[#e8e4dc]">{log.actor?.name ?? 'Unknown'}</span>
+                      <span className="text-[13px] font-semibold text-[var(--ax-text)]">{log.actor?.name ?? 'Unknown'}</span>
                       <span className="text-[10px] px-1.5 py-0.5 rounded-full bg-[rgba(var(--ax-accent-rgb),0.1)] text-[var(--ax-accent)] font-semibold">{log.role}</span>
-                      <span className="text-[12.5px] text-[rgba(232,228,220,0.5)]">{fmtType(log.actionType)}</span>
-                      <span className="text-[12px] text-[rgba(232,228,220,0.35)]">on {log.entityType}</span>
+                      <span className="text-[12.5px] text-[rgba(var(--ax-text-rgb),0.5)]">{fmtType(log.actionType)}</span>
+                      <span className="text-[12px] text-[rgba(var(--ax-text-rgb),0.35)]">on {log.entityType}</span>
                     </div>
-                    {log.reason && <div className="text-[11.5px] text-[rgba(232,228,220,0.4)] mt-0.5 italic">"{log.reason}"</div>}
-                    <div className="text-[11px] text-[rgba(232,228,220,0.3)] mt-0.5 block sm:hidden">{fmtTime(log.createdAt)}</div>
+                    {log.reason && <div className="text-[11.5px] text-[rgba(var(--ax-text-rgb),0.4)] mt-0.5 italic">"{log.reason}"</div>}
+                    <div className="text-[11px] text-[rgba(var(--ax-text-rgb),0.3)] mt-0.5 block sm:hidden">{fmtTime(log.createdAt)}</div>
                   </div>
-                  <div className="text-[11.5px] text-[rgba(232,228,220,0.35)] whitespace-nowrap shrink-0 hidden sm:block">{fmtTime(log.createdAt)}</div>
+                  <div className="text-[11.5px] text-[rgba(var(--ax-text-rgb),0.35)] whitespace-nowrap shrink-0 hidden sm:block">{fmtTime(log.createdAt)}</div>
                 </div>
               ))}
             </div>
@@ -366,25 +366,25 @@ export default function AdminProjectDetailPage() {
 
       {/* ── ISSUES ──────────────────────────────────────────────────────── */}
       {tab === 'issues' && (
-        <div className="bg-[#16161c] border border-[rgba(255,255,255,0.07)] rounded-xl overflow-hidden">
-          <div className="px-4 sm:px-5 py-3.5 border-b border-[rgba(255,255,255,0.06)] flex flex-wrap items-center gap-2">
-            <span className="text-[13px] font-semibold text-[#e8e4dc]">Follow-ups &amp; Issues</span>
-            <span className="text-[12px] text-[rgba(232,228,220,0.35)]">{followUps.length} total</span>
+        <div className="bg-[var(--ax-surface)] border border-[var(--ax-border)] rounded-xl overflow-hidden">
+          <div className="px-4 sm:px-5 py-3.5 border-b border-[var(--ax-border-subtle)] flex flex-wrap items-center gap-2">
+            <span className="text-[13px] font-semibold text-[var(--ax-text)]">Follow-ups &amp; Issues</span>
+            <span className="text-[12px] text-[rgba(var(--ax-text-rgb),0.35)]">{followUps.length} total</span>
             {openIssues > 0 && <span className="text-[11px] font-bold px-2 py-0.5 rounded-full bg-[rgba(251,146,60,0.15)] text-[#fb923c]">{openIssues} open</span>}
           </div>
           {followUps.length === 0
             ? <div className="px-5 py-10 text-center text-[#5cba80] text-sm">✓ No open issues for this project</div>
-            : <div className="divide-y divide-[rgba(255,255,255,0.04)]">
+            : <div className="divide-y divide-[var(--ax-border-subtle)]">
               {followUps.map(f => {
-                const fs = FU_STYLE[f.status] ?? { bg: 'rgba(255,255,255,0.05)', fg: 'var(--ax-text)' };
+                const fs = FU_STYLE[f.status] ?? { bg: 'var(--ax-overlay)', fg: 'var(--ax-text)' };
                 return (
-                  <div key={f.id} className="flex items-start gap-3 px-4 sm:px-5 py-4 hover:bg-[rgba(255,255,255,0.02)]">
+                  <div key={f.id} className="flex items-start gap-3 px-4 sm:px-5 py-4 hover:bg-[var(--ax-overlay)]">
                     <span className="shrink-0 text-[10.5px] font-bold px-2 py-0.5 rounded-full mt-0.5" style={{ background: fs.bg, color: fs.fg }}>{f.status}</span>
                     <div className="flex-1 min-w-0">
                       <div className="text-[12px] font-semibold text-[#fb923c] mb-1">{fmtType(f.type)}</div>
-                      <div className="text-[13px] text-[rgba(232,228,220,0.7)]">{f.description}</div>
+                      <div className="text-[13px] text-[rgba(var(--ax-text-rgb),0.7)]">{f.description}</div>
                     </div>
-                    <div className="text-[11.5px] text-[rgba(232,228,220,0.35)] whitespace-nowrap shrink-0">{fmt(f.createdAt)}</div>
+                    <div className="text-[11.5px] text-[rgba(var(--ax-text-rgb),0.35)] whitespace-nowrap shrink-0">{fmt(f.createdAt)}</div>
                   </div>
                 );
               })}

@@ -101,6 +101,21 @@ export async function POST(request: NextRequest) {
       }),
     ]);
 
+    // Log sign-in event for admin visibility
+    prisma.systemEvent.create({
+      data: {
+        eventType: 'USER_SIGNIN',
+        severity: 'INFO',
+        actorId: user.id,
+        message: `${user.name} signed in via credentials`,
+        metadata: JSON.stringify({
+          method: 'credentials',
+          role: preferredRole ?? user.preferredRole ?? null,
+          ip: clientIp,
+        }),
+      },
+    }).catch(() => {/* non-blocking */});
+
     const response = NextResponse.json({
       success: true,
       data: {

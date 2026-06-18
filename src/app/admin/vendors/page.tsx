@@ -26,7 +26,7 @@ export default async function AdminVendorsPage() {
 
   if (allProjects.length === 0) {
     return (
-      <div className="px-8 py-10 text-[rgba(232,228,220,0.45)] text-sm">
+      <div className="px-8 py-10 text-[rgba(var(--ax-text-rgb),0.45)] text-sm">
         No projects exist yet.
       </div>
     );
@@ -60,8 +60,8 @@ export default async function AdminVendorsPage() {
   return (
     <div className="px-8 py-8 max-w-[1200px]">
       <div className="mb-6">
-        <h1 className="text-2xl font-bold text-[#e8e4dc]">Vendors</h1>
-        <p className="text-[13.5px] text-[rgba(232,228,220,0.45)] mt-1">
+        <h1 className="text-2xl font-bold text-[var(--ax-text)]">Vendors</h1>
+        <p className="text-[13.5px] text-[rgba(var(--ax-text-rgb),0.45)] mt-1">
           Manage vendor accounts and project assignments across the platform
         </p>
       </div>
