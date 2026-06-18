@@ -26,17 +26,19 @@ export const metadata: Metadata = {
   manifest: '/manifest.webmanifest',
   icons: {
     icon: [
-      { url: '/icon.svg', type: 'image/svg+xml' },
+      { url: '/favicon-48.png', sizes: '48x48', type: 'image/png' },
+      { url: '/favicon-192.png', sizes: '192x192', type: 'image/png' },
+      { url: '/favicon-512.png', sizes: '512x512', type: 'image/png' },
     ],
-    shortcut: [{ url: '/icon.svg', type: 'image/svg+xml' }],
-    apple: [{ url: '/icon.svg', type: 'image/svg+xml' }],
+    shortcut: [{ url: '/favicon-192.png', type: 'image/png' }],
+    apple: [{ url: '/favicon-192.png', sizes: '192x192', type: 'image/png' }],
   },
   openGraph: {
     title: 'Axinfra',
     description: 'Evidence-first construction execution control system',
     siteName: 'Axinfra',
     type: 'website',
-    images: [{ url: '/icon.svg', type: 'image/svg+xml' }],
+    images: [{ url: '/favicon-512.png', width: 512, height: 512, type: 'image/png' }],
   },
 };
 
