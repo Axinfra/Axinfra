@@ -1,5 +1,5 @@
 import type { MetadataRoute } from 'next';
-
+// this is manifest.tsx for logo
 export default function manifest(): MetadataRoute.Manifest {
   return {
     name: 'Axinfra',
