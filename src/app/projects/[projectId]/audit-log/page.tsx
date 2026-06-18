@@ -280,7 +280,7 @@ export default function AuditLogPage() {
                         </div>
                       </td>
                       <td>
-                        <button className="text-[#c4a35a] text-sm">
+                        <button className="text-[var(--ax-accent)] text-sm">
                           {expandedId === log.id ? 'Hide' : 'View'}
                         </button>
                       </td>

@@ -3,6 +3,7 @@
 import { useState } from 'react';
 import { useRouter } from 'next/navigation';
 import { Loader2, CheckCircle2 } from 'lucide-react';
+import AxinfraLogo from '@/components/AxinfraLogo';
 
 const ROLES = [
   {
@@ -70,21 +71,18 @@ export default function SelectRolePage() {
   };
 
   return (
-    <div className="min-h-screen w-full flex items-center justify-center bg-[#0a0c10] p-6">
+    <div className="min-h-screen w-full flex items-center justify-center bg-[var(--ax-base)] p-6">
       <div className="w-full max-w-lg">
 
         {/* Header */}
         <div className="mb-10 text-center">
-          <div
-            className="w-11 h-11 rounded-xl flex items-center justify-center mx-auto mb-5"
-            style={{ background: 'linear-gradient(135deg, #c4a35a 0%, #a8893e 100%)' }}
-          >
-            <span className="text-[#0a0c10] text-lg font-bold">A</span>
+          <div className="flex justify-center mb-5">
+            <AxinfraLogo size="lg" href="/" />
           </div>
-          <h1 className="text-[#e8e4dc] text-2xl font-bold tracking-tight mb-2">
+          <h1 className="text-[var(--ax-text)] text-2xl font-bold tracking-tight mb-2">
             What best describes your role?
           </h1>
-          <p className="text-[rgba(232,228,220,0.5)] text-sm leading-relaxed">
+          <p className="text-[rgba(var(--ax-text-rgb),0.5)] text-sm leading-relaxed">
             This helps us tailor your Axinfra experience. You can update it later in your profile.
           </p>
         </div>
@@ -101,11 +99,11 @@ export default function SelectRolePage() {
                 className="w-full text-left rounded-xl border transition-all duration-150 p-4 flex items-start gap-4 group"
                 style={{
                   background: isActive
-                    ? 'rgba(196,163,90,0.08)'
-                    : 'rgba(255,255,255,0.02)',
+                    ? 'rgba(var(--ax-accent-rgb),0.08)'
+                    : 'var(--ax-overlay)',
                   borderColor: isActive
-                    ? 'rgba(196,163,90,0.5)'
-                    : 'rgba(255,255,255,0.07)',
+                    ? 'rgba(var(--ax-accent-rgb),0.5)'
+                    : 'var(--ax-border)',
                 }}
               >
                 {/* Icon */}
@@ -113,8 +111,8 @@ export default function SelectRolePage() {
                   className="text-xl mt-0.5 w-9 h-9 flex items-center justify-center rounded-lg shrink-0"
                   style={{
                     background: isActive
-                      ? 'rgba(196,163,90,0.15)'
-                      : 'rgba(255,255,255,0.04)',
+                      ? 'rgba(var(--ax-accent-rgb),0.15)'
+                      : 'var(--ax-overlay)',
                   }}
                 >
                   {role.icon}
@@ -124,11 +122,11 @@ export default function SelectRolePage() {
                 <div className="flex-1 min-w-0">
                   <p
                     className="text-sm font-semibold mb-0.5"
-                    style={{ color: isActive ? '#c4a35a' : '#e8e4dc' }}
+                    style={{ color: isActive ? 'var(--ax-accent)' : 'var(--ax-text)' }}
                   >
                     {role.label}
                   </p>
-                  <p className="text-xs leading-relaxed text-[rgba(232,228,220,0.45)]">
+                  <p className="text-xs leading-relaxed text-[rgba(var(--ax-text-rgb),0.45)]">
                     {role.description}
                   </p>
                 </div>
@@ -136,9 +134,9 @@ export default function SelectRolePage() {
                 {/* Check */}
                 <div className="shrink-0 mt-0.5">
                   {isActive ? (
-                    <CheckCircle2 className="h-5 w-5 text-[#c4a35a]" />
+                    <CheckCircle2 className="h-5 w-5 text-[var(--ax-accent)]" />
                   ) : (
-                    <div className="h-5 w-5 rounded-full border border-[rgba(255,255,255,0.15)]" />
+                    <div className="h-5 w-5 rounded-full border border-[var(--ax-border)]" />
                   )}
                 </div>
               </button>
@@ -160,9 +158,9 @@ export default function SelectRolePage() {
           style={{
             background:
               selected && !loading
-                ? 'linear-gradient(135deg, #c4a35a 0%, #a8893e 100%)'
-                : 'rgba(255,255,255,0.06)',
-            color: selected && !loading ? '#0a0c10' : 'rgba(232,228,220,0.3)',
+                ? 'linear-gradient(135deg, var(--ax-accent) 0%, var(--ax-accent-hover) 100%)'
+                : 'var(--ax-overlay-hover)',
+            color: selected && !loading ? 'var(--ax-btn-text)' : 'rgba(var(--ax-text-rgb),0.3)',
             cursor: selected && !loading ? 'pointer' : 'not-allowed',
           }}
         >
@@ -176,7 +174,7 @@ export default function SelectRolePage() {
           )}
         </button>
 
-        <p className="text-center text-xs text-[rgba(232,228,220,0.25)] mt-5">
+        <p className="text-center text-xs text-[rgba(var(--ax-text-rgb),0.25)] mt-5">
           Your role preference is visible only to project admins.
         </p>
       </div>

@@ -7,6 +7,7 @@ import { Input } from '@/components/ui/Input';
 import { ArrowRight, Loader2, AlertCircle, Eye, EyeOff, CheckCircle2 } from 'lucide-react';
 import Link from 'next/link';
 import { Suspense } from 'react';
+import AxinfraLogo from '@/components/AxinfraLogo';
 
 const ROLES = [
   { id: 'CLIENT',      label: 'Client',      icon: '🏢', desc: 'Project owner' },
@@ -105,50 +106,43 @@ function RegisterContent() {
   const passwordOk = PASSWORD_RULES.every(r => r.test(password));
 
   return (
-    <div className="min-h-screen w-full flex bg-[#0a0c10]">
+    <div className="min-h-screen w-full flex bg-[var(--ax-base)]">
 
       {/* Left panel */}
-      <div className="hidden lg:flex lg:w-[45%] bg-[#0d0f13] flex-col justify-between p-16 xl:p-24 relative overflow-hidden border-r border-[rgba(255,255,255,0.07)]">
-        <div className="flex items-center gap-3">
-          <div className="w-8 h-8 rounded-md flex items-center justify-center" style={{ background: 'linear-gradient(135deg,#c4a35a 0%,#a8893e 100%)' }}>
-            <span className="text-[#0a0c10] text-sm font-bold">A</span>
-          </div>
-          <span className="text-[#e8e4dc] font-semibold text-lg tracking-tight">Axinfra</span>
-        </div>
+      <div className="hidden lg:flex lg:w-[45%] bg-[var(--ax-surface)] flex-col justify-between p-16 xl:p-24 relative overflow-hidden border-r border-[var(--ax-border)]">
+        <AxinfraLogo size="lg" href="/" />
 
         <div className="z-10">
-          <h1 className="text-[#e8e4dc] text-5xl xl:text-6xl font-bold tracking-tight leading-[1.1] mb-8">
+          <h1 className="text-[var(--ax-text)] text-5xl xl:text-6xl font-bold tracking-tight leading-[1.1] mb-8">
             Built for <br />builders.
           </h1>
-          <p className="text-[rgba(232,228,220,0.55)] text-xl leading-relaxed max-w-md font-light">
+          <p className="text-[rgba(var(--ax-text-rgb),0.55)] text-xl leading-relaxed max-w-md font-light">
             Join construction teams that use evidence-based payments and real-time project intelligence.
           </p>
         </div>
 
-        <div className="text-[rgba(232,228,220,0.35)] text-sm">&copy; Axinfra Inc.</div>
+        <div className="text-[rgba(var(--ax-text-rgb),0.35)] text-sm">&copy; Axinfra Inc.</div>
       </div>
 
       {/* Right panel */}
-      <div className="w-full lg:w-[55%] flex items-center justify-center p-8 bg-[#0a0c10] overflow-y-auto">
+      <div className="w-full lg:w-[55%] flex items-center justify-center p-8 bg-[var(--ax-base)] overflow-y-auto">
         <div className="w-full max-w-sm py-8 space-y-7">
 
           {/* Mobile logo */}
-          <div className="flex justify-center lg:hidden">
-            <div className="w-10 h-10 rounded-md flex items-center justify-center" style={{ background: 'linear-gradient(135deg,#c4a35a 0%,#a8893e 100%)' }}>
-              <span className="text-[#0a0c10] text-lg font-bold">A</span>
-            </div>
+          <div className="flex justify-center lg:hidden mb-2">
+            <AxinfraLogo size="md" href="/" />
           </div>
 
           <div>
-            <h2 className="text-2xl font-semibold text-[#e8e4dc] tracking-tight">Create account</h2>
-            <p className="text-[rgba(232,228,220,0.5)] text-sm mt-1">
+            <h2 className="text-2xl font-semibold text-[var(--ax-text)] tracking-tight">Create account</h2>
+            <p className="text-[rgba(var(--ax-text-rgb),0.5)] text-sm mt-1">
               Join Axinfra and start managing your projects.
             </p>
           </div>
 
           {/* Role selector */}
           <div>
-            <p className="text-xs font-medium text-[rgba(232,228,220,0.45)] uppercase tracking-wider mb-3">
+            <p className="text-xs font-medium text-[rgba(var(--ax-text-rgb),0.45)] uppercase tracking-wider mb-3">
               I am joining as
             </p>
             <div className="grid grid-cols-4 gap-2">
@@ -161,15 +155,15 @@ function RegisterContent() {
                     onClick={() => setSelectedRole(role.id)}
                     className="flex flex-col items-center gap-1.5 rounded-xl border py-3 px-1 transition-all duration-150"
                     style={{
-                      background:  active ? 'rgba(196,163,90,0.1)'  : 'rgba(255,255,255,0.02)',
-                      borderColor: active ? 'rgba(196,163,90,0.55)' : 'rgba(255,255,255,0.07)',
+                      background:  active ? 'rgba(var(--ax-accent-rgb),0.1)'  : 'var(--ax-overlay)',
+                      borderColor: active ? 'rgba(var(--ax-accent-rgb),0.55)' : 'var(--ax-border)',
                     }}
                   >
                     <span className="text-lg leading-none">{role.icon}</span>
-                    <span className="text-[10px] font-semibold leading-none" style={{ color: active ? '#c4a35a' : 'rgba(232,228,220,0.45)' }}>
+                    <span className="text-[10px] font-semibold leading-none" style={{ color: active ? 'var(--ax-accent)' : 'rgba(var(--ax-text-rgb),0.45)' }}>
                       {role.label}
                     </span>
-                    <span className="text-[9px] leading-none" style={{ color: active ? 'rgba(196,163,90,0.7)' : 'rgba(232,228,220,0.25)' }}>
+                    <span className="text-[9px] leading-none" style={{ color: active ? 'rgba(var(--ax-accent-rgb),0.7)' : 'rgba(var(--ax-text-rgb),0.25)' }}>
                       {role.desc}
                     </span>
                   </button>
@@ -186,7 +180,7 @@ function RegisterContent() {
               setError('');
               window.location.href = `/api/auth/google?role=${selectedRole}`;
             }}
-            className="flex w-full items-center justify-center gap-3 rounded-xl border border-[rgba(255,255,255,0.1)] bg-[rgba(255,255,255,0.04)] hover:bg-[rgba(255,255,255,0.07)] hover:border-[rgba(255,255,255,0.16)] transition-all h-11 text-sm font-medium text-[#e8e4dc] cursor-pointer"
+            className="flex w-full items-center justify-center gap-3 rounded-xl border border-[var(--ax-border)] bg-[var(--ax-overlay)] hover:bg-[var(--ax-overlay-hover)] hover:border-[var(--ax-border)] transition-all h-11 text-sm font-medium text-[var(--ax-text)] cursor-pointer"
           >
             <GoogleIcon />
             Continue with Google
@@ -194,9 +188,9 @@ function RegisterContent() {
 
           {/* Divider */}
           <div className="flex items-center gap-4">
-            <div className="flex-1 h-px bg-[rgba(255,255,255,0.07)]" />
-            <span className="text-xs text-[rgba(232,228,220,0.3)] font-medium uppercase tracking-wider">or</span>
-            <div className="flex-1 h-px bg-[rgba(255,255,255,0.07)]" />
+            <div className="flex-1 h-px bg-[var(--ax-overlay-hover)]" />
+            <span className="text-xs text-[rgba(var(--ax-text-rgb),0.3)] font-medium uppercase tracking-wider">or</span>
+            <div className="flex-1 h-px bg-[var(--ax-overlay-hover)]" />
           </div>
 
           {/* Error */}
@@ -210,7 +204,7 @@ function RegisterContent() {
           {/* Form */}
           <form onSubmit={handleSubmit} className="space-y-5">
             <div className="space-y-1.5">
-              <label htmlFor="name" className="text-xs font-medium text-[rgba(232,228,220,0.55)] uppercase tracking-wider block">
+              <label htmlFor="name" className="text-xs font-medium text-[rgba(var(--ax-text-rgb),0.55)] uppercase tracking-wider block">
                 Full name
               </label>
               <Input id="name" type="text" value={name} onChange={e => setName(e.target.value)}
@@ -218,7 +212,7 @@ function RegisterContent() {
             </div>
 
             <div className="space-y-1.5">
-              <label htmlFor="email" className="text-xs font-medium text-[rgba(232,228,220,0.55)] uppercase tracking-wider block">
+              <label htmlFor="email" className="text-xs font-medium text-[rgba(var(--ax-text-rgb),0.55)] uppercase tracking-wider block">
                 Work email
               </label>
               <Input id="email" type="email" value={email} onChange={e => !inviteEmail && setEmail(e.target.value)}
@@ -226,14 +220,14 @@ function RegisterContent() {
                 readOnly={!!inviteEmail}
                 className={inviteEmail ? 'opacity-70 cursor-not-allowed' : ''} />
               {inviteEmail && (
-                <p className="text-[11px] text-[rgba(196,163,90,0.7)]">
+                <p className="text-[11px] text-[rgba(var(--ax-accent-rgb),0.7)]">
                   You must register with this email to accept the invitation.
                 </p>
               )}
             </div>
 
             <div className="space-y-1.5">
-              <label htmlFor="password" className="text-xs font-medium text-[rgba(232,228,220,0.55)] uppercase tracking-wider block">
+              <label htmlFor="password" className="text-xs font-medium text-[rgba(var(--ax-text-rgb),0.55)] uppercase tracking-wider block">
                 Password
               </label>
               <div className="relative">
@@ -242,7 +236,7 @@ function RegisterContent() {
                   placeholder="Minimum 8 characters" required autoComplete="new-password"
                   className="pr-10" />
                 <button type="button" onClick={() => setShowPassword(v => !v)} tabIndex={-1}
-                  className="absolute right-3 top-1/2 -translate-y-1/2 text-[rgba(232,228,220,0.35)] hover:text-[rgba(232,228,220,0.7)] transition-colors"
+                  className="absolute right-3 top-1/2 -translate-y-1/2 text-[rgba(var(--ax-text-rgb),0.35)] hover:text-[rgba(var(--ax-text-rgb),0.7)] transition-colors"
                   aria-label={showPassword ? 'Hide password' : 'Show password'}>
                   {showPassword ? <EyeOff className="h-4 w-4" /> : <Eye className="h-4 w-4" />}
                 </button>
@@ -254,8 +248,8 @@ function RegisterContent() {
                     const ok = rule.test(password);
                     return (
                       <div key={rule.label} className="flex items-center gap-2">
-                        <CheckCircle2 className={`h-3 w-3 shrink-0 ${ok ? 'text-[#22c55e]' : 'text-[rgba(232,228,220,0.2)]'}`} />
-                        <span className={`text-[11px] ${ok ? 'text-[rgba(232,228,220,0.6)]' : 'text-[rgba(232,228,220,0.3)]'}`}>
+                        <CheckCircle2 className={`h-3 w-3 shrink-0 ${ok ? 'text-[#22c55e]' : 'text-[rgba(var(--ax-text-rgb),0.2)]'}`} />
+                        <span className={`text-[11px] ${ok ? 'text-[rgba(var(--ax-text-rgb),0.6)]' : 'text-[rgba(var(--ax-text-rgb),0.3)]'}`}>
                           {rule.label}
                         </span>
                       </div>
@@ -266,7 +260,7 @@ function RegisterContent() {
             </div>
 
             <Button type="submit" disabled={loading || !passwordOk || !selectedRole}
-              className="w-full h-11 rounded-xl bg-[#c4a35a] hover:bg-[#b3943f] text-[#0a0c10] font-semibold shadow-none transition-all disabled:opacity-50 disabled:cursor-not-allowed">
+              className="w-full h-11 rounded-xl bg-[var(--ax-accent)] hover:bg-[var(--ax-accent-hover)] text-[var(--ax-btn-text)] font-semibold shadow-none transition-all disabled:opacity-50 disabled:cursor-not-allowed">
               {loading ? (
                 <><Loader2 className="mr-2 h-3.5 w-3.5 animate-spin" />Creating account...</>
               ) : (
@@ -275,9 +269,9 @@ function RegisterContent() {
             </Button>
           </form>
 
-          <p className="text-center text-sm text-[rgba(232,228,220,0.4)]">
+          <p className="text-center text-sm text-[rgba(var(--ax-text-rgb),0.4)]">
             Already have an account?{' '}
-            <Link href="/auth/login" className="text-[#c4a35a] font-medium hover:underline">
+            <Link href="/auth/login" className="text-[var(--ax-accent)] font-medium hover:underline">
               Sign in
             </Link>
           </p>

@@ -237,11 +237,11 @@ export default function MilestoneDetailPage() {
           <div className={`border rounded-lg p-4 ${
             milestone.extraApprovedAt
               ? 'bg-[rgba(92,186,128,0.07)] border-[rgba(92,186,128,0.2)]'
-              : 'bg-[rgba(196,163,90,0.06)] border-[rgba(196,163,90,0.2)]'
+              : 'bg-[rgba(var(--ax-accent-rgb),0.06)] border-[rgba(var(--ax-accent-rgb),0.2)]'
           }`}>
             <div className="flex items-center justify-between gap-3 flex-wrap">
               <div>
-                <p className={`font-medium text-sm ${milestone.extraApprovedAt ? 'text-[#5cba80]' : 'text-[#c4a35a]'}`}>
+                <p className={`font-medium text-sm ${milestone.extraApprovedAt ? 'text-[#5cba80]' : 'text-[var(--ax-accent)]'}`}>
                   {milestone.extraApprovedAt ? '✓ Extra Work Approved' : '⚠ Extra Work — Pending Owner Approval'}
                 </p>
                 <p className="text-xs text-[rgba(232,228,220,0.45)] mt-0.5">
@@ -274,7 +274,7 @@ export default function MilestoneDetailPage() {
           <div className="card">
             <div className="card-body">
               <p className="text-xs text-[rgba(232,228,220,0.45)] uppercase tracking-wider">Milestone Value</p>
-              <p className="text-base font-semibold text-[#c4a35a] mt-1">{formatCurrency(milestone.plannedValue || milestone.value)}</p>
+              <p className="text-base font-semibold text-[var(--ax-accent)] mt-1">{formatCurrency(milestone.plannedValue || milestone.value)}</p>
             </div>
           </div>
           <div className="card">
@@ -435,7 +435,7 @@ export default function MilestoneDetailPage() {
                             ? 'bg-[rgba(92,186,128,0.12)] text-[#5cba80]'
                             : ev.status === 'REJECTED'
                             ? 'bg-[rgba(224,96,80,0.12)] text-[#e06050]'
-                            : 'bg-[rgba(196,163,90,0.12)] text-[#c4a35a]'
+                            : 'bg-[rgba(var(--ax-accent-rgb),0.12)] text-[var(--ax-accent)]'
                         }`}>
                           {ev.status}
                         </span>
@@ -443,7 +443,7 @@ export default function MilestoneDetailPage() {
                           {ev.submittedBy.name} · {formatDateTime(ev.submittedAt)}
                         </p>
                       </div>
-                      <span className="text-lg font-bold text-[#c4a35a] shrink-0">{ev.qtyOrPercent}%</span>
+                      <span className="text-lg font-bold text-[var(--ax-accent)] shrink-0">{ev.qtyOrPercent}%</span>
                     </div>
                     {ev.remarks && (
                       <p className="text-sm text-[rgba(232,228,220,0.65)]">{ev.remarks}</p>
@@ -460,7 +460,7 @@ export default function MilestoneDetailPage() {
                               href={`/api/files/${file.id}`}
                               target="_blank"
                               rel="noopener noreferrer"
-                              className="inline-flex items-center gap-1.5 px-2.5 py-1 text-xs rounded-md bg-[rgba(255,255,255,0.05)] hover:bg-[rgba(196,163,90,0.1)] text-[#c4a35a] border border-[rgba(255,255,255,0.07)] transition-colors"
+                              className="inline-flex items-center gap-1.5 px-2.5 py-1 text-xs rounded-md bg-[rgba(255,255,255,0.05)] hover:bg-[rgba(var(--ax-accent-rgb),0.1)] text-[var(--ax-accent)] border border-[rgba(255,255,255,0.07)] transition-colors"
                             >
                               {file.mimeType === 'application/pdf' ? '📄' : '🖼'} {file.fileName}
                             </a>
@@ -494,11 +494,11 @@ export default function MilestoneDetailPage() {
               <div className="space-y-3">
                 {[...milestone.transitions].reverse().map((t, i) => (
                   <div key={i} className="flex items-start gap-3 text-sm">
-                    <div className="w-2 h-2 rounded-full bg-[#c4a35a] mt-1.5 shrink-0" />
+                    <div className="w-2 h-2 rounded-full bg-[var(--ax-accent)] mt-1.5 shrink-0" />
                     <div className="flex-1 min-w-0">
                       <span className="font-medium text-[#e8e4dc]">{t.actor.name}</span>
                       <span className="text-[rgba(232,228,220,0.45)]"> → </span>
-                      <span className="font-medium text-[#c4a35a]">{stateLabel[t.toState] ?? t.toState}</span>
+                      <span className="font-medium text-[var(--ax-accent)]">{stateLabel[t.toState] ?? t.toState}</span>
                       {t.reason && (
                         <p className="text-xs text-[rgba(232,228,220,0.45)] mt-0.5 italic">"{t.reason}"</p>
                       )}

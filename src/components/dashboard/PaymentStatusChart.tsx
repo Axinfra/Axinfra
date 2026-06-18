@@ -65,14 +65,14 @@ export default function PaymentStatusChart() {
                 backgroundColor: '#13151a',
                 border: '1px solid rgba(255,255,255,0.12)',
                 borderRadius: 8,
-                color: '#e8e4dc',
+                color: 'var(--ax-text)',
                 fontSize: 12,
               }}
-              labelStyle={{ color: '#f5f1e8', fontWeight: 600 }}
+              labelStyle={{ color: 'var(--ax-text)', fontWeight: 600 }}
             />
             <Legend
               verticalAlign="bottom"
-              wrapperStyle={{ fontSize: 12, color: 'rgba(232,228,220,0.7)' }}
+              wrapperStyle={{ fontSize: 12, color: 'rgba(var(--ax-text-rgb),0.7)' }}
               iconType="circle"
             />
           </PieChart>

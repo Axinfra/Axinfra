@@ -32,7 +32,7 @@ interface DepData {
 const STATE_COLOR: Record<string, string> = {
   VERIFIED: '#22c55e', CLOSED: '#22c55e',
   SUBMITTED: '#f59e0b', IN_PROGRESS: '#3b82f6',
-  DRAFT: 'rgba(232,228,220,0.35)',
+  DRAFT: 'rgba(var(--ax-text-rgb),0.35)',
 };
 const STATE_LABEL: Record<string, string> = {
   VERIFIED: 'Verified', CLOSED: 'Closed',
@@ -115,7 +115,7 @@ export default function DependencyManager({
           <button
             onClick={() => { setAdding(true); setFormError(''); }}
             className="flex items-center gap-1.5 px-3 py-1.5 rounded-lg text-[12.5px] font-semibold transition-all"
-            style={{ background: 'rgba(196,163,90,0.12)', color: '#c4a35a', border: '1px solid rgba(196,163,90,0.25)' }}>
+            style={{ background: 'rgba(var(--ax-accent-rgb),0.12)', color: 'var(--ax-accent)', border: '1px solid rgba(var(--ax-accent-rgb),0.25)' }}>
             <svg className="w-3.5 h-3.5" fill="none" viewBox="0 0 24 24" strokeWidth={2.5} stroke="currentColor">
               <path strokeLinecap="round" strokeLinejoin="round" d="M12 4.5v15m7.5-7.5h-15" />
             </svg>
@@ -126,8 +126,8 @@ export default function DependencyManager({
 
       {/* Add predecessor form */}
       {adding && (
-        <div className="bg-[rgba(196,163,90,0.06)] border border-[rgba(196,163,90,0.18)] rounded-xl p-4 mb-4">
-          <div className="text-[12.5px] font-semibold text-[#c4a35a] mb-3">
+        <div className="bg-[rgba(var(--ax-accent-rgb),0.06)] border border-[rgba(var(--ax-accent-rgb),0.18)] rounded-xl p-4 mb-4">
+          <div className="text-[12.5px] font-semibold text-[var(--ax-accent)] mb-3">
             Choose the milestone that must finish before this one starts
           </div>
 
@@ -139,7 +139,7 @@ export default function DependencyManager({
             <select
               value={predId}
               onChange={e => setPredId(e.target.value)}
-              className="w-full bg-[#0d0d11] border border-[rgba(255,255,255,0.1)] rounded-lg px-3 py-2 text-[13px] text-[#e8e4dc] outline-none focus:border-[rgba(196,163,90,0.4)]">
+              className="w-full bg-[#0d0d11] border border-[rgba(255,255,255,0.1)] rounded-lg px-3 py-2 text-[13px] text-[#e8e4dc] outline-none focus:border-[rgba(var(--ax-accent-rgb),0.4)]">
               <option value="">— Select milestone —</option>
               {available.map(m => (
                 <option key={m.id} value={m.id}>
@@ -165,7 +165,7 @@ export default function DependencyManager({
           <div className="flex gap-2">
             <button onClick={addDep} disabled={saving || !predId}
               className="px-4 py-2 rounded-lg text-[13px] font-semibold transition-all disabled:opacity-40 disabled:cursor-not-allowed"
-              style={{ background: 'rgba(196,163,90,0.2)', color: '#c4a35a', border: '1px solid rgba(196,163,90,0.35)' }}>
+              style={{ background: 'rgba(var(--ax-accent-rgb),0.2)', color: 'var(--ax-accent)', border: '1px solid rgba(var(--ax-accent-rgb),0.35)' }}>
               {saving ? 'Adding…' : 'Add Dependency'}
             </button>
             <button onClick={() => { setAdding(false); setFormError(''); setPredId(''); }}
@@ -261,7 +261,7 @@ function DepRow({
   removing: string | null;
   onRemove: (id: string) => void;
 }) {
-  const stateC = STATE_COLOR[dep.state] ?? 'rgba(232,228,220,0.3)';
+  const stateC = STATE_COLOR[dep.state] ?? 'rgba(var(--ax-text-rgb),0.3)';
   const stateL = STATE_LABEL[dep.state] ?? dep.state;
   const date = direction === 'predecessor' ? dep.plannedEnd : dep.plannedStart;
 
@@ -290,7 +290,7 @@ function DepRow({
 
       {/* Dependency meaning badge */}
       <div className="flex flex-col items-center gap-0.5 shrink-0">
-        <span className="text-[11px] font-bold px-2 py-0.5 rounded bg-[rgba(196,163,90,0.1)] text-[#c4a35a] border border-[rgba(196,163,90,0.2)]">
+        <span className="text-[11px] font-bold px-2 py-0.5 rounded bg-[rgba(var(--ax-accent-rgb),0.1)] text-[var(--ax-accent)] border border-[rgba(var(--ax-accent-rgb),0.2)]">
           {dep.dependencyType === 'FS' && dep.lagDays === 0 ? 'After finish' : 'Custom link'}
         </span>
         {dep.lagDays !== 0 && (

@@ -1,0 +1,29 @@
+<svg viewBox="0 0 800 800" xmlns="http://www.w3.org/2000/svg">
+  <rect width="800" height="800" rx="150" fill="#F7F8FA"/>
+  <g transform="translate(0 135)">
+    <path
+      d="M80 420
+         Q310 180 720 60
+         L680 170
+         Q370 240 140 390
+         Z"
+      fill="#F58214"
+    />
+    <path
+      d="M95 450
+         Q320 260 650 210
+         L610 300
+         Q350 340 130 425
+         Z"
+      fill="#1F2D3D"
+    />
+    <path
+      d="M135 485
+         Q340 360 620 345
+         L585 430
+         Q360 390 180 460
+         Z"
+      fill="#8A909B"
+    />
+  </g>
+</svg>

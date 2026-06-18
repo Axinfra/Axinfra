@@ -166,7 +166,7 @@ export default function SubmitEvidencePage() {
             <div className="card-body space-y-4">
               <div className="flex items-center justify-between">
                 <h2 className="text-base font-semibold text-[#e8e4dc]">Work Completion</h2>
-                <span className="text-2xl font-bold text-[#c4a35a]">{percent}%</span>
+                <span className="text-2xl font-bold text-[var(--ax-accent)]">{percent}%</span>
               </div>
 
               {/* Slider */}
@@ -177,7 +177,7 @@ export default function SubmitEvidencePage() {
                 step={1}
                 value={percent}
                 onChange={(e) => setPercent(Number(e.target.value))}
-                className="w-full accent-[#c4a35a]"
+                className="w-full accent-[var(--ax-accent)]"
               />
 
               {/* Visual bar */}
@@ -189,7 +189,7 @@ export default function SubmitEvidencePage() {
                     background: percent >= 80
                       ? '#5cba80'
                       : percent >= 40
-                      ? '#c4a35a'
+                      ? 'var(--ax-accent)'
                       : '#e06050',
                   }}
                 />
@@ -204,8 +204,8 @@ export default function SubmitEvidencePage() {
                     onClick={() => setPercent(v)}
                     className={`text-xs px-3 py-1 rounded-full border transition-colors ${
                       percent === v
-                        ? 'border-[#c4a35a] bg-[rgba(196,163,90,0.15)] text-[#c4a35a]'
-                        : 'border-[rgba(255,255,255,0.1)] text-[rgba(232,228,220,0.55)] hover:border-[rgba(196,163,90,0.4)]'
+                        ? 'border-[var(--ax-accent)] bg-[rgba(var(--ax-accent-rgb),0.15)] text-[var(--ax-accent)]'
+                        : 'border-[rgba(255,255,255,0.1)] text-[rgba(232,228,220,0.55)] hover:border-[rgba(var(--ax-accent-rgb),0.4)]'
                     }`}
                   >
                     {v}%
@@ -255,8 +255,8 @@ export default function SubmitEvidencePage() {
                 onClick={() => fileInputRef.current?.click()}
                 className={`border-2 border-dashed rounded-xl p-8 text-center cursor-pointer transition-colors ${
                   dragging
-                    ? 'border-[#c4a35a] bg-[rgba(196,163,90,0.08)]'
-                    : 'border-[rgba(255,255,255,0.12)] hover:border-[rgba(196,163,90,0.4)] hover:bg-[rgba(255,255,255,0.02)]'
+                    ? 'border-[var(--ax-accent)] bg-[rgba(var(--ax-accent-rgb),0.08)]'
+                    : 'border-[rgba(255,255,255,0.12)] hover:border-[rgba(var(--ax-accent-rgb),0.4)] hover:bg-[rgba(255,255,255,0.02)]'
                 }`}
               >
                 <div className="text-3xl mb-2 text-[rgba(232,228,220,0.3)]">📎</div>
@@ -286,8 +286,8 @@ export default function SubmitEvidencePage() {
           </div>
 
           {/* Warning */}
-          <div className="flex items-start gap-2 p-3 rounded-lg bg-[rgba(196,163,90,0.06)] border border-[rgba(196,163,90,0.15)]">
-            <span className="text-[#c4a35a] mt-0.5">⚠</span>
+          <div className="flex items-start gap-2 p-3 rounded-lg bg-[rgba(var(--ax-accent-rgb),0.06)] border border-[rgba(var(--ax-accent-rgb),0.15)]">
+            <span className="text-[var(--ax-accent)] mt-0.5">⚠</span>
             <p className="text-xs text-[rgba(232,228,220,0.6)]">
               Evidence is locked after submission. Ensure all files are correct before proceeding.
             </p>

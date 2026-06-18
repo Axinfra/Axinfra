@@ -21,10 +21,10 @@ interface VendorRankingsProps {
 export default function VendorRankings({ vendors }: VendorRankingsProps) {
   if (vendors.length === 0) {
     return (
-      <div className="bg-[rgba(255,255,255,0.03)] border border-[rgba(255,255,255,0.07)] rounded-xl p-6">
-        <h3 className="text-[14px] font-semibold text-[#e8e4dc] mb-1">Vendor Rankings</h3>
-        <p className="text-[12px] text-[rgba(232,228,220,0.35)] mb-6">Performance leaderboard</p>
-        <div className="flex items-center justify-center py-10 text-[13px] text-[rgba(232,228,220,0.35)]">
+      <div className="bg-[var(--ax-card)] border border-[var(--ax-border)] rounded-xl p-6">
+        <h3 className="text-[14px] font-semibold text-[var(--ax-text)] mb-1">Vendor Rankings</h3>
+        <p className="text-[12px] text-[rgba(var(--ax-text-rgb),0.35)] mb-6">Performance leaderboard</p>
+        <div className="flex items-center justify-center py-10 text-[13px] text-[rgba(var(--ax-text-rgb),0.35)]">
           No vendor data available
         </div>
       </div>
@@ -34,28 +34,28 @@ export default function VendorRankings({ vendors }: VendorRankingsProps) {
   const sorted = [...vendors].sort((a, b) => b.reliability - a.reliability);
 
   return (
-    <div className="bg-[rgba(255,255,255,0.03)] border border-[rgba(255,255,255,0.07)] rounded-xl p-6">
-      <h3 className="text-[14px] font-semibold text-[#e8e4dc] mb-1">Vendor Rankings</h3>
-      <p className="text-[12px] text-[rgba(232,228,220,0.35)] mb-5">Performance leaderboard by reliability</p>
+    <div className="bg-[var(--ax-card)] border border-[var(--ax-border)] rounded-xl p-6">
+      <h3 className="text-[14px] font-semibold text-[var(--ax-text)] mb-1">Vendor Rankings</h3>
+      <p className="text-[12px] text-[rgba(var(--ax-text-rgb),0.35)] mb-5">Performance leaderboard by reliability</p>
 
       {/* Leaderboard */}
       <div className="space-y-0 mb-6">
         {sorted.map((v, idx) => (
           <div
             key={v.vendorName}
-            className="flex items-center gap-3 px-3 py-3 -mx-3 rounded-lg hover:bg-[rgba(255,255,255,0.05)] transition-colors"
+            className="flex items-center gap-3 px-3 py-3 -mx-3 rounded-lg hover:bg-[var(--ax-overlay-hover)] transition-colors"
           >
             {/* Rank badge */}
             <div className="shrink-0">
               <span
                 className={`inline-flex items-center justify-center w-7 h-7 rounded-full text-[11px] font-bold
                   ${idx === 0
-                    ? 'bg-[rgba(196,163,90,0.15)] text-[#c4a35a] ring-2 ring-[rgba(196,163,90,0.3)]'
+                    ? 'bg-[rgba(var(--ax-accent-rgb),0.15)] text-[var(--ax-accent)] ring-2 ring-[rgba(var(--ax-accent-rgb),0.3)]'
                     : idx === 1
-                      ? 'bg-[rgba(255,255,255,0.05)] text-[rgba(232,228,220,0.55)] ring-1 ring-[rgba(255,255,255,0.1)]'
+                      ? 'bg-[var(--ax-overlay-hover)] text-[rgba(var(--ax-text-rgb),0.55)] ring-1 ring-[var(--ax-border)]'
                       : idx === 2
-                        ? 'bg-[rgba(196,163,90,0.08)] text-[#c4a35a] ring-1 ring-[rgba(196,163,90,0.2)]'
-                        : 'bg-[rgba(255,255,255,0.03)] text-[rgba(232,228,220,0.35)]'
+                        ? 'bg-[rgba(var(--ax-accent-rgb),0.08)] text-[var(--ax-accent)] ring-1 ring-[rgba(var(--ax-accent-rgb),0.2)]'
+                        : 'bg-[var(--ax-card)] text-[rgba(var(--ax-text-rgb),0.35)]'
                   }`}
               >
                 {idx + 1}
@@ -64,15 +64,15 @@ export default function VendorRankings({ vendors }: VendorRankingsProps) {
 
             {/* Vendor info */}
             <div className="flex-1 min-w-0">
-              <p className="text-[13px] font-medium text-[#e8e4dc] truncate">{v.vendorName}</p>
-              <p className="text-[11px] text-[rgba(232,228,220,0.35)] mt-0.5">
+              <p className="text-[13px] font-medium text-[var(--ax-text)] truncate">{v.vendorName}</p>
+              <p className="text-[11px] text-[rgba(var(--ax-text-rgb),0.35)] mt-0.5">
                 {v.total} milestones &middot; {v.onTime} on-time &middot; {v.late} late
               </p>
             </div>
 
             {/* Reliability bar + score */}
             <div className="flex items-center gap-3 shrink-0">
-              <div className="w-20 h-2 bg-[rgba(255,255,255,0.05)] rounded-full overflow-hidden">
+              <div className="w-20 h-2 bg-[var(--ax-overlay-hover)] rounded-full overflow-hidden">
                 <div
                   className="h-full rounded-full transition-all duration-500 ease-out"
                   style={{
@@ -91,7 +91,7 @@ export default function VendorRankings({ vendors }: VendorRankingsProps) {
                   v.reliability >= 80
                     ? 'text-[#5cba80]'
                     : v.reliability >= 60
-                      ? 'text-[#c4a35a]'
+                      ? 'text-[var(--ax-accent)]'
                       : 'text-[#e06050]'
                 }`}
               >
@@ -104,8 +104,8 @@ export default function VendorRankings({ vendors }: VendorRankingsProps) {
 
       {/* Bar chart */}
       {sorted.length > 1 && (
-        <div className="border-t border-[rgba(255,255,255,0.07)] pt-5">
-          <p className="text-[11px] font-medium text-[rgba(232,228,220,0.35)] uppercase tracking-wider mb-3">
+        <div className="border-t border-[var(--ax-border)] pt-5">
+          <p className="text-[11px] font-medium text-[rgba(var(--ax-text-rgb),0.35)] uppercase tracking-wider mb-3">
             Reliability Comparison
           </p>
           <ResponsiveContainer width="100%" height={Math.max(120, sorted.length * 44)}>
@@ -114,24 +114,24 @@ export default function VendorRankings({ vendors }: VendorRankingsProps) {
               layout="vertical"
               margin={{ top: 0, right: 24, left: 4, bottom: 0 }}
             >
-              <CartesianGrid strokeDasharray="3 3" stroke="rgba(255,255,255,0.05)" horizontal={false} />
-              <XAxis type="number" domain={[0, 100]} tick={{ fontSize: 10, fill: 'rgba(232,228,220,0.45)' }} unit="%" />
+              <CartesianGrid strokeDasharray="3 3" stroke="var(--ax-chart-line-faint)" horizontal={false} />
+              <XAxis type="number" domain={[0, 100]} tick={{ fontSize: 10, fill: 'rgba(var(--ax-text-rgb),0.45)' }} unit="%" />
               <YAxis
                 dataKey="vendorName"
                 type="category"
-                tick={{ fontSize: 11, fill: 'rgba(232,228,220,0.55)' }}
+                tick={{ fontSize: 11, fill: 'rgba(var(--ax-text-rgb),0.55)' }}
                 width={100}
               />
               <Tooltip
                 formatter={(value: number) => `${value}%`}
-                labelStyle={{ fontSize: 12, fontWeight: 600, color: '#e8e4dc' }}
+                labelStyle={{ fontSize: 12, fontWeight: 600, color: 'var(--ax-text)' }}
                 contentStyle={{
                   borderRadius: 10,
-                  border: '1px solid rgba(255,255,255,0.1)',
-                  background: '#1a1c22',
+                  border: '1px solid var(--ax-border)',
+                  background: 'var(--ax-modal)',
                   boxShadow: '0 4px 12px rgba(0,0,0,0.4)',
                   fontSize: 12,
-                  color: '#e8e4dc',
+                  color: 'var(--ax-text)',
                 }}
               />
               <ReferenceLine
@@ -161,8 +161,8 @@ export default function VendorRankings({ vendors }: VendorRankingsProps) {
 
       {/* Avg delay callout */}
       {sorted.some((v) => v.avgDelay > 0) && (
-        <div className="border-t border-[rgba(255,255,255,0.07)] pt-4 mt-4">
-          <p className="text-[11px] font-medium text-[rgba(232,228,220,0.35)] uppercase tracking-wider mb-3">
+        <div className="border-t border-[var(--ax-border)] pt-4 mt-4">
+          <p className="text-[11px] font-medium text-[rgba(var(--ax-text-rgb),0.35)] uppercase tracking-wider mb-3">
             Average Delay (days)
           </p>
           <div className="grid grid-cols-2 sm:grid-cols-3 gap-2">
@@ -171,9 +171,9 @@ export default function VendorRankings({ vendors }: VendorRankingsProps) {
               .map((v) => (
                 <div
                   key={v.vendorName}
-                  className="flex items-center justify-between px-3 py-2 rounded-lg bg-[rgba(255,255,255,0.03)]"
+                  className="flex items-center justify-between px-3 py-2 rounded-lg bg-[var(--ax-card)]"
                 >
-                  <span className="text-[12px] text-[rgba(232,228,220,0.55)] truncate mr-2">{v.vendorName}</span>
+                  <span className="text-[12px] text-[rgba(var(--ax-text-rgb),0.55)] truncate mr-2">{v.vendorName}</span>
                   <span className="text-[13px] font-bold text-[#e06050] tabular-nums shrink-0">
                     {v.avgDelay}d
                   </span>

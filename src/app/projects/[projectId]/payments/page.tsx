@@ -99,7 +99,7 @@ function PayBadge({ status }: { status: PayStatus }) {
     </span>
   );
   if (status === 'soon') return (
-    <span className="inline-flex items-center gap-1 text-[11px] font-medium px-2 py-0.5 rounded-full bg-[rgba(196,163,90,0.12)] text-[#c4a35a] border border-[rgba(196,163,90,0.25)]">
+    <span className="inline-flex items-center gap-1 text-[11px] font-medium px-2 py-0.5 rounded-full bg-[rgba(var(--ax-accent-rgb),0.12)] text-[var(--ax-accent)] border border-[rgba(var(--ax-accent-rgb),0.25)]">
       Payment Soon
     </span>
   );
@@ -128,7 +128,7 @@ function DrawingPayBadge({ status }: { status: DrawingPayStatus }) {
     </span>
   );
   if (status === 'approaching') return (
-    <span className="inline-flex items-center gap-1 text-[10px] font-medium px-1.5 py-0.5 rounded-full bg-[rgba(196,163,90,0.12)] text-[#c4a35a] border border-[rgba(196,163,90,0.25)]">
+    <span className="inline-flex items-center gap-1 text-[10px] font-medium px-1.5 py-0.5 rounded-full bg-[rgba(var(--ax-accent-rgb),0.12)] text-[var(--ax-accent)] border border-[rgba(var(--ax-accent-rgb),0.25)]">
       <Clock className="w-3 h-3" />Approaching
     </span>
   );
@@ -140,8 +140,8 @@ function SetStatusBadge({ status }: { status: string }) {
     DRAFT:            { label: 'Draft',       color: 'text-[rgba(232,228,220,0.5)]',  bg: 'bg-[rgba(255,255,255,0.05)]' },
     SUBMITTED_TO_PMC: { label: 'Submitted',   color: 'text-[#818cf8]',               bg: 'bg-[rgba(129,140,248,0.1)]' },
     REQUESTED:        { label: 'Requested',   color: 'text-[#818cf8]',               bg: 'bg-[rgba(129,140,248,0.1)]' },
-    IN_PROGRESS:      { label: 'In Progress', color: 'text-[#c4a35a]',               bg: 'bg-[rgba(196,163,90,0.1)]' },
-    DELIVERED:        { label: 'Delivered',   color: 'text-[#c4a35a]',               bg: 'bg-[rgba(196,163,90,0.1)]' },
+    IN_PROGRESS:      { label: 'In Progress', color: 'text-[var(--ax-accent)]',               bg: 'bg-[rgba(var(--ax-accent-rgb),0.1)]' },
+    DELIVERED:        { label: 'Delivered',   color: 'text-[var(--ax-accent)]',               bg: 'bg-[rgba(var(--ax-accent-rgb),0.1)]' },
     APPROVED:         { label: 'Approved',    color: 'text-[#fb923c]',               bg: 'bg-[rgba(251,146,60,0.1)]' },
     PAID:             { label: 'Fully Paid',  color: 'text-[#5cba80]',               bg: 'bg-[rgba(92,186,128,0.1)]' },
   };
@@ -328,7 +328,7 @@ export default function PaymentsPage() {
         </div>
 
         {/* ── Tab bar ── */}
-        <div className="border-b border-[rgba(255,255,255,0.07)]">
+        <div className="border-b" style={{ borderColor: 'var(--ax-border)' }}>
           <div className="flex gap-1">
             {TABS.map((tab) => (
               <button
@@ -336,8 +336,8 @@ export default function PaymentsPage() {
                 onClick={() => setActiveTab(tab.id)}
                 className={`flex items-center gap-2 px-5 py-3 text-sm font-medium border-b-2 transition-all ${
                   activeTab === tab.id
-                    ? 'border-[#c4a35a] text-[#c4a35a] bg-[rgba(196,163,90,0.06)]'
-                    : 'border-transparent text-[rgba(232,228,220,0.55)] hover:text-[#e8e4dc] hover:border-[rgba(255,255,255,0.12)]'
+                    ? 'ax-tab-active'
+                    : 'ax-tab-inactive'
                 }`}
               >
                 {tab.label}
@@ -516,7 +516,7 @@ export default function PaymentsPage() {
                                 style={{ width: `${(Math.max(0, set.rowStats.approved - set.rowStats.paid) / set.rowStats.total) * 100}%` }} />
                             )}
                             {set.rowStats.submitted > 0 && (
-                              <div className="bg-[#c4a35a] transition-all"
+                              <div className="bg-[var(--ax-accent)] transition-all"
                                 style={{ width: `${(set.rowStats.submitted / set.rowStats.total) * 100}%` }} />
                             )}
                           </div>
@@ -526,7 +526,7 @@ export default function PaymentsPage() {
                               <span className="text-[#fb923c]">{set.rowStats.approved - set.rowStats.paid} approved unpaid</span>
                             )}
                             {set.rowStats.submitted > 0 && (
-                              <span className="text-[#c4a35a]">{set.rowStats.submitted} approaching</span>
+                              <span className="text-[var(--ax-accent)]">{set.rowStats.submitted} approaching</span>
                             )}
                           </div>
                         </div>
@@ -867,7 +867,7 @@ function VendorInvoiceView({ milestones, projectName }: { milestones: Milestone[
       <div className="flex items-start justify-between">
         <div>
           <div className="flex items-center gap-2 mb-1">
-            <FileText className="w-5 h-5 text-[#c4a35a]" />
+            <FileText className="w-5 h-5 text-[var(--ax-accent)]" />
             <h1 className="text-2xl font-bold text-[#e8e4dc]">My Invoices</h1>
           </div>
           <p className="text-sm text-[rgba(232,228,220,0.4)]">{projectName} · Payment ledger</p>
@@ -1014,7 +1014,7 @@ function MilestonePayRow({
         )}
         {isOwner && status === 'blocked' && permissions.canUnblockPayment && (
           <button onClick={onUnblock}
-            className="text-xs font-semibold px-3 py-1.5 rounded-lg border border-[rgba(196,163,90,0.3)] bg-[rgba(196,163,90,0.08)] text-[#c4a35a] hover:bg-[rgba(196,163,90,0.15)] transition-colors">
+            className="text-xs font-semibold px-3 py-1.5 rounded-lg border border-[rgba(var(--ax-accent-rgb),0.3)] bg-[rgba(var(--ax-accent-rgb),0.08)] text-[var(--ax-accent)] hover:bg-[rgba(var(--ax-accent-rgb),0.15)] transition-colors">
             Resume
           </button>
         )}

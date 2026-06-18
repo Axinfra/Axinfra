@@ -3,6 +3,8 @@
 import { useRouter, usePathname } from 'next/navigation';
 import Link from 'next/link';
 import { useState, useEffect, useRef, FormEvent } from 'react';
+import ThemeNavbarPicker from '@/components/ThemeSwitcher';
+import AxinfraLogo from '@/components/AxinfraLogo';
 
 interface LayoutProps {
   children: React.ReactNode;
@@ -152,12 +154,12 @@ export default function Layout({ children }: LayoutProps) {
       { href: '/execution-intelligence', label: 'Execution Intelligence', icon: ChartIcon },
       { href: '/viseron-intelligence', label: 'Viseron Intelligence', icon: ViseronNavIcon },
       ...(isAdminUser
-        ? [{ href: '/admin/vendors', label: 'Vendor Onboarding', icon: UsersIcon }]
+        ? [{ href: '/vendor-onboarding', label: 'Vendor Onboarding', icon: UsersIcon }]
         : []),
     ];
 
   return (
-    <div className="min-h-screen bg-[#0a0c10] flex">
+    <div className="min-h-screen flex" style={{ backgroundColor: 'var(--ax-base)' }}>
       {/* Mobile sidebar overlay */}
       {sidebarOpen && (
         <div
@@ -168,24 +170,20 @@ export default function Layout({ children }: LayoutProps) {
 
       {/* Sidebar */}
       <aside
-        className={`fixed inset-y-0 left-0 z-50 w-[260px] bg-[#0d0f13] border-r border-[rgba(255,255,255,0.07)] flex flex-col
+        className={`fixed inset-y-0 left-0 z-50 w-[260px] border-r flex flex-col
           transition-transform duration-200 ease-out
           lg:translate-x-0 lg:static lg:z-auto
           ${sidebarOpen ? 'translate-x-0' : '-translate-x-full'}`}
+        style={{ backgroundColor: 'var(--ax-sidebar)', borderColor: 'var(--ax-border)' }}
       >
         {/* Logo */}
-        <div className="h-14 flex items-center px-5 border-b border-[rgba(255,255,255,0.07)] shrink-0">
-          <Link href="/projects" className="flex items-center gap-2.5" onClick={() => setSidebarOpen(false)}>
-            <div className="w-7 h-7 rounded-md flex items-center justify-center" style={{ background: 'linear-gradient(135deg, #c4a35a 0%, #a8893e 100%)' }}>
-              <span className="text-[#0a0c10] text-[10px] font-bold tracking-tight font-display">A</span>
-            </div>
-            <span className="text-[15px] font-semibold text-[#e8e4dc] tracking-tight">Axinfra</span>
-          </Link>
+        <div className="h-14 flex items-center px-5 border-b shrink-0" style={{ borderColor: 'var(--ax-border)' }}>
+          <AxinfraLogo size="md" href="/projects" />
         </div>
 
         {/* Navigation */}
         <nav className="flex-1 px-3 py-3 overflow-y-auto scrollbar-thin">
-          <p className="px-3 mb-2 text-[10px] font-medium text-[rgba(232,228,220,0.35)] uppercase tracking-wider">Menu</p>
+          <p className="px-3 mb-2 text-[10px] font-medium uppercase tracking-wider" style={{ color: 'rgba(var(--ax-text-rgb), 0.35)' }}>Menu</p>
           <div className="space-y-0.5">
             {navItems.map((item) => {
               const isActive = pathname === item.href || pathname.startsWith(item.href + '/');
@@ -195,10 +193,7 @@ export default function Layout({ children }: LayoutProps) {
                   href={item.href}
                   onClick={() => setSidebarOpen(false)}
                   className={`flex items-center gap-2.5 px-3 py-2 rounded-lg text-[13px] font-medium transition-colors duration-100
-                    ${isActive
-                      ? 'bg-[rgba(196,163,90,0.08)] text-[#c4a35a] border-l-2 border-[#c4a35a]'
-                      : 'text-[rgba(232,228,220,0.5)] hover:bg-[rgba(255,255,255,0.05)] hover:text-[#e8e4dc]'
-                    }`}
+                    ${isActive ? 'ax-nav-active' : 'ax-nav-item'}`}
                 >
                   <item.icon className="w-[18px] h-[18px] shrink-0" />
                   {item.label}
@@ -210,7 +205,7 @@ export default function Layout({ children }: LayoutProps) {
           {/* My Milestones – vendor projects grouped by name */}
           {isVendorOnly && vendorProjects.length > 0 && (
             <>
-              <p className="px-3 mt-5 mb-2 text-[10px] font-medium text-[rgba(232,228,220,0.35)] uppercase tracking-wider">My Milestones</p>
+              <p className="px-3 mt-5 mb-2 text-[10px] font-medium uppercase tracking-wider" style={{ color: 'rgba(var(--ax-text-rgb), 0.35)' }}>My Milestones</p>
               <div className="space-y-0.5">
                 {vendorProjects.map((vp) => {
                   const milestoneHref = `/projects/${vp.projectId}/milestones`;
@@ -221,10 +216,7 @@ export default function Layout({ children }: LayoutProps) {
                       href={milestoneHref}
                       onClick={() => setSidebarOpen(false)}
                       className={`flex items-center gap-2.5 px-3 py-2 rounded-lg text-[13px] font-medium transition-colors duration-100
-                        ${isActive
-                          ? 'bg-[rgba(196,163,90,0.08)] text-[#c4a35a] border-l-2 border-[#c4a35a]'
-                          : 'text-[rgba(232,228,220,0.5)] hover:bg-[rgba(255,255,255,0.05)] hover:text-[#e8e4dc]'
-                        }`}
+                        ${isActive ? 'ax-nav-active' : 'ax-nav-item'}`}
                     >
                       <FlagIcon className="w-[18px] h-[18px] shrink-0" />
                       {vp.projectName}
@@ -240,7 +232,7 @@ export default function Layout({ children }: LayoutProps) {
         <div className="px-3 pb-2 shrink-0">
           <button
             onClick={() => { setSupportOpen(true); setSupportState('idle'); }}
-            className="w-full flex items-center gap-2.5 px-3 py-2 rounded-lg text-[13px] font-medium text-[rgba(232,228,220,0.5)] hover:bg-[rgba(255,255,255,0.05)] hover:text-[#e8e4dc] transition-colors duration-100"
+            className="w-full flex items-center gap-2.5 px-3 py-2 rounded-lg text-[13px] font-medium ax-nav-item transition-colors duration-100"
           >
             <SupportIcon className="w-[18px] h-[18px] shrink-0" />
             Support
@@ -249,20 +241,21 @@ export default function Layout({ children }: LayoutProps) {
 
         {/* User section */}
         {user && (
-          <div className="border-t border-[rgba(255,255,255,0.07)] px-3 py-3 shrink-0">
+          <div className="border-t px-3 py-3 shrink-0" style={{ borderColor: 'var(--ax-border)' }}>
             <div className="flex items-center gap-2.5 px-2">
-              <div className="w-8 h-8 rounded-full bg-[rgba(196,163,90,0.12)] flex items-center justify-center shrink-0">
-                <span className="text-[11px] font-semibold text-[#c4a35a]">
+              <div className="w-8 h-8 rounded-full flex items-center justify-center shrink-0" style={{ backgroundColor: 'var(--ax-accent-subtle)' }}>
+                <span className="text-[11px] font-semibold" style={{ color: 'var(--ax-accent)' }}>
                   {user.name.split(' ').map(n => n[0]).join('').toUpperCase()}
                 </span>
               </div>
               <div className="flex-1 min-w-0">
-                <p className="text-[13px] font-medium text-[#e8e4dc] truncate">{user.name}</p>
-                <p className="text-[11px] text-[rgba(232,228,220,0.35)] truncate">{user.email}</p>
+                <p className="text-[13px] font-medium truncate" style={{ color: 'var(--ax-text)' }}>{user.name}</p>
+                <p className="text-[11px] truncate" style={{ color: 'rgba(var(--ax-text-rgb), 0.35)' }}>{user.email}</p>
               </div>
               <button
                 onClick={handleLogout}
-                className="p-1.5 rounded-md text-[rgba(232,228,220,0.35)] hover:text-[#e06050] hover:bg-[rgba(220,80,60,0.1)] transition-colors"
+                className="p-1.5 rounded-md hover:text-[#e06050] hover:bg-[rgba(220,80,60,0.1)] transition-colors"
+                style={{ color: 'rgba(var(--ax-text-rgb), 0.35)' }}
                 title="Sign out"
                 aria-label="Sign out"
               >
@@ -276,36 +269,41 @@ export default function Layout({ children }: LayoutProps) {
       {/* Main content area */}
       <div className="flex-1 flex flex-col min-w-0">
         {/* Top bar */}
-        <header className="h-14 bg-[#0a0c10]/80 backdrop-blur-sm border-b border-[rgba(255,255,255,0.07)] flex items-center px-4 lg:px-6 shrink-0 sticky top-0 z-30">
+        <header
+          className="h-14 backdrop-blur-sm border-b flex items-center px-4 lg:px-6 shrink-0 sticky top-0 z-30"
+          style={{ backgroundColor: 'var(--ax-header-bg)', borderColor: 'var(--ax-border)' }}
+        >
           <button
             onClick={() => setSidebarOpen(true)}
-            className="p-2 -ml-2 rounded-lg text-[rgba(232,228,220,0.5)] hover:bg-[rgba(255,255,255,0.05)] lg:hidden mr-2"
+            className="p-2 -ml-2 rounded-lg transition-colors lg:hidden mr-2"
+            style={{ color: 'rgba(var(--ax-text-rgb), 0.5)' }}
             aria-label="Open menu"
           >
             <MenuIcon className="w-5 h-5" />
           </button>
 
           {/* Mobile logo */}
-          <div className="lg:hidden flex items-center gap-2 mr-auto">
-            <div className="w-6 h-6 rounded-md flex items-center justify-center" style={{ background: 'linear-gradient(135deg, #c4a35a 0%, #a8893e 100%)' }}>
-              <span className="text-[#0a0c10] text-[9px] font-bold font-display">A</span>
-            </div>
-            <span className="text-sm font-semibold text-[#e8e4dc]">Axinfra</span>
+          <div className="lg:hidden mr-auto">
+            <AxinfraLogo size="md" href="/projects" />
           </div>
 
           <div className="hidden lg:block flex-1" />
 
           {/* Right side */}
-          <div className="flex items-center gap-3">
+          <div className="flex items-center gap-2">
+            {/* Theme toggle */}
+            <ThemeNavbarPicker />
+
             {user && (
-              <span className="text-[13px] text-[rgba(232,228,220,0.55)] hidden sm:block">{user.name}</span>
+              <span className="text-[13px] hidden sm:block px-2" style={{ color: 'rgba(var(--ax-text-rgb), 0.55)' }}>{user.name}</span>
             )}
 
             {/* Notification bell */}
             <div ref={bellRef} className="relative">
               <button
                 onClick={handleBellClick}
-                className="relative p-2 rounded-lg text-[rgba(232,228,220,0.5)] hover:bg-[rgba(255,255,255,0.05)] hover:text-[#e8e4dc] transition-colors"
+                className="relative p-2 rounded-lg transition-colors"
+                style={{ color: 'rgba(var(--ax-text-rgb), 0.5)' }}
                 aria-label="Notifications"
               >
                 <svg className="w-5 h-5" fill="none" stroke="currentColor" viewBox="0 0 24 24">
@@ -319,16 +317,19 @@ export default function Layout({ children }: LayoutProps) {
                 )}
               </button>
 
-              {/* Dropdown */}
+              {/* Notifications dropdown */}
               {notifOpen && (
-                <div className="absolute right-0 top-full mt-2 w-80 bg-[#13151a] border border-[rgba(255,255,255,0.1)] rounded-xl shadow-2xl z-50 overflow-hidden">
-                  <div className="px-4 py-3 border-b border-[rgba(255,255,255,0.07)]">
-                    <p className="text-sm font-semibold text-[#e8e4dc]">Notifications</p>
-                    <p className="text-xs text-[rgba(232,228,220,0.4)]">Last 7 days</p>
+                <div
+                  className="absolute right-0 top-full mt-2 w-80 rounded-xl shadow-2xl z-50 overflow-hidden border"
+                  style={{ backgroundColor: 'var(--ax-modal)', borderColor: 'var(--ax-border)' }}
+                >
+                  <div className="px-4 py-3 border-b" style={{ borderColor: 'var(--ax-border-subtle)' }}>
+                    <p className="text-sm font-semibold" style={{ color: 'var(--ax-text)' }}>Notifications</p>
+                    <p className="text-xs" style={{ color: 'rgba(var(--ax-text-rgb), 0.4)' }}>Last 7 days</p>
                   </div>
-                  <div className="max-h-80 overflow-y-auto">
+                  <div className="max-h-80 overflow-y-auto scrollbar-thin">
                     {notifications.length === 0 ? (
-                      <p className="text-sm text-[rgba(232,228,220,0.4)] text-center py-8">No notifications</p>
+                      <p className="text-sm text-center py-8" style={{ color: 'rgba(var(--ax-text-rgb), 0.4)' }}>No notifications</p>
                     ) : (
                       notifications.map((n) => (
                         <div
@@ -339,16 +340,17 @@ export default function Layout({ children }: LayoutProps) {
                               router.push(`/projects/${n.projectId}/milestones/${n.entityId}`);
                             }
                           }}
-                          className="px-4 py-3 border-b border-[rgba(255,255,255,0.04)] hover:bg-[rgba(255,255,255,0.03)] cursor-pointer transition-colors"
+                          className="px-4 py-3 border-b cursor-pointer transition-colors ax-hover-overlay"
+                          style={{ borderColor: 'var(--ax-border-subtle)' }}
                         >
                           <div className="flex items-start gap-2">
                             <span className={`text-base mt-0.5 shrink-0 ${severityColor(n.severity)}`}>
                               {n.severity === 'HIGH' ? '🔔' : n.severity === 'WARNING' ? '⚠' : '✓'}
                             </span>
                             <div className="min-w-0">
-                              <p className="text-xs text-[rgba(232,228,220,0.8)] leading-relaxed">{n.message}</p>
+                              <p className="text-xs leading-relaxed" style={{ color: 'rgba(var(--ax-text-rgb), 0.8)' }}>{n.message}</p>
                               {n.projectName && (
-                                <p className="text-[10px] text-[rgba(232,228,220,0.35)] mt-0.5">{n.projectName}</p>
+                                <p className="text-[10px] mt-0.5" style={{ color: 'rgba(var(--ax-text-rgb), 0.35)' }}>{n.projectName}</p>
                               )}
                             </div>
                           </div>
@@ -373,15 +375,22 @@ export default function Layout({ children }: LayoutProps) {
       {/* Support Modal */}
       {supportOpen && (
         <div className="fixed inset-0 bg-black/70 flex items-end sm:items-center justify-center z-[60] p-4">
-          <div className="bg-[#13151a] border border-[rgba(255,255,255,0.1)] rounded-2xl w-full max-w-lg max-h-[90vh] overflow-y-auto">
-            <div className="sticky top-0 bg-[#13151a] px-6 py-4 border-b border-[rgba(255,255,255,0.07)] flex items-center justify-between">
+          <div
+            className="rounded-2xl w-full max-w-lg max-h-[90vh] overflow-y-auto border"
+            style={{ backgroundColor: 'var(--ax-modal)', borderColor: 'var(--ax-border)' }}
+          >
+            <div
+              className="sticky top-0 px-6 py-4 border-b flex items-center justify-between"
+              style={{ backgroundColor: 'var(--ax-modal)', borderColor: 'var(--ax-border)' }}
+            >
               <div>
-                <h2 className="text-base font-semibold text-[#e8e4dc]">Support</h2>
-                <p className="text-xs text-[rgba(232,228,220,0.4)] mt-0.5">We&apos;ll get back within 1–2 business days.</p>
+                <h2 className="text-base font-semibold" style={{ color: 'var(--ax-text)' }}>Support</h2>
+                <p className="text-xs mt-0.5" style={{ color: 'rgba(var(--ax-text-rgb), 0.4)' }}>We&apos;ll get back within 1–2 business days.</p>
               </div>
               <button
                 onClick={() => setSupportOpen(false)}
-                className="p-1.5 rounded-lg text-[rgba(232,228,220,0.4)] hover:text-[#e8e4dc] hover:bg-[rgba(255,255,255,0.06)] transition-colors"
+                className="p-1.5 rounded-lg ax-hover-overlay transition-colors"
+                style={{ color: 'rgba(var(--ax-text-rgb), 0.4)' }}
                 aria-label="Close"
               >
                 <CloseIcon className="w-4 h-4" />
@@ -396,8 +405,8 @@ export default function Layout({ children }: LayoutProps) {
                       <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M5 13l4 4L19 7" />
                     </svg>
                   </div>
-                  <h3 className="text-base font-semibold text-[#e8e4dc] mb-2">Message sent!</h3>
-                  <p className="text-sm text-[rgba(232,228,220,0.5)] mb-5">We&apos;ve sent a confirmation to your email and will be in touch shortly.</p>
+                  <h3 className="text-base font-semibold mb-2" style={{ color: 'var(--ax-text)' }}>Message sent!</h3>
+                  <p className="text-sm mb-5" style={{ color: 'rgba(var(--ax-text-rgb), 0.5)' }}>We&apos;ve sent a confirmation to your email and will be in touch shortly.</p>
                   <button onClick={() => setSupportOpen(false)} className="btn btn-secondary text-sm">
                     Close
                   </button>

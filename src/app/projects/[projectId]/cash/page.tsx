@@ -231,7 +231,7 @@ export default function CashModulePage() {
           <p className="text-sm text-[rgba(232,228,220,0.55)] mb-6">The Cash Module is restricted to the Builder role.</p>
           <button
             onClick={() => router.push(`/projects/${projectId}`)}
-            className="px-4 py-2 bg-[#c4a35a] text-white text-sm font-medium rounded-lg hover:bg-[#b3943f] transition-colors"
+            className="px-4 py-2 btn btn-primary text-sm"
           >
             Back to Project
           </button>
@@ -287,14 +287,14 @@ export default function CashModulePage() {
         )}
 
         {/* Tab Switcher */}
-        <div className="border-b border-[rgba(255,255,255,0.07)]">
+        <div className="border-b" style={{ borderColor: 'var(--ax-border)' }}>
           <div className="flex gap-1">
             <button
               onClick={() => setActiveTab('adjustments')}
               className={`px-5 py-3 text-sm font-medium border-b-2 transition-all duration-200 rounded-t-md ${
                 activeTab === 'adjustments'
-                  ? 'border-primary-600 text-[#c4a35a] bg-[rgba(196,163,90,0.08)]/50'
-                  : 'border-transparent text-[rgba(232,228,220,0.55)] hover:text-[#e8e4dc] hover:border-[rgba(255,255,255,0.1)]'
+                  ? 'ax-tab-active'
+                  : 'ax-tab-inactive'
               }`}
             >
               Cash Adjustments
@@ -306,8 +306,8 @@ export default function CashModulePage() {
               onClick={() => setActiveTab('costs')}
               className={`px-5 py-3 text-sm font-medium border-b-2 transition-all duration-200 rounded-t-md ${
                 activeTab === 'costs'
-                  ? 'border-primary-600 text-[#c4a35a] bg-[rgba(196,163,90,0.08)]/50'
-                  : 'border-transparent text-[rgba(232,228,220,0.55)] hover:text-[#e8e4dc] hover:border-[rgba(255,255,255,0.1)]'
+                  ? 'ax-tab-active'
+                  : 'ax-tab-inactive'
               }`}
             >
               Private Cost Entries
@@ -327,7 +327,7 @@ export default function CashModulePage() {
             <div className="flex justify-end">
               <button
                 onClick={() => setShowAdjustmentForm(true)}
-                className="inline-flex items-center gap-2 px-4 py-2 bg-[#c4a35a] text-white text-sm font-medium rounded-lg hover:bg-[#b3943f] transition-colors"
+                className="inline-flex items-center gap-2 px-4 py-2 btn btn-primary text-sm"
               >
                 <PlusIcon />
                 New Adjustment
@@ -339,7 +339,7 @@ export default function CashModulePage() {
               <div className="overflow-x-auto">
                 <table className="w-full">
                   <thead>
-                    <tr className="bg-[rgba(255,255,255,0.03)] border-b border-[rgba(255,255,255,0.07)]">
+                    <tr className="bg-[rgba(255,255,255,0.03)] border-b">
                       <th className="px-4 py-3 text-left text-xs font-semibold text-[rgba(232,228,220,0.55)] uppercase tracking-wider">Type</th>
                       <th className="px-4 py-3 text-left text-xs font-semibold text-[rgba(232,228,220,0.55)] uppercase tracking-wider">Description</th>
                       <th className="px-4 py-3 text-right text-xs font-semibold text-[rgba(232,228,220,0.55)] uppercase tracking-wider">Amount</th>
@@ -407,7 +407,7 @@ export default function CashModulePage() {
               {(!summary || Object.keys(summary.costsByCategory).length === 0) && <div />}
               <button
                 onClick={() => setShowCostForm(true)}
-                className="inline-flex items-center gap-2 px-4 py-2 bg-[#c4a35a] text-white text-sm font-medium rounded-lg hover:bg-[#b3943f] transition-colors shrink-0"
+                className="inline-flex items-center gap-2 px-4 py-2 btn btn-primary text-sm shrink-0"
               >
                 <PlusIcon />
                 New Cost Entry
@@ -419,7 +419,7 @@ export default function CashModulePage() {
               <div className="overflow-x-auto">
                 <table className="w-full">
                   <thead>
-                    <tr className="bg-[rgba(255,255,255,0.03)] border-b border-[rgba(255,255,255,0.07)]">
+                    <tr className="bg-[rgba(255,255,255,0.03)] border-b">
                       <th className="px-4 py-3 text-left text-xs font-semibold text-[rgba(232,228,220,0.55)] uppercase tracking-wider">Category</th>
                       <th className="px-4 py-3 text-left text-xs font-semibold text-[rgba(232,228,220,0.55)] uppercase tracking-wider">Description</th>
                       <th className="px-4 py-3 text-right text-xs font-semibold text-[rgba(232,228,220,0.55)] uppercase tracking-wider">Amount</th>
@@ -465,7 +465,7 @@ export default function CashModulePage() {
       {showAdjustmentForm && (
         <div className="fixed inset-0 bg-black/40 backdrop-blur-sm flex items-center justify-center z-50">
           <div className="bg-[rgba(255,255,255,0.03)] rounded-2xl shadow-none max-w-md w-full mx-4 animate-fade-in">
-            <div className="px-6 py-5 border-b border-[rgba(255,255,255,0.07)]">
+            <div className="px-6 py-5 border-b">
               <h2 className="text-lg font-semibold text-[#e8e4dc]">New Cash Adjustment</h2>
               <p className="text-sm text-[rgba(232,228,220,0.35)] mt-0.5">Record a credit or debit to your cash ledger</p>
             </div>
@@ -504,7 +504,7 @@ export default function CashModulePage() {
                 <label className="block text-sm font-medium text-[#e8e4dc] mb-1">Description *</label>
                 <input
                   type="text"
-                  className="w-full px-3 py-2.5 border border-[rgba(255,255,255,0.1)] rounded-lg text-sm focus:outline-none focus:ring-2 focus:ring-[rgba(196,163,90,0.3)]/20 focus:border-[#c4a35a]"
+                  className="w-full px-3 py-2.5 border border-[rgba(255,255,255,0.1)] rounded-lg text-sm focus:outline-none focus:ring-2 focus:ring-[rgba(var(--ax-accent-rgb),0.3)]/20 focus:border-[var(--ax-accent)]"
                   value={adjDescription}
                   onChange={(e) => setAdjDescription(e.target.value)}
                   placeholder="e.g., Client payment received"
@@ -517,7 +517,7 @@ export default function CashModulePage() {
                   type="number"
                   min="0"
                   step="0.01"
-                  className="w-full px-3 py-2.5 border border-[rgba(255,255,255,0.1)] rounded-lg text-sm focus:outline-none focus:ring-2 focus:ring-[rgba(196,163,90,0.3)]/20 focus:border-[#c4a35a]"
+                  className="w-full px-3 py-2.5 border border-[rgba(255,255,255,0.1)] rounded-lg text-sm focus:outline-none focus:ring-2 focus:ring-[rgba(var(--ax-accent-rgb),0.3)]/20 focus:border-[var(--ax-accent)]"
                   value={adjAmount}
                   onChange={(e) => setAdjAmount(e.target.value)}
                   placeholder="0.00"
@@ -527,7 +527,7 @@ export default function CashModulePage() {
               <div>
                 <label className="block text-sm font-medium text-[#e8e4dc] mb-1">Reason (optional)</label>
                 <textarea
-                  className="w-full px-3 py-2.5 border border-[rgba(255,255,255,0.1)] rounded-lg text-sm focus:outline-none focus:ring-2 focus:ring-[rgba(196,163,90,0.3)]/20 focus:border-[#c4a35a]"
+                  className="w-full px-3 py-2.5 border border-[rgba(255,255,255,0.1)] rounded-lg text-sm focus:outline-none focus:ring-2 focus:ring-[rgba(var(--ax-accent-rgb),0.3)]/20 focus:border-[var(--ax-accent)]"
                   rows={2}
                   value={adjReason}
                   onChange={(e) => setAdjReason(e.target.value)}
@@ -551,7 +551,7 @@ export default function CashModulePage() {
               <button
                 onClick={handleCreateAdjustment}
                 disabled={submitting}
-                className="px-5 py-2 bg-[#c4a35a] text-white text-sm font-medium rounded-lg hover:bg-[#b3943f] disabled:opacity-50 transition-colors"
+                className="px-5 py-2 bg-[var(--ax-accent)] text-white text-sm font-medium rounded-lg hover:bg-[var(--ax-accent-hover)] disabled:opacity-50 transition-colors"
               >
                 {submitting ? 'Saving...' : 'Save Adjustment'}
               </button>
@@ -566,7 +566,7 @@ export default function CashModulePage() {
       {showCostForm && (
         <div className="fixed inset-0 bg-black/40 backdrop-blur-sm flex items-center justify-center z-50">
           <div className="bg-[rgba(255,255,255,0.03)] rounded-2xl shadow-none max-w-md w-full mx-4 animate-fade-in">
-            <div className="px-6 py-5 border-b border-[rgba(255,255,255,0.07)]">
+            <div className="px-6 py-5 border-b">
               <h2 className="text-lg font-semibold text-[#e8e4dc]">New Private Cost Entry</h2>
               <p className="text-sm text-[rgba(232,228,220,0.35)] mt-0.5">Track an internal cost not visible to others</p>
             </div>
@@ -575,7 +575,7 @@ export default function CashModulePage() {
               <div>
                 <label className="block text-sm font-medium text-[#e8e4dc] mb-1">Category *</label>
                 <select
-                  className="w-full px-3 py-2.5 border border-[rgba(255,255,255,0.1)] rounded-lg text-sm focus:outline-none focus:ring-2 focus:ring-[rgba(196,163,90,0.3)]/20 focus:border-[#c4a35a] bg-[rgba(255,255,255,0.03)]"
+                  className="w-full px-3 py-2.5 border border-[rgba(255,255,255,0.1)] rounded-lg text-sm focus:outline-none focus:ring-2 focus:ring-[rgba(var(--ax-accent-rgb),0.3)]/20 focus:border-[var(--ax-accent)] bg-[rgba(255,255,255,0.03)]"
                   value={costCategory}
                   onChange={(e) => setCostCategory(e.target.value)}
                 >
@@ -589,7 +589,7 @@ export default function CashModulePage() {
                 <label className="block text-sm font-medium text-[#e8e4dc] mb-1">Description *</label>
                 <input
                   type="text"
-                  className="w-full px-3 py-2.5 border border-[rgba(255,255,255,0.1)] rounded-lg text-sm focus:outline-none focus:ring-2 focus:ring-[rgba(196,163,90,0.3)]/20 focus:border-[#c4a35a]"
+                  className="w-full px-3 py-2.5 border border-[rgba(255,255,255,0.1)] rounded-lg text-sm focus:outline-none focus:ring-2 focus:ring-[rgba(var(--ax-accent-rgb),0.3)]/20 focus:border-[var(--ax-accent)]"
                   value={costDescription}
                   onChange={(e) => setCostDescription(e.target.value)}
                   placeholder="e.g., Rebar purchase for foundation"
@@ -602,7 +602,7 @@ export default function CashModulePage() {
                   type="number"
                   min="0"
                   step="0.01"
-                  className="w-full px-3 py-2.5 border border-[rgba(255,255,255,0.1)] rounded-lg text-sm focus:outline-none focus:ring-2 focus:ring-[rgba(196,163,90,0.3)]/20 focus:border-[#c4a35a]"
+                  className="w-full px-3 py-2.5 border border-[rgba(255,255,255,0.1)] rounded-lg text-sm focus:outline-none focus:ring-2 focus:ring-[rgba(var(--ax-accent-rgb),0.3)]/20 focus:border-[var(--ax-accent)]"
                   value={costAmount}
                   onChange={(e) => setCostAmount(e.target.value)}
                   placeholder="0.00"
@@ -613,7 +613,7 @@ export default function CashModulePage() {
                 <label className="block text-sm font-medium text-[#e8e4dc] mb-1">Vendor (optional)</label>
                 <input
                   type="text"
-                  className="w-full px-3 py-2.5 border border-[rgba(255,255,255,0.1)] rounded-lg text-sm focus:outline-none focus:ring-2 focus:ring-[rgba(196,163,90,0.3)]/20 focus:border-[#c4a35a]"
+                  className="w-full px-3 py-2.5 border border-[rgba(255,255,255,0.1)] rounded-lg text-sm focus:outline-none focus:ring-2 focus:ring-[rgba(var(--ax-accent-rgb),0.3)]/20 focus:border-[var(--ax-accent)]"
                   value={costVendor}
                   onChange={(e) => setCostVendor(e.target.value)}
                   placeholder="e.g., ABC Supplies"
@@ -624,7 +624,7 @@ export default function CashModulePage() {
                 <label className="block text-sm font-medium text-[#e8e4dc] mb-1">Date Incurred (optional)</label>
                 <input
                   type="date"
-                  className="w-full px-3 py-2.5 border border-[rgba(255,255,255,0.1)] rounded-lg text-sm focus:outline-none focus:ring-2 focus:ring-[rgba(196,163,90,0.3)]/20 focus:border-[#c4a35a]"
+                  className="w-full px-3 py-2.5 border border-[rgba(255,255,255,0.1)] rounded-lg text-sm focus:outline-none focus:ring-2 focus:ring-[rgba(var(--ax-accent-rgb),0.3)]/20 focus:border-[var(--ax-accent)]"
                   value={costIncurredAt}
                   onChange={(e) => setCostIncurredAt(e.target.value)}
                 />
@@ -633,7 +633,7 @@ export default function CashModulePage() {
               <div>
                 <label className="block text-sm font-medium text-[#e8e4dc] mb-1">Notes (optional)</label>
                 <textarea
-                  className="w-full px-3 py-2.5 border border-[rgba(255,255,255,0.1)] rounded-lg text-sm focus:outline-none focus:ring-2 focus:ring-[rgba(196,163,90,0.3)]/20 focus:border-[#c4a35a]"
+                  className="w-full px-3 py-2.5 border border-[rgba(255,255,255,0.1)] rounded-lg text-sm focus:outline-none focus:ring-2 focus:ring-[rgba(var(--ax-accent-rgb),0.3)]/20 focus:border-[var(--ax-accent)]"
                   rows={2}
                   value={costNotes}
                   onChange={(e) => setCostNotes(e.target.value)}
@@ -660,7 +660,7 @@ export default function CashModulePage() {
               <button
                 onClick={handleCreateCost}
                 disabled={submitting}
-                className="px-5 py-2 bg-[#c4a35a] text-white text-sm font-medium rounded-lg hover:bg-[#b3943f] disabled:opacity-50 transition-colors"
+                className="px-5 py-2 bg-[var(--ax-accent)] text-white text-sm font-medium rounded-lg hover:bg-[var(--ax-accent-hover)] disabled:opacity-50 transition-colors"
               >
                 {submitting ? 'Saving...' : 'Save Cost Entry'}
               </button>

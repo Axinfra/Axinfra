@@ -46,7 +46,7 @@ export default function MilestoneCompletionChart() {
           <CartesianGrid stroke="rgba(255,255,255,0.06)" vertical={false} />
           <XAxis
             dataKey="projectName"
-            tick={{ fill: 'rgba(232,228,220,0.6)', fontSize: 11 }}
+            tick={{ fill: 'rgba(var(--ax-text-rgb),0.6)', fontSize: 11 }}
             axisLine={{ stroke: 'rgba(255,255,255,0.08)' }}
             tickLine={false}
             interval={0}
@@ -56,7 +56,7 @@ export default function MilestoneCompletionChart() {
           />
           <YAxis
             domain={[0, 100]}
-            tick={{ fill: 'rgba(232,228,220,0.6)', fontSize: 11 }}
+            tick={{ fill: 'rgba(var(--ax-text-rgb),0.6)', fontSize: 11 }}
             axisLine={{ stroke: 'rgba(255,255,255,0.08)' }}
             tickLine={false}
             unit="%"
@@ -67,14 +67,14 @@ export default function MilestoneCompletionChart() {
               backgroundColor: '#13151a',
               border: '1px solid rgba(255,255,255,0.12)',
               borderRadius: 8,
-              color: '#e8e4dc',
+              color: 'var(--ax-text)',
               fontSize: 12,
             }}
             formatter={(value: number, _name, props) => {
               const item = props.payload as Item;
               return [`${value}% (${item.completed}/${item.total})`, 'Complete'];
             }}
-            labelStyle={{ color: '#f5f1e8', fontWeight: 600 }}
+            labelStyle={{ color: 'var(--ax-text)', fontWeight: 600 }}
           />
           <Bar dataKey="percent" radius={[4, 4, 0, 0]} maxBarSize={48}>
             {items.map((it) => (

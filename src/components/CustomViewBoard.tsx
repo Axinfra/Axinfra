@@ -49,11 +49,11 @@ export default function CustomViewBoard({ groups, projectId, viewName }: CustomV
   return (
     <div className="space-y-4">
       {/* Read-only warning banner */}
-      <div className="bg-[rgba(196,163,90,0.08)] border border-[rgba(196,163,90,0.15)] rounded-lg p-3">
+      <div className="bg-[rgba(var(--ax-accent-rgb),0.08)] border border-[rgba(var(--ax-accent-rgb),0.15)] rounded-lg p-3">
         <div className="flex items-center justify-between">
           <div className="flex items-center space-x-2">
             <svg
-              className="w-5 h-5 text-[#c4a35a]"
+              className="w-5 h-5 text-[var(--ax-accent)]"
               fill="none"
               stroke="currentColor"
               viewBox="0 0 24 24"
@@ -65,7 +65,7 @@ export default function CustomViewBoard({ groups, projectId, viewName }: CustomV
                 d="M13 16h-1v-4h-1m1-4h.01M21 12a9 9 0 11-18 0 9 9 0 0118 0z"
               />
             </svg>
-            <span className="text-sm text-[#c4a35a]">
+            <span className="text-sm text-[var(--ax-accent)]">
               <strong>Read-only View</strong> – Axinfra state enforced. State changes must be done via the main board.
             </span>
           </div>

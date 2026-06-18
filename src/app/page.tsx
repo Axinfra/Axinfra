@@ -2,22 +2,26 @@
 
 import { useState, useEffect, useRef, FormEvent } from 'react';
 import Link from 'next/link';
+import ThemeNavbarPicker from '@/components/ThemeSwitcher';
+import { useTheme } from '@/lib/contexts/ThemeContext';
+import AxinfraLogo from '@/components/AxinfraLogo';
 import './landing-page.css';
 import {
   motion,
   useInView,
   AnimatePresence,
-  useMotionValue,
-  useSpring,
   type Variants,
 } from 'framer-motion';
 
 
 /* ─── Motion helpers ─────────────────────────────────────────────────────── */
+const smoothEase = [0.16, 1, 0.3, 1] as const;
 const fadeUp: Variants = {
   hidden: { opacity: 0, y: 32 },
-  show: { opacity: 1, y: 0, transition: { duration: 0.65, ease: [0.22, 1, 0.36, 1] } },
+  show: { opacity: 1, y: 0, transition: { duration: 0.78, ease: smoothEase } },
 };
+
+const easeOutCubic = (t: number) => 1 - Math.pow(1 - t, 3);
 
 function Section({ children, className = '', style = {} }: { children: React.ReactNode; className?: string; style?: React.CSSProperties }) {
   const ref = useRef(null);
@@ -46,14 +50,14 @@ function Counter({ to, decimals = 0 }: { to: number; decimals?: number }) {
     if (!inView || started.current) return;
     started.current = true;
 
-    const FRAMES = 55; // ~0.9s at 60fps — fast & snappy
-    let frame = 0;
+    const duration = 1250;
+    let animationFrame = 0;
+    let start: number | null = null;
 
-    const tick = () => {
-      frame++;
-      // Ease-out cubic: starts fast, decelerates at end
-      const t = frame / FRAMES;
-      const eased = 1 - Math.pow(1 - t, 3);
+    const tick = (now: number) => {
+      start ??= now;
+      const t = Math.min((now - start) / duration, 1);
+      const eased = easeOutCubic(t);
       const value = to * eased;
 
       if (ref.current) {
@@ -62,26 +66,83 @@ function Counter({ to, decimals = 0 }: { to: number; decimals?: number }) {
           : Math.round(value).toString();
       }
 
-      if (frame < FRAMES) {
-        requestAnimationFrame(tick);
+      if (t < 1) {
+        animationFrame = requestAnimationFrame(tick);
       } else if (ref.current) {
-        // Snap to exact final value
         ref.current.textContent = decimals ? to.toFixed(decimals) : String(to);
       }
     };
 
-    requestAnimationFrame(tick);
+    animationFrame = requestAnimationFrame(tick);
+    return () => cancelAnimationFrame(animationFrame);
   }, [inView, to, decimals]);
 
   return <span ref={ref} suppressHydrationWarning>0</span>;
 }
 
 /* ─── Flow SVG ───────────────────────────────────────────────────────────── */
+
+type FlowPalette = {
+  svgBg: string; nodeText: string; divColor: string; divOpacity: string;
+  rejectBoxBg: string;
+  CLIENT: string; CONSULTANT: string; GREEN: string; RED: string; PMC: string;
+  nodeBgClient: string; nodeBgConsultant: string; nodeBgGreen: string; nodeBgPmc: string;
+};
+
+const FLOW_PALETTES: Record<string, FlowPalette> = {
+  obsidian: {
+    svgBg: '#08090d', nodeText: '#f5e9c8', divColor: '#fff', divOpacity: '.05', rejectBoxBg: '#1a0606',
+    CLIENT: '#c9a84c', CONSULTANT: '#7b9ef8', GREEN: '#1d9e75', RED: '#e24b4a', PMC: '#9ca3af',
+    nodeBgClient: '#1a1508', nodeBgConsultant: '#080f1a', nodeBgGreen: '#0a1a12', nodeBgPmc: '#111118',
+  },
+  sapphire: {
+    svgBg: '#050c18', nodeText: '#bfdbfe', divColor: '#fff', divOpacity: '.05', rejectBoxBg: '#1a0808',
+    CLIENT: '#60a5fa', CONSULTANT: '#93c5fd', GREEN: '#34d399', RED: '#f87171', PMC: '#94a3b8',
+    nodeBgClient: '#091628', nodeBgConsultant: '#0c1a35', nodeBgGreen: '#081a14', nodeBgPmc: '#0e1525',
+  },
+  emerald: {
+    svgBg: '#040c06', nodeText: '#d1fae5', divColor: '#fff', divOpacity: '.05', rejectBoxBg: '#1a0606',
+    CLIENT: '#34d399', CONSULTANT: '#6ee7b7', GREEN: '#10b981', RED: '#f87171', PMC: '#86efac',
+    nodeBgClient: '#071a0e', nodeBgConsultant: '#091a12', nodeBgGreen: '#051208', nodeBgPmc: '#0a150d',
+  },
+  violet: {
+    svgBg: '#07050c', nodeText: '#ede9fe', divColor: '#fff', divOpacity: '.05', rejectBoxBg: '#1a0606',
+    CLIENT: '#a78bfa', CONSULTANT: '#c4b5fd', GREEN: '#34d399', RED: '#f87171', PMC: '#d8b4fe',
+    nodeBgClient: '#18102e', nodeBgConsultant: '#140d26', nodeBgGreen: '#0a1a14', nodeBgPmc: '#140e20',
+  },
+  pearl: {
+    svgBg: '#f4f1e8', nodeText: '#1a1a1a', divColor: '#000', divOpacity: '.07', rejectBoxBg: '#fff0f0',
+    CLIENT: '#8a5e10', CONSULTANT: '#1a4fc4', GREEN: '#027a54', RED: '#b91c1c', PMC: '#4b5563',
+    nodeBgClient: '#fefaf1', nodeBgConsultant: '#eff4ff', nodeBgGreen: '#effaf5', nodeBgPmc: '#f5f5f5',
+  },
+  frost: {
+    svgBg: '#e6eef9', nodeText: '#1e293b', divColor: '#000', divOpacity: '.07', rejectBoxBg: '#fff0f0',
+    CLIENT: '#1a4fc4', CONSULTANT: '#0369a1', GREEN: '#047857', RED: '#b91c1c', PMC: '#475569',
+    nodeBgClient: '#eff4ff', nodeBgConsultant: '#e0f2fe', nodeBgGreen: '#ecfdf5', nodeBgPmc: '#f1f5f9',
+  },
+  sage: {
+    svgBg: '#e3ede5', nodeText: '#14532d', divColor: '#000', divOpacity: '.07', rejectBoxBg: '#fff0f0',
+    CLIENT: '#027a54', CONSULTANT: '#0e7490', GREEN: '#15803d', RED: '#b91c1c', PMC: '#4b5563',
+    nodeBgClient: '#f0faf5', nodeBgConsultant: '#e0f7fa', nodeBgGreen: '#dcfce7', nodeBgPmc: '#f4f4f5',
+  },
+  blush: {
+    svgBg: '#ebe6f8', nodeText: '#1e1b4b', divColor: '#000', divOpacity: '.07', rejectBoxBg: '#fff0f0',
+    CLIENT: '#6020c8', CONSULTANT: '#7c3aed', GREEN: '#047857', RED: '#b91c1c', PMC: '#4b5563',
+    nodeBgClient: '#f3eeff', nodeBgConsultant: '#ede9fe', nodeBgGreen: '#ecfdf5', nodeBgPmc: '#f4f4f5',
+  },
+};
+
 function FlowDiagram() {
-  const GOLD = '#c9a84c';
-  const ARCH = '#7b9ef8';
-  const GREEN = '#1d9e75';
-  const RED = '#e24b4a';
+  const { theme } = useTheme();
+  const p = FLOW_PALETTES[theme] ?? FLOW_PALETTES.obsidian;
+
+  const { svgBg, nodeText, divColor, divOpacity, rejectBoxBg } = p;
+  const GOLD  = p.CLIENT;
+  const ARCH  = p.CONSULTANT;
+  const GREEN = p.GREEN;
+  const RED   = p.RED;
+  const PMC   = p.PMC;
+  const isLight = theme === 'pearl' || theme === 'frost' || theme === 'sage' || theme === 'blush';
 
   const Arr = ({ id, color }: { id: string; color: string }) => (
     <marker id={id} viewBox="0 0 10 10" refX="8" refY="5" markerWidth="5" markerHeight="5" orient="auto-start-reverse">
@@ -93,7 +154,10 @@ function FlowDiagram() {
     x: number; y: number; w: number; h: number; stroke: string; roleColor: string;
     role: string; label: string; sub?: string; pulse?: boolean;
   }) => {
-    const bg = stroke === GOLD ? '#1a1508' : stroke === ARCH ? '#080f1a' : '#0a1a12';
+    const bg = stroke === GOLD ? p.nodeBgClient
+             : stroke === ARCH ? p.nodeBgConsultant
+             : stroke === GREEN ? p.nodeBgGreen
+             : p.nodeBgPmc;
     return (
       <g>
         {pulse && (
@@ -104,34 +168,37 @@ function FlowDiagram() {
         )}
         <rect x={x} y={y} width={w} height={h} rx="10" fill={bg} stroke={stroke} strokeWidth="1.3" />
         <text x={x + w / 2} y={y + h * 0.38} textAnchor="middle" fill={roleColor} fontSize="9" fontFamily="JetBrains Mono,monospace" fontWeight="600" letterSpacing="1.5">{role}</text>
-        <text x={x + w / 2} y={y + h * 0.67} textAnchor="middle" fill="#f5e9c8" fontSize="11.5" fontFamily="Instrument Sans,sans-serif" fontWeight="500">{label}</text>
-        {sub && <text x={x + w / 2} y={y + h * 0.88} textAnchor="middle" fill={roleColor} fontSize="9" fontFamily="JetBrains Mono,monospace" opacity=".6">{sub}</text>}
+        <text x={x + w / 2} y={y + h * 0.67} textAnchor="middle" fill={nodeText} fontSize="11.5" fontFamily="Instrument Sans,sans-serif" fontWeight="500">{label}</text>
+        {sub && <text x={x + w / 2} y={y + h * 0.88} textAnchor="middle" fill={roleColor} fontSize="9" fontFamily="JetBrains Mono,monospace" opacity=".7">{sub}</text>}
       </g>
     );
   };
 
   const Diamond = ({ cx, cy, size, stroke, roleColor, role, label, pulse }: {
     cx: number; cy: number; size: number; stroke: string; roleColor: string; role: string; label: string; pulse?: boolean;
-  }) => (
-    <g>
-      {pulse && (
-        <circle cx={cx} cy={cy} r={size + 8} fill="none" stroke={stroke} strokeOpacity=".22">
-          <animate attributeName="r" values={`${size + 6};${size + 18};${size + 6}`} dur="3.2s" repeatCount="indefinite" />
-          <animate attributeName="stroke-opacity" values=".22;0;.22" dur="3.2s" repeatCount="indefinite" />
-        </circle>
-      )}
-      <polygon points={`${cx},${cy - size} ${cx + size},${cy} ${cx},${cy + size} ${cx - size},${cy}`} fill="#1a1508" stroke={stroke} strokeWidth="1.3" />
-      <text x={cx} y={cy - 6} textAnchor="middle" fill={roleColor} fontSize="8.5" fontFamily="JetBrains Mono,monospace" fontWeight="600" letterSpacing="1">{role}</text>
-      <text x={cx} y={cy + 9} textAnchor="middle" fill="#f5e9c8" fontSize="10.5" fontFamily="Instrument Sans,sans-serif">{label}</text>
-    </g>
-  );
+  }) => {
+    const bg = stroke === GOLD ? p.nodeBgClient : p.nodeBgGreen;
+    return (
+      <g>
+        {pulse && (
+          <circle cx={cx} cy={cy} r={size + 8} fill="none" stroke={stroke} strokeOpacity=".22">
+            <animate attributeName="r" values={`${size + 6};${size + 18};${size + 6}`} dur="3.2s" repeatCount="indefinite" />
+            <animate attributeName="stroke-opacity" values=".22;0;.22" dur="3.2s" repeatCount="indefinite" />
+          </circle>
+        )}
+        <polygon points={`${cx},${cy - size} ${cx + size},${cy} ${cx},${cy + size} ${cx - size},${cy}`} fill={bg} stroke={stroke} strokeWidth="1.3" />
+        <text x={cx} y={cy - 6} textAnchor="middle" fill={roleColor} fontSize="8.5" fontFamily="JetBrains Mono,monospace" fontWeight="600" letterSpacing="1">{role}</text>
+        <text x={cx} y={cy + 9} textAnchor="middle" fill={nodeText} fontSize="10.5" fontFamily="Instrument Sans,sans-serif">{label}</text>
+      </g>
+    );
+  };
 
   const Connector = ({ d, stroke, dur }: { d: string; stroke: string; dur: number }) => (
     <>
-      <path d={d} fill="none" stroke={stroke} strokeWidth="1" opacity=".2" />
-      <path className="dash" d={d} fill="none" stroke={stroke} strokeWidth="1.3" opacity=".72" style={{ animationDuration: `${dur}s` }} />
+      <path d={d} fill="none" stroke={stroke} strokeWidth="1" opacity=".22" />
+      <path className="dash" d={d} fill="none" stroke={stroke} strokeWidth="1.3" opacity={isLight ? '.9' : '.72'} style={{ animationDuration: `${dur}s` }} />
       <circle r="3" fill={stroke}>
-        <animateMotion dur={`${dur + 0.1}s`} repeatCount="indefinite" path={d} />
+        <animateMotion dur={`${dur + 0.2}s`} repeatCount="indefinite" path={d} calcMode="paced" />
       </circle>
     </>
   );
@@ -144,7 +211,7 @@ function FlowDiagram() {
      VENDOR  cx=750   x=660
   ─────────────────────────────────────────────────────────────────────────── */
   return (
-    <svg width="100%" viewBox="0 0 920 560" role="img" xmlns="http://www.w3.org/2000/svg" style={{ background: '#080808', borderRadius: 12, display: 'block' }}>
+    <svg width="100%" viewBox="0 0 920 560" role="img" xmlns="http://www.w3.org/2000/svg" style={{ background: svgBg, borderRadius: 12, display: 'block' }}>
       <title>Axinfra project governance flow</title>
       <defs>
         <Arr id="ag"  color={GOLD}  />
@@ -157,24 +224,24 @@ function FlowDiagram() {
       {[
         { x: '30',  label: 'CLIENT',     color: GOLD,  x2: '200' },
         { x: '230', label: 'CONSULTANT', color: ARCH,  x2: '385' },
-        { x: '450', label: 'PMC',       color: '#aaa',x2: '610' },
-        { x: '660', label: 'VENDOR',    color: GREEN, x2: '845' },
+        { x: '450', label: 'PMC',        color: PMC,   x2: '610' },
+        { x: '660', label: 'VENDOR',     color: GREEN, x2: '845' },
       ].map(({ x, label, color, x2 }) => (
         <g key={label}>
-          <text x={x} y="32" fill={color} fontSize="10" fontFamily="JetBrains Mono,monospace" fontWeight="600" letterSpacing="2" opacity=".65">{label}</text>
-          <line x1={x} y1="38" x2={x2} y2="38" stroke={color} strokeWidth=".5" opacity=".22" />
+          <text x={x} y="32" fill={color} fontSize="10" fontFamily="JetBrains Mono,monospace" fontWeight="600" letterSpacing="2" opacity={isLight ? '.8' : '.65'}>{label}</text>
+          <line x1={x} y1="38" x2={x2} y2="38" stroke={color} strokeWidth=".5" opacity=".25" />
         </g>
       ))}
-      <line x1="215" y1="46" x2="215" y2="535" stroke="#fff" strokeWidth=".4" opacity=".05" />
-      <line x1="430" y1="46" x2="430" y2="535" stroke="#fff" strokeWidth=".4" opacity=".05" />
-      <line x1="648" y1="46" x2="648" y2="535" stroke="#fff" strokeWidth=".4" opacity=".05" />
+      <line x1="215" y1="46" x2="215" y2="535" stroke={divColor} strokeWidth=".4" opacity={divOpacity} />
+      <line x1="430" y1="46" x2="430" y2="535" stroke={divColor} strokeWidth=".4" opacity={divOpacity} />
+      <line x1="648" y1="46" x2="648" y2="535" stroke={divColor} strokeWidth=".4" opacity={divOpacity} />
 
       {/* ── row 1: Creates project → Designs plans → Creates BOQ ── */}
       <Node x={30}  y={76} w={160} h={48} stroke={GOLD} roleColor={GOLD} role="CLIENT"     label="Creates project" pulse />
       <Connector d="M190 100 L230 100" stroke={GOLD} dur={1.2} />
       <Node x={230} y={76} w={160} h={48} stroke={ARCH} roleColor={ARCH} role="CONSULTANT" label="Designs plans"  pulse />
       <Connector d="M390 100 L450 100" stroke={ARCH} dur={1.4} />
-      <Node x={450} y={76} w={160} h={48} stroke={GOLD} roleColor={GOLD} role="PMC"       label="Creates BOQ" />
+      <Node x={450} y={76} w={160} h={48} stroke={GOLD} roleColor={GOLD} role="PMC"        label="Creates BOQ" />
 
       {/* BOQ routes back to Owner for approval */}
       <Connector d="M530 124 L530 160 L110 160 L110 188" stroke={GOLD} dur={2.2} />
@@ -182,12 +249,12 @@ function FlowDiagram() {
       {/* ── row 2: Owner approves BOQ ── */}
       <Diamond cx={110} cy={232} size={44} stroke={GOLD} roleColor={GOLD} role="CLIENT" label="Approve BOQ?" pulse />
       <text x={166} y={228} fill={GREEN} fontSize="10" fontFamily="Instrument Sans,sans-serif" fontWeight="600">✓ Approve</text>
-      <text x={10}  y={302} fill={RED}   fontSize="10" fontFamily="Instrument Sans,sans-serif" fontWeight="600">✗ Reject</text>
+      <text x={10}  y={302} fill={RED}  fontSize="10" fontFamily="Instrument Sans,sans-serif" fontWeight="600">✗ Reject</text>
 
       {/* Reject → BOQ revised loop */}
       <path d="M110 276 L110 308 L530 308 L530 124" fill="none" stroke={RED} strokeWidth="1" strokeDasharray="4 6" opacity=".6" markerEnd="url(#ar)" />
-      <circle r="2.5" fill={RED}><animateMotion dur="3.4s" repeatCount="indefinite" path="M110,276 L110,308 L530,308 L530,124" /></circle>
-      <rect x={230} y={297} width={162} height={20} rx="5" fill="#1a0606" />
+      <circle r="2.5" fill={RED}><animateMotion dur="4.2s" repeatCount="indefinite" path="M110,276 L110,308 L530,308 L530,124" calcMode="paced" /></circle>
+      <rect x={230} y={297} width={162} height={20} rx="5" fill={rejectBoxBg} />
       <text x={311} y={311} textAnchor="middle" fill={RED} fontSize="9" fontFamily="JetBrains Mono,monospace">BOQ Revised — re-submit</text>
 
       {/* Approve → PMC milestones → Vendor starts work */}
@@ -202,12 +269,12 @@ function FlowDiagram() {
       <Connector d="M655 384 L574 384" stroke={GOLD} dur={1.6} />
       <Diamond cx={530} cy={384} size={44} stroke={GOLD} roleColor={GOLD} role="PMC" label="Verifies?" pulse />
       <text x={398} y={380} fill={GREEN} fontSize="10" fontFamily="Instrument Sans,sans-serif" fontWeight="600">✓ Verified</text>
-      <text x={536} y={446} fill={RED}   fontSize="10" fontFamily="Instrument Sans,sans-serif" fontWeight="600">✗ Not satisfied</text>
+      <text x={536} y={446} fill={RED}  fontSize="10" fontFamily="Instrument Sans,sans-serif" fontWeight="600">✗ Not satisfied</text>
 
       {/* Not satisfied → back to Vendor */}
       <path d="M530 428 L530 472 L740 472 L740 408" fill="none" stroke={RED} strokeWidth="1" strokeDasharray="4 6" opacity=".6" markerEnd="url(#ar)" />
-      <circle r="2.5" fill={RED}><animateMotion dur="3.2s" repeatCount="indefinite" path="M530,428 L530,472 L740,472 L740,408" /></circle>
-      <rect x={568} y={461} width={148} height={20} rx="5" fill="#1a0606" />
+      <circle r="2.5" fill={RED}><animateMotion dur="4s" repeatCount="indefinite" path="M530,428 L530,472 L740,472 L740,408" calcMode="paced" /></circle>
+      <rect x={568} y={461} width={148} height={20} rx="5" fill={rejectBoxBg} />
       <text x={642} y={475} textAnchor="middle" fill={RED} fontSize="9" fontFamily="JetBrains Mono,monospace">Back to In Progress</text>
 
       {/* ── row 4: Owner releases payment ── */}
@@ -333,31 +400,43 @@ export default function HomePage() {
   }
 
   useEffect(() => {
+    let raf = 0;
     const obs = new IntersectionObserver(entries => {
       if (entries[0].isIntersecting) {
-        let frame = 0;
-        const total = 70;
-        const tick = () => {
-          frame++;
-          setCounters({ a: Math.round(47 * frame / total), b: parseFloat((3.2 * frame / total).toFixed(1)), c: Math.round(100 * frame / total) });
-          if (frame < total) requestAnimationFrame(tick);
+        const duration = 1350;
+        let start: number | null = null;
+        let previous = { a: 0, b: 0, c: 0 };
+        const tick = (now: number) => {
+          start ??= now;
+          const progress = Math.min((now - start) / duration, 1);
+          const eased = easeOutCubic(progress);
+          const next = {
+            a: Math.round(47 * eased),
+            b: parseFloat((3.2 * eased).toFixed(1)),
+            c: Math.round(100 * eased),
+          };
+          if (next.a !== previous.a || next.b !== previous.b || next.c !== previous.c) {
+            previous = next;
+            setCounters(next);
+          }
+          if (progress < 1) raf = requestAnimationFrame(tick);
         };
-        requestAnimationFrame(tick);
+        raf = requestAnimationFrame(tick);
         obs.disconnect();
       }
     }, { threshold: 0.6 });
     if (statsRef.current) obs.observe(statsRef.current);
-    return () => obs.disconnect();
+    return () => {
+      obs.disconnect();
+      cancelAnimationFrame(raf);
+    };
   }, []);
 
   return (
     <>
       {/* ── NAV ── */}
       <nav className="ax-nav">
-        <div className="ax-logo">
-          <div className="ax-logomark">A</div>
-          Axinfra
-        </div>
+        <AxinfraLogo size="md" href="/" />
 
         <div className="ax-navlinks">
           {NAV_LINKS.map(({ label, href }) => (
@@ -366,6 +445,7 @@ export default function HomePage() {
         </div>
 
         <div className="ax-navcta">
+          <ThemeNavbarPicker />
           <Link href="/auth/login" className="btn-ghost">Log in</Link>
           <button onClick={() => { setDemoOpen(true); setDemoState('idle'); }} className="btn-primary">Request Demo</button>
         </div>
@@ -384,19 +464,22 @@ export default function HomePage() {
             exit={{ opacity: 0, y: -12 }}
             transition={{ duration: 0.22 }}
           >
-            <button
-              onClick={() => { setMenuOpen(false); setDemoOpen(true); setDemoState('idle'); }}
-              className="btn-primary"
-              style={{ marginBottom: 4, justifyContent: 'center' }}
-            >
-              Request Demo
-            </button>
-            <Link href="/auth/login" className="btn-ghost" style={{ justifyContent: 'center' }} onClick={() => setMenuOpen(false)}>
-              Log in
-            </Link>
-            {NAV_LINKS.map(({ label, href }) => (
-              <a key={label} href={href} onClick={() => setMenuOpen(false)}>{label}</a>
-            ))}
+            <div className="ax-mobile-actions">
+              <button
+                onClick={() => { setMenuOpen(false); setDemoOpen(true); setDemoState('idle'); }}
+                className="btn-primary"
+              >
+                Request Demo
+              </button>
+              <Link href="/auth/login" className="btn-ghost" onClick={() => setMenuOpen(false)}>
+                Log in
+              </Link>
+            </div>
+            <div className="ax-mobile-links">
+              {NAV_LINKS.map(({ label, href }) => (
+                <a key={label} href={href} onClick={() => setMenuOpen(false)}>{label}</a>
+              ))}
+            </div>
           </motion.div>
         )}
       </AnimatePresence>
@@ -747,8 +830,8 @@ export default function HomePage() {
               }}
             >
               <div style={{ fontSize: 40, marginBottom: 16 }}>✓</div>
-              <h3 style={{ fontSize: 20, fontWeight: 800, color: '#e8e4dc', margin: '0 0 8px' }}>Message sent!</h3>
-              <p style={{ fontSize: 14, color: 'rgba(232,228,220,0.55)', margin: '0 0 24px' }}>
+              <h3 style={{ fontSize: 20, fontWeight: 800, color: 'var(--ax-text)', margin: '0 0 8px' }}>Message sent!</h3>
+              <p style={{ fontSize: 14, color: 'rgba(var(--ax-text-rgb),0.55)', margin: '0 0 24px' }}>
                 We&apos;ve also sent a confirmation to your email. Our team will be in touch shortly.
               </p>
               <button
@@ -771,8 +854,8 @@ export default function HomePage() {
             <form
               onSubmit={handleSupportSubmit}
               style={{
-                background: 'rgba(255,255,255,0.02)',
-                border: '1px solid rgba(255,255,255,0.07)',
+                background: 'var(--ax-card)',
+                border: '1px solid var(--ax-border)',
                 borderRadius: 16,
                 padding: '32px',
                 display: 'flex',
@@ -782,7 +865,7 @@ export default function HomePage() {
             >
               <div style={{ display: 'grid', gridTemplateColumns: '1fr 1fr', gap: 16 }}>
                 <div>
-                  <label style={{ display: 'block', fontSize: 11.5, fontWeight: 600, color: 'rgba(232,228,220,0.45)', textTransform: 'uppercase', letterSpacing: '0.07em', marginBottom: 6 }}>
+                  <label style={{ display: 'block', fontSize: 11.5, fontWeight: 600, color: 'rgba(var(--ax-text-rgb),0.55)', textTransform: 'uppercase', letterSpacing: '0.07em', marginBottom: 6 }}>
                     Your Name *
                   </label>
                   <input
@@ -793,14 +876,14 @@ export default function HomePage() {
                     placeholder="Rahul Sharma"
                     style={{
                       width: '100%', boxSizing: 'border-box',
-                      background: '#0d0d11', border: '1px solid rgba(255,255,255,0.1)',
+                      background: 'var(--ax-input)', border: '1px solid var(--ax-border)',
                       borderRadius: 10, padding: '11px 14px',
-                      fontSize: 13.5, color: '#e8e4dc', outline: 'none',
+                      fontSize: 13.5, color: 'var(--ax-text)', outline: 'none',
                     }}
                   />
                 </div>
                 <div>
-                  <label style={{ display: 'block', fontSize: 11.5, fontWeight: 600, color: 'rgba(232,228,220,0.45)', textTransform: 'uppercase', letterSpacing: '0.07em', marginBottom: 6 }}>
+                  <label style={{ display: 'block', fontSize: 11.5, fontWeight: 600, color: 'rgba(var(--ax-text-rgb),0.55)', textTransform: 'uppercase', letterSpacing: '0.07em', marginBottom: 6 }}>
                     Email Address *
                   </label>
                   <input
@@ -811,16 +894,16 @@ export default function HomePage() {
                     placeholder="you@company.com"
                     style={{
                       width: '100%', boxSizing: 'border-box',
-                      background: '#0d0d11', border: '1px solid rgba(255,255,255,0.1)',
+                      background: 'var(--ax-input)', border: '1px solid var(--ax-border)',
                       borderRadius: 10, padding: '11px 14px',
-                      fontSize: 13.5, color: '#e8e4dc', outline: 'none',
+                      fontSize: 13.5, color: 'var(--ax-text)', outline: 'none',
                     }}
                   />
                 </div>
               </div>
 
               <div>
-                <label style={{ display: 'block', fontSize: 11.5, fontWeight: 600, color: 'rgba(232,228,220,0.45)', textTransform: 'uppercase', letterSpacing: '0.07em', marginBottom: 6 }}>
+                <label style={{ display: 'block', fontSize: 11.5, fontWeight: 600, color: 'rgba(var(--ax-text-rgb),0.55)', textTransform: 'uppercase', letterSpacing: '0.07em', marginBottom: 6 }}>
                   Subject *
                 </label>
                 <select
@@ -829,9 +912,9 @@ export default function HomePage() {
                   onChange={e => setSupport(s => ({ ...s, subject: e.target.value }))}
                   style={{
                     width: '100%',
-                    background: '#0d0d11', border: '1px solid rgba(255,255,255,0.1)',
+                    background: 'var(--ax-input)', border: '1px solid var(--ax-border)',
                     borderRadius: 10, padding: '11px 14px',
-                    fontSize: 13.5, color: support.subject ? '#e8e4dc' : 'rgba(232,228,220,0.3)', outline: 'none',
+                    fontSize: 13.5, color: support.subject ? 'var(--ax-text)' : 'rgba(var(--ax-text-rgb),0.4)', outline: 'none',
                     appearance: 'none', cursor: 'pointer',
                   }}
                 >
@@ -846,7 +929,7 @@ export default function HomePage() {
               </div>
 
               <div>
-                <label style={{ display: 'block', fontSize: 11.5, fontWeight: 600, color: 'rgba(232,228,220,0.45)', textTransform: 'uppercase', letterSpacing: '0.07em', marginBottom: 6 }}>
+                <label style={{ display: 'block', fontSize: 11.5, fontWeight: 600, color: 'rgba(var(--ax-text-rgb),0.55)', textTransform: 'uppercase', letterSpacing: '0.07em', marginBottom: 6 }}>
                   Message *
                 </label>
                 <textarea
@@ -857,9 +940,9 @@ export default function HomePage() {
                   placeholder="Describe your issue or question in detail…"
                   style={{
                     width: '100%', boxSizing: 'border-box', resize: 'vertical',
-                    background: '#0d0d11', border: '1px solid rgba(255,255,255,0.1)',
+                    background: 'var(--ax-input)', border: '1px solid var(--ax-border)',
                     borderRadius: 10, padding: '11px 14px',
-                    fontSize: 13.5, color: '#e8e4dc', outline: 'none',
+                    fontSize: 13.5, color: 'var(--ax-text)', outline: 'none',
                     fontFamily: 'inherit', lineHeight: 1.6,
                   }}
                 />
@@ -879,10 +962,12 @@ export default function HomePage() {
                 type="submit"
                 disabled={supportState === 'sending'}
                 style={{
-                  background: supportState === 'sending' ? 'rgba(196,163,90,0.5)' : '#c4a35a',
-                  color: '#0d0d11', border: 'none', borderRadius: 12,
+                  background: 'var(--ax-accent)',
+                  color: 'var(--ax-btn-text)',
+                  border: 'none', borderRadius: 12,
                   padding: '14px 28px', fontSize: 14, fontWeight: 700,
                   cursor: supportState === 'sending' ? 'not-allowed' : 'pointer',
+                  opacity: supportState === 'sending' ? 0.5 : 1,
                   transition: 'opacity 0.2s',
                   alignSelf: 'flex-start',
                 }}
@@ -900,7 +985,7 @@ export default function HomePage() {
       <footer className="ax-footer">
         <div className="footer-grid">
           <div className="footer-brand">
-            <div className="ax-logo"><div className="ax-logomark">A</div>Axinfra</div>
+            <AxinfraLogo size="md" href="/" />
             <p>The operating layer for construction command. Milestone governance, evidence-based payment release, and AI-driven risk detection — built for PMCs at scale.</p>
           </div>
           <div className="footer-col">
@@ -943,8 +1028,8 @@ export default function HomePage() {
           >
             <motion.div
               style={{
-                background: '#13151a',
-                border: '1px solid rgba(255,255,255,0.1)',
+                background: 'var(--ax-modal)',
+                border: '1px solid var(--ax-border)',
                 borderRadius: 20,
                 width: '100%',
                 maxWidth: 500,
@@ -959,15 +1044,15 @@ export default function HomePage() {
               {/* Header */}
               <div style={{ padding: '24px 28px 0', display: 'flex', alignItems: 'flex-start', justifyContent: 'space-between' }}>
                 <div>
-                  <div style={{ fontSize: 11, fontWeight: 700, color: '#c4a35a', textTransform: 'uppercase', letterSpacing: '0.1em', marginBottom: 6 }}>Request a Demo</div>
-                  <h2 style={{ fontSize: 22, fontWeight: 800, color: '#e8e4dc', margin: 0 }}>See Axinfra in action</h2>
-                  <p style={{ fontSize: 13, color: 'rgba(232,228,220,0.5)', marginTop: 6, lineHeight: 1.5 }}>
+                  <div style={{ fontSize: 11, fontWeight: 700, color: 'var(--ax-accent)', textTransform: 'uppercase', letterSpacing: '0.1em', marginBottom: 6 }}>Request a Demo</div>
+                  <h2 style={{ fontSize: 22, fontWeight: 800, color: 'var(--ax-text)', margin: 0 }}>See Axinfra in action</h2>
+                  <p style={{ fontSize: 13, color: 'rgba(var(--ax-text-rgb),0.5)', marginTop: 6, lineHeight: 1.5 }}>
                     Fill in your details and we&apos;ll schedule a personalised walkthrough within 1 business day.
                   </p>
                 </div>
                 <button
                   onClick={() => setDemoOpen(false)}
-                  style={{ background: 'none', border: 'none', color: 'rgba(232,228,220,0.35)', cursor: 'pointer', padding: 4, marginLeft: 12, marginTop: -2 }}
+                  style={{ background: 'none', border: 'none', color: 'rgba(var(--ax-text-rgb),0.35)', cursor: 'pointer', padding: 4, marginLeft: 12, marginTop: -2 }}
                   aria-label="Close"
                 >
                   <svg width="20" height="20" fill="none" stroke="currentColor" strokeWidth="1.5" viewBox="0 0 24 24">
@@ -980,15 +1065,15 @@ export default function HomePage() {
                 {demoState === 'sent' ? (
                   <div style={{ textAlign: 'center', padding: '24px 0' }}>
                     <div style={{ fontSize: 48, marginBottom: 16 }}>✓</div>
-                    <h3 style={{ fontSize: 18, fontWeight: 800, color: '#e8e4dc', margin: '0 0 8px' }}>Request received!</h3>
-                    <p style={{ fontSize: 14, color: 'rgba(232,228,220,0.55)', margin: '0 0 24px', lineHeight: 1.6 }}>
+                    <h3 style={{ fontSize: 18, fontWeight: 800, color: 'var(--ax-text)', margin: '0 0 8px' }}>Request received!</h3>
+                    <p style={{ fontSize: 14, color: 'rgba(var(--ax-text-rgb),0.55)', margin: '0 0 24px', lineHeight: 1.6 }}>
                       We&apos;ve also sent a confirmation to your email. Our team will reach out within 1 business day to schedule your demo.
                     </p>
                     <button
                       onClick={() => setDemoOpen(false)}
                       style={{
-                        background: 'rgba(196,163,90,0.1)', color: '#c4a35a',
-                        border: '1px solid rgba(196,163,90,0.25)', borderRadius: 10,
+                        background: 'rgba(var(--ax-accent-rgb),0.1)', color: 'var(--ax-accent)',
+                        border: '1px solid rgba(var(--ax-accent-rgb),0.25)', borderRadius: 10,
                         padding: '10px 24px', fontSize: 13, fontWeight: 700, cursor: 'pointer',
                       }}
                     >
@@ -999,53 +1084,53 @@ export default function HomePage() {
                   <form onSubmit={handleDemoSubmit} style={{ display: 'flex', flexDirection: 'column', gap: 16 }}>
                     <div style={{ display: 'grid', gridTemplateColumns: '1fr 1fr', gap: 12 }}>
                       <div>
-                        <label style={{ display: 'block', fontSize: 11, fontWeight: 700, color: 'rgba(232,228,220,0.45)', textTransform: 'uppercase', letterSpacing: '0.07em', marginBottom: 5 }}>Full Name *</label>
+                        <label style={{ display: 'block', fontSize: 11, fontWeight: 700, color: 'rgba(var(--ax-text-rgb),0.55)', textTransform: 'uppercase', letterSpacing: '0.07em', marginBottom: 5 }}>Full Name *</label>
                         <input
                           type="text" required value={demo.name}
                           onChange={e => setDemo(d => ({ ...d, name: e.target.value }))}
                           placeholder="Rahul Sharma"
-                          style={{ width: '100%', boxSizing: 'border-box', background: '#0d0d11', border: '1px solid rgba(255,255,255,0.1)', borderRadius: 10, padding: '10px 13px', fontSize: 13.5, color: '#e8e4dc', outline: 'none' }}
+                          style={{ width: '100%', boxSizing: 'border-box', background: 'var(--ax-input)', border: '1px solid var(--ax-border)', borderRadius: 10, padding: '10px 13px', fontSize: 13.5, color: 'var(--ax-text)', outline: 'none' }}
                         />
                       </div>
                       <div>
-                        <label style={{ display: 'block', fontSize: 11, fontWeight: 700, color: 'rgba(232,228,220,0.45)', textTransform: 'uppercase', letterSpacing: '0.07em', marginBottom: 5 }}>Work Email *</label>
+                        <label style={{ display: 'block', fontSize: 11, fontWeight: 700, color: 'rgba(var(--ax-text-rgb),0.55)', textTransform: 'uppercase', letterSpacing: '0.07em', marginBottom: 5 }}>Work Email *</label>
                         <input
                           type="email" required value={demo.email}
                           onChange={e => setDemo(d => ({ ...d, email: e.target.value }))}
                           placeholder="you@company.com"
-                          style={{ width: '100%', boxSizing: 'border-box', background: '#0d0d11', border: '1px solid rgba(255,255,255,0.1)', borderRadius: 10, padding: '10px 13px', fontSize: 13.5, color: '#e8e4dc', outline: 'none' }}
+                          style={{ width: '100%', boxSizing: 'border-box', background: 'var(--ax-input)', border: '1px solid var(--ax-border)', borderRadius: 10, padding: '10px 13px', fontSize: 13.5, color: 'var(--ax-text)', outline: 'none' }}
                         />
                       </div>
                     </div>
 
                     <div style={{ display: 'grid', gridTemplateColumns: '1fr 1fr', gap: 12 }}>
                       <div>
-                        <label style={{ display: 'block', fontSize: 11, fontWeight: 700, color: 'rgba(232,228,220,0.45)', textTransform: 'uppercase', letterSpacing: '0.07em', marginBottom: 5 }}>Company *</label>
+                        <label style={{ display: 'block', fontSize: 11, fontWeight: 700, color: 'rgba(var(--ax-text-rgb),0.55)', textTransform: 'uppercase', letterSpacing: '0.07em', marginBottom: 5 }}>Company *</label>
                         <input
                           type="text" required value={demo.company}
                           onChange={e => setDemo(d => ({ ...d, company: e.target.value }))}
                           placeholder="PMC Firm / Developer"
-                          style={{ width: '100%', boxSizing: 'border-box', background: '#0d0d11', border: '1px solid rgba(255,255,255,0.1)', borderRadius: 10, padding: '10px 13px', fontSize: 13.5, color: '#e8e4dc', outline: 'none' }}
+                          style={{ width: '100%', boxSizing: 'border-box', background: 'var(--ax-input)', border: '1px solid var(--ax-border)', borderRadius: 10, padding: '10px 13px', fontSize: 13.5, color: 'var(--ax-text)', outline: 'none' }}
                         />
                       </div>
                       <div>
-                        <label style={{ display: 'block', fontSize: 11, fontWeight: 700, color: 'rgba(232,228,220,0.45)', textTransform: 'uppercase', letterSpacing: '0.07em', marginBottom: 5 }}>Phone</label>
+                        <label style={{ display: 'block', fontSize: 11, fontWeight: 700, color: 'rgba(var(--ax-text-rgb),0.55)', textTransform: 'uppercase', letterSpacing: '0.07em', marginBottom: 5 }}>Phone</label>
                         <input
                           type="tel" value={demo.phone}
                           onChange={e => setDemo(d => ({ ...d, phone: e.target.value }))}
                           placeholder="+91 98765 43210"
-                          style={{ width: '100%', boxSizing: 'border-box', background: '#0d0d11', border: '1px solid rgba(255,255,255,0.1)', borderRadius: 10, padding: '10px 13px', fontSize: 13.5, color: '#e8e4dc', outline: 'none' }}
+                          style={{ width: '100%', boxSizing: 'border-box', background: 'var(--ax-input)', border: '1px solid var(--ax-border)', borderRadius: 10, padding: '10px 13px', fontSize: 13.5, color: 'var(--ax-text)', outline: 'none' }}
                         />
                       </div>
                     </div>
 
                     <div>
-                      <label style={{ display: 'block', fontSize: 11, fontWeight: 700, color: 'rgba(232,228,220,0.45)', textTransform: 'uppercase', letterSpacing: '0.07em', marginBottom: 5 }}>Anything specific you&apos;d like to see?</label>
+                      <label style={{ display: 'block', fontSize: 11, fontWeight: 700, color: 'rgba(var(--ax-text-rgb),0.55)', textTransform: 'uppercase', letterSpacing: '0.07em', marginBottom: 5 }}>Anything specific you&apos;d like to see?</label>
                       <textarea
                         rows={3} value={demo.message}
                         onChange={e => setDemo(d => ({ ...d, message: e.target.value }))}
                         placeholder="e.g. payment governance, vendor milestone tracking, Viseron AI risk detection…"
-                        style={{ width: '100%', boxSizing: 'border-box', background: '#0d0d11', border: '1px solid rgba(255,255,255,0.1)', borderRadius: 10, padding: '10px 13px', fontSize: 13.5, color: '#e8e4dc', outline: 'none', resize: 'vertical', fontFamily: 'inherit', lineHeight: 1.6 }}
+                        style={{ width: '100%', boxSizing: 'border-box', background: 'var(--ax-input)', border: '1px solid var(--ax-border)', borderRadius: 10, padding: '10px 13px', fontSize: 13.5, color: 'var(--ax-text)', outline: 'none', resize: 'vertical', fontFamily: 'inherit', lineHeight: 1.6 }}
                       />
                     </div>
 
@@ -1059,17 +1144,19 @@ export default function HomePage() {
                       type="submit"
                       disabled={demoState === 'sending'}
                       style={{
-                        background: demoState === 'sending' ? 'rgba(196,163,90,0.5)' : '#c4a35a',
-                        color: '#0d0d11', border: 'none', borderRadius: 12,
+                        background: 'var(--ax-accent)',
+                        color: 'var(--ax-btn-text)',
+                        border: 'none', borderRadius: 12,
                         padding: '14px 28px', fontSize: 14, fontWeight: 700,
                         cursor: demoState === 'sending' ? 'not-allowed' : 'pointer',
+                        opacity: demoState === 'sending' ? 0.5 : 1,
                         transition: 'opacity 0.2s', marginTop: 4,
                       }}
                     >
                       {demoState === 'sending' ? 'Submitting…' : 'Request Demo →'}
                     </button>
 
-                    <p style={{ fontSize: 11.5, color: 'rgba(232,228,220,0.25)', margin: 0, textAlign: 'center' }}>
+                    <p style={{ fontSize: 11.5, color: 'rgba(var(--ax-text-rgb),0.25)', margin: 0, textAlign: 'center' }}>
                       No spam. We&apos;ll only contact you about your demo request.
                     </p>
                   </form>

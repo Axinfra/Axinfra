@@ -16,13 +16,13 @@ interface Project {
 
 const STATUS_STYLE: Record<string, { bg: string; fg: string }> = {
   ONGOING:   { bg: 'rgba(92,186,128,0.15)',  fg: '#5cba80' },
-  COMPLETED: { bg: 'rgba(196,163,90,0.15)',  fg: '#c4a35a' },
+  COMPLETED: { bg: 'rgba(var(--ax-accent-rgb),0.15)',  fg: 'var(--ax-accent)' },
   PAUSED:    { bg: 'rgba(251,146,60,0.15)',  fg: '#fb923c' },
   CANCELLED: { bg: 'rgba(224,96,80,0.15)',   fg: '#e06050' },
 };
 const ROLE_COLOR: Record<string, string> = {
-  CLIENT: '#c4a35a', PMC: '#60a5fa', VENDOR: '#5cba80',
-  CONSULTANT: '#a78bfa', VIEWER: 'rgba(232,228,220,0.4)',
+  CLIENT: 'var(--ax-accent)', PMC: '#60a5fa', VENDOR: '#5cba80',
+  CONSULTANT: '#a78bfa', VIEWER: 'rgba(var(--ax-text-rgb),0.4)',
 };
 
 // Platform admin is never shown as a client "owner" group header
@@ -122,9 +122,9 @@ export default function AdminProjectsPage() {
       {/* Stats */}
       <div className="grid grid-cols-3 sm:grid-cols-5 gap-2.5 mb-5">
         {[
-          { label: 'Total', value: projects.length, color: '#e8e4dc' },
+          { label: 'Total', value: projects.length, color: 'var(--ax-text)' },
           { label: 'Active', value: statusCounts['ONGOING'] ?? 0, color: '#5cba80' },
-          { label: 'Completed', value: statusCounts['COMPLETED'] ?? 0, color: '#c4a35a' },
+          { label: 'Completed', value: statusCounts['COMPLETED'] ?? 0, color: 'var(--ax-accent)' },
           { label: 'Paused', value: statusCounts['PAUSED'] ?? 0, color: '#fb923c' },
           { label: 'Clients', value: clientCount, color: '#60a5fa' },
         ].map(({ label, value, color }) => (
@@ -151,9 +151,9 @@ export default function AdminProjectsPage() {
               <button key={s} onClick={() => setStatusFilter(s)}
                 className="shrink-0 px-3.5 py-1.5 rounded-full text-[12px] font-semibold cursor-pointer transition-all whitespace-nowrap"
                 style={{
-                  background: active ? (sst?.bg ?? 'rgba(196,163,90,0.15)') : 'rgba(255,255,255,0.05)',
-                  color: active ? (sst?.fg ?? '#c4a35a') : 'rgba(232,228,220,0.5)',
-                  border: active ? `1px solid ${sst?.fg ?? '#c4a35a'}44` : '1px solid rgba(255,255,255,0.08)',
+                  background: active ? (sst?.bg ?? 'rgba(var(--ax-accent-rgb),0.15)') : 'rgba(255,255,255,0.05)',
+                  color: active ? (sst?.fg ?? 'var(--ax-accent)') : 'rgba(var(--ax-text-rgb),0.5)',
+                  border: active ? `1px solid ${sst?.fg ?? 'var(--ax-accent)'}44` : '1px solid rgba(255,255,255,0.08)',
                 }}>
                 {s === 'ALL' ? `All (${projects.length})` : `${s.charAt(0)+s.slice(1).toLowerCase()} (${statusCounts[s] ?? 0})`}
               </button>
@@ -187,9 +187,9 @@ export default function AdminProjectsPage() {
                 <div className="flex items-center gap-3 mb-4">
                   <div className="w-9 h-9 rounded-full flex items-center justify-center shrink-0 text-[13px] font-bold"
                     style={{
-                      background: group.isSpecial ? 'rgba(255,255,255,0.06)' : 'rgba(196,163,90,0.15)',
-                      border: group.isSpecial ? '1px solid rgba(255,255,255,0.1)' : '1px solid rgba(196,163,90,0.25)',
-                      color: group.isSpecial ? 'rgba(232,228,220,0.5)' : '#c4a35a',
+                      background: group.isSpecial ? 'rgba(255,255,255,0.06)' : 'rgba(var(--ax-accent-rgb),0.15)',
+                      border: group.isSpecial ? '1px solid rgba(255,255,255,0.1)' : '1px solid rgba(var(--ax-accent-rgb),0.25)',
+                      color: group.isSpecial ? 'rgba(var(--ax-text-rgb),0.5)' : 'var(--ax-accent)',
                     }}>
                     {group.owner.name.charAt(0).toUpperCase()}
                   </div>
@@ -197,7 +197,7 @@ export default function AdminProjectsPage() {
                     <div className="flex items-center gap-2 flex-wrap">
                       <span className="text-[14px] sm:text-[15px] font-semibold text-[#e8e4dc]">{group.owner.name}</span>
                       {!group.isSpecial && (
-                        <span className="text-[10px] font-bold text-[#c4a35a] bg-[rgba(196,163,90,0.12)] border border-[rgba(196,163,90,0.2)] px-2 py-0.5 rounded-full uppercase tracking-wide">Owner</span>
+                        <span className="text-[10px] font-bold text-[var(--ax-accent)] bg-[rgba(var(--ax-accent-rgb),0.12)] border border-[rgba(var(--ax-accent-rgb),0.2)] px-2 py-0.5 rounded-full uppercase tracking-wide">Owner</span>
                       )}
                       <span className="text-[12px] text-[rgba(232,228,220,0.35)]">
                         · {group.projects.length} project{group.projects.length !== 1 ? 's' : ''}
@@ -213,19 +213,19 @@ export default function AdminProjectsPage() {
                 {/* Project cards — equal height grid */}
                 <div className="grid grid-cols-1 sm:grid-cols-2 xl:grid-cols-3 gap-4 sm:pl-12">
                   {group.projects.map(p => {
-                    const st = STATUS_STYLE[p.status] ?? { bg: 'rgba(255,255,255,0.08)', fg: '#e8e4dc' };
+                    const st = STATUS_STYLE[p.status] ?? { bg: 'rgba(255,255,255,0.08)', fg: 'var(--ax-text)' };
                     const pmc      = p.roles.find(r => r.role === 'PMC');
                     const vendors  = p.roles.filter(r => r.role === 'VENDOR');
                     const consults = p.roles.filter(r => r.role === 'CONSULTANT');
                     return (
                       <Link key={p.id} href={`/admin/projects/${p.id}`} style={{ textDecoration: 'none' }}>
                         {/* flex flex-col h-full makes all cards same height in the row */}
-                        <div className="flex flex-col h-full bg-[#16161c] border border-[rgba(255,255,255,0.07)] rounded-xl p-5 hover:border-[rgba(196,163,90,0.3)] hover:bg-[rgba(196,163,90,0.03)] transition-all cursor-pointer group">
+                        <div className="flex flex-col h-full bg-[#16161c] border border-[rgba(255,255,255,0.07)] rounded-xl p-5 hover:border-[rgba(var(--ax-accent-rgb),0.3)] hover:bg-[rgba(var(--ax-accent-rgb),0.03)] transition-all cursor-pointer group">
 
                           {/* Top — name + status */}
                           <div className="flex items-start justify-between gap-2 mb-3">
                             <div className="flex-1 min-w-0">
-                              <div className="text-[14px] font-semibold text-[#e8e4dc] group-hover:text-[#c4a35a] transition-colors leading-snug">{p.name}</div>
+                              <div className="text-[14px] font-semibold text-[#e8e4dc] group-hover:text-[var(--ax-accent)] transition-colors leading-snug">{p.name}</div>
                               {p.description && (
                                 <div className="text-[12px] text-[rgba(232,228,220,0.4)] mt-1 line-clamp-2 leading-snug">{p.description}</div>
                               )}
@@ -267,7 +267,7 @@ export default function AdminProjectsPage() {
                               <span>·</span>
                               <span>{p._count.milestones} milestone{p._count.milestones !== 1 ? 's' : ''}</span>
                             </div>
-                            <div className="flex items-center gap-1 text-[11.5px] font-medium text-[rgba(196,163,90,0.6)] group-hover:text-[#c4a35a] transition-colors">
+                            <div className="flex items-center gap-1 text-[11.5px] font-medium text-[rgba(var(--ax-accent-rgb),0.6)] group-hover:text-[var(--ax-accent)] transition-colors">
                               View
                               <svg className="w-3 h-3" fill="none" viewBox="0 0 24 24" strokeWidth={2.5} stroke="currentColor">
                                 <path strokeLinecap="round" strokeLinejoin="round" d="M13.5 4.5L21 12m0 0l-7.5 7.5M21 12H3" />
@@ -292,7 +292,7 @@ export default function AdminProjectsPage() {
                 className="flex items-center gap-1.5 px-4 py-2 rounded-lg text-[13px] font-medium transition-all disabled:opacity-30 disabled:cursor-not-allowed"
                 style={{
                   background: 'rgba(255,255,255,0.05)',
-                  color: 'rgba(232,228,220,0.7)',
+                  color: 'rgba(var(--ax-text-rgb),0.7)',
                   border: '1px solid rgba(255,255,255,0.08)',
                 }}>
                 <svg className="w-4 h-4" fill="none" viewBox="0 0 24 24" strokeWidth={2} stroke="currentColor">
@@ -307,9 +307,9 @@ export default function AdminProjectsPage() {
                   <button key={i} onClick={() => setPage(i)}
                     className="w-8 h-8 rounded-lg text-[12px] font-semibold transition-all"
                     style={{
-                      background: page === i ? 'rgba(196,163,90,0.2)' : 'rgba(255,255,255,0.04)',
-                      color: page === i ? '#c4a35a' : 'rgba(232,228,220,0.5)',
-                      border: page === i ? '1px solid rgba(196,163,90,0.4)' : '1px solid rgba(255,255,255,0.07)',
+                      background: page === i ? 'rgba(var(--ax-accent-rgb),0.2)' : 'rgba(255,255,255,0.04)',
+                      color: page === i ? 'var(--ax-accent)' : 'rgba(var(--ax-text-rgb),0.5)',
+                      border: page === i ? '1px solid rgba(var(--ax-accent-rgb),0.4)' : '1px solid rgba(255,255,255,0.07)',
                     }}>
                     {i + 1}
                   </button>
@@ -322,7 +322,7 @@ export default function AdminProjectsPage() {
                 className="flex items-center gap-1.5 px-4 py-2 rounded-lg text-[13px] font-medium transition-all disabled:opacity-30 disabled:cursor-not-allowed"
                 style={{
                   background: 'rgba(255,255,255,0.05)',
-                  color: 'rgba(232,228,220,0.7)',
+                  color: 'rgba(var(--ax-text-rgb),0.7)',
                   border: '1px solid rgba(255,255,255,0.08)',
                 }}>
                 Next

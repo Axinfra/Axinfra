@@ -35,11 +35,20 @@ const ACTUAL_H    = 10;
 const LABEL_W     = 272;
 const MS_INDENT   = 28;
 
-const PHASE_COLORS = ['#c4a35a','#60a5fa','#a78bfa','#34d399','#fb923c','#f472b6','#22d3ee','#84cc16'];
+const PHASE_COLORS = ['var(--ax-accent)','#60a5fa','#a78bfa','#34d399','#fb923c','#f472b6','#22d3ee','#84cc16'];
+
+/* Appends a 2-digit hex alpha to a color — handles CSS variable references too */
+function hexA(color: string, hexAlpha: string): string {
+  if (color === 'var(--ax-accent)') {
+    const a = (parseInt(hexAlpha, 16) / 255).toFixed(2);
+    return `rgba(var(--ax-accent-rgb),${a})`;
+  }
+  return `${color}${hexAlpha}`;
+}
 
 const STATE_COLORS: Record<string, string> = {
   VERIFIED: '#22c55e', CLOSED: '#22c55e',
-  SUBMITTED: '#f59e0b', IN_PROGRESS: '#3b82f6', DRAFT: 'rgba(232,228,220,0.3)',
+  SUBMITTED: '#f59e0b', IN_PROGRESS: '#3b82f6', DRAFT: 'rgba(var(--ax-text-rgb),0.3)',
 };
 const STATE_LABELS: Record<string, string> = {
   VERIFIED: 'Verified', CLOSED: 'Closed',
@@ -245,7 +254,7 @@ function GanttChart({ milestones, phases, mode, hasCycle, projectStartDate, view
           )}
           {focusPhase && (
             <button onClick={() => setFocusPhase(null)}
-              className="text-[11.5px] px-2.5 py-1 rounded-md bg-[rgba(196,163,90,0.12)] text-[#c4a35a] border border-[rgba(196,163,90,0.25)]">
+              className="text-[11.5px] px-2.5 py-1 rounded-md bg-[rgba(var(--ax-accent-rgb),0.12)] text-[var(--ax-accent)] border border-[rgba(var(--ax-accent-rgb),0.25)]">
               ✕ Clear Focus
             </button>
           )}
@@ -265,13 +274,13 @@ function GanttChart({ milestones, phases, mode, hasCycle, projectStartDate, view
 
       {/* ── Date editor bar ──────────────────────────────────────────────── */}
       {editing && (
-        <div className="flex flex-wrap items-center gap-3 px-4 py-2.5 bg-[rgba(196,163,90,0.08)] border-b border-[rgba(196,163,90,0.2)] shrink-0">
-          <span className="text-[12.5px] text-[#c4a35a] font-semibold">
+        <div className="flex flex-wrap items-center gap-3 px-4 py-2.5 bg-[rgba(var(--ax-accent-rgb),0.08)] border-b border-[rgba(var(--ax-accent-rgb),0.2)] shrink-0">
+          <span className="text-[12.5px] text-[var(--ax-accent)] font-semibold">
             Editing {editing.field === 'plannedStart' ? 'Start Date' : 'End Date'}
           </span>
           <input type="date" value={editVal} onChange={e => setEditVal(e.target.value)} autoFocus
-            className="text-[13px] border border-[rgba(196,163,90,0.3)] rounded-lg px-3 py-1.5 bg-[#1a1c22] text-[#e8e4dc] outline-none focus:border-[#c4a35a]" />
-          <button onClick={commitEdit} className="text-[12.5px] px-4 py-1.5 bg-[#c4a35a] text-[#0a0c10] rounded-lg font-bold">Save</button>
+            className="text-[13px] border border-[rgba(var(--ax-accent-rgb),0.3)] rounded-lg px-3 py-1.5 bg-[#1a1c22] text-[#e8e4dc] outline-none focus:border-[var(--ax-accent)]" />
+          <button onClick={commitEdit} className="text-[12.5px] px-4 py-1.5 bg-[var(--ax-accent)] text-[#0a0c10] rounded-lg font-bold">Save</button>
           <button onClick={() => setEditing(null)} className="text-[12.5px] px-3 py-1.5 text-[rgba(232,228,220,0.55)] hover:text-[#e8e4dc]">Cancel</button>
         </div>
       )}
@@ -299,7 +308,7 @@ function GanttChart({ milestones, phases, mode, hasCycle, projectStartDate, view
               const pct = row.totalCount > 0 ? Math.round((row.doneCount / row.totalCount) * 100) : 0;
               return (
                 <div key={row.phaseId}
-                  style={{ height: PHASE_ROW_H, borderLeft: `3px solid ${row.color}`, background: `${row.color}0d` }}
+                  style={{ height: PHASE_ROW_H, borderLeft: `3px solid ${row.color}`, background: hexA(row.color,'0d') }}
                   className="flex items-center gap-2 px-3 border-b border-[rgba(255,255,255,0.07)] cursor-pointer select-none group shrink-0"
                   onClick={() => toggle(row.phaseId)}>
                   <span style={{ color: row.color }} className="text-[11px] font-bold w-3 shrink-0">
@@ -309,7 +318,7 @@ function GanttChart({ milestones, phases, mode, hasCycle, projectStartDate, view
                     <div className="flex items-center gap-1.5 mb-1">
                       <span className="text-[12.5px] font-bold text-[#e8e4dc] truncate leading-tight">{row.phaseName}</span>
                       <span className="shrink-0 text-[9px] font-bold px-1.5 py-0.5 rounded"
-                        style={{ background: `${row.color}28`, color: row.color }}>
+                        style={{ background: hexA(row.color,'28'), color: row.color }}>
                         {row.doneCount}/{row.totalCount}
                       </span>
                     </div>
@@ -321,7 +330,7 @@ function GanttChart({ milestones, phases, mode, hasCycle, projectStartDate, view
                     <span className="text-[10px] font-semibold" style={{ color: row.color }}>{pct}%</span>
                     <button
                       onClick={e => { e.stopPropagation(); setFocusPhase(focusPhase === row.phaseId ? null : row.phaseId); }}
-                      className="text-[9px] px-1.5 py-0.5 rounded text-[rgba(232,228,220,0.3)] hover:text-[#c4a35a] opacity-0 group-hover:opacity-100 transition-all">
+                      className="text-[9px] px-1.5 py-0.5 rounded text-[rgba(232,228,220,0.3)] hover:text-[var(--ax-accent)] opacity-0 group-hover:opacity-100 transition-all">
                       Focus
                     </button>
                   </div>
@@ -337,7 +346,7 @@ function GanttChart({ milestones, phases, mode, hasCycle, projectStartDate, view
 
             return (
               <div key={m.id}
-                style={{ height: MS_ROW_H, paddingLeft: MS_INDENT, background: isHov ? 'rgba(255,255,255,0.04)' : 'rgba(0,0,0,0.1)' }}
+                style={{ height: MS_ROW_H, paddingLeft: MS_INDENT, background: isHov ? 'var(--ax-chart-row-hover)' : 'var(--ax-chart-row-alt)' }}
                 className="flex items-center gap-2 pr-3 border-b border-[rgba(255,255,255,0.05)] shrink-0 transition-colors cursor-default"
                 onMouseEnter={() => setHovered(m.id)}
                 onMouseLeave={() => setHovered(null)}>
@@ -352,7 +361,7 @@ function GanttChart({ milestones, phases, mode, hasCycle, projectStartDate, view
                   </p>
                   <div className="flex items-center gap-1.5 mt-0.5 flex-wrap">
                     <span className="text-[9.5px] font-semibold px-1.5 py-0.5 rounded leading-none"
-                      style={{ background: `${stateC}22`, color: stateC }}>
+                      style={{ background: hexA(stateC,'22'), color: stateC }}>
                       {STATE_LABELS[m.state] ?? m.state}
                     </span>
                     {m.vendorName && (
@@ -386,13 +395,13 @@ function GanttChart({ milestones, phases, mode, hasCycle, projectStartDate, view
             <svg width={chartWidth} height={HEADER_H} style={{ display: 'block' }}>
               {/* Week grid in header */}
               {weekTicks.map((x, i) => (
-                <line key={i} x1={x} y1={0} x2={x} y2={HEADER_H} stroke="rgba(255,255,255,0.04)" />
+                <line key={i} x1={x} y1={0} x2={x} y2={HEADER_H} stroke="var(--ax-chart-line-faint)" />
               ))}
               {/* Month labels */}
               {monthTicks.map((t, i) => (
                 <g key={i}>
-                  <line x1={t.x} y1={0} x2={t.x} y2={HEADER_H} stroke="rgba(255,255,255,0.1)" />
-                  <text x={t.x + 7} y={HEADER_H - 10} fontSize={11.5} fontWeight="600" fill="rgba(232,228,220,0.6)">
+                  <line x1={t.x} y1={0} x2={t.x} y2={HEADER_H} stroke="var(--ax-chart-line-strong)" />
+                  <text x={t.x + 7} y={HEADER_H - 10} fontSize={11.5} fontWeight="600" fill="var(--ax-chart-text)">
                     {t.label}
                   </text>
                 </g>
@@ -422,11 +431,11 @@ function GanttChart({ milestones, phases, mode, hasCycle, projectStartDate, view
             >
               {/* Week grid */}
               {weekTicks.map((x, i) => (
-                <line key={i} x1={x} y1={0} x2={x} y2={bodyH} stroke="rgba(255,255,255,0.03)" />
+                <line key={i} x1={x} y1={0} x2={x} y2={bodyH} stroke="var(--ax-chart-line-faint)" />
               ))}
               {/* Month grid */}
               {monthTicks.map((t, i) => (
-                <line key={i} x1={t.x} y1={0} x2={t.x} y2={bodyH} stroke="rgba(255,255,255,0.07)" />
+                <line key={i} x1={t.x} y1={0} x2={t.x} y2={bodyH} stroke="var(--ax-chart-line)" />
               ))}
               {/* Today line */}
               {todayX >= 0 && todayX <= chartWidth && (
@@ -437,7 +446,7 @@ function GanttChart({ milestones, phases, mode, hasCycle, projectStartDate, view
               {/* Arrow marker defs */}
               <defs>
                 <marker id="arr-std" viewBox="0 0 10 10" refX={8} refY={5} markerWidth={5} markerHeight={5} orient="auto">
-                  <path d="M 0 0 L 10 5 L 0 10 z" fill="rgba(232,228,220,0.3)" />
+                  <path d="M 0 0 L 10 5 L 0 10 z" fill="var(--ax-chart-text-faint)" />
                 </marker>
                 <marker id="arr-crit" viewBox="0 0 10 10" refX={8} refY={5} markerWidth={5} markerHeight={5} orient="auto">
                   <path d="M 0 0 L 10 5 L 0 10 z" fill="rgba(239,68,68,0.6)" />
@@ -459,16 +468,16 @@ function GanttChart({ milestones, phases, mode, hasCycle, projectStartDate, view
                   const pct = totalCount > 0 ? doneCount / totalCount : 0;
                   return (
                     <g key={row.phaseId}>
-                      <rect x={0} y={y} width={chartWidth} height={h} fill={`${color}07`} />
-                      <line x1={0} y1={y + h} x2={chartWidth} y2={y + h} stroke="rgba(255,255,255,0.07)" />
+                      <rect x={0} y={y} width={chartWidth} height={h} fill={hexA(color,'07')} />
+                      <line x1={0} y1={y + h} x2={chartWidth} y2={y + h} stroke="var(--ax-chart-line)" />
                       {phaseX !== null && phaseW !== null && (
                         <>
                           <rect x={phaseX} y={barMidY - barH2 / 2} width={phaseW} height={barH2}
-                            rx={6} fill={`${color}18`} stroke={color} strokeWidth={1.5} />
+                            rx={6} fill={hexA(color,'18')} stroke={color} strokeWidth={1.5} />
                           {pct > 0 && (
                             <rect x={phaseX} y={barMidY - barH2 / 2}
                               width={Math.max(phaseW * pct, barH2 / 2)} height={barH2}
-                              rx={6} fill={`${color}45`} />
+                              rx={6} fill={hexA(color,'45')} />
                           )}
                           {phaseW > 80 && (
                             <text x={phaseX + 10} y={barMidY + 5} fontSize={11.5} fontWeight="bold" fill={color} style={{ pointerEvents: 'none' }}>
@@ -476,13 +485,13 @@ function GanttChart({ milestones, phases, mode, hasCycle, projectStartDate, view
                             </text>
                           )}
                           {ps && (
-                            <text x={phaseX + 2} y={barMidY - barH2 / 2 - 4} fontSize={9} fill={`${color}bb`}>
+                            <text x={phaseX + 2} y={barMidY - barH2 / 2 - 4} fontSize={9} fill={hexA(color,'bb')}>
                               {format(ps, 'MMM d')}
                             </text>
                           )}
                           {pe && (
                             <text x={phaseX + phaseW - 2} y={barMidY - barH2 / 2 - 4} fontSize={9}
-                              fill={`${color}bb`} textAnchor="end">
+                              fill={hexA(color,'bb')} textAnchor="end">
                               {format(pe, 'MMM d')}
                             </text>
                           )}
@@ -537,7 +546,7 @@ function GanttChart({ milestones, phases, mode, hasCycle, projectStartDate, view
                             <p className="font-bold text-[13px] text-[#e8e4dc]">{m.title}</p>
                             <div className="flex gap-2 text-[11px]">
                               <span className="px-1.5 py-0.5 rounded font-semibold"
-                                style={{ background: `${color}25`, color }}>{STATE_LABELS[m.state] ?? m.state}</span>
+                                style={{ background: hexA(color,'25'), color }}>{STATE_LABELS[m.state] ?? m.state}</span>
                               {m.vendorName && <span className="text-[rgba(232,228,220,0.55)]">{m.vendorName}</span>}
                             </div>
                             {(ps || pe) && (
@@ -577,13 +586,13 @@ function GanttChart({ milestones, phases, mode, hasCycle, projectStartDate, view
                   >
                     {/* Row bg */}
                     <rect x={0} y={y} width={chartWidth} height={h}
-                      fill={isHov ? 'rgba(255,255,255,0.04)' : (idx % 2 === 0 ? 'transparent' : 'rgba(255,255,255,0.01)')} />
-                    <line x1={0} y1={y + h} x2={chartWidth} y2={y + h} stroke="rgba(255,255,255,0.045)" />
+                      fill={isHov ? 'var(--ax-chart-row-hover)' : (idx % 2 === 0 ? 'transparent' : 'var(--ax-chart-row-alt)')} />
+                    <line x1={0} y1={y + h} x2={chartWidth} y2={y + h} stroke="var(--ax-chart-line-row)" />
 
                     {/* Baseline bar (L4) */}
                     {mode === 'L4' && bs && be && (
                       <rect x={xFrom(bs)} y={planY} width={Math.max(4, xFrom(be) - xFrom(bs))} height={BAR_H}
-                        rx={3} fill="rgba(232,228,220,0.08)" stroke="rgba(232,228,220,0.2)" strokeWidth={1} strokeDasharray="3 2" />
+                        rx={3} fill="var(--ax-chart-baseline-fill)" stroke="var(--ax-chart-baseline-stroke)" strokeWidth={1} strokeDasharray="3 2" />
                     )}
 
                     {/* Planned bar */}
@@ -637,7 +646,7 @@ function GanttChart({ milestones, phases, mode, hasCycle, projectStartDate, view
                       return (
                         <path key={`${dep.predecessorId}-${m.id}`}
                           d={`M ${x1} ${predMidY} C ${x1 + 28} ${predMidY} ${x2 - 28} ${curMidY} ${x2} ${curMidY}`}
-                          stroke={isCritArr ? 'rgba(239,68,68,0.55)' : 'rgba(232,228,220,0.18)'}
+                          stroke={isCritArr ? 'rgba(239,68,68,0.55)' : 'var(--ax-chart-text-faint)'}
                           strokeWidth={isCritArr ? 1.5 : 1} fill="none" strokeDasharray="4 3"
                           markerEnd={isCritArr ? 'url(#arr-crit)' : 'url(#arr-std)'} />
                       );
@@ -650,8 +659,13 @@ function GanttChart({ milestones, phases, mode, hasCycle, projectStartDate, view
             {/* Tooltip */}
             {tip && hovered && (
               <div
-                className="absolute pointer-events-none z-50 bg-[#1a1c24] border border-[rgba(255,255,255,0.12)] rounded-xl shadow-2xl p-3"
-                style={{ left: tip.x + 18, top: tip.y - 10, minWidth: 220, maxWidth: 300 }}>
+                className="absolute pointer-events-none z-50 rounded-xl shadow-2xl p-3"
+                style={{
+                  left: tip.x + 18, top: tip.y - 10, minWidth: 220, maxWidth: 300,
+                  backgroundColor: 'var(--ax-modal)',
+                  border: '1px solid var(--ax-border)',
+                  boxShadow: '0 8px 32px rgba(0,0,0,0.25)',
+                }}>
                 {tip.content}
               </div>
             )}
@@ -660,7 +674,7 @@ function GanttChart({ milestones, phases, mode, hasCycle, projectStartDate, view
       </div>
 
       {/* ── Legend ───────────────────────────────────────────────────────── */}
-      <div className="flex items-center flex-wrap gap-4 px-4 py-2.5 border-t border-[rgba(255,255,255,0.07)] bg-[rgba(255,255,255,0.02)] shrink-0">
+      <div className="flex items-center flex-wrap gap-4 px-4 py-2.5 border-t shrink-0" style={{ borderColor: 'var(--ax-border)', backgroundColor: 'var(--ax-overlay)' }}>
         {[
           { color: STATE_COLORS['DRAFT'],       label: 'Draft' },
           { color: STATE_COLORS['IN_PROGRESS'], label: 'In Progress' },

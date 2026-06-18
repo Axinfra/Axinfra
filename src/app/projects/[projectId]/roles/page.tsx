@@ -165,7 +165,7 @@ export default function RolesPage() {
                     <td className="font-medium">
                       {entry.isPendingInvite ? (
                         <span className="flex items-center gap-2 text-[rgba(232,228,220,0.45)]">
-                          <Clock className="w-3.5 h-3.5 text-[#c4a35a] shrink-0" />
+                          <Clock className="w-3.5 h-3.5 text-[var(--ax-accent)] shrink-0" />
                           Pending Invite
                         </span>
                       ) : (
@@ -185,9 +185,9 @@ export default function RolesPage() {
                           <span
                             className="inline-flex items-center gap-1 px-2 py-0.5 rounded-full text-[10px] font-semibold"
                             style={{
-                              background: 'rgba(196,163,90,0.1)',
-                              color: '#c4a35a',
-                              border: '1px solid rgba(196,163,90,0.25)',
+                              background: 'rgba(var(--ax-accent-rgb),0.1)',
+                              color: 'var(--ax-accent)',
+                              border: '1px solid rgba(var(--ax-accent-rgb),0.25)',
                             }}
                           >
                             <Clock className="w-2.5 h-2.5" />

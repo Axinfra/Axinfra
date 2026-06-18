@@ -27,8 +27,8 @@ const ROLE_STYLE: Record<string, { bg: string; color: string; label: string }> =
   CLIENT: { bg: 'rgba(255,255,255,0.10)', color: '#ffffff', label: 'Client' },
   PMC: { bg: 'rgba(74,144,217,0.18)', color: '#4A90D9', label: 'PMC' },
   VENDOR: { bg: 'rgba(245,166,35,0.18)', color: '#F5A623', label: 'Vendor' },
-  VIEWER: { bg: 'rgba(232,228,220,0.10)', color: 'rgba(232,228,220,0.55)', label: 'Viewer' },
-  SYSTEM: { bg: 'rgba(232,228,220,0.06)', color: 'rgba(232,228,220,0.45)', label: 'System' },
+  VIEWER: { bg: 'rgba(232,228,220,0.10)', color: 'rgba(var(--ax-text-rgb),0.55)', label: 'Viewer' },
+  SYSTEM: { bg: 'rgba(232,228,220,0.06)', color: 'rgba(var(--ax-text-rgb),0.45)', label: 'System' },
 };
 
 function relativeTime(iso: string): string {
@@ -74,7 +74,7 @@ export default function ActivityFeed({ projectId }: { projectId: string }) {
     <div className="card">
       <div className="card-header flex items-center justify-between">
         <div className="flex items-center gap-2">
-          <Activity className="w-4 h-4 text-[#c4a35a]" />
+          <Activity className="w-4 h-4 text-[var(--ax-accent)]" />
           <h2 className="text-base font-semibold text-[#f5f1e8]">Recent Activity</h2>
         </div>
         <button
@@ -125,7 +125,7 @@ export default function ActivityFeed({ projectId }: { projectId: string }) {
           <div className="px-6 py-3 border-t border-[rgba(255,255,255,0.05)]">
             <button
               onClick={() => setPages((p) => p + 1)}
-              className="text-sm text-[#c4a35a] hover:text-[#d4b46a] transition-colors flex items-center gap-1.5"
+              className="text-sm text-[var(--ax-accent)] hover:text-[#d4b46a] transition-colors flex items-center gap-1.5"
             >
               Load more
             </button>

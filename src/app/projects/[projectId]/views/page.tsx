@@ -227,7 +227,7 @@ export default function CustomViewsPage() {
         {error && <div className="alert alert-error">{error}</div>}
 
         {/* View Tabs */}
-        <div className="border-b border-[rgba(255,255,255,0.07)]">
+        <div className="border-b" style={{ borderColor: 'var(--ax-border)' }}>
           <div className="flex flex-wrap gap-2 pb-3">
             {/* Saved Views */}
             {views.map(view => (
@@ -235,7 +235,7 @@ export default function CustomViewsPage() {
                 key={view.id}
                 className={`flex items-center rounded-lg border ${
                   selectedViewId === view.id
-                    ? 'bg-[rgba(196,163,90,0.08)] border-[#c4a35a]'
+                    ? 'bg-[rgba(var(--ax-accent-rgb),0.08)] border-[var(--ax-accent)]'
                     : 'bg-[rgba(255,255,255,0.03)] border-[rgba(255,255,255,0.07)] hover:border-[rgba(255,255,255,0.1)]'
                 }`}
               >
@@ -276,7 +276,7 @@ export default function CustomViewsPage() {
         {/* View Content */}
         {viewLoading ? (
           <div className="text-center py-12">
-            <div className="animate-spin rounded-full h-8 w-8 border-b-2 border-primary-600 mx-auto"></div>
+            <div className="animate-spin rounded-full h-8 w-8 border-b-2 mx-auto" style={{ borderColor: 'var(--ax-accent)' }}></div>
             <p className="mt-2 text-[rgba(232,228,220,0.55)]">Loading view...</p>
           </div>
         ) : groups.length === 0 && views.length === 0 ? (

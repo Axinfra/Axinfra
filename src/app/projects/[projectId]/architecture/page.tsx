@@ -62,7 +62,7 @@ type ManualDrawingDraft = {
 
 const SET_STATUS_CONFIG: Record<string, { label: string; color: string; bg: string }> = {
   DRAFT:            { label: 'Draft',       color: 'text-[rgba(232,228,220,0.55)]', bg: 'bg-[rgba(255,255,255,0.06)]' },
-  SUBMITTED_TO_PMC: { label: 'Submitted',   color: 'text-[#c4a35a]',               bg: 'bg-[rgba(196,163,90,0.12)]' },
+  SUBMITTED_TO_PMC: { label: 'Submitted',   color: 'text-[var(--ax-accent)]',               bg: 'bg-[rgba(var(--ax-accent-rgb),0.12)]' },
   REQUESTED:        { label: 'Requested',   color: 'text-[#818cf8]',               bg: 'bg-[rgba(129,140,248,0.12)]' },
   IN_PROGRESS:      { label: 'In Progress', color: 'text-[#38bdf8]',               bg: 'bg-[rgba(56,189,248,0.12)]' },
   DELIVERED:        { label: 'Delivered',   color: 'text-[#fb923c]',               bg: 'bg-[rgba(251,146,60,0.12)]' },
@@ -72,7 +72,7 @@ const SET_STATUS_CONFIG: Record<string, { label: string; color: string; bg: stri
 
 const ROW_STATUS_CONFIG: Record<string, { label: string; dot: string }> = {
   PENDING:   { label: 'Pending',   dot: 'bg-[rgba(255,255,255,0.25)]' },
-  SUBMITTED: { label: 'Submitted', dot: 'bg-[#c4a35a]' },
+  SUBMITTED: { label: 'Submitted', dot: 'bg-[var(--ax-accent)]' },
   APPROVED:  { label: 'Approved',  dot: 'bg-[#6ee7b7]' },
   REJECTED:  { label: 'Rejected',  dot: 'bg-[#e06050]' },
 };
@@ -106,7 +106,7 @@ function StatusBadge({ status, type = 'set' }: { status: string; type?: 'set' | 
       </span>
     );
   }
-  const colors: Record<string, string> = { PENDING: 'text-[#c4a35a]', APPROVED: 'text-[#6ee7b7]', REJECTED: 'text-[#e06050]' };
+  const colors: Record<string, string> = { PENDING: 'text-[var(--ax-accent)]', APPROVED: 'text-[#6ee7b7]', REJECTED: 'text-[#e06050]' };
   return <span className={`text-xs font-medium ${colors[status] ?? 'text-[rgba(232,228,220,0.55)]'}`}>{status}</span>;
 }
 
@@ -120,7 +120,7 @@ function Checkbox({ checked, indeterminate, onChange, size = 'md' }: {
       onClick={(e) => { e.stopPropagation(); onChange(); }}
       className={`${s} rounded border flex items-center justify-center shrink-0 transition-all ${
         checked || indeterminate
-          ? 'bg-[#c4a35a] border-[#c4a35a]'
+          ? 'bg-[var(--ax-accent)] border-[var(--ax-accent)]'
           : 'border-[rgba(255,255,255,0.2)] hover:border-[rgba(255,255,255,0.4)] bg-transparent'
       }`}>
       {checked && <Check className="w-2.5 h-2.5 text-[#0e1016] stroke-[3]" />}
@@ -626,7 +626,7 @@ export default function ArchitecturePage() {
     <div className="space-y-6">
       <div className="grid grid-cols-2 md:grid-cols-4 gap-4">
         {[
-          { label: 'Total Drawings', value: statsData?.rows.total ?? 0, icon: <FileText className="w-5 h-5" />, color: 'text-[#c4a35a]' },
+          { label: 'Total Drawings', value: statsData?.rows.total ?? 0, icon: <FileText className="w-5 h-5" />, color: 'text-[var(--ax-accent)]' },
           { label: 'Pending Upload',  value: statsData?.rows.pending ?? 0,    icon: <Clock className="w-5 h-5" />,        color: 'text-[rgba(232,228,220,0.55)]' },
           { label: 'Approved',        value: statsData?.rows.approved ?? 0,   icon: <CheckCircle2 className="w-5 h-5" />, color: 'text-[#6ee7b7]' },
           { label: 'Pending Review',  value: statsData?.pendingReview ?? 0,   icon: <AlertCircle className="w-5 h-5" />,  color: 'text-[#fb923c]' },
@@ -670,7 +670,7 @@ export default function ArchitecturePage() {
       <div
         key={set.id}
         onClick={() => { if (canOpenSetRows) openRequestedSetDrawings(set.id); }}
-        className={`card transition-all ${isJustCreated ? 'ring-2 ring-[rgba(196,163,90,0.5)] shadow-[0_0_24px_rgba(196,163,90,0.12)]' : ''} ${isRequested && myRole === 'CONSULTANT' ? 'ring-1 ring-[rgba(129,140,248,0.35)]' : ''} ${canOpenSetRows ? 'cursor-pointer hover:border-[rgba(196,163,90,0.25)]' : ''}`}
+        className={`card transition-all ${isJustCreated ? 'ring-2 ring-[rgba(var(--ax-accent-rgb),0.5)] shadow-[0_0_24px_rgba(var(--ax-accent-rgb),0.12)]' : ''} ${isRequested && myRole === 'CONSULTANT' ? 'ring-1 ring-[rgba(129,140,248,0.35)]' : ''} ${canOpenSetRows ? 'cursor-pointer hover:border-[rgba(var(--ax-accent-rgb),0.25)]' : ''}`}
       >
         <div className="card-body space-y-3">
           {isRequested && myRole === 'CONSULTANT' && (
@@ -688,13 +688,13 @@ export default function ArchitecturePage() {
                 <h3 className="font-semibold text-[#e8e4dc]">{set.name}</h3>
                 <StatusBadge status={set.status} type="set" />
                 {isJustCreated && (
-                  <span className="text-[10px] font-semibold px-2 py-0.5 rounded-full bg-[rgba(196,163,90,0.15)] text-[#c4a35a] border border-[rgba(196,163,90,0.3)] animate-pulse">New</span>
+                  <span className="text-[10px] font-semibold px-2 py-0.5 rounded-full bg-[rgba(var(--ax-accent-rgb),0.15)] text-[var(--ax-accent)] border border-[rgba(var(--ax-accent-rgb),0.3)] animate-pulse">New</span>
                 )}
               </div>
               {set.description && <p className="text-xs text-[rgba(232,228,220,0.45)] mt-0.5">{set.description}</p>}
             </div>
             <div className="text-right shrink-0">
-              <div className="text-base font-bold text-[#c4a35a]">{formatCurrency(set.cost)}</div>
+              <div className="text-base font-bold text-[var(--ax-accent)]">{formatCurrency(set.cost)}</div>
               <div className="text-xs text-[rgba(232,228,220,0.35)]">{set.currency}</div>
             </div>
           </div>
@@ -709,7 +709,7 @@ export default function ArchitecturePage() {
               </div>
               <div className="flex gap-3 mt-1.5 flex-wrap">
                 {set.rowStats.pending   > 0 && <span className="text-xs text-[rgba(232,228,220,0.45)]">{set.rowStats.pending} pending</span>}
-                {set.rowStats.submitted > 0 && <span className="text-xs text-[#c4a35a]">{set.rowStats.submitted} to review</span>}
+                {set.rowStats.submitted > 0 && <span className="text-xs text-[var(--ax-accent)]">{set.rowStats.submitted} to review</span>}
                 {set.rowStats.rejected  > 0 && <span className="text-xs text-[#e06050]">{set.rowStats.rejected} rejected</span>}
               </div>
             </div>
@@ -770,7 +770,7 @@ export default function ArchitecturePage() {
             <button key={cat} onClick={() => setFilterCategory(filterCategory === cat ? '' : cat)}
               className={`text-xs px-2.5 py-1 rounded-full border transition-all ${
                 filterCategory === cat
-                  ? 'bg-[rgba(196,163,90,0.15)] border-[rgba(196,163,90,0.4)] text-[#c4a35a]'
+                  ? 'bg-[rgba(var(--ax-accent-rgb),0.15)] border-[rgba(var(--ax-accent-rgb),0.4)] text-[var(--ax-accent)]'
                   : 'border-[rgba(255,255,255,0.08)] text-[rgba(232,228,220,0.45)] hover:border-[rgba(255,255,255,0.15)] hover:text-[rgba(232,228,220,0.7)]'
               }`}>
               {cat}
@@ -824,7 +824,7 @@ export default function ArchitecturePage() {
           {/* Template download */}
           {['PMC', 'CONSULTANT'].includes(myRole) && (
             <a href={`/api/projects/${projectId}/architecture/rows/template`} download
-              className="flex items-center gap-1.5 text-xs text-[rgba(232,228,220,0.4)] hover:text-[#c4a35a] transition-colors">
+              className="flex items-center gap-1.5 text-xs text-[rgba(232,228,220,0.4)] hover:text-[var(--ax-accent)] transition-colors">
               <Download className="w-3 h-3" />Template
             </a>
           )}
@@ -847,7 +847,7 @@ export default function ArchitecturePage() {
         onClick={() => canBulkAssign && toggleRow(row.id)}
         className={`border-b border-[rgba(255,255,255,0.04)] last:border-0 transition-colors ${
           isSelected
-            ? 'bg-[rgba(196,163,90,0.06)]'
+            ? 'bg-[rgba(var(--ax-accent-rgb),0.06)]'
             : setRequested && myRole === 'CONSULTANT' && row.status === 'PENDING'
               ? 'bg-[rgba(129,140,248,0.02)] hover:bg-[rgba(129,140,248,0.04)]'
               : 'hover:bg-[rgba(255,255,255,0.015)]'
@@ -885,11 +885,11 @@ export default function ArchitecturePage() {
               <StatusBadge status={currentVersion.reviewStatus} type="version" />
               <span className="text-xs text-[rgba(232,228,220,0.35)]">v{currentVersion.versionNumber}</span>
               {currentVersion.uploadType === 'URL'
-                ? <a href={currentVersion.fileUrl} target="_blank" rel="noopener noreferrer" onClick={(e) => e.stopPropagation()} className="text-xs text-[#c4a35a] hover:underline flex items-center gap-1"><LinkIcon className="w-3 h-3" />View</a>
+                ? <a href={currentVersion.fileUrl} target="_blank" rel="noopener noreferrer" onClick={(e) => e.stopPropagation()} className="text-xs text-[var(--ax-accent)] hover:underline flex items-center gap-1"><LinkIcon className="w-3 h-3" />View</a>
                 : (
                   <>
-                    <a href={drawingFileHref(currentVersion.id)} target="_blank" rel="noopener noreferrer" onClick={(e) => e.stopPropagation()} className="text-xs text-[#c4a35a] hover:underline flex items-center gap-1"><Eye className="w-3 h-3" />View</a>
-                    <a href={drawingFileHref(currentVersion.id, true)} onClick={(e) => e.stopPropagation()} className="text-xs text-[rgba(232,228,220,0.45)] hover:text-[#c4a35a] flex items-center gap-1"><Download className="w-3 h-3" />Download</a>
+                    <a href={drawingFileHref(currentVersion.id)} target="_blank" rel="noopener noreferrer" onClick={(e) => e.stopPropagation()} className="text-xs text-[var(--ax-accent)] hover:underline flex items-center gap-1"><Eye className="w-3 h-3" />View</a>
+                    <a href={drawingFileHref(currentVersion.id, true)} onClick={(e) => e.stopPropagation()} className="text-xs text-[rgba(232,228,220,0.45)] hover:text-[var(--ax-accent)] flex items-center gap-1"><Download className="w-3 h-3" />Download</a>
                   </>
                 )}
             </div>
@@ -900,7 +900,7 @@ export default function ArchitecturePage() {
             <div className="flex items-center justify-end gap-2">
               {canUpload && (
                 <button onClick={() => openUploadModal(row)}
-                  className={`text-xs flex items-center gap-1 transition-colors ${setRequested && row.status === 'PENDING' ? 'text-[#818cf8] hover:text-[#a5b4fc] font-medium' : 'text-[rgba(232,228,220,0.45)] hover:text-[#c4a35a]'}`}>
+                  className={`text-xs flex items-center gap-1 transition-colors ${setRequested && row.status === 'PENDING' ? 'text-[#818cf8] hover:text-[#a5b4fc] font-medium' : 'text-[rgba(232,228,220,0.45)] hover:text-[var(--ax-accent)]'}`}>
                   <Upload className="w-3 h-3" />{currentVersion ? 'Rev' : 'Upload'}
                 </button>
               )}
@@ -929,7 +929,7 @@ export default function ArchitecturePage() {
 
   const tableHead = (isVendor: boolean) => (
     <thead>
-      <tr className="border-b border-[rgba(255,255,255,0.07)]">
+      <tr className="border-b">
         {canBulkAssign && (
           <th className="px-3 py-3 w-8">
             <Checkbox
@@ -1038,7 +1038,7 @@ export default function ArchitecturePage() {
                                 onClick={(e) => { e.stopPropagation(); toggleCategory(cat, catRows); }}
                                 className={`ml-2 text-xs px-2 py-0.5 rounded transition-all ${
                                   allCatSelected
-                                    ? 'text-[#c4a35a] bg-[rgba(196,163,90,0.1)]'
+                                    ? 'text-[var(--ax-accent)] bg-[rgba(var(--ax-accent-rgb),0.1)]'
                                     : 'text-[rgba(232,228,220,0.3)] hover:text-[rgba(232,228,220,0.6)] hover:bg-[rgba(255,255,255,0.04)]'
                                 }`}>
                                 {allCatSelected ? `✓ All selected` : `Select all ${catRows.length}`}
@@ -1120,7 +1120,7 @@ export default function ArchitecturePage() {
           <div className="overflow-x-auto">
             <table className="w-full text-sm">
               <thead>
-                <tr className="border-b border-[rgba(255,255,255,0.07)]">
+                <tr className="border-b">
                   {['Set Name', 'Cost', 'Status', 'Approved', 'Paid By', 'Action'].map((h) => (
                     <th key={h} className="px-4 py-3 text-left text-xs text-[rgba(232,228,220,0.35)] font-medium">{h}</th>
                   ))}
@@ -1132,7 +1132,7 @@ export default function ArchitecturePage() {
                 ) : payableSets.map((s) => (
                   <tr key={s.id} className="border-b border-[rgba(255,255,255,0.04)] last:border-0">
                     <td className="px-4 py-3 text-[#e8e4dc]">{s.name}</td>
-                    <td className="px-4 py-3 font-medium text-[#c4a35a]">₹{s.cost.toLocaleString('en-IN')}</td>
+                    <td className="px-4 py-3 font-medium text-[var(--ax-accent)]">₹{s.cost.toLocaleString('en-IN')}</td>
                     <td className="px-4 py-3"><StatusBadge status={s.status} type="set" /></td>
                     <td className="px-4 py-3 text-[rgba(232,228,220,0.5)] text-xs">{s.approvedAt ? formatDate(s.approvedAt) : '—'}</td>
                     <td className="px-4 py-3 text-[rgba(232,228,220,0.5)] text-xs">{s.paymentReleaserName ?? '—'}</td>
@@ -1187,12 +1187,12 @@ export default function ArchitecturePage() {
 
           {/* If everything was duplicate, offer to import anyway */}
           {importResult.created === 0 && importResult.duplicates > 0 && importRows.length > 0 && (
-            <div className="p-3 rounded-lg border border-[rgba(196,163,90,0.2)] bg-[rgba(196,163,90,0.05)]">
+            <div className="p-3 rounded-lg border border-[rgba(var(--ax-accent-rgb),0.2)] bg-[rgba(var(--ax-accent-rgb),0.05)]">
               <p className="text-xs text-[rgba(232,228,220,0.55)] mb-2">
                 All rows already exist in the project. If you need to add them again (e.g. different floor versions), you can force-import.
               </p>
               <button onClick={() => void handleImport('append')} disabled={importing}
-                className="btn btn-sm border border-[rgba(196,163,90,0.3)] text-[#c4a35a] hover:bg-[rgba(196,163,90,0.1)] disabled:opacity-50">
+                className="btn btn-sm border border-[rgba(var(--ax-accent-rgb),0.3)] text-[var(--ax-accent)] hover:bg-[rgba(var(--ax-accent-rgb),0.1)] disabled:opacity-50">
                 {importing ? 'Importing…' : `Force import ${importRows.length} rows anyway`}
               </button>
             </div>
@@ -1259,15 +1259,15 @@ export default function ArchitecturePage() {
             <p className="text-sm text-[rgba(232,228,220,0.45)]">Upload an Excel file with columns: S.No · Category · Drawing Name · Floor · Description</p>
           </div>
           <a href={`/api/projects/${projectId}/architecture/rows/template`} download
-            className="flex items-center gap-2 text-sm text-[#c4a35a] hover:text-[#d4b36a] transition-colors">
+            className="flex items-center gap-2 text-sm text-[var(--ax-accent)] hover:text-[var(--ax-accent)] transition-colors">
             <Download className="w-4 h-4" />Download template with all 86 standard drawings pre-filled
           </a>
           <div>
             <input ref={fileInputRef} type="file" accept=".xlsx,.xls,.csv" className="hidden"
               onChange={(e) => { const f = e.target.files?.[0]; if (f) void handleImportFile(f); }} />
             <button onClick={() => fileInputRef.current?.click()}
-              className="w-full border-2 border-dashed border-[rgba(255,255,255,0.1)] rounded-xl py-10 text-center hover:border-[rgba(196,163,90,0.4)] hover:bg-[rgba(196,163,90,0.03)] transition-all group">
-              <Upload className="w-6 h-6 mx-auto mb-2 text-[rgba(232,228,220,0.3)] group-hover:text-[#c4a35a]" />
+              className="w-full border-2 border-dashed border-[rgba(255,255,255,0.1)] rounded-xl py-10 text-center hover:border-[rgba(var(--ax-accent-rgb),0.4)] hover:bg-[rgba(var(--ax-accent-rgb),0.03)] transition-all group">
+              <Upload className="w-6 h-6 mx-auto mb-2 text-[rgba(232,228,220,0.3)] group-hover:text-[var(--ax-accent)]" />
               <p className="text-sm text-[rgba(232,228,220,0.5)] group-hover:text-[rgba(232,228,220,0.8)]">Click to browse or drop file here</p>
               <p className="text-xs text-[rgba(232,228,220,0.25)] mt-1">Supports .xlsx · .xls · .csv</p>
             </button>
@@ -1297,14 +1297,14 @@ export default function ArchitecturePage() {
         </div>
 
         {/* Inner tab bar */}
-        <div className="border-b border-[rgba(255,255,255,0.07)]">
+        <div className="border-b" style={{ borderColor: 'var(--ax-border)' }}>
           <div className="flex gap-1 overflow-x-auto scrollbar-thin pb-0.5">
             {tabs.map((tab) => (
               <button key={tab} onClick={() => setActiveTab(tab)}
                 className={`whitespace-nowrap px-4 py-2.5 text-sm font-medium border-b-2 transition-all rounded-t-md ${
                   activeTab === tab
-                    ? 'border-[#c4a35a] text-[#c4a35a] bg-[rgba(196,163,90,0.08)]'
-                    : 'border-transparent text-[rgba(232,228,220,0.55)] hover:text-[#e8e4dc] hover:border-[rgba(255,255,255,0.12)]'
+                    ? 'ax-tab-active'
+                    : 'ax-tab-inactive'
                 }`}>
                 {tab}
                 {tab === 'Review Queue' && (statsData?.pendingReview ?? 0) > 0 && (
@@ -1362,8 +1362,8 @@ export default function ArchitecturePage() {
             <div className="flex items-center gap-3 px-4 py-3">
               {/* Count badge */}
               <div className="flex items-center gap-2 shrink-0">
-                <div className="w-7 h-7 rounded-lg bg-[rgba(196,163,90,0.15)] border border-[rgba(196,163,90,0.3)] flex items-center justify-center">
-                  <Check className="w-3.5 h-3.5 text-[#c4a35a]" />
+                <div className="w-7 h-7 rounded-lg bg-[rgba(var(--ax-accent-rgb),0.15)] border border-[rgba(var(--ax-accent-rgb),0.3)] flex items-center justify-center">
+                  <Check className="w-3.5 h-3.5 text-[var(--ax-accent)]" />
                 </div>
                 <div>
                   <div className="text-sm font-bold text-[#e8e4dc] leading-none">{selectedIds.size}</div>
@@ -1380,7 +1380,7 @@ export default function ArchitecturePage() {
                   </button>
                 )}
                 {filterCategory && (
-                  <span className="text-xs px-2.5 py-1.5 rounded-lg bg-[rgba(196,163,90,0.08)] border border-[rgba(196,163,90,0.2)] text-[#c4a35a]">
+                  <span className="text-xs px-2.5 py-1.5 rounded-lg bg-[rgba(var(--ax-accent-rgb),0.08)] border border-[rgba(var(--ax-accent-rgb),0.2)] text-[var(--ax-accent)]">
                     {filterCategory}
                   </span>
                 )}
@@ -1403,8 +1403,8 @@ export default function ArchitecturePage() {
               <button onClick={() => { setShowBulkPicker(!showBulkPicker); setBulkCreateMode(false); }}
                 className={`flex items-center gap-2 text-sm font-medium px-4 py-1.5 rounded-lg transition-all ${
                   showBulkPicker
-                    ? 'bg-[rgba(196,163,90,0.2)] border border-[rgba(196,163,90,0.5)] text-[#c4a35a]'
-                    : 'bg-[#c4a35a] text-[#0e1016] hover:bg-[#d4b36a]'
+                    ? 'bg-[rgba(var(--ax-accent-rgb),0.2)] border border-[rgba(var(--ax-accent-rgb),0.5)] text-[var(--ax-accent)]'
+                    : 'bg-[var(--ax-accent)] text-[#0e1016] hover:bg-[var(--ax-accent-hover)]'
                 }`}>
                 <Layers className="w-3.5 h-3.5" />
                 Assign to Set
@@ -1421,7 +1421,7 @@ export default function ArchitecturePage() {
             {showBulkPicker && (
               <div className="border-t border-[rgba(255,255,255,0.07)] p-3 max-h-72 overflow-y-auto space-y-1.5">
                 <p className="text-xs text-[rgba(232,228,220,0.4)] px-1 pb-1">
-                  Assign <span className="text-[#c4a35a] font-semibold">{selectedIds.size} drawing{selectedIds.size !== 1 ? 's' : ''}</span> to:
+                  Assign <span className="text-[var(--ax-accent)] font-semibold">{selectedIds.size} drawing{selectedIds.size !== 1 ? 's' : ''}</span> to:
                 </p>
 
                 {/* Existing sets as clickable cards */}
@@ -1432,10 +1432,10 @@ export default function ArchitecturePage() {
                     <button key={s.id}
                       onClick={() => void handleBulkAssign(s.id)}
                       disabled={bulkAssigning}
-                      className="w-full flex items-center gap-3 px-3 py-2.5 rounded-xl border border-[rgba(255,255,255,0.07)] hover:border-[rgba(196,163,90,0.35)] hover:bg-[rgba(196,163,90,0.05)] disabled:opacity-50 transition-all group text-left">
+                      className="w-full flex items-center gap-3 px-3 py-2.5 rounded-xl border border-[rgba(255,255,255,0.07)] hover:border-[rgba(var(--ax-accent-rgb),0.35)] hover:bg-[rgba(var(--ax-accent-rgb),0.05)] disabled:opacity-50 transition-all group text-left">
                       {/* Set icon */}
-                      <div className="w-8 h-8 rounded-lg bg-[rgba(255,255,255,0.05)] flex items-center justify-center shrink-0 group-hover:bg-[rgba(196,163,90,0.1)] transition-colors">
-                        <Layers className="w-3.5 h-3.5 text-[rgba(232,228,220,0.4)] group-hover:text-[#c4a35a]" />
+                      <div className="w-8 h-8 rounded-lg bg-[rgba(255,255,255,0.05)] flex items-center justify-center shrink-0 group-hover:bg-[rgba(var(--ax-accent-rgb),0.1)] transition-colors">
+                        <Layers className="w-3.5 h-3.5 text-[rgba(232,228,220,0.4)] group-hover:text-[var(--ax-accent)]" />
                       </div>
                       {/* Info */}
                       <div className="flex-1 min-w-0">
@@ -1454,7 +1454,7 @@ export default function ArchitecturePage() {
                         )}
                       </div>
                       {/* Assign arrow */}
-                      <ArrowRight className="w-3.5 h-3.5 text-[rgba(232,228,220,0.2)] group-hover:text-[#c4a35a] transition-colors shrink-0" />
+                      <ArrowRight className="w-3.5 h-3.5 text-[rgba(232,228,220,0.2)] group-hover:text-[var(--ax-accent)] transition-colors shrink-0" />
                     </button>
                   );
                 })}
@@ -1504,7 +1504,7 @@ export default function ArchitecturePage() {
       {showCreateSet && (
         <div className="fixed inset-0 bg-black/70 flex items-center justify-center z-50 p-4" onClick={(e) => e.target === e.currentTarget && setShowCreateSet(false)}>
           <div className="bg-[#13151a] border border-[rgba(255,255,255,0.1)] rounded-xl max-w-3xl w-full max-h-[90vh] flex flex-col">
-            <div className="flex items-start justify-between p-6 pb-4 border-b border-[rgba(255,255,255,0.07)]">
+            <div className="flex items-start justify-between p-6 pb-4 border-b">
               <div>
                 <h2 className="text-lg font-semibold text-[#e8e4dc]">Create Drawing Set</h2>
                 <p className="text-sm text-[rgba(232,228,220,0.45)] mt-0.5">Add drawings manually now, or leave the list empty and add them later.</p>
@@ -1527,7 +1527,7 @@ export default function ArchitecturePage() {
                 <textarea className="input resize-none" rows={2} value={newSet.description} onChange={(e) => setNewSet({ ...newSet, description: e.target.value })} /></div>
 
               <div className="rounded-xl border border-[rgba(255,255,255,0.08)] overflow-hidden">
-                <div className="px-4 py-3 bg-[rgba(255,255,255,0.03)] border-b border-[rgba(255,255,255,0.07)]">
+                <div className="px-4 py-3 bg-[rgba(255,255,255,0.03)] border-b">
                   <h3 className="text-sm font-semibold text-[#e8e4dc]">Manual Drawings</h3>
                   <p className="text-xs text-[rgba(232,228,220,0.4)] mt-0.5">Use this when there is no Excel sheet.</p>
                 </div>
@@ -1568,7 +1568,7 @@ export default function ArchitecturePage() {
                     </div>
                   ))}
                   <button type="button" onClick={addNewSetDrawing}
-                    className="w-full flex items-center justify-center gap-2 py-3 text-xs text-[rgba(232,228,220,0.4)] hover:text-[#c4a35a] hover:bg-[rgba(196,163,90,0.05)] transition-colors border-t border-dashed border-[rgba(255,255,255,0.08)]">
+                    className="w-full flex items-center justify-center gap-2 py-3 text-xs text-[rgba(232,228,220,0.4)] hover:text-[var(--ax-accent)] hover:bg-[rgba(var(--ax-accent-rgb),0.05)] transition-colors border-t border-dashed border-[rgba(255,255,255,0.08)]">
                     <Plus className="w-3.5 h-3.5" />Add Drawing
                   </button>
                   <div ref={manualDrawingsEndRef} />
@@ -1653,14 +1653,14 @@ export default function ArchitecturePage() {
               <div className="flex items-center gap-2 text-xs text-[rgba(232,228,220,0.45)]">
                 <span className="bg-[rgba(255,255,255,0.06)] px-2 py-0.5 rounded">v{uploadModal.currentVersionNo}</span>
                 <ArrowRight className="w-3 h-3" />
-                <span className="bg-[rgba(196,163,90,0.1)] text-[#c4a35a] px-2 py-0.5 rounded">v{uploadModal.currentVersionNo + 1}</span>
+                <span className="bg-[rgba(var(--ax-accent-rgb),0.1)] text-[var(--ax-accent)] px-2 py-0.5 rounded">v{uploadModal.currentVersionNo + 1}</span>
               </div>
             )}
             {uploadError && <div className="alert alert-error">{uploadError}</div>}
             <div className="grid grid-cols-2 gap-2">
               {(['PDF', 'URL'] as const).map((t) => (
                 <button key={t} onClick={() => setUploadType(t)}
-                  className={`flex items-center justify-center gap-2 py-2.5 text-sm rounded-lg border transition-all ${uploadType === t ? 'bg-[rgba(196,163,90,0.15)] border-[rgba(196,163,90,0.4)] text-[#c4a35a]' : 'border-[rgba(255,255,255,0.08)] text-[rgba(232,228,220,0.55)] hover:border-[rgba(255,255,255,0.15)]'}`}>
+                  className={`flex items-center justify-center gap-2 py-2.5 text-sm rounded-lg border transition-all ${uploadType === t ? 'bg-[rgba(var(--ax-accent-rgb),0.15)] border-[rgba(var(--ax-accent-rgb),0.4)] text-[var(--ax-accent)]' : 'border-[rgba(255,255,255,0.08)] text-[rgba(232,228,220,0.55)] hover:border-[rgba(255,255,255,0.15)]'}`}>
                   {t === 'PDF' ? <FileUp className="w-4 h-4" /> : <Globe className="w-4 h-4" />}
                   {t === 'PDF' ? 'PDF File' : 'Drive / URL'}
                 </button>
@@ -1670,7 +1670,7 @@ export default function ArchitecturePage() {
               <div>
                 <input ref={pdfInputRef} type="file" accept=".pdf" className="hidden" onChange={(e) => setUploadFile(e.target.files?.[0] ?? null)} />
                 <button onClick={() => pdfInputRef.current?.click()}
-                  className={`w-full border-2 border-dashed rounded-xl py-8 text-center transition-all group ${uploadFile ? 'border-[rgba(110,231,183,0.4)] bg-[rgba(110,231,183,0.04)]' : 'border-[rgba(255,255,255,0.1)] hover:border-[rgba(196,163,90,0.4)]'}`}>
+                  className={`w-full border-2 border-dashed rounded-xl py-8 text-center transition-all group ${uploadFile ? 'border-[rgba(110,231,183,0.4)] bg-[rgba(110,231,183,0.04)]' : 'border-[rgba(255,255,255,0.1)] hover:border-[rgba(var(--ax-accent-rgb),0.4)]'}`}>
                   {uploadFile ? (
                     <div className="space-y-1">
                       <CheckCircle2 className="w-6 h-6 mx-auto text-[#6ee7b7]" />
@@ -1678,7 +1678,7 @@ export default function ArchitecturePage() {
                       <p className="text-xs text-[rgba(232,228,220,0.35)]">{Math.ceil(uploadFile.size / 1024)} KB · Click to change</p>
                     </div>
                   ) : (
-                    <><FileUp className="w-6 h-6 mx-auto mb-2 text-[rgba(232,228,220,0.3)] group-hover:text-[#c4a35a]" />
+                    <><FileUp className="w-6 h-6 mx-auto mb-2 text-[rgba(232,228,220,0.3)] group-hover:text-[var(--ax-accent)]" />
                     <p className="text-sm text-[rgba(232,228,220,0.5)]">Click to select PDF</p></>
                   )}
                 </button>
@@ -1751,19 +1751,19 @@ export default function ArchitecturePage() {
               : (
                 <div className="space-y-2">
                   {versionHistory.map((v) => (
-                    <div key={v.id} className={`p-3 rounded-lg border ${v.isCurrent ? 'border-[rgba(196,163,90,0.3)] bg-[rgba(196,163,90,0.05)]' : 'border-[rgba(255,255,255,0.07)]'}`}>
+                    <div key={v.id} className={`p-3 rounded-lg border ${v.isCurrent ? 'border-[rgba(var(--ax-accent-rgb),0.3)] bg-[rgba(var(--ax-accent-rgb),0.05)]' : 'border-[rgba(255,255,255,0.07)]'}`}>
                       <div className="flex items-center justify-between">
                         <div className="flex items-center gap-2">
                           <span className="text-sm font-medium text-[#e8e4dc]">v{v.versionNumber}</span>
-                          {v.isCurrent && <span className="text-xs text-[#c4a35a] bg-[rgba(196,163,90,0.1)] px-1.5 py-0.5 rounded">Current</span>}
+                          {v.isCurrent && <span className="text-xs text-[var(--ax-accent)] bg-[rgba(var(--ax-accent-rgb),0.1)] px-1.5 py-0.5 rounded">Current</span>}
                           <StatusBadge status={v.reviewStatus} type="version" />
                         </div>
                         {v.uploadType === 'URL'
-                          ? <a href={v.fileUrl} target="_blank" rel="noopener noreferrer" className="text-xs text-[#c4a35a] hover:underline flex items-center gap-1"><LinkIcon className="w-3 h-3" />Open</a>
+                          ? <a href={v.fileUrl} target="_blank" rel="noopener noreferrer" className="text-xs text-[var(--ax-accent)] hover:underline flex items-center gap-1"><LinkIcon className="w-3 h-3" />Open</a>
                           : (
                             <div className="flex items-center gap-2">
-                              <a href={drawingFileHref(v.id)} target="_blank" rel="noopener noreferrer" className="text-xs text-[#c4a35a] hover:underline flex items-center gap-1"><Eye className="w-3 h-3" />View</a>
-                              <a href={drawingFileHref(v.id, true)} className="text-xs text-[rgba(232,228,220,0.45)] hover:text-[#c4a35a] flex items-center gap-1"><Download className="w-3 h-3" />Download</a>
+                              <a href={drawingFileHref(v.id)} target="_blank" rel="noopener noreferrer" className="text-xs text-[var(--ax-accent)] hover:underline flex items-center gap-1"><Eye className="w-3 h-3" />View</a>
+                              <a href={drawingFileHref(v.id, true)} className="text-xs text-[rgba(232,228,220,0.45)] hover:text-[var(--ax-accent)] flex items-center gap-1"><Download className="w-3 h-3" />Download</a>
                             </div>
                           )}
                       </div>
@@ -1804,9 +1804,9 @@ export default function ArchitecturePage() {
                 const pct = s.rowStats.total > 0 ? Math.round((s.rowStats.approved / s.rowStats.total) * 100) : 0;
                 return (
                   <button key={s.id} onClick={() => { setAssignSetId(s.id); setAssignCreateMode(false); }}
-                    className={`w-full text-left rounded-xl border p-4 transition-all ${isSelected ? 'border-[rgba(196,163,90,0.5)] bg-[rgba(196,163,90,0.06)]' : s.status === 'REQUESTED' ? 'border-[rgba(129,140,248,0.25)] hover:border-[rgba(129,140,248,0.4)]' : 'border-[rgba(255,255,255,0.07)] hover:border-[rgba(255,255,255,0.13)]'}`}>
+                    className={`w-full text-left rounded-xl border p-4 transition-all ${isSelected ? 'border-[rgba(var(--ax-accent-rgb),0.5)] bg-[rgba(var(--ax-accent-rgb),0.06)]' : s.status === 'REQUESTED' ? 'border-[rgba(129,140,248,0.25)] hover:border-[rgba(129,140,248,0.4)]' : 'border-[rgba(255,255,255,0.07)] hover:border-[rgba(255,255,255,0.13)]'}`}>
                     <div className="flex items-start gap-3">
-                      <div className={`w-5 h-5 rounded-full border-2 flex items-center justify-center shrink-0 mt-0.5 ${isSelected ? 'border-[#c4a35a] bg-[#c4a35a]' : 'border-[rgba(255,255,255,0.25)]'}`}>
+                      <div className={`w-5 h-5 rounded-full border-2 flex items-center justify-center shrink-0 mt-0.5 ${isSelected ? 'border-[var(--ax-accent)] bg-[var(--ax-accent)]' : 'border-[rgba(255,255,255,0.25)]'}`}>
                         {isSelected && <div className="w-2 h-2 rounded-full bg-[#13151a]" />}
                       </div>
                       <div className="flex-1 min-w-0">
@@ -1825,7 +1825,7 @@ export default function ArchitecturePage() {
                         )}
                         <div className="flex items-center gap-3 mt-1">
                           <span className="text-xs text-[rgba(232,228,220,0.35)]">{s.rowStats.total} drawings</span>
-                          {s.cost > 0 && <span className="text-xs text-[#c4a35a]">₹{s.cost.toLocaleString('en-IN')}</span>}
+                          {s.cost > 0 && <span className="text-xs text-[var(--ax-accent)]">₹{s.cost.toLocaleString('en-IN')}</span>}
                         </div>
                       </div>
                     </div>

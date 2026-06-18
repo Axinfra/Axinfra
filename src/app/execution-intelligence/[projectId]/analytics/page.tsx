@@ -120,8 +120,8 @@ function SCurveTab({ data }: { data: AnalyticsData }) {
           <ResponsiveContainer width="100%" height={280}>
             <LineChart data={sCurve} margin={{ top: 4, right: 12, left: -20, bottom: 0 }}>
               <CartesianGrid strokeDasharray="3 3" stroke="rgba(255,255,255,0.05)" />
-              <XAxis dataKey="date" tick={{ fontSize: 10, fill: 'rgba(232,228,220,0.45)' }} tickFormatter={(v) => v.slice(5)} />
-              <YAxis tick={{ fontSize: 10, fill: 'rgba(232,228,220,0.45)' }} unit="%" domain={[0, 100]} />
+              <XAxis dataKey="date" tick={{ fontSize: 10, fill: 'rgba(var(--ax-text-rgb),0.45)' }} tickFormatter={(v) => v.slice(5)} />
+              <YAxis tick={{ fontSize: 10, fill: 'rgba(var(--ax-text-rgb),0.45)' }} unit="%" domain={[0, 100]} />
               <Tooltip {...DARK_TOOLTIP} formatter={(v: number) => `${v}%`} labelFormatter={(l) => `Date: ${l}`} />
               <Legend wrapperStyle={{ fontSize: 11 }} />
               <Line type="monotone" dataKey="plannedCumulative" name="Planned" stroke="rgba(232,228,220,0.3)" strokeWidth={1.5} dot={false} />
@@ -139,8 +139,8 @@ function SCurveTab({ data }: { data: AnalyticsData }) {
           <ResponsiveContainer width="100%" height={280}>
             <LineChart data={burndown} margin={{ top: 4, right: 12, left: -20, bottom: 0 }}>
               <CartesianGrid strokeDasharray="3 3" stroke="rgba(255,255,255,0.05)" />
-              <XAxis dataKey="date" tick={{ fontSize: 10, fill: 'rgba(232,228,220,0.45)' }} tickFormatter={(v) => v.slice(5)} />
-              <YAxis tick={{ fontSize: 10, fill: 'rgba(232,228,220,0.45)' }} unit="%" domain={[0, 100]} />
+              <XAxis dataKey="date" tick={{ fontSize: 10, fill: 'rgba(var(--ax-text-rgb),0.45)' }} tickFormatter={(v) => v.slice(5)} />
+              <YAxis tick={{ fontSize: 10, fill: 'rgba(var(--ax-text-rgb),0.45)' }} unit="%" domain={[0, 100]} />
               <Tooltip {...DARK_TOOLTIP} formatter={(v: number) => `${v}%`} />
               <Legend wrapperStyle={{ fontSize: 11 }} />
               <Line type="monotone" dataKey="plannedRemaining" name="Planned" stroke="rgba(232,228,220,0.3)" strokeWidth={1.5} dot={false} />
@@ -158,8 +158,8 @@ function SCurveTab({ data }: { data: AnalyticsData }) {
           <ResponsiveContainer width="100%" height={220}>
             <BarChart data={data.escalationTrend} margin={{ top: 4, right: 12, left: -20, bottom: 0 }}>
               <CartesianGrid strokeDasharray="3 3" stroke="rgba(255,255,255,0.05)" />
-              <XAxis dataKey="week" tick={{ fontSize: 10, fill: 'rgba(232,228,220,0.45)' }} tickFormatter={(v) => v.slice(5)} />
-              <YAxis tick={{ fontSize: 10, fill: 'rgba(232,228,220,0.45)' }} allowDecimals={false} />
+              <XAxis dataKey="week" tick={{ fontSize: 10, fill: 'rgba(var(--ax-text-rgb),0.45)' }} tickFormatter={(v) => v.slice(5)} />
+              <YAxis tick={{ fontSize: 10, fill: 'rgba(var(--ax-text-rgb),0.45)' }} allowDecimals={false} />
               <Tooltip {...DARK_TOOLTIP} />
               <Bar dataKey="count" name="Escalations" fill="#ef4444" radius={[3, 3, 0, 0]} />
             </BarChart>
@@ -222,7 +222,7 @@ function VendorTab({ data, role }: { data: AnalyticsData; role: string }) {
                 <tr key={v.vendorId} className="border-b border-[rgba(255,255,255,0.07)] hover:bg-[rgba(255,255,255,0.05)]">
                   <td className="py-2.5 px-3">
                     <span className={`inline-flex items-center justify-center w-6 h-6 rounded-full text-[11px] font-bold
-                      ${v.rank === 1 ? 'bg-[rgba(196,163,90,0.08)] text-[#c4a35a]' : v.rank === 2 ? 'bg-[rgba(255,255,255,0.05)] text-[rgba(232,228,220,0.55)]' : 'bg-[rgba(255,255,255,0.03)] text-[rgba(232,228,220,0.35)]'}`}>
+                      ${v.rank === 1 ? 'bg-[rgba(var(--ax-accent-rgb),0.08)] text-[var(--ax-accent)]' : v.rank === 2 ? 'bg-[rgba(255,255,255,0.05)] text-[rgba(232,228,220,0.55)]' : 'bg-[rgba(255,255,255,0.03)] text-[rgba(232,228,220,0.35)]'}`}>
                       {v.rank}
                     </span>
                   </td>
@@ -259,8 +259,8 @@ function VendorTab({ data, role }: { data: AnalyticsData; role: string }) {
         <ResponsiveContainer width="100%" height={220}>
           <BarChart data={vendors} layout="vertical" margin={{ top: 4, right: 24, left: 80, bottom: 0 }}>
             <CartesianGrid strokeDasharray="3 3" stroke="rgba(255,255,255,0.05)" horizontal={false} />
-            <XAxis type="number" domain={[0, 100]} tick={{ fontSize: 10, fill: 'rgba(232,228,220,0.45)' }} unit="%" />
-            <YAxis dataKey="vendorName" type="category" tick={{ fontSize: 11, fill: 'rgba(232,228,220,0.55)' }} width={76} />
+            <XAxis type="number" domain={[0, 100]} tick={{ fontSize: 10, fill: 'rgba(var(--ax-text-rgb),0.45)' }} unit="%" />
+            <YAxis dataKey="vendorName" type="category" tick={{ fontSize: 11, fill: 'rgba(var(--ax-text-rgb),0.55)' }} width={76} />
             <Tooltip {...DARK_TOOLTIP} formatter={(v: number) => `${v}%`} />
             <ReferenceLine x={80} stroke="#22c55e" strokeDasharray="3 2" label={{ value: '80%', fontSize: 9, fill: '#22c55e' }} />
             <Bar dataKey="onTimePct" name="On-Time %" radius={[0, 3, 3, 0]}>
@@ -284,8 +284,8 @@ function DelayTab({ data }: { data: AnalyticsData }) {
         <ResponsiveContainer width="100%" height={260}>
           <BarChart data={data.delayHistogram} margin={{ top: 4, right: 12, left: -20, bottom: 20 }}>
             <CartesianGrid strokeDasharray="3 3" stroke="rgba(255,255,255,0.05)" />
-            <XAxis dataKey="bucket" tick={{ fontSize: 10, fill: 'rgba(232,228,220,0.45)' }} angle={-30} textAnchor="end" />
-            <YAxis tick={{ fontSize: 10, fill: 'rgba(232,228,220,0.45)' }} allowDecimals={false} />
+            <XAxis dataKey="bucket" tick={{ fontSize: 10, fill: 'rgba(var(--ax-text-rgb),0.45)' }} angle={-30} textAnchor="end" />
+            <YAxis tick={{ fontSize: 10, fill: 'rgba(var(--ax-text-rgb),0.45)' }} allowDecimals={false} />
             <Tooltip {...DARK_TOOLTIP} formatter={(v: number) => `${v} milestone${v !== 1 ? 's' : ''}`} />
             <Bar dataKey="count" name="Milestones" radius={[3, 3, 0, 0]}>
               {data.delayHistogram.map((d) => {
@@ -303,8 +303,8 @@ function DelayTab({ data }: { data: AnalyticsData }) {
         <ResponsiveContainer width="100%" height={260}>
           <BarChart data={data.approvalHistogram} margin={{ top: 4, right: 12, left: -20, bottom: 0 }}>
             <CartesianGrid strokeDasharray="3 3" stroke="rgba(255,255,255,0.05)" />
-            <XAxis dataKey="bucket" tick={{ fontSize: 10, fill: 'rgba(232,228,220,0.45)' }} />
-            <YAxis tick={{ fontSize: 10, fill: 'rgba(232,228,220,0.45)' }} allowDecimals={false} />
+            <XAxis dataKey="bucket" tick={{ fontSize: 10, fill: 'rgba(var(--ax-text-rgb),0.45)' }} />
+            <YAxis tick={{ fontSize: 10, fill: 'rgba(var(--ax-text-rgb),0.45)' }} allowDecimals={false} />
             <Tooltip {...DARK_TOOLTIP} formatter={(v: number) => `${v} milestones`} />
             <Bar dataKey="count" name="Milestones" fill="#8b5cf6" radius={[3, 3, 0, 0]} />
           </BarChart>

@@ -9,14 +9,14 @@ const badgeVariants = cva(
         variants: {
             variant: {
                 default:
-                    "border-[rgba(196,163,90,0.3)] bg-[rgba(196,163,90,0.12)] text-[#c4a35a]",
+                    "border-[rgba(var(--ax-accent-rgb),0.3)] bg-[rgba(var(--ax-accent-rgb),0.12)] text-[var(--ax-accent)]",
                 secondary:
                     "border-[rgba(255,255,255,0.07)] bg-[rgba(255,255,255,0.03)] text-[rgba(232,228,220,0.55)]",
                 destructive:
                     "border-[rgba(224,96,80,0.3)] bg-[rgba(220,80,60,0.1)] text-[#e06050]",
                 outline: "text-[#e8e4dc] border-[rgba(255,255,255,0.12)]",
                 success: "border-[rgba(92,186,128,0.3)] bg-[rgba(50,200,120,0.1)] text-[#5cba80]",
-                warning: "border-[rgba(196,163,90,0.3)] bg-[rgba(196,163,90,0.12)] text-[#c4a35a]",
+                warning: "border-[rgba(var(--ax-accent-rgb),0.3)] bg-[rgba(var(--ax-accent-rgb),0.12)] text-[var(--ax-accent)]",
                 neutral: "border-[rgba(255,255,255,0.07)] bg-[rgba(255,255,255,0.03)] text-[rgba(232,228,220,0.55)]",
             },
         },

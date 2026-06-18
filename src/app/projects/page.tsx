@@ -6,7 +6,7 @@ import Link from 'next/link';
 import Layout from '@/components/Layout';
 import ClientOnly from '@/components/auth/ClientOnly';
 import { formatDate } from '@/lib/utils';
-import { Plus, Pencil, Trash2, X, Loader2 } from 'lucide-react';
+import { Plus, Pencil, Trash2, X, Loader2, LayoutGrid, List } from 'lucide-react';
 
 interface Project {
   id: string;
@@ -38,6 +38,7 @@ export default function ProjectsPage() {
   const [loading, setLoading] = useState(true);
   const [error, setError] = useState('');
   const [userRole, setUserRole] = useState('');
+  const [view, setView] = useState<'grid' | 'table'>('grid');
 
   // Modal state
   const [showModal, setShowModal] = useState(false);
@@ -57,7 +58,6 @@ export default function ProjectsPage() {
       .then((data) => {
         if (data.success) {
           setProjects(data.data);
-          // Derive role from projects first; fall back to preferredRole for new users with no projects
           const roles = data.data.map((p: Project) => p.myRole);
           if (roles.includes('CLIENT')) setUserRole('CLIENT');
           else if (roles.includes('PMC')) setUserRole('PMC');
@@ -74,7 +74,6 @@ export default function ProjectsPage() {
 
   useEffect(() => { loadProjects(); }, [loadProjects]);
 
-  // Toast auto-dismiss
   useEffect(() => {
     if (toast) {
       const t = setTimeout(() => setToast(''), 3000);
@@ -119,9 +118,7 @@ export default function ProjectsPage() {
       if (form.startDate) body.startDate = form.startDate;
       if (form.endDate) body.endDate = form.endDate;
 
-      const url = editingProject
-        ? `/api/projects/${editingProject.id}`
-        : '/api/projects';
+      const url = editingProject ? `/api/projects/${editingProject.id}` : '/api/projects';
       const method = editingProject ? 'PATCH' : 'POST';
 
       const res = await fetch(url, {
@@ -131,15 +128,12 @@ export default function ProjectsPage() {
       });
       const data = await res.json();
 
-      if (!res.ok || !data.success) {
-        throw new Error(data.error || 'Failed to save project');
-      }
+      if (!res.ok || !data.success) throw new Error(data.error || 'Failed to save project');
 
       setShowModal(false);
       setToast(editingProject ? 'Project updated successfully' : 'Project created successfully');
 
       if (editingProject) {
-        // Optimistic update: patch the edited project in-place
         const meta = (form.location || form.contractValue || form.startDate || form.endDate)
           ? JSON.stringify({ location: form.location, contractValue: form.contractValue ? parseFloat(form.contractValue) : undefined, startDate: form.startDate, endDate: form.endDate })
           : undefined;
@@ -151,20 +145,11 @@ export default function ProjectsPage() {
           ),
         );
       } else {
-        // Optimistic update: prepend new project immediately — no refetch needed
         const meta = (form.location || form.contractValue || form.startDate || form.endDate)
           ? JSON.stringify({ location: form.location, contractValue: form.contractValue ? parseFloat(form.contractValue) : undefined, startDate: form.startDate, endDate: form.endDate })
           : undefined;
         setProjects((prev) => [
-          {
-            id: data.data.id,
-            name: form.name,
-            description: form.description || undefined,
-            myRole: 'CLIENT',
-            milestoneCount: 0,
-            createdAt: new Date().toISOString(),
-            metadata: meta,
-          },
+          { id: data.data.id, name: form.name, description: form.description || undefined, myRole: 'CLIENT', milestoneCount: 0, createdAt: new Date().toISOString(), metadata: meta },
           ...prev,
         ]);
         setUserRole('CLIENT');
@@ -179,16 +164,10 @@ export default function ProjectsPage() {
   const handleDelete = async () => {
     if (!deleteTarget) return;
     setDeleting(true);
-
     try {
       const res = await fetch(`/api/projects/${deleteTarget.id}`, { method: 'DELETE' });
       const data = await res.json();
-
-      if (!res.ok || !data.success) {
-        throw new Error(data.error || 'Failed to archive project');
-      }
-
-      // Optimistic update: remove archived project immediately
+      if (!res.ok || !data.success) throw new Error(data.error || 'Failed to archive project');
       setProjects((prev) => prev.filter((p) => p.id !== deleteTarget.id));
       setDeleteTarget(null);
       setToast('Project archived successfully');
@@ -200,70 +179,89 @@ export default function ProjectsPage() {
   };
 
   if (loading) {
-    return (
-      <Layout>
-        <ProjectsListSkeleton />
-      </Layout>
-    );
+    return <Layout><ProjectsListSkeleton /></Layout>;
   }
 
   return (
     <Layout>
-      {/* Toast notification */}
+      {/* Toast */}
       {toast && (
-        <div className="fixed top-4 right-4 z-50 bg-[rgba(50,200,120,0.1)] border border-[rgba(92,186,128,0.3)] text-[#5cba80] px-4 py-3 rounded-lg shadow-none flex items-center gap-2 animate-in fade-in slide-in-from-top-2">
+        <div
+          className="fixed top-4 right-4 z-50 px-4 py-3 rounded-lg flex items-center gap-2 animate-in fade-in slide-in-from-top-2 shadow-lg"
+          style={{ backgroundColor: 'rgba(92,186,128,0.1)', border: '1px solid rgba(92,186,128,0.3)', color: '#5cba80' }}
+        >
           <span className="text-sm font-medium">{toast}</span>
-          <button onClick={() => setToast('')} className="text-[#5cba80] hover:text-[#5cba80]">
-            <X className="w-4 h-4" />
-          </button>
+          <button onClick={() => setToast('')}><X className="w-4 h-4" /></button>
         </div>
       )}
 
+      {/* Header row */}
       <div className="flex justify-between items-center mb-6">
-        <h1 className="text-2xl font-bold text-[#e8e4dc]">Projects</h1>
-        <ClientOnly role={userRole}>
-          <button onClick={openCreateModal} className="btn btn-primary flex items-center gap-2">
-            <Plus className="w-4 h-4" />
-            Add Project
-          </button>
-        </ClientOnly>
+        <h1 className="text-2xl font-bold" style={{ color: 'var(--ax-text)' }}>Projects</h1>
+        <div className="flex items-center gap-2">
+          {/* Grid / Table toggle */}
+          <div className="flex rounded-lg overflow-hidden border" style={{ borderColor: 'var(--ax-border)' }}>
+            <button
+              onClick={() => setView('grid')}
+              title="Card view"
+              className={`p-2 transition-colors ${view === 'grid' ? 'ax-nav-active' : 'ax-nav-item'}`}
+            >
+              <LayoutGrid className="w-4 h-4" />
+            </button>
+            <button
+              onClick={() => setView('table')}
+              title="Table view"
+              className={`p-2 transition-colors ${view === 'table' ? 'ax-nav-active' : 'ax-nav-item'}`}
+            >
+              <List className="w-4 h-4" />
+            </button>
+          </div>
+          <ClientOnly role={userRole}>
+            <button onClick={openCreateModal} className="btn btn-primary flex items-center gap-2">
+              <Plus className="w-4 h-4" />
+              Add Project
+            </button>
+          </ClientOnly>
+        </div>
       </div>
 
       {error && <div className="alert alert-error mb-4">{error}</div>}
 
+      {/* Empty state */}
       {projects.length === 0 ? (
         <div className="card">
           <div className="card-body text-center py-12">
-            <p className="text-lg font-semibold text-[#e8e4dc] mb-2">No projects yet</p>
+            <p className="text-lg font-semibold mb-2" style={{ color: 'var(--ax-text)' }}>No projects yet</p>
             {userRole === 'CLIENT' ? (
               <>
-                <p className="text-sm text-[rgba(232,228,220,0.45)] mb-6">Create your first project to get started.</p>
+                <p className="text-sm mb-6" style={{ color: 'rgba(var(--ax-text-rgb), 0.45)' }}>
+                  Create your first project to get started.
+                </p>
                 <button onClick={openCreateModal} className="btn btn-primary">
                   Create your first project
                 </button>
               </>
             ) : (
-              <p className="text-sm text-[rgba(232,228,220,0.45)] mt-1">
+              <p className="text-sm mt-1" style={{ color: 'rgba(var(--ax-text-rgb), 0.45)' }}>
                 You haven&apos;t been added to any projects yet. Ask a project owner to invite you.
               </p>
             )}
           </div>
         </div>
-      ) : (
+
+      ) : view === 'grid' ? (
+        /* ── Card grid ── */
         <div className="grid gap-4 md:grid-cols-2 lg:grid-cols-3">
           {projects.map((project) => (
-            <div
-              key={project.id}
-              className="card hover:shadow-none transition-shadow relative group"
-            >
+            <div key={project.id} className="card hover:shadow-none transition-shadow relative group">
               <Link href={`/projects/${project.id}`} className="card-body block">
                 <div className="flex items-start justify-between">
                   <div className="flex items-center gap-2 flex-wrap">
-                    <h3 className="text-lg font-semibold text-[#e8e4dc]">
+                    <h3 className="text-lg font-semibold" style={{ color: 'var(--ax-text)' }}>
                       {project.name}
                     </h3>
                     {project.isExampleProject && (
-                      <span className="px-2 py-0.5 text-xs rounded-full bg-[rgba(196,163,90,0.08)] text-[#c4a35a]">
+                      <span className="px-2 py-0.5 text-xs rounded-full" style={{ backgroundColor: 'var(--ax-accent-subtle)', color: 'var(--ax-accent)' }}>
                         Example
                       </span>
                     )}
@@ -273,7 +271,7 @@ export default function ProjectsPage() {
                       </span>
                     )}
                     {project.status === 'ONGOING' && (
-                      <span className="px-2 py-0.5 text-xs rounded-full bg-[rgba(196,163,90,0.08)] text-[#c4a35a]">
+                      <span className="px-2 py-0.5 text-xs rounded-full" style={{ backgroundColor: 'var(--ax-accent-subtle)', color: 'var(--ax-accent)' }}>
                         Ongoing
                       </span>
                     )}
@@ -281,26 +279,38 @@ export default function ProjectsPage() {
                   <span className="badge badge-draft">{project.myRole}</span>
                 </div>
                 {project.description && (
-                  <p className="text-sm text-[rgba(232,228,220,0.55)] mt-2 line-clamp-2">{project.description}</p>
+                  <p className="text-sm mt-2 line-clamp-2" style={{ color: 'rgba(var(--ax-text-rgb), 0.55)' }}>
+                    {project.description}
+                  </p>
                 )}
-                <div className="mt-4 flex items-center justify-between text-sm text-[rgba(232,228,220,0.55)]">
+                <div className="mt-4 flex items-center justify-between text-sm" style={{ color: 'rgba(var(--ax-text-rgb), 0.55)' }}>
                   <span>{project.milestoneCount} milestones</span>
                   <span>{formatDate(project.createdAt)}</span>
                 </div>
               </Link>
-              {/* Owner-only action buttons */}
+
               {project.myRole === 'CLIENT' && (
                 <div className="absolute top-3 right-12 flex gap-1 opacity-0 group-hover:opacity-100 transition-opacity">
                   <button
                     onClick={(e) => { e.preventDefault(); e.stopPropagation(); openEditModal(project); }}
-                    className="p-1.5 rounded-md bg-[rgba(255,255,255,0.03)] border border-[rgba(255,255,255,0.07)] hover:bg-[rgba(255,255,255,0.05)] text-[rgba(232,228,220,0.55)] hover:text-[#c4a35a] shadow-none"
+                    className="p-1.5 rounded-md transition-colors ax-hover-overlay"
+                    style={{
+                      backgroundColor: 'var(--ax-overlay)',
+                      border: '1px solid var(--ax-border)',
+                      color: 'rgba(var(--ax-text-rgb), 0.55)',
+                    }}
                     title="Edit project"
                   >
                     <Pencil className="w-3.5 h-3.5" />
                   </button>
                   <button
                     onClick={(e) => { e.preventDefault(); e.stopPropagation(); setDeleteTarget(project); }}
-                    className="p-1.5 rounded-md bg-[rgba(255,255,255,0.03)] border border-[rgba(255,255,255,0.07)] hover:bg-[rgba(220,80,60,0.1)] text-[rgba(232,228,220,0.55)] hover:text-[#e06050] shadow-none"
+                    className="p-1.5 rounded-md transition-colors hover:bg-[rgba(220,80,60,0.1)] hover:text-[#e06050]"
+                    style={{
+                      backgroundColor: 'var(--ax-overlay)',
+                      border: '1px solid var(--ax-border)',
+                      color: 'rgba(var(--ax-text-rgb), 0.55)',
+                    }}
                     title="Archive project"
                   >
                     <Trash2 className="w-3.5 h-3.5" />
@@ -310,108 +320,208 @@ export default function ProjectsPage() {
             </div>
           ))}
         </div>
+
+      ) : (
+        /* ── Table view ── */
+        <div className="card overflow-hidden">
+          <table className="table">
+            <thead>
+              <tr>
+                <th>Project</th>
+                <th>Status</th>
+                <th>Role</th>
+                <th>Milestones</th>
+                <th>Created</th>
+                <th></th>
+              </tr>
+            </thead>
+            <tbody>
+              {projects.map((project) => (
+                <tr key={project.id}>
+                  <td>
+                    <Link
+                      href={`/projects/${project.id}`}
+                      className="font-medium hover:underline transition-colors"
+                      style={{ color: 'var(--ax-text)' }}
+                    >
+                      {project.name}
+                    </Link>
+                    {project.description && (
+                      <p className="text-xs mt-0.5 line-clamp-1" style={{ color: 'rgba(var(--ax-text-rgb), 0.45)' }}>
+                        {project.description}
+                      </p>
+                    )}
+                  </td>
+                  <td>
+                    <div className="flex flex-wrap gap-1">
+                      {project.status === 'COMPLETED' ? (
+                        <span className="badge badge-verified">Completed</span>
+                      ) : project.status === 'ONGOING' ? (
+                        <span className="badge badge-in-progress">Ongoing</span>
+                      ) : (
+                        <span className="badge badge-draft">{project.status || 'Active'}</span>
+                      )}
+                      {project.isExampleProject && (
+                        <span className="badge badge-in-progress">Example</span>
+                      )}
+                    </div>
+                  </td>
+                  <td>
+                    <span className="badge badge-draft">{project.myRole}</span>
+                  </td>
+                  <td style={{ color: 'rgba(var(--ax-text-rgb), 0.7)' }}>
+                    {project.milestoneCount}
+                  </td>
+                  <td style={{ color: 'rgba(var(--ax-text-rgb), 0.55)' }}>
+                    {formatDate(project.createdAt)}
+                  </td>
+                  <td>
+                    {project.myRole === 'CLIENT' && (
+                      <div className="flex gap-1 justify-end">
+                        <button
+                          onClick={() => openEditModal(project)}
+                          className="p-1.5 rounded-md transition-colors ax-hover-overlay"
+                          style={{ color: 'rgba(var(--ax-text-rgb), 0.45)' }}
+                          title="Edit"
+                        >
+                          <Pencil className="w-3.5 h-3.5" />
+                        </button>
+                        <button
+                          onClick={() => setDeleteTarget(project)}
+                          className="p-1.5 rounded-md transition-colors hover:text-[#e06050] ax-hover-overlay"
+                          style={{ color: 'rgba(var(--ax-text-rgb), 0.45)' }}
+                          title="Archive"
+                        >
+                          <Trash2 className="w-3.5 h-3.5" />
+                        </button>
+                      </div>
+                    )}
+                  </td>
+                </tr>
+              ))}
+            </tbody>
+          </table>
+        </div>
       )}
 
-      {/* Create/Edit Modal */}
+      {/* ── Create / Edit Modal ── */}
       {showModal && (
-        <div className="fixed inset-0 z-50 flex items-center justify-center bg-black/70" onClick={() => !submitting && setShowModal(false)}>
-          <div className="bg-[#13151a] border border-[rgba(255,255,255,0.1)] rounded-xl w-full max-w-lg mx-4 overflow-hidden" onClick={(e) => e.stopPropagation()}>
-            <div className="flex items-center justify-between px-6 py-4 border-b border-[rgba(255,255,255,0.07)]">
-              <h2 className="text-lg font-semibold text-[#e8e4dc]">
+        <div
+          className="fixed inset-0 z-50 flex items-center justify-center bg-black/60 p-4"
+          onClick={() => !submitting && setShowModal(false)}
+        >
+          <div
+            className="rounded-xl w-full max-w-lg overflow-hidden border"
+            style={{ backgroundColor: 'var(--ax-modal)', borderColor: 'var(--ax-border)' }}
+            onClick={(e) => e.stopPropagation()}
+          >
+            <div
+              className="flex items-center justify-between px-6 py-4 border-b"
+              style={{ borderColor: 'var(--ax-border)' }}
+            >
+              <h2 className="text-lg font-semibold" style={{ color: 'var(--ax-text)' }}>
                 {editingProject ? 'Edit Project' : 'Create Project'}
               </h2>
-              <button onClick={() => !submitting && setShowModal(false)} className="text-[rgba(232,228,220,0.35)] hover:text-[rgba(232,228,220,0.55)]">
+              <button
+                onClick={() => !submitting && setShowModal(false)}
+                className="p-1 rounded-lg ax-hover-overlay transition-colors"
+                style={{ color: 'rgba(var(--ax-text-rgb), 0.4)' }}
+              >
                 <X className="w-5 h-5" />
               </button>
             </div>
+
             <form onSubmit={handleSubmit} className="p-6 space-y-4">
               {modalError && (
-                <div className="p-3 bg-[rgba(220,80,60,0.1)] border border-[rgba(224,96,80,0.3)] text-[#e06050] text-sm rounded-lg">
-                  {modalError}
-                </div>
+                <div className="alert alert-error text-sm">{modalError}</div>
               )}
+
               <div>
-                <label className="block text-sm font-medium text-[#e8e4dc] mb-1">Project Name *</label>
+                <label className="label text-xs">Project Name *</label>
                 <input
                   type="text"
                   value={form.name}
                   onChange={(e) => setForm({ ...form, name: e.target.value })}
                   required
-                  className="w-full py-2 px-3 text-sm bg-[#1a1c22] text-[#e8e4dc] placeholder:text-[rgba(232,228,220,0.35)] border border-[rgba(255,255,255,0.07)] rounded-lg focus:outline-none focus:ring-2 focus:ring-[rgba(196,163,90,0.3)]"
+                  className="input text-sm"
                   placeholder="e.g. Downtown Office Building"
                 />
               </div>
+
               <div>
-                <label className="block text-sm font-medium text-[#e8e4dc] mb-1">Description</label>
+                <label className="label text-xs">Description</label>
                 <textarea
                   value={form.description}
                   onChange={(e) => setForm({ ...form, description: e.target.value })}
                   rows={2}
-                  className="w-full py-2 px-3 text-sm bg-[#1a1c22] text-[#e8e4dc] placeholder:text-[rgba(232,228,220,0.35)] border border-[rgba(255,255,255,0.07)] rounded-lg focus:outline-none focus:ring-2 focus:ring-[rgba(196,163,90,0.3)]"
+                  className="input text-sm resize-none"
                   placeholder="Brief project description..."
                 />
               </div>
+
               <div>
-                <label className="block text-sm font-medium text-[#e8e4dc] mb-1">Location</label>
+                <label className="label text-xs">Location</label>
                 <input
                   type="text"
                   value={form.location}
                   onChange={(e) => setForm({ ...form, location: e.target.value })}
-                  className="w-full py-2 px-3 text-sm bg-[#1a1c22] text-[#e8e4dc] placeholder:text-[rgba(232,228,220,0.35)] border border-[rgba(255,255,255,0.07)] rounded-lg focus:outline-none focus:ring-2 focus:ring-[rgba(196,163,90,0.3)]"
+                  className="input text-sm"
                   placeholder="e.g. Dubai Marina, UAE"
                 />
               </div>
+
               <div>
-                <label className="block text-sm font-medium text-[#e8e4dc] mb-1">Contract Value (AED)</label>
+                <label className="label text-xs">Contract Value (AED)</label>
                 <input
                   type="number"
                   value={form.contractValue}
                   onChange={(e) => setForm({ ...form, contractValue: e.target.value })}
-                  className="w-full py-2 px-3 text-sm bg-[#1a1c22] text-[#e8e4dc] placeholder:text-[rgba(232,228,220,0.35)] border border-[rgba(255,255,255,0.07)] rounded-lg focus:outline-none focus:ring-2 focus:ring-[rgba(196,163,90,0.3)]"
+                  className="input text-sm"
                   placeholder="e.g. 45000000"
                   min="0"
                   step="1000"
                 />
               </div>
+
               <div className="grid grid-cols-2 gap-4">
                 <div>
-                  <label className="block text-sm font-medium text-[#e8e4dc] mb-1">Start Date</label>
+                  <label className="label text-xs">Start Date</label>
                   <input
                     type="date"
                     value={form.startDate}
                     onChange={(e) => setForm({ ...form, startDate: e.target.value })}
-                    className="w-full py-2 px-3 text-sm bg-[#1a1c22] text-[#e8e4dc] placeholder:text-[rgba(232,228,220,0.35)] border border-[rgba(255,255,255,0.07)] rounded-lg focus:outline-none focus:ring-2 focus:ring-[rgba(196,163,90,0.3)]"
+                    className="input text-sm"
                   />
                 </div>
                 <div>
-                  <label className="block text-sm font-medium text-[#e8e4dc] mb-1">End Date</label>
+                  <label className="label text-xs">End Date</label>
                   <input
                     type="date"
                     value={form.endDate}
                     onChange={(e) => setForm({ ...form, endDate: e.target.value })}
-                    className="w-full py-2 px-3 text-sm bg-[#1a1c22] text-[#e8e4dc] placeholder:text-[rgba(232,228,220,0.35)] border border-[rgba(255,255,255,0.07)] rounded-lg focus:outline-none focus:ring-2 focus:ring-[rgba(196,163,90,0.3)]"
+                    className="input text-sm"
                   />
                 </div>
               </div>
-              <div className="flex justify-end gap-3 pt-2">
+
+              <div className="flex justify-end gap-3 pt-1">
                 <button
                   type="button"
                   onClick={() => setShowModal(false)}
                   disabled={submitting}
-                  className="px-4 py-2 text-sm text-[rgba(232,228,220,0.55)] hover:text-[#e8e4dc]"
+                  className="btn btn-secondary text-sm"
                 >
                   Cancel
                 </button>
                 <button
                   type="submit"
                   disabled={submitting || !form.name.trim()}
-                  className="px-4 py-2 text-sm bg-[#c4a35a] text-[#0a0c10] rounded-lg hover:bg-[#b3943f] disabled:opacity-50 flex items-center gap-2"
+                  className="btn btn-primary text-sm"
                 >
                   {submitting && <Loader2 className="w-4 h-4 animate-spin" />}
                   {submitting
                     ? (editingProject ? 'Saving...' : 'Creating...')
-                    : (editingProject ? 'Save Changes' : 'Create Project')
-                  }
+                    : (editingProject ? 'Save Changes' : 'Create Project')}
                 </button>
               </div>
             </form>
@@ -419,28 +529,41 @@ export default function ProjectsPage() {
         </div>
       )}
 
-      {/* Delete Confirmation Modal */}
+      {/* ── Delete Confirmation Modal ── */}
       {deleteTarget && (
-        <div className="fixed inset-0 z-50 flex items-center justify-center bg-black/70" onClick={() => !deleting && setDeleteTarget(null)}>
-          <div className="bg-[#13151a] border border-[rgba(255,255,255,0.1)] rounded-xl w-full max-w-md mx-4 overflow-hidden" onClick={(e) => e.stopPropagation()}>
+        <div
+          className="fixed inset-0 z-50 flex items-center justify-center bg-black/60 p-4"
+          onClick={() => !deleting && setDeleteTarget(null)}
+        >
+          <div
+            className="rounded-xl w-full max-w-md overflow-hidden border"
+            style={{ backgroundColor: 'var(--ax-modal)', borderColor: 'var(--ax-border)' }}
+            onClick={(e) => e.stopPropagation()}
+          >
             <div className="px-6 py-5">
-              <h2 className="text-lg font-semibold text-[#e8e4dc] mb-2">Archive Project</h2>
-              <p className="text-sm text-[rgba(232,228,220,0.55)]">
-                Are you sure you want to archive <strong>{deleteTarget.name}</strong>? This action cannot be undone.
+              <h2 className="text-lg font-semibold mb-2" style={{ color: 'var(--ax-text)' }}>
+                Archive Project
+              </h2>
+              <p className="text-sm" style={{ color: 'rgba(var(--ax-text-rgb), 0.55)' }}>
+                Are you sure you want to archive <strong style={{ color: 'var(--ax-text)' }}>{deleteTarget.name}</strong>?
+                This action cannot be undone.
               </p>
             </div>
-            <div className="flex justify-end gap-3 px-6 py-4 bg-[rgba(255,255,255,0.03)] border-t border-[rgba(255,255,255,0.07)]">
+            <div
+              className="flex justify-end gap-3 px-6 py-4 border-t"
+              style={{ backgroundColor: 'var(--ax-overlay)', borderColor: 'var(--ax-border)' }}
+            >
               <button
                 onClick={() => setDeleteTarget(null)}
                 disabled={deleting}
-                className="px-4 py-2 text-sm text-[rgba(232,228,220,0.55)] hover:text-[#e8e4dc]"
+                className="btn btn-secondary text-sm"
               >
                 Cancel
               </button>
               <button
                 onClick={handleDelete}
                 disabled={deleting}
-                className="px-4 py-2 text-sm bg-[#e06050] text-white rounded-lg hover:bg-[#c8503f] disabled:opacity-50 flex items-center gap-2"
+                className="btn btn-danger text-sm"
               >
                 {deleting && <Loader2 className="w-4 h-4 animate-spin" />}
                 {deleting ? 'Archiving...' : 'Archive Project'}

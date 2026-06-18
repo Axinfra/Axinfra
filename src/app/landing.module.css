@@ -23,13 +23,15 @@
   position: sticky;
   top: 0;
   z-index: 100;
-  background: #0a0c10;
-  border-bottom: 1px solid rgba(255, 255, 255, 0.07);
+  background: var(--ax-header-bg, #0a0c10);
+  border-bottom: 1px solid var(--ax-border);
   padding: 0 48px;
   height: 60px;
   display: flex;
   align-items: center;
   justify-content: space-between;
+  backdrop-filter: blur(12px);
+  -webkit-backdrop-filter: blur(12px);
 }
 
 .navLeft {
@@ -42,14 +44,14 @@
   width: 32px;
   height: 32px;
   border-radius: 6px;
-  background: linear-gradient(135deg, #c4a35a 0%, #a8893e 100%);
+  background: linear-gradient(135deg, var(--ax-accent) 0%, var(--ax-accent-hover) 100%);
   display: flex;
   align-items: center;
   justify-content: center;
   font-family: 'Playfair Display', serif;
   font-weight: 700;
   font-size: 16px;
-  color: #0a0c10;
+  color: var(--ax-base);
   flex-shrink: 0;
 }
 
@@ -58,7 +60,7 @@
   font-weight: 600;
   font-size: 16px;
   letter-spacing: 0.02em;
-  color: #e8e4dc;
+  color: var(--ax-text);
 }
 
 .navCenter {
@@ -69,13 +71,13 @@
 .navLink {
   font-size: 13px;
   font-weight: 400;
-  color: rgba(232, 228, 220, 0.55);
+  color: rgba(var(--ax-text-rgb), 0.58);
   text-decoration: none;
   transition: color 0.2s;
 }
 
 .navLink:hover {
-  color: #e8e4dc;
+  color: var(--ax-text);
 }
 
 .navRight {
@@ -87,7 +89,7 @@
 .btnLogin {
   font-size: 13px;
   font-weight: 500;
-  color: rgba(232, 228, 220, 0.55);
+  color: rgba(var(--ax-text-rgb), 0.58);
   text-decoration: none;
   background: transparent;
   border: none;
@@ -97,15 +99,15 @@
 }
 
 .btnLogin:hover {
-  color: #e8e4dc;
+  color: var(--ax-text);
 }
 
 .btnDemo {
   display: inline-flex;
   align-items: center;
   justify-content: center;
-  background: #c4a35a;
-  color: #0a0c10;
+  background: var(--ax-accent);
+  color: var(--ax-base);
   font-size: 13px;
   font-weight: 600;
   padding: 10px 24px;
@@ -117,7 +119,7 @@
 }
 
 .btnDemo:hover {
-  background: #b3943f;
+  background: var(--ax-accent-hover);
 }
 
 .btnGhost {
@@ -171,7 +173,7 @@
 .pulseDot {
   width: 8px;
   height: 8px;
-  background: #c4a35a;
+  background: var(--ax-accent);
   border-radius: 50%;
   animation: pulse 2s ease-in-out infinite;
   flex-shrink: 0;
@@ -185,7 +187,7 @@
 .heroBadgeText {
   font-size: 12px;
   font-weight: 500;
-  color: #c4a35a;
+  color: var(--ax-accent);
   letter-spacing: 0.02em;
 }
 
@@ -200,7 +202,7 @@
 }
 
 .goldText {
-  color: #c4a35a;
+  color: var(--ax-accent);
 }
 
 .heroSub {
@@ -244,7 +246,7 @@
 }
 
 .metricSymbol {
-  color: #c4a35a;
+  color: var(--ax-accent);
 }
 
 .metricLabel {
@@ -276,7 +278,7 @@
   font-weight: 600;
   text-transform: uppercase;
   letter-spacing: 0.1em;
-  color: #c4a35a;
+  color: var(--ax-accent);
   margin-bottom: 16px;
 }
 
@@ -331,7 +333,7 @@
 .featureIcon svg {
   width: 12px;
   height: 12px;
-  color: #c4a35a;
+  color: var(--ax-accent);
 }
 
 .aiPill {
@@ -349,7 +351,7 @@
 .aiPillDot {
   width: 6px;
   height: 6px;
-  background: #c4a35a;
+  background: var(--ax-accent);
   border-radius: 50%;
   opacity: 0.6;
 }
@@ -390,7 +392,7 @@
 
 .statusActive {
   background: rgba(196, 163, 90, 0.12);
-  color: #c4a35a;
+  color: var(--ax-accent);
 }
 
 .statusDone {
@@ -418,7 +420,7 @@
 }
 
 .progressActive {
-  background: #c4a35a;
+  background: var(--ax-accent);
 }
 
 .progressDone {
@@ -454,7 +456,7 @@
 .bottomStripRight {
   font-size: 13px;
   font-weight: 500;
-  color: #c4a35a;
+  color: var(--ax-accent);
   text-decoration: none;
 }
 

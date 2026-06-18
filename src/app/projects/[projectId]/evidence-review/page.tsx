@@ -39,7 +39,7 @@ function FileChip({ file }: { file: EvidenceFile }) {
       href={`/api/files/${file.id}`}
       target="_blank"
       rel="noopener noreferrer"
-      className="inline-flex items-center gap-1.5 px-2.5 py-1.5 text-xs rounded-lg bg-[rgba(255,255,255,0.05)] hover:bg-[rgba(196,163,90,0.1)] text-[rgba(232,228,220,0.75)] hover:text-[#c4a35a] border border-[rgba(255,255,255,0.07)] hover:border-[rgba(196,163,90,0.3)] transition-all"
+      className="inline-flex items-center gap-1.5 px-2.5 py-1.5 text-xs rounded-lg bg-[rgba(255,255,255,0.05)] hover:bg-[rgba(var(--ax-accent-rgb),0.1)] text-[rgba(232,228,220,0.75)] hover:text-[var(--ax-accent)] border border-[rgba(255,255,255,0.07)] hover:border-[rgba(var(--ax-accent-rgb),0.3)] transition-all"
     >
       {isPdf ? (
         <FileText className="w-3.5 h-3.5 shrink-0 text-[#e06050]" />
@@ -56,7 +56,7 @@ function FileChip({ file }: { file: EvidenceFile }) {
 
 function CompletionBar({ value }: { value: number }) {
   const pct = Math.min(100, Math.max(0, value));
-  const color = pct >= 90 ? '#5cba80' : pct >= 50 ? '#c4a35a' : '#f97316';
+  const color = pct >= 90 ? '#5cba80' : pct >= 50 ? 'var(--ax-accent)' : '#f97316';
   return (
     <div className="flex items-center gap-2">
       <div className="flex-1 h-1.5 bg-[rgba(255,255,255,0.07)] rounded-full overflow-hidden">
@@ -174,7 +174,7 @@ export default function EvidenceReviewPage() {
             </p>
           </div>
           {pendingEvidence.length > 0 && (
-            <span className="inline-flex items-center justify-center w-8 h-8 rounded-full bg-[rgba(196,163,90,0.15)] text-[#c4a35a] text-sm font-bold">
+            <span className="inline-flex items-center justify-center w-8 h-8 rounded-full bg-[rgba(var(--ax-accent-rgb),0.15)] text-[var(--ax-accent)] text-sm font-bold">
               {pendingEvidence.length}
             </span>
           )}
@@ -219,7 +219,7 @@ export default function EvidenceReviewPage() {
                       <div>
                         <Link
                           href={`/projects/${projectId}/milestones/${ev.milestone.id}`}
-                          className="text-base font-semibold text-[#c4a35a] hover:text-[#d4b36a] transition-colors"
+                          className="text-base font-semibold text-[var(--ax-accent)] hover:text-[var(--ax-accent)] transition-colors"
                         >
                           {ev.milestone.title}
                         </Link>
@@ -234,7 +234,7 @@ export default function EvidenceReviewPage() {
                           </span>
                         </div>
                       </div>
-                      <span className="text-xs px-2 py-1 rounded-full bg-[rgba(196,163,90,0.1)] text-[#c4a35a] border border-[rgba(196,163,90,0.2)] font-medium shrink-0">
+                      <span className="text-xs px-2 py-1 rounded-full bg-[rgba(var(--ax-accent-rgb),0.1)] text-[var(--ax-accent)] border border-[rgba(var(--ax-accent-rgb),0.2)] font-medium shrink-0">
                         Pending Review
                       </span>
                     </div>

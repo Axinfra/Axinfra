@@ -59,7 +59,7 @@ export default function DashboardPage() {
       <Navbar projectId={projectId} projectName={projectName} role={myRole} />
 
       <div className="space-y-6">
-        <h1 className="text-2xl font-bold" style={{ color: '#f5f1e8' }}>
+        <h1 className="text-2xl font-bold" style={{ color: 'var(--ax-text)' }}>
           {roleLabel} Dashboard
         </h1>
 
@@ -80,15 +80,15 @@ function OwnerDashboard({ data, projectId }: { data: any; projectId: string }) {
       <div className="grid gap-4 md:grid-cols-3 lg:grid-cols-6">
         <div className="card">
           <div className="card-body">
-            <p className="text-sm" style={{ color: 'rgba(232, 228, 220, 0.6)' }}>Verified Value</p>
-            <p className="text-xl font-bold" style={{ color: '#f5f1e8' }}>
+            <p className="text-sm" style={{ color: 'rgba(var(--ax-text-rgb), 0.6)' }}>Verified Value</p>
+            <p className="text-xl font-bold" style={{ color: 'var(--ax-text)' }}>
               {formatCurrency(data.summary.totalVerifiedValue)}
             </p>
           </div>
         </div>
         <div className="card">
           <div className="card-body">
-            <p className="text-sm" style={{ color: 'rgba(232, 228, 220, 0.6)' }}>Paid Value</p>
+            <p className="text-sm" style={{ color: 'rgba(var(--ax-text-rgb), 0.6)' }}>Paid Value</p>
             <p className="text-xl font-bold text-green-400">
               {formatCurrency(data.summary.totalPaidValue)}
             </p>
@@ -96,7 +96,7 @@ function OwnerDashboard({ data, projectId }: { data: any; projectId: string }) {
         </div>
         <div className="card">
           <div className="card-body">
-            <p className="text-sm" style={{ color: 'rgba(232, 228, 220, 0.6)' }}>Unpaid Value</p>
+            <p className="text-sm" style={{ color: 'rgba(var(--ax-text-rgb), 0.6)' }}>Unpaid Value</p>
             <p className="text-xl font-bold text-orange-400">
               {formatCurrency(data.summary.totalUnpaidValue)}
             </p>
@@ -104,7 +104,7 @@ function OwnerDashboard({ data, projectId }: { data: any; projectId: string }) {
         </div>
         <div className="card">
           <div className="card-body">
-            <p className="text-sm" style={{ color: 'rgba(232, 228, 220, 0.6)' }}>Blocked Value</p>
+            <p className="text-sm" style={{ color: 'rgba(var(--ax-text-rgb), 0.6)' }}>Blocked Value</p>
             <p className="text-xl font-bold text-red-400">
               {formatCurrency(data.summary.totalBlockedValue)}
             </p>
@@ -112,7 +112,7 @@ function OwnerDashboard({ data, projectId }: { data: any; projectId: string }) {
         </div>
         <div className="card">
           <div className="card-body">
-            <p className="text-sm" style={{ color: 'rgba(232, 228, 220, 0.6)' }}>Advance Exposure</p>
+            <p className="text-sm" style={{ color: 'rgba(var(--ax-text-rgb), 0.6)' }}>Advance Exposure</p>
             <p className="text-xl font-bold text-purple-400">
               {formatCurrency(data.summary.advanceExposure)}
             </p>
@@ -120,7 +120,7 @@ function OwnerDashboard({ data, projectId }: { data: any; projectId: string }) {
         </div>
         <div className="card">
           <div className="card-body">
-            <p className="text-sm" style={{ color: 'rgba(232, 228, 220, 0.6)' }}>BOQ Overruns</p>
+            <p className="text-sm" style={{ color: 'rgba(var(--ax-text-rgb), 0.6)' }}>BOQ Overruns</p>
             <p className="text-xl font-bold text-pink-400">
               {data.summary.boqOverrunCount}
             </p>

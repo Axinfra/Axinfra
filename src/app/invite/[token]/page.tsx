@@ -102,7 +102,7 @@ export default function InvitePage() {
           <div className="flex items-center gap-2.5">
             <div
               className="w-9 h-9 rounded-xl flex items-center justify-center"
-              style={{ background: 'linear-gradient(135deg, #c4a35a 0%, #a8893e 100%)' }}
+              style={{ background: 'linear-gradient(135deg, var(--ax-accent) 0%, var(--ax-accent-hover) 100%)' }}
             >
               <span className="text-[#0a0c10] text-sm font-bold">A</span>
             </div>
@@ -113,7 +113,7 @@ export default function InvitePage() {
         {/* Loading */}
         {state === 'loading' && (
           <div className="flex items-center justify-center py-16">
-            <Loader2 className="w-8 h-8 text-[#c4a35a] animate-spin" />
+            <Loader2 className="w-8 h-8 text-[var(--ax-accent)] animate-spin" />
           </div>
         )}
 
@@ -125,7 +125,7 @@ export default function InvitePage() {
             <p className="text-[rgba(232,228,220,0.55)] text-sm mb-6">{errorMsg}</p>
             <Link
               href="/auth/login"
-              className="inline-block px-6 py-2.5 rounded-xl bg-[rgba(196,163,90,0.1)] border border-[rgba(196,163,90,0.25)] text-[#c4a35a] text-sm font-medium hover:bg-[rgba(196,163,90,0.15)] transition-colors"
+              className="inline-block px-6 py-2.5 rounded-xl bg-[rgba(var(--ax-accent-rgb),0.1)] border border-[rgba(var(--ax-accent-rgb),0.25)] text-[var(--ax-accent)] text-sm font-medium hover:bg-[rgba(var(--ax-accent-rgb),0.15)] transition-colors"
             >
               Go to Login
             </Link>
@@ -150,7 +150,7 @@ export default function InvitePage() {
             {/* Header band */}
             <div className="px-6 py-5 border-b border-[rgba(255,255,255,0.06)]">
               <div className="flex items-center gap-2 mb-1">
-                <Mail className="w-4 h-4 text-[#c4a35a]" />
+                <Mail className="w-4 h-4 text-[var(--ax-accent)]" />
                 <span className="text-xs font-medium text-[rgba(232,228,220,0.4)] uppercase tracking-wider">
                   Project Invitation
                 </span>
@@ -167,8 +167,8 @@ export default function InvitePage() {
             <div className="px-6 py-5 space-y-4">
               {/* Project */}
               <div className="flex items-center gap-3">
-                <div className="w-9 h-9 rounded-lg bg-[rgba(196,163,90,0.08)] flex items-center justify-center shrink-0">
-                  <Building2 className="w-4 h-4 text-[#c4a35a]" />
+                <div className="w-9 h-9 rounded-lg bg-[rgba(var(--ax-accent-rgb),0.08)] flex items-center justify-center shrink-0">
+                  <Building2 className="w-4 h-4 text-[var(--ax-accent)]" />
                 </div>
                 <div>
                   <p className="text-xs text-[rgba(232,228,220,0.35)] font-medium uppercase tracking-wider mb-0.5">Project</p>
@@ -178,12 +178,12 @@ export default function InvitePage() {
 
               {/* Role */}
               <div className="flex items-start gap-3">
-                <div className="w-9 h-9 rounded-lg bg-[rgba(196,163,90,0.08)] flex items-center justify-center shrink-0 text-lg">
+                <div className="w-9 h-9 rounded-lg bg-[rgba(var(--ax-accent-rgb),0.08)] flex items-center justify-center shrink-0 text-lg">
                   {ROLE_ICONS[invite.role] ?? '👤'}
                 </div>
                 <div>
                   <p className="text-xs text-[rgba(232,228,220,0.35)] font-medium uppercase tracking-wider mb-0.5">Your Role</p>
-                  <p className="text-sm font-semibold text-[#c4a35a]">{ROLE_LABELS[invite.role] ?? invite.role}</p>
+                  <p className="text-sm font-semibold text-[var(--ax-accent)]">{ROLE_LABELS[invite.role] ?? invite.role}</p>
                   <p className="text-xs text-[rgba(232,228,220,0.45)] mt-0.5 leading-relaxed">
                     {ROLE_DESCRIPTIONS[invite.role] ?? ''}
                   </p>
@@ -192,8 +192,8 @@ export default function InvitePage() {
 
               {/* Invited email */}
               <div className="flex items-center gap-3">
-                <div className="w-9 h-9 rounded-lg bg-[rgba(196,163,90,0.08)] flex items-center justify-center shrink-0">
-                  <UserCheck className="w-4 h-4 text-[#c4a35a]" />
+                <div className="w-9 h-9 rounded-lg bg-[rgba(var(--ax-accent-rgb),0.08)] flex items-center justify-center shrink-0">
+                  <UserCheck className="w-4 h-4 text-[var(--ax-accent)]" />
                 </div>
                 <div>
                   <p className="text-xs text-[rgba(232,228,220,0.35)] font-medium uppercase tracking-wider mb-0.5">Invited Email</p>
@@ -210,7 +210,7 @@ export default function InvitePage() {
                     onClick={handleAccept}
                     disabled={state === 'accepting'}
                     className="w-full h-11 rounded-xl font-semibold text-sm flex items-center justify-center gap-2 transition-all"
-                    style={{ background: '#c4a35a', color: '#0a0c10' }}
+                    style={{ background: 'var(--ax-accent)', color: '#0a0c10' }}
                   >
                     {state === 'accepting' ? (
                       <><Loader2 className="w-4 h-4 animate-spin" /> Accepting…</>
@@ -228,7 +228,7 @@ export default function InvitePage() {
                   <Link
                     href={`/auth/register?invite=${token}`}
                     className="w-full h-11 rounded-xl font-semibold text-sm flex items-center justify-center gap-2 transition-all"
-                    style={{ background: '#c4a35a', color: '#0a0c10' }}
+                    style={{ background: 'var(--ax-accent)', color: '#0a0c10' }}
                   >
                     Create Account & Accept
                   </Link>

@@ -2,6 +2,7 @@
 
 import Link from 'next/link';
 import { usePathname, useRouter } from 'next/navigation';
+import AxinfraLogo from '@/components/AxinfraLogo';
 import { useState, useEffect } from 'react';
 
 const NAV_ITEMS = [
@@ -41,27 +42,22 @@ export default function AdminSidebar({ userEmail, userName, sidebarOpen, onClose
       )}
 
       <aside
-        className={`fixed inset-y-0 left-0 z-50 w-[260px] bg-[#0d0f13] border-r border-[rgba(255,255,255,0.07)] flex flex-col
+        className={`fixed inset-y-0 left-0 z-50 w-[260px] bg-[var(--ax-surface)] border-r border-[var(--ax-border)] flex flex-col
           transition-transform duration-200 ease-out
           lg:translate-x-0 lg:static lg:z-auto
           ${sidebarOpen ? 'translate-x-0' : '-translate-x-full'}`}
       >
         {/* Logo */}
-        <div className="h-14 flex items-center px-5 border-b border-[rgba(255,255,255,0.07)] shrink-0">
-          <Link href="/admin/dashboard" className="flex items-center gap-2.5" onClick={onClose}>
-            <div className="w-7 h-7 rounded-md flex items-center justify-center" style={{ background: 'linear-gradient(135deg, #c4a35a 0%, #a8893e 100%)' }}>
-              <span className="text-[#0a0c10] text-[10px] font-bold tracking-tight">A</span>
-            </div>
-            <div className="flex flex-col">
-              <span className="text-[15px] font-semibold text-[#e8e4dc] tracking-tight leading-none">Axinfra</span>
-              <span className="text-[9px] font-bold text-[#c4a35a] tracking-[1.5px] uppercase leading-none mt-0.5">Admin</span>
-            </div>
-          </Link>
+        <div className="h-14 flex items-center px-5 border-b shrink-0" style={{ borderColor: 'var(--ax-border)' }}>
+          <div onClick={onClose} style={{ display: 'flex', alignItems: 'center', gap: 8 }}>
+            <AxinfraLogo size="md" href="/admin/dashboard" />
+            <span style={{ fontSize: 9, fontWeight: 700, color: 'var(--ax-accent)', letterSpacing: '1.5px', textTransform: 'uppercase', lineHeight: 1 }}>Admin</span>
+          </div>
         </div>
 
         {/* Navigation */}
         <nav className="flex-1 px-3 py-3 overflow-y-auto">
-          <p className="px-3 mb-2 text-[10px] font-medium text-[rgba(232,228,220,0.35)] uppercase tracking-wider">Platform</p>
+          <p className="px-3 mb-2 text-[10px] font-medium text-[rgba(var(--ax-text-rgb),0.35)] uppercase tracking-wider">Platform</p>
           <div className="space-y-0.5">
             {NAV_ITEMS.map(({ href, label, Icon }) => {
               const isActive = pathname === href || (href !== '/admin' && pathname.startsWith(href + '/'));
@@ -72,8 +68,8 @@ export default function AdminSidebar({ userEmail, userName, sidebarOpen, onClose
                   onClick={onClose}
                   className={`flex items-center gap-2.5 px-3 py-2 rounded-lg text-[13px] font-medium transition-colors duration-100
                     ${isActive
-                      ? 'bg-[rgba(196,163,90,0.08)] text-[#c4a35a] border-l-2 border-[#c4a35a]'
-                      : 'text-[rgba(232,228,220,0.5)] hover:bg-[rgba(255,255,255,0.05)] hover:text-[#e8e4dc]'
+                      ? 'bg-[rgba(var(--ax-accent-rgb),0.08)] text-[var(--ax-accent)] border-l-2 border-[var(--ax-accent)]'
+                      : 'text-[rgba(var(--ax-text-rgb),0.5)] hover:bg-[var(--ax-overlay-hover)] hover:text-[var(--ax-text)]'
                     }`}
                 >
                   <Icon className="w-[18px] h-[18px] shrink-0" />
@@ -83,12 +79,12 @@ export default function AdminSidebar({ userEmail, userName, sidebarOpen, onClose
             })}
           </div>
 
-          <div className="my-3 border-t border-[rgba(255,255,255,0.05)]" />
+          <div className="my-3 border-t border-[var(--ax-border-subtle)]" />
 
-          <p className="px-3 mb-2 text-[10px] font-medium text-[rgba(232,228,220,0.35)] uppercase tracking-wider">App</p>
+          <p className="px-3 mb-2 text-[10px] font-medium text-[rgba(var(--ax-text-rgb),0.35)] uppercase tracking-wider">App</p>
           <Link
             href="/projects"
-            className="flex items-center gap-2.5 px-3 py-2 rounded-lg text-[13px] font-medium text-[rgba(232,228,220,0.4)] hover:bg-[rgba(255,255,255,0.05)] hover:text-[#e8e4dc] transition-colors"
+            className="flex items-center gap-2.5 px-3 py-2 rounded-lg text-[13px] font-medium text-[rgba(var(--ax-text-rgb),0.4)] hover:bg-[var(--ax-overlay-hover)] hover:text-[var(--ax-text)] transition-colors"
           >
             <BackIcon className="w-[18px] h-[18px] shrink-0" />
             Back to App
@@ -96,21 +92,21 @@ export default function AdminSidebar({ userEmail, userName, sidebarOpen, onClose
         </nav>
 
         {/* User section */}
-        <div className="border-t border-[rgba(255,255,255,0.07)] px-3 py-3 shrink-0">
+        <div className="border-t border-[var(--ax-border)] px-3 py-3 shrink-0">
           <div className="flex items-center gap-2.5 px-2">
-            <div className="w-8 h-8 rounded-full bg-[rgba(196,163,90,0.15)] border border-[rgba(196,163,90,0.3)] flex items-center justify-center shrink-0">
-              <span className="text-[11px] font-bold text-[#c4a35a]">{initials}</span>
+            <div className="w-8 h-8 rounded-full bg-[rgba(var(--ax-accent-rgb),0.15)] border border-[rgba(var(--ax-accent-rgb),0.3)] flex items-center justify-center shrink-0">
+              <span className="text-[11px] font-bold text-[var(--ax-accent)]">{initials}</span>
             </div>
             <div className="flex-1 min-w-0">
               <div className="flex items-center gap-1.5">
-                <p className="text-[13px] font-medium text-[#e8e4dc] truncate">{userName}</p>
-                <span className="shrink-0 text-[8px] font-bold tracking-widest text-[#c4a35a] bg-[rgba(196,163,90,0.12)] border border-[rgba(196,163,90,0.2)] px-1.5 py-0.5 rounded-full uppercase">Admin</span>
+                <p className="text-[13px] font-medium text-[var(--ax-text)] truncate">{userName}</p>
+                <span className="shrink-0 text-[8px] font-bold tracking-widest text-[var(--ax-accent)] bg-[rgba(var(--ax-accent-rgb),0.12)] border border-[rgba(var(--ax-accent-rgb),0.2)] px-1.5 py-0.5 rounded-full uppercase">Admin</span>
               </div>
-              <p className="text-[11px] text-[rgba(232,228,220,0.35)] truncate">{userEmail}</p>
+              <p className="text-[11px] text-[rgba(var(--ax-text-rgb),0.35)] truncate">{userEmail}</p>
             </div>
             <button
               onClick={handleLogout}
-              className="p-1.5 rounded-md text-[rgba(232,228,220,0.35)] hover:text-[#e06050] hover:bg-[rgba(220,80,60,0.1)] transition-colors shrink-0"
+              className="p-1.5 rounded-md text-[rgba(var(--ax-text-rgb),0.35)] hover:text-[#e06050] hover:bg-[rgba(220,80,60,0.1)] transition-colors shrink-0"
               title="Sign out"
               aria-label="Sign out"
             >

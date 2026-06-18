@@ -1,41 +1,44 @@
 /**
- * Shared Recharts dark-theme tooltip & cursor config.
- * Spread onto every <Tooltip> so every chart matches the app theme.
+ * Shared Recharts tooltip & cursor config — theme-aware via CSS variables.
+ * Spread onto every <Tooltip> so every chart adapts to all 8 themes.
  *
  * Usage:
- *   import { DARK_TOOLTIP, CUSTOM_TOOLTIP_WRAPPER } from '@/lib/chartConfig';
- *   <Tooltip {...DARK_TOOLTIP} />
+ *   import { CHART_TOOLTIP, CUSTOM_TOOLTIP_WRAPPER } from '@/lib/chartConfig';
+ *   <Tooltip {...CHART_TOOLTIP} />
  *   <Tooltip content={<MyTooltip />} {...CUSTOM_TOOLTIP_WRAPPER} />
  */
 
-export const DARK_TOOLTIP = {
+export const CHART_TOOLTIP = {
   contentStyle: {
-    background: '#1a1c22',
-    border: '1px solid rgba(255,255,255,0.1)',
+    background: 'var(--ax-modal)',
+    border: '1px solid var(--ax-border)',
     borderRadius: 10,
-    color: '#e8e4dc',
-    boxShadow: '0 8px 32px rgba(0,0,0,0.55)',
+    color: 'var(--ax-text)',
+    boxShadow: '0 8px 32px rgba(0,0,0,0.25)',
     padding: '8px 14px',
     fontSize: 13,
   },
   labelStyle: {
-    color: 'rgba(232,228,220,0.55)',
+    color: 'rgba(var(--ax-text-rgb),0.55)',
     fontSize: 11.5,
     marginBottom: 3,
     fontWeight: 600,
   },
   itemStyle: {
-    color: '#e8e4dc',
+    color: 'var(--ax-text)',
     fontSize: 13,
     fontWeight: 600,
   },
-  cursor: { fill: 'rgba(255,255,255,0.04)' },
+  cursor: { fill: 'var(--ax-chart-row-hover)' },
   wrapperStyle: { outline: 'none' },
 } as const;
 
+/** @deprecated use CHART_TOOLTIP */
+export const DARK_TOOLTIP = CHART_TOOLTIP;
+
 /**
  * Use when passing a custom content={<Component />}.
- * Prevents Recharts from adding a white wrapper box behind your component.
+ * Prevents Recharts from adding a wrapper box behind your component.
  */
 export const CUSTOM_TOOLTIP_WRAPPER = {
   wrapperStyle: {

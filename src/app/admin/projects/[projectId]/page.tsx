@@ -19,24 +19,24 @@ interface Data { project: ProjectDetail; milestones: Milestone[]; auditLogs: Aud
 
 const STATUS_STYLE: Record<string, { bg: string; fg: string }> = {
   ONGOING:   { bg: 'rgba(92,186,128,0.15)',  fg: '#5cba80' },
-  COMPLETED: { bg: 'rgba(196,163,90,0.15)',  fg: '#c4a35a' },
+  COMPLETED: { bg: 'rgba(var(--ax-accent-rgb),0.15)',  fg: 'var(--ax-accent)' },
   PAUSED:    { bg: 'rgba(251,146,60,0.15)',  fg: '#fb923c' },
   CANCELLED: { bg: 'rgba(224,96,80,0.15)',   fg: '#e06050' },
 };
 const MS_STATE: Record<string, { bg: string; fg: string }> = {
-  DRAFT:       { bg: 'rgba(232,228,220,0.07)', fg: 'rgba(232,228,220,0.45)' },
+  DRAFT:       { bg: 'rgba(232,228,220,0.07)', fg: 'rgba(var(--ax-text-rgb),0.45)' },
   IN_PROGRESS: { bg: 'rgba(96,165,250,0.13)',  fg: '#60a5fa' },
   SUBMITTED:   { bg: 'rgba(251,146,60,0.13)',  fg: '#fb923c' },
   VERIFIED:    { bg: 'rgba(92,186,128,0.13)',  fg: '#5cba80' },
-  CLOSED:      { bg: 'rgba(196,163,90,0.13)',  fg: '#c4a35a' },
+  CLOSED:      { bg: 'rgba(var(--ax-accent-rgb),0.13)',  fg: 'var(--ax-accent)' },
 };
 const PAY_STATE: Record<string, string> = {
-  NOT_DUE: 'rgba(232,228,220,0.3)', DUE_PENDING_VERIFICATION: '#fb923c',
+  NOT_DUE: 'rgba(var(--ax-text-rgb),0.3)', DUE_PENDING_VERIFICATION: '#fb923c',
   FULLY_ELIGIBLE: '#5cba80', PARTIALLY_ELIGIBLE: '#5cba80',
-  BLOCKED: '#e06050', MARKED_PAID: '#c4a35a',
+  BLOCKED: '#e06050', MARKED_PAID: 'var(--ax-accent)',
 };
 const ROLE_COLOR: Record<string, string> = {
-  CLIENT: '#c4a35a', PMC: '#60a5fa', VENDOR: '#5cba80', CONSULTANT: '#a78bfa', VIEWER: 'rgba(232,228,220,0.4)',
+  CLIENT: 'var(--ax-accent)', PMC: '#60a5fa', VENDOR: '#5cba80', CONSULTANT: '#a78bfa', VIEWER: 'rgba(var(--ax-text-rgb),0.4)',
 };
 const FU_STYLE: Record<string, { bg: string; fg: string }> = {
   OPEN:      { bg: 'rgba(251,146,60,0.13)', fg: '#fb923c' },
@@ -71,7 +71,7 @@ function Pagination({ page, total, pageSize, onChange }: { page: number; total: 
       <div className="flex items-center gap-1.5">
         <button onClick={() => onChange(page - 1)} disabled={page === 0}
           className="px-3 py-1.5 rounded-lg text-[12px] font-medium transition-all disabled:opacity-30 disabled:cursor-not-allowed"
-          style={{ background: 'rgba(255,255,255,0.05)', color: 'rgba(232,228,220,0.6)', border: '1px solid rgba(255,255,255,0.08)' }}>
+          style={{ background: 'rgba(255,255,255,0.05)', color: 'rgba(var(--ax-text-rgb),0.6)', border: '1px solid rgba(255,255,255,0.08)' }}>
           ← Prev
         </button>
         {Array.from({ length: Math.min(totalPages, 5) }, (_, i) => {
@@ -80,9 +80,9 @@ function Pagination({ page, total, pageSize, onChange }: { page: number; total: 
             <button key={p} onClick={() => onChange(p)}
               className="w-8 h-8 rounded-lg text-[12px] font-semibold transition-all"
               style={{
-                background: page === p ? 'rgba(196,163,90,0.2)' : 'rgba(255,255,255,0.04)',
-                color: page === p ? '#c4a35a' : 'rgba(232,228,220,0.5)',
-                border: page === p ? '1px solid rgba(196,163,90,0.4)' : '1px solid rgba(255,255,255,0.07)',
+                background: page === p ? 'rgba(var(--ax-accent-rgb),0.2)' : 'rgba(255,255,255,0.04)',
+                color: page === p ? 'var(--ax-accent)' : 'rgba(var(--ax-text-rgb),0.5)',
+                border: page === p ? '1px solid rgba(var(--ax-accent-rgb),0.4)' : '1px solid rgba(255,255,255,0.07)',
               }}>
               {p + 1}
             </button>
@@ -90,7 +90,7 @@ function Pagination({ page, total, pageSize, onChange }: { page: number; total: 
         })}
         <button onClick={() => onChange(page + 1)} disabled={page === totalPages - 1}
           className="px-3 py-1.5 rounded-lg text-[12px] font-medium transition-all disabled:opacity-30 disabled:cursor-not-allowed"
-          style={{ background: 'rgba(255,255,255,0.05)', color: 'rgba(232,228,220,0.6)', border: '1px solid rgba(255,255,255,0.08)' }}>
+          style={{ background: 'rgba(255,255,255,0.05)', color: 'rgba(var(--ax-text-rgb),0.6)', border: '1px solid rgba(255,255,255,0.08)' }}>
           Next →
         </button>
       </div>
@@ -124,7 +124,7 @@ export default function AdminProjectDetailPage() {
   if (!data) return null;
 
   const { project, milestones, auditLogs, followUps } = data;
-  const st = STATUS_STYLE[project.status] ?? { bg: 'rgba(255,255,255,0.08)', fg: '#e8e4dc' };
+  const st = STATUS_STYLE[project.status] ?? { bg: 'rgba(255,255,255,0.08)', fg: 'var(--ax-text)' };
 
   const roleGroups: Record<string, UserRole[]> = {};
   project.roles.forEach(r => { (roleGroups[r.role] = roleGroups[r.role] ?? []).push(r); });
@@ -154,7 +154,7 @@ export default function AdminProjectDetailPage() {
 
       {/* Breadcrumb */}
       <div className="flex items-center gap-2 text-[12px] text-[rgba(232,228,220,0.4)] mb-5">
-        <Link href="/admin/projects" className="hover:text-[#c4a35a] transition-colors">Projects</Link>
+        <Link href="/admin/projects" className="hover:text-[var(--ax-accent)] transition-colors">Projects</Link>
         <svg className="w-3 h-3" fill="none" viewBox="0 0 24 24" strokeWidth={2.5} stroke="currentColor"><path strokeLinecap="round" strokeLinejoin="round" d="M8.25 4.5l7.5 7.5-7.5 7.5" /></svg>
         <span className="text-[#e8e4dc] truncate">{project.name}</span>
       </div>
@@ -176,10 +176,10 @@ export default function AdminProjectDetailPage() {
         {/* Payment summary — 2×2 on mobile, 4-col on sm */}
         <div className="grid grid-cols-2 sm:grid-cols-4 gap-3 sm:gap-4 pt-4 border-t border-[rgba(255,255,255,0.06)]">
           {[
-            { label: 'Total Value',   value: formatCurrency(totalValue),  color: '#e8e4dc' },
-            { label: 'Paid',          value: formatCurrency(paidValue),   color: '#c4a35a' },
+            { label: 'Total Value',   value: formatCurrency(totalValue),  color: 'var(--ax-text)' },
+            { label: 'Paid',          value: formatCurrency(paidValue),   color: 'var(--ax-accent)' },
             { label: 'Eligible',      value: formatCurrency(eligValue),   color: '#5cba80' },
-            { label: 'Blocked',       value: formatCurrency(blockedVal),  color: blockedVal > 0 ? '#e06050' : 'rgba(232,228,220,0.3)' },
+            { label: 'Blocked',       value: formatCurrency(blockedVal),  color: blockedVal > 0 ? '#e06050' : 'rgba(var(--ax-text-rgb),0.3)' },
           ].map(({ label, value, color }) => (
             <div key={label}>
               <div className="text-[10.5px] text-[rgba(232,228,220,0.4)] font-semibold uppercase tracking-wide mb-1">{label}</div>
@@ -194,7 +194,7 @@ export default function AdminProjectDetailPage() {
         {tabs.map(({ key, label, alert }) => (
           <button key={key} onClick={() => setTab(key)}
             className="relative shrink-0 px-3 sm:px-4 py-2 rounded-lg text-[12.5px] sm:text-[13px] font-medium transition-colors whitespace-nowrap"
-            style={{ background: tab === key ? 'rgba(196,163,90,0.12)' : 'transparent', color: tab === key ? '#c4a35a' : 'rgba(232,228,220,0.5)' }}>
+            style={{ background: tab === key ? 'rgba(var(--ax-accent-rgb),0.12)' : 'transparent', color: tab === key ? 'var(--ax-accent)' : 'rgba(var(--ax-text-rgb),0.5)' }}>
             {label}
             {alert && <span className="absolute -top-0.5 -right-0.5 w-2 h-2 rounded-full bg-[#e06050]" />}
           </button>
@@ -246,9 +246,9 @@ export default function AdminProjectDetailPage() {
                 <button key={s} onClick={() => setMsFilter(s)}
                   className="shrink-0 px-3 py-1.5 rounded-full text-[11.5px] font-semibold cursor-pointer transition-all whitespace-nowrap"
                   style={{
-                    background: active ? (sst?.bg ?? 'rgba(196,163,90,0.12)') : 'rgba(255,255,255,0.04)',
-                    color: active ? (sst?.fg ?? '#c4a35a') : 'rgba(232,228,220,0.45)',
-                    border: active ? `1px solid ${sst?.fg ?? '#c4a35a'}44` : '1px solid rgba(255,255,255,0.07)',
+                    background: active ? (sst?.bg ?? 'rgba(var(--ax-accent-rgb),0.12)') : 'rgba(255,255,255,0.04)',
+                    color: active ? (sst?.fg ?? 'var(--ax-accent)') : 'rgba(var(--ax-text-rgb),0.45)',
+                    border: active ? `1px solid ${sst?.fg ?? 'var(--ax-accent)'}44` : '1px solid rgba(255,255,255,0.07)',
                   }}>
                   {s === 'ALL' ? `All (${milestones.length})` : `${fmtType(s)} (${msStateCounts[s] ?? 0})`}
                 </button>
@@ -259,8 +259,8 @@ export default function AdminProjectDetailPage() {
           {/* Mobile: Cards */}
           <div className="block lg:hidden space-y-3">
             {filteredMs.map(m => {
-              const mst = MS_STATE[m.state] ?? { bg: 'rgba(255,255,255,0.06)', fg: '#e8e4dc' };
-              const pFg = PAY_STATE[m.paymentEligibility?.state ?? 'NOT_DUE'] ?? 'rgba(232,228,220,0.3)';
+              const mst = MS_STATE[m.state] ?? { bg: 'rgba(255,255,255,0.06)', fg: 'var(--ax-text)' };
+              const pFg = PAY_STATE[m.paymentEligibility?.state ?? 'NOT_DUE'] ?? 'rgba(var(--ax-text-rgb),0.3)';
               return (
                 <div key={m.id} className="bg-[#16161c] border border-[rgba(255,255,255,0.07)] rounded-xl p-4">
                   <div className="flex items-start justify-between gap-2 mb-2">
@@ -297,8 +297,8 @@ export default function AdminProjectDetailPage() {
                     ? <tr><td colSpan={7} className="px-4 py-10 text-center text-[rgba(232,228,220,0.25)] text-sm">No milestones</td></tr>
                     : filteredMs.map(m => {
 
-                      const mst = MS_STATE[m.state] ?? { bg: 'rgba(255,255,255,0.06)', fg: '#e8e4dc' };
-                      const pFg = PAY_STATE[m.paymentEligibility?.state ?? 'NOT_DUE'] ?? 'rgba(232,228,220,0.3)';
+                      const mst = MS_STATE[m.state] ?? { bg: 'rgba(255,255,255,0.06)', fg: 'var(--ax-text)' };
+                      const pFg = PAY_STATE[m.paymentEligibility?.state ?? 'NOT_DUE'] ?? 'rgba(var(--ax-text-rgb),0.3)';
                       return (
                         <tr key={m.id} className="border-t border-[rgba(255,255,255,0.04)] hover:bg-[rgba(255,255,255,0.02)]">
                           <td className="px-4 py-3.5">
@@ -342,13 +342,13 @@ export default function AdminProjectDetailPage() {
             : <><div className="divide-y divide-[rgba(255,255,255,0.04)]">
               {pagedAuditLogs.map(log => (
                 <div key={log.id} className="flex items-start gap-3 sm:gap-4 px-4 sm:px-5 py-3.5 hover:bg-[rgba(255,255,255,0.02)]">
-                  <div className="w-8 h-8 rounded-full bg-[rgba(196,163,90,0.12)] border border-[rgba(196,163,90,0.2)] flex items-center justify-center shrink-0 mt-0.5 text-[11px] font-bold text-[#c4a35a]">
+                  <div className="w-8 h-8 rounded-full bg-[rgba(var(--ax-accent-rgb),0.12)] border border-[rgba(var(--ax-accent-rgb),0.2)] flex items-center justify-center shrink-0 mt-0.5 text-[11px] font-bold text-[var(--ax-accent)]">
                     {log.actor?.name.charAt(0).toUpperCase() ?? '?'}
                   </div>
                   <div className="flex-1 min-w-0">
                     <div className="flex flex-wrap items-center gap-1.5">
                       <span className="text-[13px] font-semibold text-[#e8e4dc]">{log.actor?.name ?? 'Unknown'}</span>
-                      <span className="text-[10px] px-1.5 py-0.5 rounded-full bg-[rgba(196,163,90,0.1)] text-[#c4a35a] font-semibold">{log.role}</span>
+                      <span className="text-[10px] px-1.5 py-0.5 rounded-full bg-[rgba(var(--ax-accent-rgb),0.1)] text-[var(--ax-accent)] font-semibold">{log.role}</span>
                       <span className="text-[12.5px] text-[rgba(232,228,220,0.5)]">{fmtType(log.actionType)}</span>
                       <span className="text-[12px] text-[rgba(232,228,220,0.35)]">on {log.entityType}</span>
                     </div>
@@ -376,7 +376,7 @@ export default function AdminProjectDetailPage() {
             ? <div className="px-5 py-10 text-center text-[#5cba80] text-sm">✓ No open issues for this project</div>
             : <div className="divide-y divide-[rgba(255,255,255,0.04)]">
               {followUps.map(f => {
-                const fs = FU_STYLE[f.status] ?? { bg: 'rgba(255,255,255,0.05)', fg: '#e8e4dc' };
+                const fs = FU_STYLE[f.status] ?? { bg: 'rgba(255,255,255,0.05)', fg: 'var(--ax-text)' };
                 return (
                   <div key={f.id} className="flex items-start gap-3 px-4 sm:px-5 py-4 hover:bg-[rgba(255,255,255,0.02)]">
                     <span className="shrink-0 text-[10.5px] font-bold px-2 py-0.5 rounded-full mt-0.5" style={{ background: fs.bg, color: fs.fg }}>{f.status}</span>

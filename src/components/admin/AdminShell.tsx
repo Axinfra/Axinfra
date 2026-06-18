@@ -41,7 +41,7 @@ export default function AdminShell({ userEmail, userName, children }: Props) {
 
           {/* Mobile logo */}
           <div className="lg:hidden flex items-center gap-2 mr-auto">
-            <div className="w-6 h-6 rounded-md flex items-center justify-center" style={{ background: 'linear-gradient(135deg, #c4a35a 0%, #a8893e 100%)' }}>
+            <div className="w-6 h-6 rounded-md flex items-center justify-center" style={{ background: 'linear-gradient(135deg, var(--ax-accent) 0%, var(--ax-accent-hover) 100%)' }}>
               <span className="text-[#0a0c10] text-[9px] font-bold">A</span>
             </div>
             <span className="text-sm font-semibold text-[#e8e4dc]">Admin</span>
@@ -52,7 +52,7 @@ export default function AdminShell({ userEmail, userName, children }: Props) {
           {/* Right side */}
           <div className="flex items-center gap-3">
             <span className="text-[13px] text-[rgba(232,228,220,0.55)] hidden sm:block">{userName}</span>
-            <span className="text-[10px] font-bold tracking-widest text-[#c4a35a] bg-[rgba(196,163,90,0.1)] border border-[rgba(196,163,90,0.2)] px-2 py-0.5 rounded-full uppercase">
+            <span className="text-[10px] font-bold tracking-widest text-[var(--ax-accent)] bg-[rgba(var(--ax-accent-rgb),0.1)] border border-[rgba(var(--ax-accent-rgb),0.2)] px-2 py-0.5 rounded-full uppercase">
               Platform Admin
             </span>
           </div>

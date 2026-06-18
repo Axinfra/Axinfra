@@ -19,7 +19,7 @@ interface PaymentIndicatorBadgeProps {
 
 const indicatorStyles: Record<PaymentIndicator['indicator'], { bg: string; text: string; border?: string }> = {
   ELIGIBLE_DUE: { bg: 'bg-[rgba(50,200,120,0.1)]', text: 'text-[#5cba80]', border: 'border-[rgba(92,186,128,0.3)]' },
-  ELIGIBLE_NOT_DUE: { bg: 'bg-[rgba(196,163,90,0.12)]', text: 'text-[#c4a35a]' },
+  ELIGIBLE_NOT_DUE: { bg: 'bg-[rgba(var(--ax-accent-rgb),0.12)]', text: 'text-[var(--ax-accent)]' },
   BLOCKED: { bg: 'bg-[rgba(220,80,60,0.1)]', text: 'text-[#e06050]', border: 'border-[rgba(224,96,80,0.3)]' },
   OVERDUE: { bg: 'bg-[rgba(220,80,60,0.1)]', text: 'text-[#e06050]', border: 'border-[rgba(224,96,80,0.5)]' },
   NOT_DUE: { bg: 'bg-[rgba(255,255,255,0.03)]', text: 'text-[rgba(232,228,220,0.55)]' },

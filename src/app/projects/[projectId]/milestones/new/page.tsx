@@ -282,7 +282,7 @@ export default function CreateMilestonePage() {
               {isOwner ? (
                 <div>
                   <label className="label">Phase</label>
-                  <div className="input bg-[rgba(196,163,90,0.08)] border-[rgba(196,163,90,0.18)] text-[#c4a35a] cursor-not-allowed">
+                  <div className="input bg-[rgba(var(--ax-accent-rgb),0.08)] border-[rgba(var(--ax-accent-rgb),0.18)] text-[var(--ax-accent)] cursor-not-allowed">
                     Extra milestones
                   </div>
                 </div>
@@ -334,7 +334,7 @@ export default function CreateMilestonePage() {
                 <label className="flex items-center gap-2.5 cursor-pointer">
                   <input
                     type="checkbox"
-                    className="h-4 w-4 rounded border-[rgba(255,255,255,0.1)] text-[#c4a35a] focus:ring-[rgba(196,163,90,0.3)]"
+                    className="h-4 w-4 rounded border-[rgba(255,255,255,0.1)] text-[var(--ax-accent)] focus:ring-[rgba(var(--ax-accent-rgb),0.3)]"
                     checked={isOwner || form.isExtra}
                     disabled={isOwner}
                     onChange={(e) =>
@@ -345,14 +345,14 @@ export default function CreateMilestonePage() {
                       })
                     }
                   />
-                  <span className="text-sm font-medium text-[#c4a35a]">
+                  <span className="text-sm font-medium text-[var(--ax-accent)]">
                     {isOwner ? 'Owner-created milestones are Extras' : 'Mark as Extra (Outside BOQ)'}
                   </span>
                 </label>
 
                 {(isOwner || form.isExtra) && (
-                  <div className="mt-3 bg-[rgba(196,163,90,0.08)] border border-[rgba(196,163,90,0.15)] rounded-lg p-3">
-                    <p className="text-sm text-[#c4a35a]">
+                  <div className="mt-3 bg-[rgba(var(--ax-accent-rgb),0.08)] border border-[rgba(var(--ax-accent-rgb),0.15)] rounded-lg p-3">
+                    <p className="text-sm text-[var(--ax-accent)]">
                       This milestone is outside the approved BOQ and will appear under Extra milestones.
                     </p>
                   </div>
@@ -527,7 +527,7 @@ export default function CreateMilestonePage() {
                   type="button"
                   onClick={() => { setAddingPred(true); setNewPredId(''); setNewPredType('FS'); setNewPredLag(0); }}
                   className="flex items-center gap-1.5 px-3 py-1.5 rounded-lg text-[12.5px] font-semibold"
-                  style={{ background: 'rgba(196,163,90,0.1)', color: '#c4a35a', border: '1px solid rgba(196,163,90,0.2)' }}
+                  style={{ background: 'rgba(var(--ax-accent-rgb),0.1)', color: 'var(--ax-accent)', border: '1px solid rgba(var(--ax-accent-rgb),0.2)' }}
                 >
                   <svg className="w-3.5 h-3.5" fill="none" viewBox="0 0 24 24" strokeWidth={2.5} stroke="currentColor">
                     <path strokeLinecap="round" strokeLinejoin="round" d="M12 4.5v15m7.5-7.5h-15" />
@@ -540,7 +540,7 @@ export default function CreateMilestonePage() {
 
               {/* Add form */}
               {addingPred && (
-                <div className="rounded-xl border border-[rgba(196,163,90,0.2)] bg-[rgba(196,163,90,0.05)] p-4 space-y-3">
+                <div className="rounded-xl border border-[rgba(var(--ax-accent-rgb),0.2)] bg-[rgba(var(--ax-accent-rgb),0.05)] p-4 space-y-3">
                   <div>
                     <label className="label">Predecessor Milestone</label>
                     <select
@@ -614,7 +614,7 @@ export default function CreateMilestonePage() {
                          'Must start before this finishes'}
                       </div>
                     </div>
-                    <span className="text-[11px] font-bold px-2 py-0.5 rounded bg-[rgba(196,163,90,0.1)] text-[#c4a35a] border border-[rgba(196,163,90,0.2)]">
+                    <span className="text-[11px] font-bold px-2 py-0.5 rounded bg-[rgba(var(--ax-accent-rgb),0.1)] text-[var(--ax-accent)] border border-[rgba(var(--ax-accent-rgb),0.2)]">
                       {p.dependencyType}{p.lagDays !== 0 ? ` ${p.lagDays > 0 ? '+' : ''}${p.lagDays}d` : ''}
                     </span>
                     <button
@@ -657,7 +657,7 @@ export default function CreateMilestonePage() {
               disabled={submitting || !form.title.trim()}
               className={`btn ${
                 isOwner || form.isExtra || !form.phaseId
-                  ? 'bg-[#c4a35a] hover:bg-[#b3943f] text-white'
+                  ? 'bg-[var(--ax-accent)] hover:bg-[var(--ax-accent-hover)] text-white'
                   : 'btn-primary'
               } disabled:opacity-50`}
             >

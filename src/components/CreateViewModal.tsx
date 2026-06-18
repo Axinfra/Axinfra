@@ -151,7 +151,7 @@ export default function CreateViewModal({
                 <button
                   key={i}
                   onClick={() => handleTemplateSelect(template)}
-                  className="p-2 text-left text-sm border border-[rgba(255,255,255,0.07)] rounded-lg text-[rgba(232,228,220,0.55)] hover:bg-[rgba(255,255,255,0.05)] hover:border-[rgba(196,163,90,0.3)] hover:text-[#c4a35a] transition-colors"
+                  className="p-2 text-left text-sm border border-[rgba(255,255,255,0.07)] rounded-lg text-[rgba(232,228,220,0.55)] hover:bg-[rgba(255,255,255,0.05)] hover:border-[rgba(var(--ax-accent-rgb),0.3)] hover:text-[var(--ax-accent)] transition-colors"
                 >
                   {template.name}
                 </button>
@@ -211,7 +211,7 @@ export default function CreateViewModal({
                   name="sortOrder"
                   checked={config.sortOrder !== 'desc'}
                   onChange={() => setConfig({ ...config, sortOrder: 'asc' })}
-                  className="mr-2 accent-[#c4a35a]"
+                  className="mr-2 accent-[var(--ax-accent)]"
                 />
                 Ascending
               </label>
@@ -221,7 +221,7 @@ export default function CreateViewModal({
                   name="sortOrder"
                   checked={config.sortOrder === 'desc'}
                   onChange={() => setConfig({ ...config, sortOrder: 'desc' })}
-                  className="mr-2 accent-[#c4a35a]"
+                  className="mr-2 accent-[var(--ax-accent)]"
                 />
                 Descending
               </label>
@@ -232,7 +232,7 @@ export default function CreateViewModal({
           <button
             type="button"
             onClick={() => setShowAdvanced(!showAdvanced)}
-            className="text-[#c4a35a] text-sm mb-4"
+            className="text-[var(--ax-accent)] text-sm mb-4"
           >
             {showAdvanced ? '▼ Hide Advanced Filters' : '▶ Show Advanced Filters'}
           </button>
@@ -251,7 +251,7 @@ export default function CreateViewModal({
                       onClick={() => toggleState(state.value)}
                       className={`px-3 py-1 text-sm rounded-lg border transition-colors ${
                         config.filters.milestoneState?.includes(state.value)
-                          ? 'bg-[rgba(196,163,90,0.12)] border-[rgba(196,163,90,0.3)] text-[#c4a35a]'
+                          ? 'bg-[rgba(var(--ax-accent-rgb),0.12)] border-[rgba(var(--ax-accent-rgb),0.3)] text-[var(--ax-accent)]'
                           : 'border-[rgba(255,255,255,0.07)] text-[rgba(232,228,220,0.55)] hover:bg-[rgba(255,255,255,0.05)]'
                       }`}
                     >
@@ -272,7 +272,7 @@ export default function CreateViewModal({
                       onClick={() => togglePaymentStatus(status.value)}
                       className={`px-3 py-1 text-sm rounded-lg border transition-colors ${
                         config.filters.paymentStatus?.includes(status.value)
-                          ? 'bg-[rgba(196,163,90,0.12)] border-[rgba(196,163,90,0.3)] text-[#c4a35a]'
+                          ? 'bg-[rgba(var(--ax-accent-rgb),0.12)] border-[rgba(var(--ax-accent-rgb),0.3)] text-[var(--ax-accent)]'
                           : 'border-[rgba(255,255,255,0.07)] text-[rgba(232,228,220,0.55)] hover:bg-[rgba(255,255,255,0.05)]'
                       }`}
                     >
@@ -297,7 +297,7 @@ export default function CreateViewModal({
                         },
                       })
                     }
-                    className="mr-2 accent-[#c4a35a]"
+                    className="mr-2 accent-[var(--ax-accent)]"
                   />
                   Only show delayed milestones
                 </label>

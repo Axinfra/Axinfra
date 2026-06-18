@@ -645,7 +645,7 @@ export default function BOQPage() {
                             <td className="text-right whitespace-nowrap">
                               <button
                                 onClick={() => handleEditItem(item)}
-                                className="text-xs text-[rgba(232,228,220,0.45)] hover:text-[#c4a35a] transition-colors mr-3"
+                                className="text-xs text-[rgba(232,228,220,0.45)] hover:text-[var(--ax-accent)] transition-colors mr-3"
                               >
                                 Edit
                               </button>
@@ -912,7 +912,7 @@ export default function BOQPage() {
                                     : <span className="text-xs text-[#e06050]">✗ Not found</span>}
                                 </td>
                                 <td className="px-3 py-2.5 text-right text-[rgba(232,228,220,0.65)]">{g.rows.length}</td>
-                                <td className="px-4 py-2.5 text-right text-[#c4a35a] font-medium">
+                                <td className="px-4 py-2.5 text-right text-[var(--ax-accent)] font-medium">
                                   ₹{g.total.toLocaleString('en-IN', { maximumFractionDigits: 0 })}
                                 </td>
                               </tr>
@@ -956,21 +956,21 @@ export default function BOQPage() {
                         </thead>
                         <tbody className="text-[rgba(232,228,220,0.65)]">
                           <tr className="border-b border-[rgba(255,255,255,0.04)]">
-                            <td className="px-3 py-2 text-[#c4a35a]">Foundation</td>
+                            <td className="px-3 py-2 text-[var(--ax-accent)]">Foundation</td>
                             <td className="px-3 py-2">Excavation for columns</td>
                             <td className="px-3 py-2">cum</td>
                             <td className="px-3 py-2">50</td>
                             <td className="px-3 py-2">850</td>
                           </tr>
                           <tr className="border-b border-[rgba(255,255,255,0.04)]">
-                            <td className="px-3 py-2 text-[#c4a35a]">Foundation</td>
+                            <td className="px-3 py-2 text-[var(--ax-accent)]">Foundation</td>
                             <td className="px-3 py-2">PCC M10 below footing</td>
                             <td className="px-3 py-2">cum</td>
                             <td className="px-3 py-2">12</td>
                             <td className="px-3 py-2">4200</td>
                           </tr>
                           <tr>
-                            <td className="px-3 py-2 text-[#c4a35a]">Structure</td>
+                            <td className="px-3 py-2 text-[var(--ax-accent)]">Structure</td>
                             <td className="px-3 py-2">RCC M25 columns</td>
                             <td className="px-3 py-2">cum</td>
                             <td className="px-3 py-2">18</td>
@@ -986,7 +986,7 @@ export default function BOQPage() {
                   <a
                     href={`/api/projects/${projectId}/boq/template`}
                     download
-                    className="flex items-center gap-2 text-sm text-[#c4a35a] hover:text-[#d4b36a] transition-colors"
+                    className="flex items-center gap-2 text-sm text-[var(--ax-accent)] hover:text-[var(--ax-accent)] transition-colors"
                   >
                     <span>↓</span>
                     <span>Download template with your project&apos;s phase names pre-filled</span>
@@ -997,7 +997,7 @@ export default function BOQPage() {
                     <p className="text-xs font-medium text-[rgba(232,228,220,0.45)] uppercase tracking-wider mb-2">Upload File</p>
                     <button
                       onClick={() => fileInputRef.current?.click()}
-                      className="w-full border-2 border-dashed border-[rgba(255,255,255,0.1)] rounded-xl py-8 px-4 text-center hover:border-[rgba(196,163,90,0.4)] hover:bg-[rgba(196,163,90,0.03)] transition-all group"
+                      className="w-full border-2 border-dashed border-[rgba(255,255,255,0.1)] rounded-xl py-8 px-4 text-center hover:border-[rgba(var(--ax-accent-rgb),0.4)] hover:bg-[rgba(var(--ax-accent-rgb),0.03)] transition-all group"
                     >
                       <p className="text-[rgba(232,228,220,0.55)] group-hover:text-[rgba(232,228,220,0.8)] text-sm">
                         Click to browse or drop your .xlsx file here

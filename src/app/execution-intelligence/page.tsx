@@ -39,7 +39,7 @@ export default function ExecutionIntelligenceLandingPage() {
         {/* Header */}
         <div className="mb-10">
           <div className="flex items-center gap-3 mb-3">
-            <div className="w-10 h-10 rounded-xl bg-[#c4a35a] flex items-center justify-center">
+            <div className="w-10 h-10 rounded-xl bg-[var(--ax-accent)] flex items-center justify-center">
               <ChartBarIcon className="w-5 h-5 text-white" />
             </div>
             <h1 className="text-2xl font-semibold text-[#e8e4dc] tracking-tight">
@@ -73,10 +73,10 @@ export default function ExecutionIntelligenceLandingPage() {
                 onClick={() =>
                   router.push(`/execution-intelligence/${p.id}/overview`)
                 }
-                className="w-full flex items-center justify-between px-5 py-4 rounded-xl bg-[rgba(255,255,255,0.03)] border border-[rgba(255,255,255,0.07)] hover:border-[rgba(196,163,90,0.3)] hover:shadow-none transition-all group text-left"
+                className="w-full flex items-center justify-between px-5 py-4 rounded-xl bg-[rgba(255,255,255,0.03)] border border-[rgba(255,255,255,0.07)] hover:border-[rgba(var(--ax-accent-rgb),0.3)] hover:shadow-none transition-all group text-left"
               >
                 <div>
-                  <p className="text-[14px] font-medium text-[#e8e4dc] group-hover:text-[#c4a35a] transition-colors">
+                  <p className="text-[14px] font-medium text-[#e8e4dc] group-hover:text-[var(--ax-accent)] transition-colors">
                     {p.name}
                   </p>
                   <p className="text-[12px] text-[rgba(232,228,220,0.35)] mt-0.5">

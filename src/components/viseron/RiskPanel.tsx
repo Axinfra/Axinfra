@@ -17,15 +17,15 @@ interface RiskPanelProps {
 export default function RiskPanel({ milestones }: RiskPanelProps) {
   if (milestones.length === 0) {
     return (
-      <div className="bg-[rgba(255,255,255,0.03)] border border-[rgba(255,255,255,0.07)] rounded-xl p-6">
-        <h3 className="text-[14px] font-semibold text-[#e8e4dc] mb-1">Risk Assessment</h3>
-        <p className="text-[12px] text-[rgba(232,228,220,0.35)] mb-6">Milestones flagged by risk level</p>
+      <div className="bg-[var(--ax-card)] border border-[var(--ax-border)] rounded-xl p-6">
+        <h3 className="text-[14px] font-semibold text-[var(--ax-text)] mb-1">Risk Assessment</h3>
+        <p className="text-[12px] text-[rgba(var(--ax-text-rgb),0.35)] mb-6">Milestones flagged by risk level</p>
         <div className="flex flex-col items-center justify-center py-10 gap-2">
           <div className="w-10 h-10 rounded-full bg-[rgba(50,200,120,0.1)] flex items-center justify-center">
             <ShieldCheckIcon className="w-5 h-5 text-[#5cba80]" />
           </div>
-          <p className="text-[13px] text-[rgba(232,228,220,0.55)] font-medium">All clear</p>
-          <p className="text-[12px] text-[rgba(232,228,220,0.35)]">No milestones are currently at risk</p>
+          <p className="text-[13px] text-[rgba(var(--ax-text-rgb),0.55)] font-medium">All clear</p>
+          <p className="text-[12px] text-[rgba(var(--ax-text-rgb),0.35)]">No milestones are currently at risk</p>
         </div>
       </div>
     );
@@ -37,16 +37,16 @@ export default function RiskPanel({ milestones }: RiskPanelProps) {
   const totalRiskValue = milestones.reduce((s, m) => s + m.value, 0);
 
   return (
-    <div className="bg-[rgba(255,255,255,0.03)] border border-[rgba(255,255,255,0.07)] rounded-xl p-6">
+    <div className="bg-[var(--ax-card)] border border-[var(--ax-border)] rounded-xl p-6">
       <div className="flex items-start justify-between mb-5">
         <div>
-          <h3 className="text-[14px] font-semibold text-[#e8e4dc] mb-1">Risk Assessment</h3>
-          <p className="text-[12px] text-[rgba(232,228,220,0.35)]">
+          <h3 className="text-[14px] font-semibold text-[var(--ax-text)] mb-1">Risk Assessment</h3>
+          <p className="text-[12px] text-[rgba(var(--ax-text-rgb),0.35)]">
             {milestones.length} milestone{milestones.length !== 1 ? 's' : ''} flagged
           </p>
         </div>
         <div className="text-right">
-          <p className="text-[11px] text-[rgba(232,228,220,0.35)] uppercase tracking-wider">Value at Risk</p>
+          <p className="text-[11px] text-[rgba(var(--ax-text-rgb),0.35)] uppercase tracking-wider">Value at Risk</p>
           <p className="text-[16px] font-bold text-[#e06050] tabular-nums">{formatCurrency(totalRiskValue)}</p>
         </div>
       </div>
@@ -66,8 +66,8 @@ export default function RiskPanel({ milestones }: RiskPanelProps) {
           </span>
         )}
         {medium.length > 0 && (
-          <span className="flex items-center gap-1.5 px-2.5 py-1 rounded-full bg-[rgba(196,163,90,0.08)] border border-[rgba(196,163,90,0.15)] text-[11px] font-semibold text-[#c4a35a]">
-            <span className="w-1.5 h-1.5 rounded-full bg-[#c4a35a]" />
+          <span className="flex items-center gap-1.5 px-2.5 py-1 rounded-full bg-[rgba(var(--ax-accent-rgb),0.08)] border border-[rgba(var(--ax-accent-rgb),0.15)] text-[11px] font-semibold text-[var(--ax-accent)]">
+            <span className="w-1.5 h-1.5 rounded-full bg-[var(--ax-accent)]" />
             {medium.length} Medium
           </span>
         )}
@@ -78,7 +78,7 @@ export default function RiskPanel({ milestones }: RiskPanelProps) {
         {milestones.slice(0, 8).map((m) => (
           <div
             key={m.id}
-            className="flex items-center gap-3 px-3 py-3 -mx-3 rounded-lg hover:bg-[rgba(255,255,255,0.05)] transition-colors group"
+            className="flex items-center gap-3 px-3 py-3 -mx-3 rounded-lg hover:bg-[var(--ax-overlay-hover)] transition-colors group"
           >
             {/* Risk indicator */}
             <div className="shrink-0">
@@ -88,22 +88,22 @@ export default function RiskPanel({ milestones }: RiskPanelProps) {
                     ? 'bg-[#e06050]'
                     : m.riskLevel === 'high'
                       ? 'bg-[#f59e0b]'
-                      : 'bg-[#c4a35a]'
+                      : 'bg-[var(--ax-accent)]'
                 }`}
               />
             </div>
 
             {/* Info */}
             <div className="flex-1 min-w-0">
-              <p className="text-[13px] font-medium text-[#e8e4dc] truncate">{m.title}</p>
+              <p className="text-[13px] font-medium text-[var(--ax-text)] truncate">{m.title}</p>
               <div className="flex items-center gap-2 mt-0.5">
                 <span className={`text-[11px] font-medium ${stateColor(m.state)}`}>
                   {m.state.replace(/_/g, ' ')}
                 </span>
                 {m.vendorName && (
                   <>
-                    <span className="text-[rgba(255,255,255,0.12)]">&middot;</span>
-                    <span className="text-[11px] text-[rgba(232,228,220,0.35)]">{m.vendorName}</span>
+                    <span className="text-[rgba(var(--ax-text-rgb),0.12)]">&middot;</span>
+                    <span className="text-[11px] text-[rgba(var(--ax-text-rgb),0.35)]">{m.vendorName}</span>
                   </>
                 )}
               </div>
@@ -120,10 +120,10 @@ export default function RiskPanel({ milestones }: RiskPanelProps) {
                   {m.daysRemaining}d left
                 </p>
               ) : (
-                <p className="text-[12px] text-[rgba(232,228,220,0.35)]">No date</p>
+                <p className="text-[12px] text-[rgba(var(--ax-text-rgb),0.35)]">No date</p>
               )}
               {m.value > 0 && (
-                <p className="text-[11px] text-[rgba(232,228,220,0.35)] tabular-nums">{formatCurrency(m.value)}</p>
+                <p className="text-[11px] text-[rgba(var(--ax-text-rgb),0.35)] tabular-nums">{formatCurrency(m.value)}</p>
               )}
             </div>
           </div>
@@ -131,7 +131,7 @@ export default function RiskPanel({ milestones }: RiskPanelProps) {
       </div>
 
       {milestones.length > 8 && (
-        <p className="text-[12px] text-[rgba(232,228,220,0.35)] text-center mt-3">
+        <p className="text-[12px] text-[rgba(var(--ax-text-rgb),0.35)] text-center mt-3">
           + {milestones.length - 8} more flagged milestones
         </p>
       )}
@@ -141,10 +141,10 @@ export default function RiskPanel({ milestones }: RiskPanelProps) {
 
 function stateColor(state: string) {
   switch (state) {
-    case 'DRAFT': return 'text-[rgba(232,228,220,0.55)]';
-    case 'IN_PROGRESS': return 'text-[#c4a35a]';
+    case 'DRAFT': return 'text-[rgba(var(--ax-text-rgb),0.55)]';
+    case 'IN_PROGRESS': return 'text-[var(--ax-accent)]';
     case 'SUBMITTED': return 'text-[#f59e0b]';
-    default: return 'text-[rgba(232,228,220,0.55)]';
+    default: return 'text-[rgba(var(--ax-text-rgb),0.55)]';
   }
 }
 

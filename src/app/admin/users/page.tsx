@@ -12,15 +12,15 @@ interface User {
 }
 
 const ROLE_COLOR: Record<string, { bg: string; fg: string }> = {
-  CLIENT:      { bg: 'rgba(196,163,90,0.15)',  fg: '#c4a35a' },
+  CLIENT:      { bg: 'rgba(var(--ax-accent-rgb),0.15)',  fg: 'var(--ax-accent)' },
   PMC:        { bg: 'rgba(96,165,250,0.15)',  fg: '#60a5fa' },
   VENDOR:     { bg: 'rgba(92,186,128,0.15)',  fg: '#5cba80' },
   CONSULTANT: { bg: 'rgba(167,139,250,0.15)', fg: '#a78bfa' },
-  VIEWER:     { bg: 'rgba(232,228,220,0.08)', fg: 'rgba(232,228,220,0.5)' },
+  VIEWER:     { bg: 'rgba(232,228,220,0.08)', fg: 'rgba(var(--ax-text-rgb),0.5)' },
 };
 
 function RoleBadge({ role }: { role: string }) {
-  const c = ROLE_COLOR[role] ?? { bg: 'rgba(255,255,255,0.08)', fg: '#e8e4dc' };
+  const c = ROLE_COLOR[role] ?? { bg: 'rgba(255,255,255,0.08)', fg: 'var(--ax-text)' };
   return (
     <span className="inline-block text-[10.5px] px-2 py-0.5 rounded-full font-bold" style={{ background: c.bg, color: c.fg }}>
       {role}
@@ -97,7 +97,7 @@ function EditDrawer({ user, onClose, onSaved }: EditDrawerProps) {
         {/* Header */}
         <div className="flex items-center justify-between px-5 py-4 border-b border-[rgba(255,255,255,0.07)]">
           <div className="flex items-center gap-3">
-            <div className="w-10 h-10 rounded-full bg-[rgba(196,163,90,0.15)] border border-[rgba(196,163,90,0.25)] flex items-center justify-center text-[14px] font-bold text-[#c4a35a] shrink-0">
+            <div className="w-10 h-10 rounded-full bg-[rgba(var(--ax-accent-rgb),0.15)] border border-[rgba(var(--ax-accent-rgb),0.25)] flex items-center justify-center text-[14px] font-bold text-[var(--ax-accent)] shrink-0">
               {user.name.charAt(0).toUpperCase()}
             </div>
             <div>
@@ -154,7 +154,7 @@ function EditDrawer({ user, onClose, onSaved }: EditDrawerProps) {
               value={newEmail}
               onChange={e => { setNewEmail(e.target.value); setEmailMsg(null); }}
               placeholder="new@email.com"
-              className="w-full bg-[#0d0d11] border border-[rgba(255,255,255,0.1)] rounded-lg px-3.5 py-2.5 text-[13.5px] text-[#e8e4dc] outline-none placeholder:text-[rgba(232,228,220,0.25)] mb-3 focus:border-[rgba(196,163,90,0.4)]"
+              className="w-full bg-[#0d0d11] border border-[rgba(255,255,255,0.1)] rounded-lg px-3.5 py-2.5 text-[13.5px] text-[#e8e4dc] outline-none placeholder:text-[rgba(232,228,220,0.25)] mb-3 focus:border-[rgba(var(--ax-accent-rgb),0.4)]"
             />
             {emailMsg && (
               <div className={`text-[12.5px] mb-3 px-3 py-2 rounded-lg ${emailMsg.ok ? 'bg-[rgba(92,186,128,0.1)] text-[#5cba80]' : 'bg-[rgba(224,96,80,0.1)] text-[#e06050]'}`}>
@@ -182,7 +182,7 @@ function EditDrawer({ user, onClose, onSaved }: EditDrawerProps) {
                 value={newPassword}
                 onChange={e => { setNewPassword(e.target.value); setPwMsg(null); }}
                 placeholder="New password (min 6 chars)"
-                className="w-full bg-[#0d0d11] border border-[rgba(255,255,255,0.1)] rounded-lg px-3.5 py-2.5 pr-10 text-[13.5px] text-[#e8e4dc] outline-none placeholder:text-[rgba(232,228,220,0.25)] focus:border-[rgba(196,163,90,0.4)]"
+                className="w-full bg-[#0d0d11] border border-[rgba(255,255,255,0.1)] rounded-lg px-3.5 py-2.5 pr-10 text-[13.5px] text-[#e8e4dc] outline-none placeholder:text-[rgba(232,228,220,0.25)] focus:border-[rgba(var(--ax-accent-rgb),0.4)]"
               />
               <button
                 type="button"
@@ -204,7 +204,7 @@ function EditDrawer({ user, onClose, onSaved }: EditDrawerProps) {
               onClick={savePassword}
               disabled={savingPw || newPassword.length < 6}
               className="w-full py-2.5 rounded-lg text-[13px] font-semibold transition-all disabled:opacity-40 disabled:cursor-not-allowed"
-              style={{ background: 'rgba(196,163,90,0.15)', color: '#c4a35a', border: '1px solid rgba(196,163,90,0.25)' }}>
+              style={{ background: 'rgba(var(--ax-accent-rgb),0.15)', color: 'var(--ax-accent)', border: '1px solid rgba(var(--ax-accent-rgb),0.25)' }}>
               {savingPw ? 'Saving…' : 'Set New Password'}
             </button>
           </div>
@@ -278,7 +278,7 @@ function CreateUserModal({ onClose, onCreated }: { onClose: () => void; onCreate
                 value={name}
                 onChange={e => setName(e.target.value)}
                 placeholder="e.g. Rahul Sharma"
-                className="w-full bg-[#0d0d11] border border-[rgba(255,255,255,0.1)] rounded-lg px-3.5 py-2.5 text-[13.5px] text-[#e8e4dc] outline-none placeholder:text-[rgba(232,228,220,0.25)] focus:border-[rgba(196,163,90,0.4)]"
+                className="w-full bg-[#0d0d11] border border-[rgba(255,255,255,0.1)] rounded-lg px-3.5 py-2.5 text-[13.5px] text-[#e8e4dc] outline-none placeholder:text-[rgba(232,228,220,0.25)] focus:border-[rgba(var(--ax-accent-rgb),0.4)]"
               />
             </div>
             <div>
@@ -288,7 +288,7 @@ function CreateUserModal({ onClose, onCreated }: { onClose: () => void; onCreate
                 value={email}
                 onChange={e => setEmail(e.target.value)}
                 placeholder="rahul@example.com"
-                className="w-full bg-[#0d0d11] border border-[rgba(255,255,255,0.1)] rounded-lg px-3.5 py-2.5 text-[13.5px] text-[#e8e4dc] outline-none placeholder:text-[rgba(232,228,220,0.25)] focus:border-[rgba(196,163,90,0.4)]"
+                className="w-full bg-[#0d0d11] border border-[rgba(255,255,255,0.1)] rounded-lg px-3.5 py-2.5 text-[13.5px] text-[#e8e4dc] outline-none placeholder:text-[rgba(232,228,220,0.25)] focus:border-[rgba(var(--ax-accent-rgb),0.4)]"
               />
             </div>
             <div>
@@ -299,7 +299,7 @@ function CreateUserModal({ onClose, onCreated }: { onClose: () => void; onCreate
                   value={password}
                   onChange={e => setPassword(e.target.value)}
                   placeholder="Min 6 characters"
-                  className="w-full bg-[#0d0d11] border border-[rgba(255,255,255,0.1)] rounded-lg px-3.5 py-2.5 pr-10 text-[13.5px] text-[#e8e4dc] outline-none placeholder:text-[rgba(232,228,220,0.25)] focus:border-[rgba(196,163,90,0.4)]"
+                  className="w-full bg-[#0d0d11] border border-[rgba(255,255,255,0.1)] rounded-lg px-3.5 py-2.5 pr-10 text-[13.5px] text-[#e8e4dc] outline-none placeholder:text-[rgba(232,228,220,0.25)] focus:border-[rgba(var(--ax-accent-rgb),0.4)]"
                 />
                 <button type="button" onClick={() => setShowPw(v => !v)}
                   className="absolute right-3 top-1/2 -translate-y-1/2 text-[rgba(232,228,220,0.35)] hover:text-[rgba(232,228,220,0.6)]">
@@ -321,14 +321,14 @@ function CreateUserModal({ onClose, onCreated }: { onClose: () => void; onCreate
 
             <div className="flex gap-2.5 pt-1">
               <button onClick={onClose} className="flex-1 py-2.5 rounded-lg text-[13px] font-semibold transition-all"
-                style={{ background: 'rgba(255,255,255,0.05)', color: 'rgba(232,228,220,0.6)', border: '1px solid rgba(255,255,255,0.08)' }}>
+                style={{ background: 'rgba(255,255,255,0.05)', color: 'rgba(var(--ax-text-rgb),0.6)', border: '1px solid rgba(255,255,255,0.08)' }}>
                 Cancel
               </button>
               <button
                 onClick={submit}
                 disabled={saving || !name.trim() || !email.trim() || password.length < 6}
                 className="flex-1 py-2.5 rounded-lg text-[13px] font-semibold transition-all disabled:opacity-40 disabled:cursor-not-allowed"
-                style={{ background: '#c4a35a', color: '#0d0d11' }}>
+                style={{ background: 'var(--ax-accent)', color: '#0d0d11' }}>
                 {saving ? 'Creating…' : 'Create & Send Email'}
               </button>
             </div>
@@ -411,7 +411,7 @@ export default function AdminUsersPage() {
         <button
           onClick={() => setShowCreate(true)}
           className="shrink-0 flex items-center gap-2 px-4 py-2.5 rounded-xl text-[13px] font-semibold transition-all"
-          style={{ background: '#c4a35a', color: '#0d0d11' }}>
+          style={{ background: 'var(--ax-accent)', color: '#0d0d11' }}>
           <svg className="w-4 h-4" fill="none" viewBox="0 0 24 24" strokeWidth={2.5} stroke="currentColor">
             <path strokeLinecap="round" strokeLinejoin="round" d="M12 4.5v15m7.5-7.5h-15" />
           </svg>
@@ -422,12 +422,12 @@ export default function AdminUsersPage() {
       {/* Stats */}
       <div className="grid grid-cols-3 sm:grid-cols-6 gap-2.5 mb-5">
         {[
-          { label: 'Total', value: users.length, color: '#e8e4dc' },
-          { label: 'Clients', value: roleCounts['CLIENT'] ?? 0, color: '#c4a35a' },
+          { label: 'Total', value: users.length, color: 'var(--ax-text)' },
+          { label: 'Clients', value: roleCounts['CLIENT'] ?? 0, color: 'var(--ax-accent)' },
           { label: 'PMC', value: roleCounts['PMC'] ?? 0, color: '#60a5fa' },
           { label: 'Vendors', value: roleCounts['VENDOR'] ?? 0, color: '#5cba80' },
           { label: 'Consult', value: roleCounts['CONSULTANT'] ?? 0, color: '#a78bfa' },
-          { label: 'Viewers', value: roleCounts['VIEWER'] ?? 0, color: 'rgba(232,228,220,0.4)' },
+          { label: 'Viewers', value: roleCounts['VIEWER'] ?? 0, color: 'rgba(var(--ax-text-rgb),0.4)' },
         ].map(({ label, value, color }) => (
           <div key={label} className="bg-[#16161c] border border-[rgba(255,255,255,0.07)] rounded-xl px-3 py-3">
             <div className="text-[10px] text-[rgba(232,228,220,0.4)] font-semibold uppercase tracking-wide mb-1 truncate">{label}</div>
@@ -452,9 +452,9 @@ export default function AdminUsersPage() {
               <button key={r} onClick={() => setRoleFilter(r)}
                 className="shrink-0 px-3 py-1.5 rounded-full text-[11.5px] font-semibold cursor-pointer transition-all whitespace-nowrap"
                 style={{
-                  background: active ? (c?.bg ?? 'rgba(196,163,90,0.15)') : 'rgba(255,255,255,0.05)',
-                  color: active ? (c?.fg ?? '#c4a35a') : 'rgba(232,228,220,0.5)',
-                  border: active ? `1px solid ${c?.fg ?? '#c4a35a'}44` : '1px solid rgba(255,255,255,0.08)',
+                  background: active ? (c?.bg ?? 'rgba(var(--ax-accent-rgb),0.15)') : 'rgba(255,255,255,0.05)',
+                  color: active ? (c?.fg ?? 'var(--ax-accent)') : 'rgba(var(--ax-text-rgb),0.5)',
+                  border: active ? `1px solid ${c?.fg ?? 'var(--ax-accent)'}44` : '1px solid rgba(255,255,255,0.08)',
                 }}>
                 {r === 'ALL' ? `All (${users.length})` : `${r} (${roleCounts[r] ?? 0})`}
               </button>
@@ -482,9 +482,9 @@ export default function AdminUsersPage() {
               return (
                 <div key={u.id}
                   onClick={() => setEditingUser(u)}
-                  className="bg-[#16161c] border border-[rgba(255,255,255,0.07)] rounded-xl p-4 cursor-pointer hover:border-[rgba(196,163,90,0.3)] transition-all">
+                  className="bg-[#16161c] border border-[rgba(255,255,255,0.07)] rounded-xl p-4 cursor-pointer hover:border-[rgba(var(--ax-accent-rgb),0.3)] transition-all">
                   <div className="flex items-center gap-3 mb-3">
-                    <div className="w-9 h-9 rounded-full bg-[rgba(196,163,90,0.12)] border border-[rgba(196,163,90,0.25)] flex items-center justify-center text-[13px] font-bold text-[#c4a35a] shrink-0">
+                    <div className="w-9 h-9 rounded-full bg-[rgba(var(--ax-accent-rgb),0.12)] border border-[rgba(var(--ax-accent-rgb),0.25)] flex items-center justify-center text-[13px] font-bold text-[var(--ax-accent)] shrink-0">
                       {u.name.charAt(0).toUpperCase()}
                     </div>
                     <div className="min-w-0 flex-1">
@@ -526,7 +526,7 @@ export default function AdminUsersPage() {
                       <tr key={u.id} className="border-t border-[rgba(255,255,255,0.04)] hover:bg-[rgba(255,255,255,0.02)] transition-colors">
                         <td className="px-4 py-3.5">
                           <div className="flex items-center gap-2.5">
-                            <div className="w-8 h-8 rounded-full bg-[rgba(196,163,90,0.12)] border border-[rgba(196,163,90,0.2)] flex items-center justify-center text-[12px] font-bold text-[#c4a35a] shrink-0">
+                            <div className="w-8 h-8 rounded-full bg-[rgba(var(--ax-accent-rgb),0.12)] border border-[rgba(var(--ax-accent-rgb),0.2)] flex items-center justify-center text-[12px] font-bold text-[var(--ax-accent)] shrink-0">
                               {u.name.charAt(0).toUpperCase()}
                             </div>
                             <span className="text-[13.5px] font-semibold text-[#e8e4dc]">{u.name}</span>
@@ -558,7 +558,7 @@ export default function AdminUsersPage() {
                           <button
                             onClick={() => setEditingUser(u)}
                             className="flex items-center gap-1.5 px-3 py-1.5 rounded-lg text-[12px] font-semibold transition-all"
-                            style={{ background: 'rgba(196,163,90,0.1)', color: '#c4a35a', border: '1px solid rgba(196,163,90,0.2)' }}>
+                            style={{ background: 'rgba(var(--ax-accent-rgb),0.1)', color: 'var(--ax-accent)', border: '1px solid rgba(var(--ax-accent-rgb),0.2)' }}>
                             <svg className="w-3.5 h-3.5" fill="none" viewBox="0 0 24 24" strokeWidth={2} stroke="currentColor">
                               <path strokeLinecap="round" strokeLinejoin="round" d="M16.862 4.487l1.687-1.688a1.875 1.875 0 112.652 2.652L10.582 16.07a4.5 4.5 0 01-1.897 1.13L6 18l.8-2.685a4.5 4.5 0 011.13-1.897l8.932-8.931zm0 0L19.5 7.125" />
                             </svg>

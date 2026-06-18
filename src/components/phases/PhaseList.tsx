@@ -301,7 +301,7 @@ export default function PhaseList({ projectId, userRole }: Props) {
                 {!isEditing && canEdit && (
                   <button
                     onClick={() => { setEditingId(phase.id); setEditName(phase.name); setApiError(''); }}
-                    className="text-xs text-[rgba(232,228,220,0.45)] hover:text-[#c4a35a] transition-colors"
+                    className="text-xs text-[rgba(232,228,220,0.45)] hover:text-[var(--ax-accent)] transition-colors"
                   >
                     Edit
                   </button>
@@ -432,7 +432,7 @@ export default function PhaseList({ projectId, userRole }: Props) {
               <p className="text-[rgba(232,228,220,0.55)] mb-4">
                 Are you sure? This cannot be undone.
                 {phases.find((p) => p.id === deleteId)?.boq && (
-                  <span className="block mt-1 text-[rgba(196,163,90,0.8)] text-sm">
+                  <span className="block mt-1 text-[rgba(var(--ax-accent-rgb),0.8)] text-sm">
                     The BOQ linked to this phase will also be deleted.
                   </span>
                 )}

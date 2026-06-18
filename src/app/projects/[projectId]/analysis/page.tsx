@@ -102,7 +102,7 @@ export default function AnalysisPage() {
         {error && <div className="alert alert-error">{error}</div>}
 
         {/* Tabs */}
-        <div className="border-b border-[rgba(255,255,255,0.08)]">
+        <div className="border-b" style={{ borderColor: 'var(--ax-border)' }}>
           <div className="flex flex-wrap gap-x-1">
             {TABS.map(tab => (
               <button
@@ -110,8 +110,8 @@ export default function AnalysisPage() {
                 onClick={() => setActiveTab(tab.id)}
                 className={`px-4 py-3 text-sm font-medium border-b-2 transition-colors ${
                   activeTab === tab.id
-                    ? 'border-[#c4a35a] text-[#c4a35a] bg-[rgba(196,163,90,0.08)]'
-                    : 'border-transparent text-[rgba(232,228,220,0.6)] hover:text-[rgba(232,228,220,0.85)] hover:bg-[rgba(255,255,255,0.04)]'
+                    ? 'ax-tab-active'
+                    : 'ax-tab-inactive'
                 }`}
               >
                 {tab.label}
@@ -124,7 +124,7 @@ export default function AnalysisPage() {
         <div className="min-h-[500px]">
           {tabLoading ? (
             <div className="text-center py-12">
-              <div className="animate-spin rounded-full h-8 w-8 border-b-2 border-[#c4a35a] mx-auto"></div>
+              <div className="animate-spin rounded-full h-8 w-8 border-b-2 border-[var(--ax-accent)] mx-auto"></div>
               <p className="mt-2 text-[rgba(232,228,220,0.6)]">Loading analysis...</p>
             </div>
           ) : (
@@ -608,7 +608,7 @@ function VendorTab({ data }: { data: any }) {
           onClick={() => setSortBy('exposure')}
           className={`px-3 py-1.5 text-sm rounded-md border transition-colors ${
             sortBy === 'exposure'
-              ? 'bg-[rgba(196,163,90,0.12)] text-[#c4a35a] border-[rgba(196,163,90,0.3)]'
+              ? 'bg-[rgba(var(--ax-accent-rgb),0.12)] text-[var(--ax-accent)] border-[rgba(var(--ax-accent-rgb),0.3)]'
               : 'bg-[rgba(255,255,255,0.04)] text-[rgba(232,228,220,0.7)] border-[rgba(255,255,255,0.08)] hover:bg-[rgba(255,255,255,0.06)]'
           }`}
         >
@@ -618,7 +618,7 @@ function VendorTab({ data }: { data: any }) {
           onClick={() => setSortBy('delay')}
           className={`px-3 py-1.5 text-sm rounded-md border transition-colors ${
             sortBy === 'delay'
-              ? 'bg-[rgba(196,163,90,0.12)] text-[#c4a35a] border-[rgba(196,163,90,0.3)]'
+              ? 'bg-[rgba(var(--ax-accent-rgb),0.12)] text-[var(--ax-accent)] border-[rgba(var(--ax-accent-rgb),0.3)]'
               : 'bg-[rgba(255,255,255,0.04)] text-[rgba(232,228,220,0.7)] border-[rgba(255,255,255,0.08)] hover:bg-[rgba(255,255,255,0.06)]'
           }`}
         >
@@ -628,7 +628,7 @@ function VendorTab({ data }: { data: any }) {
           onClick={() => setSortBy('rejection')}
           className={`px-3 py-1.5 text-sm rounded-md border transition-colors ${
             sortBy === 'rejection'
-              ? 'bg-[rgba(196,163,90,0.12)] text-[#c4a35a] border-[rgba(196,163,90,0.3)]'
+              ? 'bg-[rgba(var(--ax-accent-rgb),0.12)] text-[var(--ax-accent)] border-[rgba(var(--ax-accent-rgb),0.3)]'
               : 'bg-[rgba(255,255,255,0.04)] text-[rgba(232,228,220,0.7)] border-[rgba(255,255,255,0.08)] hover:bg-[rgba(255,255,255,0.06)]'
           }`}
         >

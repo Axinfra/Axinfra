@@ -182,7 +182,7 @@ const PRIORITY_CFG: Record<string, { label: string; color: string; dot: string }
 };
 
 const STATUS_CFG: Record<string, { label: string; pill: string }> = {
-  PENDING:      { label: 'Pending',      pill: 'bg-[rgba(196,163,90,0.12)] text-[#c4a35a] border-[rgba(196,163,90,0.3)]' },
+  PENDING:      { label: 'Pending',      pill: 'bg-[rgba(var(--ax-accent-rgb),0.12)] text-[var(--ax-accent)] border-[rgba(var(--ax-accent-rgb),0.3)]' },
   ACKNOWLEDGED: { label: 'Acknowledged', pill: 'bg-[rgba(56,189,248,0.12)] text-[#38bdf8] border-[rgba(56,189,248,0.3)]' },
   IN_REVIEW:    { label: 'In Review',    pill: 'bg-[rgba(129,140,248,0.12)] text-[#818cf8] border-[rgba(129,140,248,0.3)]' },
   RESOLVED:     { label: 'Resolved',     pill: 'bg-[rgba(92,186,128,0.12)] text-[#5cba80] border-[rgba(92,186,128,0.3)]' },
@@ -251,23 +251,25 @@ export default function ProjectDetailPage() {
       <Navbar projectId={projectId} projectName={project.name} role={myRole} />
 
       {project.isExampleProject && (
-        <div className="mb-6 p-4 rounded-lg border-l-4 border-purple-500" style={{ backgroundColor: 'rgba(139, 92, 246, 0.1)' }}>
-          <p className="text-sm text-purple-300">
-            <span className="font-medium">Example Project:</span> This project was created as an example for demonstration.
+        <div className="mb-6 p-4 rounded-lg border-l-4"
+          style={{ borderColor: '#7e22ce', backgroundColor: 'rgba(124, 58, 237, 0.08)' }}>
+          <p className="text-sm" style={{ color: 'var(--ax-banner-purple, #a78bfa)' }}>
+            <span className="font-semibold">Example Project:</span> This project was created as an example for demonstration.
           </p>
         </div>
       )}
 
       {tabs.length > 1 && (
-        <div className="border-b border-[rgba(255,255,255,0.07)] mb-6">
+        <div className="border-b mb-6" style={{ borderColor: 'var(--ax-border)' }}>
           <div className="flex gap-1">
             {tabs.map(({ key, label }) => (
-              <button key={key} onClick={() => setActiveTab(key as typeof activeTab)}
+              <button
+                key={key}
+                onClick={() => setActiveTab(key as typeof activeTab)}
                 className={`px-5 py-3 text-sm font-medium border-b-2 transition-all ${
-                  activeTab === key
-                    ? 'border-[#c4a35a] text-[#c4a35a] bg-[rgba(196,163,90,0.06)]'
-                    : 'border-transparent text-[rgba(232,228,220,0.55)] hover:text-[#e8e4dc]'
-                }`}>
+                  activeTab === key ? 'ax-tab-active' : 'ax-tab-inactive'
+                }`}
+              >
                 {label}
               </button>
             ))}
@@ -301,28 +303,28 @@ function VendorOverviewTab({ project, projectId }: { project: ProjectData; proje
     <div className="space-y-6">
       <div className="grid gap-4 grid-cols-2 md:grid-cols-4">
         <div className="card"><div className="card-body">
-          <p className="text-sm font-medium" style={{ color: 'rgba(232,228,220,0.6)' }}>My Milestones</p>
-          <p className="text-2xl font-bold" style={{ color: '#f5f1e8' }}>{ms.total}</p>
+          <p className="text-sm font-medium" style={{ color: 'rgba(var(--ax-text-rgb),0.6)' }}>My Milestones</p>
+          <p className="text-2xl font-bold" style={{ color: 'var(--ax-text)' }}>{ms.total}</p>
         </div></div>
         <div className="card"><div className="card-body">
-          <p className="text-sm font-medium" style={{ color: 'rgba(232,228,220,0.6)' }}>In Progress</p>
+          <p className="text-sm font-medium" style={{ color: 'rgba(var(--ax-text-rgb),0.6)' }}>In Progress</p>
           <p className="text-2xl font-bold text-orange-400">{ms.inProgress}</p>
         </div></div>
         <div className="card"><div className="card-body">
-          <p className="text-sm font-medium" style={{ color: 'rgba(232,228,220,0.6)' }}>Submitted</p>
+          <p className="text-sm font-medium" style={{ color: 'rgba(var(--ax-text-rgb),0.6)' }}>Submitted</p>
           <p className="text-2xl font-bold text-blue-400">{ms.submitted}</p>
         </div></div>
         <div className="card"><div className="card-body">
-          <p className="text-sm font-medium" style={{ color: 'rgba(232,228,220,0.6)' }}>Verified</p>
+          <p className="text-sm font-medium" style={{ color: 'rgba(var(--ax-text-rgb),0.6)' }}>Verified</p>
           <p className="text-2xl font-bold text-green-400">{ms.verified}</p>
         </div></div>
       </div>
 
       {totalEligible > 0 && (
-        <div className="card border border-[rgba(196,163,90,0.2)]">
+        <div className="card border border-[rgba(var(--ax-accent-rgb),0.2)]">
           <div className="card-body">
-            <p className="text-sm font-medium" style={{ color: 'rgba(232,228,220,0.6)' }}>Total Eligible Amount</p>
-            <p className="text-3xl font-bold" style={{ color: '#c4a35a' }}>{formatCurrency(totalEligible)}</p>
+            <p className="text-sm font-medium" style={{ color: 'rgba(var(--ax-text-rgb),0.6)' }}>Total Eligible Amount</p>
+            <p className="text-3xl font-bold" style={{ color: 'var(--ax-accent)' }}>{formatCurrency(totalEligible)}</p>
           </div>
         </div>
       )}
@@ -340,7 +342,7 @@ function VendorOverviewTab({ project, projectId }: { project: ProjectData; proje
         <div className="card">
           <div className="card-header flex justify-between items-center">
             <h2 className="text-lg font-semibold">My Milestones</h2>
-            <Link href={`/projects/${projectId}/milestones`} className="text-sm hover:underline" style={{ color: '#c4a35a' }}>View all</Link>
+            <Link href={`/projects/${projectId}/milestones`} className="text-sm hover:underline" style={{ color: 'var(--ax-accent)' }}>View all</Link>
           </div>
           <div className="overflow-x-auto">
             <table className="table">
@@ -349,17 +351,17 @@ function VendorOverviewTab({ project, projectId }: { project: ProjectData; proje
                 {milestones.slice(0, 5).map((m) => (
                   <tr key={m.id}>
                     <td>
-                      <Link href={`/projects/${projectId}/milestones/${m.id}`} className="hover:underline" style={{ color: '#c4a35a' }}>{m.title}</Link>
+                      <Link href={`/projects/${projectId}/milestones/${m.id}`} className="hover:underline" style={{ color: 'var(--ax-accent)' }}>{m.title}</Link>
                     </td>
                     <td><MilestoneStateBadge state={m.state as any} /></td>
-                    <td style={{ color: 'rgba(232,228,220,0.7)' }}>{formatDate(m.plannedEnd)}</td>
+                    <td style={{ color: 'rgba(var(--ax-text-rgb),0.7)' }}>{formatDate(m.plannedEnd)}</td>
                     <td>
                       {m.paymentEligibility
                         ? <div className="flex items-center space-x-2">
                             <PaymentStatusBadge state={m.paymentEligibility.state as any} />
-                            <span className="text-sm" style={{ color: 'rgba(232,228,220,0.7)' }}>{formatCurrency(m.paymentEligibility.eligibleAmount)}</span>
+                            <span className="text-sm" style={{ color: 'rgba(var(--ax-text-rgb),0.7)' }}>{formatCurrency(m.paymentEligibility.eligibleAmount)}</span>
                           </div>
-                        : <span style={{ color: 'rgba(232,228,220,0.4)' }}>—</span>}
+                        : <span style={{ color: 'rgba(var(--ax-text-rgb),0.4)' }}>—</span>}
                     </td>
                   </tr>
                 ))}
@@ -395,19 +397,19 @@ function OverviewTab({ project, projectId }: { project: ProjectData; projectId: 
     <div className="space-y-6">
       <div className="grid gap-4 md:grid-cols-4">
         <div className="card"><div className="card-body">
-          <p className="text-sm font-medium" style={{ color: 'rgba(232,228,220,0.6)' }}>Total BOQ Value</p>
-          <p className="text-2xl font-bold" style={{ color: '#f5f1e8' }}>{formatCurrency(totalBOQValue)}</p>
+          <p className="text-sm font-medium" style={{ color: 'rgba(var(--ax-text-rgb),0.6)' }}>Total BOQ Value</p>
+          <p className="text-2xl font-bold" style={{ color: 'var(--ax-text)' }}>{formatCurrency(totalBOQValue)}</p>
         </div></div>
         <div className="card"><div className="card-body">
-          <p className="text-sm font-medium" style={{ color: 'rgba(232,228,220,0.6)' }}>Total Milestones</p>
-          <p className="text-2xl font-bold" style={{ color: '#f5f1e8' }}>{ms.total}</p>
+          <p className="text-sm font-medium" style={{ color: 'rgba(var(--ax-text-rgb),0.6)' }}>Total Milestones</p>
+          <p className="text-2xl font-bold" style={{ color: 'var(--ax-text)' }}>{ms.total}</p>
         </div></div>
         <div className="card"><div className="card-body">
-          <p className="text-sm font-medium" style={{ color: 'rgba(232,228,220,0.6)' }}>Verified</p>
+          <p className="text-sm font-medium" style={{ color: 'rgba(var(--ax-text-rgb),0.6)' }}>Verified</p>
           <p className="text-2xl font-bold text-green-400">{ms.verified}</p>
         </div></div>
         <div className="card"><div className="card-body">
-          <p className="text-sm font-medium" style={{ color: 'rgba(232,228,220,0.6)' }}>In Progress</p>
+          <p className="text-sm font-medium" style={{ color: 'rgba(var(--ax-text-rgb),0.6)' }}>In Progress</p>
           <p className="text-2xl font-bold text-orange-400">{ms.inProgress}</p>
         </div></div>
       </div>
@@ -427,7 +429,7 @@ function OverviewTab({ project, projectId }: { project: ProjectData; projectId: 
       <div className="card">
         <div className="card-header flex justify-between items-center">
           <h2 className="text-lg font-semibold">Recent Milestones</h2>
-          <Link href={`/projects/${projectId}/milestones`} className="text-sm hover:underline" style={{ color: '#c4a35a' }}>View all</Link>
+          <Link href={`/projects/${projectId}/milestones`} className="text-sm hover:underline" style={{ color: 'var(--ax-accent)' }}>View all</Link>
         </div>
         <div className="overflow-x-auto">
           <table className="table">
@@ -435,13 +437,13 @@ function OverviewTab({ project, projectId }: { project: ProjectData; projectId: 
             <tbody>
               {milestones.slice(0, 5).map((m) => (
                 <tr key={m.id}>
-                  <td><Link href={`/projects/${projectId}/milestones/${m.id}`} className="hover:underline" style={{ color: '#c4a35a' }}>{m.title}</Link></td>
+                  <td><Link href={`/projects/${projectId}/milestones/${m.id}`} className="hover:underline" style={{ color: 'var(--ax-accent)' }}>{m.title}</Link></td>
                   <td><MilestoneStateBadge state={m.state as any} /></td>
-                  <td style={{ color: 'rgba(232,228,220,0.7)' }}>{m.paymentModel}</td>
-                  <td style={{ color: 'rgba(232,228,220,0.7)' }}>{formatDate(m.plannedEnd)}</td>
+                  <td style={{ color: 'rgba(var(--ax-text-rgb),0.7)' }}>{m.paymentModel}</td>
+                  <td style={{ color: 'rgba(var(--ax-text-rgb),0.7)' }}>{formatDate(m.plannedEnd)}</td>
                   <td>{m.paymentEligibility
-                    ? <div className="flex items-center space-x-2"><PaymentStatusBadge state={m.paymentEligibility.state as any} /><span className="text-sm" style={{ color: 'rgba(232,228,220,0.7)' }}>{formatCurrency(m.paymentEligibility.eligibleAmount)}</span></div>
-                    : <span style={{ color: 'rgba(232,228,220,0.4)' }}>-</span>}
+                    ? <div className="flex items-center space-x-2"><PaymentStatusBadge state={m.paymentEligibility.state as any} /><span className="text-sm" style={{ color: 'rgba(var(--ax-text-rgb),0.7)' }}>{formatCurrency(m.paymentEligibility.eligibleAmount)}</span></div>
+                    : <span style={{ color: 'rgba(var(--ax-text-rgb),0.4)' }}>-</span>}
                   </td>
                 </tr>
               ))}
@@ -464,7 +466,7 @@ function OverviewTab({ project, projectId }: { project: ProjectData; projectId: 
               </>}
             </div>
           </div>
-          <div className="flex justify-between mt-2 text-xs" style={{ color: 'rgba(232,228,220,0.6)' }}>
+          <div className="flex justify-between mt-2 text-xs" style={{ color: 'rgba(var(--ax-text-rgb),0.6)' }}>
             <span>Draft: {ms.draft}</span><span>In Progress: {ms.inProgress}</span>
             <span>Submitted: {ms.submitted}</span><span>Verified: {ms.verified}</span><span>Closed: {ms.closed}</span>
           </div>
@@ -534,13 +536,13 @@ function MessageCard({ r, ctx }: { r: VendorRequest; ctx: MsgCtx }) {
   const replyAttachments = r.files.filter((f) => f.uploadedById !== r.submittedBy.id);
 
   const roleColors: Record<string, string> = {
-    VENDOR: 'text-[#5cba80]', PMC: 'text-[#c4a35a]',
+    VENDOR: 'text-[#5cba80]', PMC: 'text-[var(--ax-accent)]',
     CONSULTANT: 'text-[#818cf8]', CLIENT: 'text-[#38bdf8]',
   };
   const senderColor = roleColors[r.senderRole] ?? 'text-[rgba(232,228,220,0.5)]';
 
   return (
-    <div className={`rounded-xl border transition-all overflow-hidden ${isOpen ? 'border-[rgba(196,163,90,0.25)]' : 'border-[rgba(255,255,255,0.08)]'}`}
+    <div className={`rounded-xl border transition-all overflow-hidden ${isOpen ? 'border-[rgba(var(--ax-accent-rgb),0.25)]' : 'border-[rgba(255,255,255,0.08)]'}`}
       style={{ background: 'rgba(255,255,255,0.02)' }}>
 
       {/* Thread header */}
@@ -581,10 +583,10 @@ function MessageCard({ r, ctx }: { r: VendorRequest; ctx: MsgCtx }) {
           {/* Message bubble */}
           <div className={`rounded-lg p-3.5 border ${
             isMine
-              ? 'bg-[rgba(196,163,90,0.06)] border-[rgba(196,163,90,0.12)]'
+              ? 'bg-[rgba(var(--ax-accent-rgb),0.06)] border-[rgba(var(--ax-accent-rgb),0.12)]'
               : 'bg-[rgba(255,255,255,0.03)] border-[rgba(255,255,255,0.07)]'
           }`}>
-            <p className={`text-[11px] font-medium mb-2 flex items-center gap-1.5 ${isMine ? 'text-[#c4a35a]' : senderColor}`}>
+            <p className={`text-[11px] font-medium mb-2 flex items-center gap-1.5 ${isMine ? 'text-[var(--ax-accent)]' : senderColor}`}>
               {isMine ? <ArrowUpRight className="w-3 h-3" /> : <ArrowDownLeft className="w-3 h-3" />}
               {isMine ? `You (${myRole})` : `${r.submittedBy.name} · ${r.senderRole}`}
               <span className="font-normal text-[rgba(232,228,220,0.35)]">· {formatDate(r.createdAt)}</span>
@@ -635,8 +637,8 @@ function MessageCard({ r, ctx }: { r: VendorRequest; ctx: MsgCtx }) {
           {/* Reply form */}
           {canReply && (
             isReplying ? (
-              <div className="rounded-lg p-3.5 bg-[rgba(255,255,255,0.03)] border border-[rgba(196,163,90,0.2)] space-y-3">
-                <p className="text-[11px] text-[#c4a35a] font-medium">Reply as {myRole}</p>
+              <div className="rounded-lg p-3.5 bg-[rgba(255,255,255,0.03)] border border-[rgba(var(--ax-accent-rgb),0.2)] space-y-3">
+                <p className="text-[11px] text-[var(--ax-accent)] font-medium">Reply as {myRole}</p>
 
                 <textarea
                   className="input resize-none text-sm w-full" rows={3}
@@ -672,7 +674,7 @@ function MessageCard({ r, ctx }: { r: VendorRequest; ctx: MsgCtx }) {
                   <button
                     type="button"
                     onClick={() => replyFileInputRef.current?.click()}
-                    className="flex items-center gap-1.5 px-2.5 py-1.5 rounded-lg border border-dashed border-[rgba(255,255,255,0.15)] text-xs text-[rgba(232,228,220,0.45)] hover:border-[rgba(196,163,90,0.4)] hover:text-[#c4a35a] transition-colors">
+                    className="flex items-center gap-1.5 px-2.5 py-1.5 rounded-lg border border-dashed border-[rgba(255,255,255,0.15)] text-xs text-[rgba(232,228,220,0.45)] hover:border-[rgba(var(--ax-accent-rgb),0.4)] hover:text-[var(--ax-accent)] transition-colors">
                     <Paperclip className="w-3 h-3" />Attach
                   </button>
                   <input
@@ -703,7 +705,7 @@ function MessageCard({ r, ctx }: { r: VendorRequest; ctx: MsgCtx }) {
               </div>
             ) : (
               <button onClick={() => setRespondingId(r.id)}
-                className="flex items-center gap-2 text-xs text-[rgba(232,228,220,0.4)] hover:text-[#c4a35a] transition-colors px-1">
+                className="flex items-center gap-2 text-xs text-[rgba(232,228,220,0.4)] hover:text-[var(--ax-accent)] transition-colors px-1">
                 <MessageSquare className="w-3.5 h-3.5" />
                 {r.responseNote ? 'Update response' : 'Reply'}
               </button>
@@ -913,7 +915,7 @@ function CommunicationTab({
       <div className="flex items-center justify-between">
         <div>
           <h2 className="text-xl font-bold text-[#e8e4dc] flex items-center gap-2">
-            {view === 'inbox' ? <Inbox className="w-5 h-5 text-[#c4a35a]" /> : <Send className="w-5 h-5 text-[#c4a35a]" />}
+            {view === 'inbox' ? <Inbox className="w-5 h-5 text-[var(--ax-accent)]" /> : <Send className="w-5 h-5 text-[var(--ax-accent)]" />}
             {pageLabel}
           </h2>
           <p className="text-sm text-[rgba(232,228,220,0.4)] mt-0.5">{pageDesc}</p>
@@ -928,7 +930,7 @@ function CommunicationTab({
       {/* Summary chips */}
       <div className="flex gap-3 flex-wrap">
         {[
-          { label: 'Pending',     count: pending.length,  color: 'text-[#c4a35a]' },
+          { label: 'Pending',     count: pending.length,  color: 'text-[var(--ax-accent)]' },
           { label: 'In Progress', count: active.length,   color: 'text-[#818cf8]' },
           { label: 'Closed',      count: resolved.length, color: 'text-[rgba(232,228,220,0.4)]' },
         ].map((c) => (
@@ -941,7 +943,7 @@ function CommunicationTab({
 
       {/* Compose form (Sent tab only) */}
       {view === 'sent' && showForm && (
-        <div className="card border border-[rgba(196,163,90,0.2)]">
+        <div className="card border border-[rgba(var(--ax-accent-rgb),0.2)]">
           <div className="card-header flex items-center justify-between">
             <h3 className="font-semibold text-[#e8e4dc]">New Message</h3>
             <button onClick={resetForm} className="text-[rgba(232,228,220,0.4)] hover:text-[#e8e4dc]"><X className="w-4 h-4" /></button>
@@ -1043,7 +1045,7 @@ function CommunicationTab({
                 ))}
               </div>
               <button onClick={() => fileInputRef.current?.click()}
-                className="flex items-center gap-2 px-3 py-2 rounded-lg border border-dashed border-[rgba(255,255,255,0.15)] text-xs text-[rgba(232,228,220,0.5)] hover:border-[rgba(196,163,90,0.4)] hover:text-[#c4a35a] transition-colors">
+                className="flex items-center gap-2 px-3 py-2 rounded-lg border border-dashed border-[rgba(255,255,255,0.15)] text-xs text-[rgba(232,228,220,0.5)] hover:border-[rgba(var(--ax-accent-rgb),0.4)] hover:text-[var(--ax-accent)] transition-colors">
                 <Paperclip className="w-3.5 h-3.5" />Attach file
               </button>
               <input ref={fileInputRef} type="file" accept=".pdf,.jpg,.jpeg,.png,.webp,.gif,.doc,.docx,.xls,.xlsx,.dwg,.dxf" multiple className="hidden" onChange={handleFileAdd} />

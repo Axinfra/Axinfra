@@ -127,7 +127,7 @@ export default function EIOverviewPage() {
             </div>
             <div className="h-2.5 rounded-full bg-[rgba(255,255,255,0.05)] overflow-hidden">
               <div
-                className="h-full rounded-full bg-[#c4a35a] transition-all duration-500"
+                className="h-full rounded-full bg-[var(--ax-accent)] transition-all duration-500"
                 style={{
                   width: `${kpis.totalMilestones > 0 ? (kpis.completedMilestones / kpis.totalMilestones) * 100 : 0}%`,
                 }}
@@ -204,7 +204,7 @@ export default function EIOverviewPage() {
               </div>
               <Link
                 href={`/execution-intelligence/${projectId}/gantt`}
-                className="text-[12.5px] font-semibold text-[#c4a35a] hover:text-[#b3943f] transition-colors flex items-center gap-1.5"
+                className="text-[12.5px] font-semibold text-[var(--ax-accent)] hover:text-[var(--ax-accent)] transition-colors flex items-center gap-1.5"
               >
                 Open Gantt
                 <svg className="w-3.5 h-3.5" fill="none" viewBox="0 0 24 24" strokeWidth={2} stroke="currentColor">
@@ -252,8 +252,8 @@ export default function EIOverviewPage() {
         </div>
       ) : (
         <div className="flex flex-col items-center justify-center py-20 text-center">
-          <div className="w-12 h-12 rounded-full bg-[rgba(196,163,90,0.08)] border border-[rgba(196,163,90,0.15)] flex items-center justify-center mb-4">
-            <svg className="w-6 h-6 text-[rgba(196,163,90,0.5)]" fill="none" viewBox="0 0 24 24" strokeWidth={1.5} stroke="currentColor">
+          <div className="w-12 h-12 rounded-full bg-[rgba(var(--ax-accent-rgb),0.08)] border border-[rgba(var(--ax-accent-rgb),0.15)] flex items-center justify-center mb-4">
+            <svg className="w-6 h-6 text-[rgba(var(--ax-accent-rgb),0.5)]" fill="none" viewBox="0 0 24 24" strokeWidth={1.5} stroke="currentColor">
               <path strokeLinecap="round" strokeLinejoin="round" d="M3 13.125C3 12.504 3.504 12 4.125 12h2.25c.621 0 1.125.504 1.125 1.125v6.75C7.5 20.496 6.996 21 6.375 21h-2.25A1.125 1.125 0 013 19.875v-6.75zM9.75 8.625c0-.621.504-1.125 1.125-1.125h2.25c.621 0 1.125.504 1.125 1.125v11.25c0 .621-.504 1.125-1.125 1.125h-2.25a1.125 1.125 0 01-1.125-1.125V8.625zM16.5 4.125c0-.621.504-1.125 1.125-1.125h2.25C20.496 3 21 3.504 21 4.125v15.75c0 .621-.504 1.125-1.125 1.125h-2.25a1.125 1.125 0 01-1.125-1.125V4.125z" />
             </svg>
           </div>
@@ -263,7 +263,7 @@ export default function EIOverviewPage() {
           </p>
           <Link
             href={`/projects/${projectId}/milestones/new`}
-            className="mt-5 px-4 py-2 rounded-lg text-sm font-semibold text-[#0a0c10] bg-[#c4a35a] hover:bg-[#b3943f] transition-colors"
+            className="mt-5 px-4 py-2 rounded-lg text-sm font-semibold text-[#0a0c10] bg-[var(--ax-accent)] hover:bg-[var(--ax-accent-hover)] transition-colors"
           >
             Add a milestone
           </Link>
@@ -289,7 +289,7 @@ function KpiCard({
   const accentClass = {
     green: 'text-success-600',
     red: 'text-[#e06050]',
-    blue: 'text-[#c4a35a]',
+    blue: 'text-[var(--ax-accent)]',
     orange: 'text-warning-600',
     purple: 'text-[rgba(232,228,220,0.55)]',
     gray: 'text-[rgba(232,228,220,0.55)]',
@@ -333,13 +333,13 @@ function QuickNavCard({
   return (
     <a
       href={href}
-      className="flex items-start gap-4 bg-[rgba(255,255,255,0.03)] border border-[rgba(255,255,255,0.07)] rounded-xl p-5 hover:border-[rgba(196,163,90,0.3)] hover:shadow-none transition-all group"
+      className="flex items-start gap-4 bg-[rgba(255,255,255,0.03)] border border-[rgba(255,255,255,0.07)] rounded-xl p-5 hover:border-[rgba(var(--ax-accent-rgb),0.3)] hover:shadow-none transition-all group"
     >
-      <div className="w-10 h-10 rounded-lg bg-[rgba(196,163,90,0.08)] flex items-center justify-center shrink-0 group-hover:bg-[rgba(196,163,90,0.12)] transition-colors">
+      <div className="w-10 h-10 rounded-lg bg-[rgba(var(--ax-accent-rgb),0.08)] flex items-center justify-center shrink-0 group-hover:bg-[rgba(var(--ax-accent-rgb),0.12)] transition-colors">
         {icon}
       </div>
       <div>
-        <p className="text-[14px] font-semibold text-[#e8e4dc] group-hover:text-[#c4a35a] transition-colors">
+        <p className="text-[14px] font-semibold text-[#e8e4dc] group-hover:text-[var(--ax-accent)] transition-colors">
           {title}
         </p>
         <p className="text-[12px] text-[rgba(232,228,220,0.35)] mt-1 leading-relaxed">{description}</p>
@@ -375,7 +375,7 @@ function AlertIcon({ className }: { className?: string }) {
 
 function GanttIcon() {
   return (
-    <svg className="w-5 h-5 text-[#c4a35a]" fill="none" viewBox="0 0 24 24" strokeWidth={1.5} stroke="currentColor">
+    <svg className="w-5 h-5 text-[var(--ax-accent)]" fill="none" viewBox="0 0 24 24" strokeWidth={1.5} stroke="currentColor">
       <path strokeLinecap="round" strokeLinejoin="round" d="M3 4.5h14.25M3 9h9.75M3 13.5h9.75m4.5-4.5v12m0 0l-3.75-3.75M17.25 21L21 17.25" />
     </svg>
   );
@@ -383,7 +383,7 @@ function GanttIcon() {
 
 function AnalyticsIcon() {
   return (
-    <svg className="w-5 h-5 text-[#c4a35a]" fill="none" viewBox="0 0 24 24" strokeWidth={1.5} stroke="currentColor">
+    <svg className="w-5 h-5 text-[var(--ax-accent)]" fill="none" viewBox="0 0 24 24" strokeWidth={1.5} stroke="currentColor">
       <path strokeLinecap="round" strokeLinejoin="round" d="M3 13.125C3 12.504 3.504 12 4.125 12h2.25c.621 0 1.125.504 1.125 1.125v6.75C7.5 20.496 6.996 21 6.375 21h-2.25A1.125 1.125 0 013 19.875v-6.75zM9.75 8.625c0-.621.504-1.125 1.125-1.125h2.25c.621 0 1.125.504 1.125 1.125v11.25c0 .621-.504 1.125-1.125 1.125h-2.25a1.125 1.125 0 01-1.125-1.125V8.625zM16.5 4.125c0-.621.504-1.125 1.125-1.125h2.25C20.496 3 21 3.504 21 4.125v15.75c0 .621-.504 1.125-1.125 1.125h-2.25a1.125 1.125 0 01-1.125-1.125V4.125z" />
     </svg>
   );

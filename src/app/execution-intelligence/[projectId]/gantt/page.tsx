@@ -103,7 +103,7 @@ export default function GanttPage() {
                   disabled={disabled}
                   title={disabled ? 'Owner/PMC only' : MODE_LABELS[m].desc}
                   className={`px-3 py-1.5 rounded-lg text-[12.5px] font-medium transition-colors
-                    ${mode === m ? 'bg-[rgba(196,163,90,0.15)] text-[#c4a35a]' : 'text-[rgba(232,228,220,0.55)] hover:text-[#e8e4dc]'}
+                    ${mode === m ? 'bg-[rgba(var(--ax-accent-rgb),0.15)] text-[var(--ax-accent)]' : 'text-[rgba(232,228,220,0.55)] hover:text-[#e8e4dc]'}
                     ${disabled ? 'opacity-35 cursor-not-allowed' : ''}`}>
                   {MODE_LABELS[m].short}
                 </button>
@@ -133,7 +133,7 @@ export default function GanttPage() {
             )}
             <label className="flex items-center gap-2 text-[12.5px] text-[rgba(232,228,220,0.6)] cursor-pointer select-none">
               <input type="checkbox" checked={criticalOnly} onChange={e => setCriticalOnly(e.target.checked)}
-                className="rounded border-[rgba(255,255,255,0.15)] accent-[#c4a35a]" />
+                className="rounded border-[rgba(255,255,255,0.15)] accent-[var(--ax-accent)]" />
               Critical only
             </label>
           </div>
@@ -143,8 +143,8 @@ export default function GanttPage() {
         {!loading && ganttData && (
           <div className="flex flex-wrap gap-3">
             {[
-              { label: 'Phases',     value: phases.length,   color: '#c4a35a' },
-              { label: 'Milestones', value: totalMs,          color: '#e8e4dc' },
+              { label: 'Phases',     value: phases.length,   color: 'var(--ax-accent)' },
+              { label: 'Milestones', value: totalMs,          color: 'var(--ax-text)' },
               { label: 'Completed',  value: `${doneMs}/${totalMs}`, color: '#22c55e' },
               { label: 'Critical',   value: criticalCount,   color: '#ef4444' },
               { label: 'Duration',   value: cpm?.projectDuration ? `${cpm.projectDuration}d` : '—', color: '#60a5fa' },

@@ -7,6 +7,7 @@ import { Input } from '@/components/ui/Input';
 import { ArrowRight, Loader2, AlertCircle, Eye, EyeOff } from 'lucide-react';
 import Link from 'next/link';
 import { Suspense } from 'react';
+import AxinfraLogo from '@/components/AxinfraLogo';
 
 const GOOGLE_ERROR_MESSAGES: Record<string, string> = {
   google_denied:     'Google sign-in was cancelled.',
@@ -93,50 +94,43 @@ function LoginContent() {
   };
 
   return (
-    <div className="min-h-screen w-full flex bg-[#0a0c10]">
+    <div className="min-h-screen w-full flex bg-[var(--ax-base)]">
 
       {/* Left panel */}
-      <div className="hidden lg:flex lg:w-[45%] bg-[#0d0f13] flex-col justify-between p-16 xl:p-24 relative overflow-hidden border-r border-[rgba(255,255,255,0.07)]">
-        <div className="flex items-center gap-3">
-          <div className="w-8 h-8 rounded-md flex items-center justify-center" style={{ background: 'linear-gradient(135deg,#c4a35a 0%,#a8893e 100%)' }}>
-            <span className="text-[#0a0c10] text-sm font-bold">A</span>
-          </div>
-          <span className="text-[#e8e4dc] font-semibold text-lg tracking-tight">Axinfra</span>
-        </div>
+      <div className="hidden lg:flex lg:w-[45%] bg-[var(--ax-surface)] flex-col justify-between p-16 xl:p-24 relative overflow-hidden border-r border-[var(--ax-border)]">
+        <AxinfraLogo size="lg" href="/" />
 
         <div className="z-10">
-          <h1 className="text-[#e8e4dc] text-5xl xl:text-6xl font-bold tracking-tight leading-[1.1] mb-8">
+          <h1 className="text-[var(--ax-text)] text-5xl xl:text-6xl font-bold tracking-tight leading-[1.1] mb-8">
             Infrastructure <br />for execution.
           </h1>
-          <p className="text-[rgba(232,228,220,0.55)] text-xl leading-relaxed max-w-md font-light">
+          <p className="text-[rgba(var(--ax-text-rgb),0.55)] text-xl leading-relaxed max-w-md font-light">
             Financial visibility and evidence-based payments for enterprise construction projects.
           </p>
         </div>
 
-        <div className="text-[rgba(232,228,220,0.35)] text-sm">&copy; Axinfra Inc.</div>
+        <div className="text-[rgba(var(--ax-text-rgb),0.35)] text-sm">&copy; Axinfra Inc.</div>
       </div>
 
       {/* Right panel */}
-      <div className="w-full lg:w-[55%] flex items-center justify-center p-8 bg-[#0a0c10] overflow-y-auto">
+      <div className="w-full lg:w-[55%] flex items-center justify-center p-8 bg-[var(--ax-base)] overflow-y-auto">
         <div className="w-full max-w-sm py-8 space-y-7">
 
           {/* Mobile logo */}
-          <div className="flex justify-center lg:hidden">
-            <div className="w-10 h-10 rounded-md flex items-center justify-center" style={{ background: 'linear-gradient(135deg,#c4a35a 0%,#a8893e 100%)' }}>
-              <span className="text-[#0a0c10] text-lg font-bold">A</span>
-            </div>
+          <div className="flex justify-center lg:hidden mb-2">
+            <AxinfraLogo size="md" href="/" />
           </div>
 
           <div>
-            <h2 className="text-2xl font-semibold text-[#e8e4dc] tracking-tight">Welcome back</h2>
-            <p className="text-[rgba(232,228,220,0.5)] text-sm mt-1">Sign in to your Axinfra workspace.</p>
+            <h2 className="text-2xl font-semibold text-[var(--ax-text)] tracking-tight">Welcome back</h2>
+            <p className="text-[rgba(var(--ax-text-rgb),0.5)] text-sm mt-1">Sign in to your Axinfra workspace.</p>
           </div>
 
           {/* Google */}
           <button
             type="button"
             onClick={() => { window.location.href = '/api/auth/google'; }}
-            className="flex w-full items-center justify-center gap-3 rounded-xl border border-[rgba(255,255,255,0.1)] bg-[rgba(255,255,255,0.04)] hover:bg-[rgba(255,255,255,0.07)] hover:border-[rgba(255,255,255,0.16)] transition-all h-11 text-sm font-medium text-[#e8e4dc] cursor-pointer"
+            className="flex w-full items-center justify-center gap-3 rounded-xl border border-[var(--ax-border)] bg-[var(--ax-overlay)] hover:bg-[var(--ax-overlay-hover)] hover:border-[var(--ax-border)] transition-all h-11 text-sm font-medium text-[var(--ax-text)] cursor-pointer"
           >
             <GoogleIcon />
             Continue with Google
@@ -144,9 +138,9 @@ function LoginContent() {
 
           {/* Divider */}
           <div className="flex items-center gap-4">
-            <div className="flex-1 h-px bg-[rgba(255,255,255,0.07)]" />
-            <span className="text-xs text-[rgba(232,228,220,0.3)] font-medium uppercase tracking-wider">or</span>
-            <div className="flex-1 h-px bg-[rgba(255,255,255,0.07)]" />
+            <div className="flex-1 h-px bg-[var(--ax-overlay-hover)]" />
+            <span className="text-xs text-[rgba(var(--ax-text-rgb),0.3)] font-medium uppercase tracking-wider">or</span>
+            <div className="flex-1 h-px bg-[var(--ax-overlay-hover)]" />
           </div>
 
           {/* Error */}
@@ -160,7 +154,7 @@ function LoginContent() {
           {/* Form */}
           <form onSubmit={handleSubmit} className="space-y-5">
             <div className="space-y-1.5">
-              <label htmlFor="email" className="text-xs font-medium text-[rgba(232,228,220,0.55)] uppercase tracking-wider block">
+              <label htmlFor="email" className="text-xs font-medium text-[rgba(var(--ax-text-rgb),0.55)] uppercase tracking-wider block">
                 Email
               </label>
               <Input id="email" type="email" value={email} onChange={(e) => setEmail(e.target.value)}
@@ -169,17 +163,17 @@ function LoginContent() {
 
             <div className="space-y-1.5">
               <div className="flex items-center justify-between">
-                <label htmlFor="password" className="text-xs font-medium text-[rgba(232,228,220,0.55)] uppercase tracking-wider block">
+                <label htmlFor="password" className="text-xs font-medium text-[rgba(var(--ax-text-rgb),0.55)] uppercase tracking-wider block">
                   Password
                 </label>
-                <Link href="#" className="text-xs font-medium text-[#c4a35a] hover:underline">Forgot password?</Link>
+                <Link href="#" className="text-xs font-medium text-[var(--ax-accent)] hover:underline">Forgot password?</Link>
               </div>
               <div className="relative">
                 <Input id="password" type={showPassword ? 'text' : 'password'} value={password}
                   onChange={(e) => setPassword(e.target.value)} placeholder="••••••••"
                   required autoComplete="current-password" className="pr-10" />
                 <button type="button" onClick={() => setShowPassword((v) => !v)} tabIndex={-1}
-                  className="absolute right-3 top-1/2 -translate-y-1/2 text-[rgba(232,228,220,0.35)] hover:text-[rgba(232,228,220,0.7)] transition-colors"
+                  className="absolute right-3 top-1/2 -translate-y-1/2 text-[rgba(var(--ax-text-rgb),0.35)] hover:text-[rgba(var(--ax-text-rgb),0.7)] transition-colors"
                   aria-label={showPassword ? 'Hide password' : 'Show password'}>
                   {showPassword ? <EyeOff className="h-4 w-4" /> : <Eye className="h-4 w-4" />}
                 </button>
@@ -187,7 +181,7 @@ function LoginContent() {
             </div>
 
             <Button type="submit" disabled={loading}
-              className="w-full h-11 rounded-xl bg-[#c4a35a] hover:bg-[#b3943f] text-[#0a0c10] font-semibold shadow-none transition-all">
+              className="w-full h-11 rounded-xl bg-[var(--ax-accent)] hover:bg-[var(--ax-accent-hover)] text-[var(--ax-btn-text)] font-semibold shadow-none transition-all">
               {loading ? (
                 <><Loader2 className="mr-2 h-3.5 w-3.5 animate-spin" />Signing in...</>
               ) : (
@@ -197,26 +191,26 @@ function LoginContent() {
           </form>
 
           {/* Sign up link */}
-          <p className="text-center text-sm text-[rgba(232,228,220,0.4)]">
+          <p className="text-center text-sm text-[rgba(var(--ax-text-rgb),0.4)]">
             Don&apos;t have an account?{' '}
-            <Link href="/auth/register" className="text-[#c4a35a] font-medium hover:underline">
+            <Link href="/auth/register" className="text-[var(--ax-accent)] font-medium hover:underline">
               Create account
             </Link>
           </p>
 
           {/* Demo access */}
-          <div className="pt-4 border-t border-[rgba(255,255,255,0.07)]">
-            <p className="text-xs text-center text-[rgba(232,228,220,0.3)] mb-3 font-medium uppercase tracking-wider">
+          <div className="pt-4 border-t border-[var(--ax-border)]">
+            <p className="text-xs text-center text-[rgba(var(--ax-text-rgb),0.3)] mb-3 font-medium uppercase tracking-wider">
               Demo Access
             </p>
-            <div className="flex items-center justify-center flex-wrap gap-x-4 gap-y-2 text-xs font-medium text-[rgba(232,228,220,0.5)]">
+            <div className="flex items-center justify-center flex-wrap gap-x-4 gap-y-2 text-xs font-medium text-[rgba(var(--ax-text-rgb),0.5)]">
               {(['client', 'pmc', 'vendor', 'consultant'] as const).map((role, i, arr) => (
                 <React.Fragment key={role}>
                   <button type="button" onClick={() => fillDemo(role)}
-                    className="hover:text-[#c4a35a] transition-colors">
+                    className="hover:text-[var(--ax-accent)] transition-colors">
                     {role === 'pmc' ? 'PMC' : role.charAt(0).toUpperCase() + role.slice(1)}
                   </button>
-                  {i < arr.length - 1 && <span className="text-[rgba(255,255,255,0.1)]">·</span>}
+                  {i < arr.length - 1 && <span className="text-[rgba(var(--ax-text-rgb),0.1)]">·</span>}
                 </React.Fragment>
               ))}
             </div>

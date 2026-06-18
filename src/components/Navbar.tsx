@@ -88,13 +88,13 @@ export default function Navbar({ projectId, projectName, role }: NavbarProps) {
         <div className="flex items-center gap-2 min-w-0">
           <Link
             href="/projects"
-            className="flex items-center gap-1.5 text-sm font-medium text-[rgba(232,228,220,0.55)] hover:text-[#e8e4dc] transition-colors shrink-0 group"
+            className="ax-nav-item flex items-center gap-1.5 text-sm font-medium transition-colors shrink-0 group rounded-md px-1 py-0.5"
           >
-            <FolderOpen className="h-4 w-4 text-[rgba(232,228,220,0.35)] group-hover:text-[rgba(232,228,220,0.55)]" />
+            <FolderOpen className="h-4 w-4" />
             Projects
           </Link>
-          <ChevronRight className="h-4 w-4 text-[rgba(255,255,255,0.12)] shrink-0" />
-          <h1 className="text-xl font-bold text-[#e8e4dc] truncate tracking-tight">{projectName}</h1>
+          <ChevronRight className="h-4 w-4 shrink-0" style={{ color: 'rgba(var(--ax-text-rgb), 0.2)' }} />
+          <h1 className="text-xl font-bold truncate tracking-tight" style={{ color: 'var(--ax-text)' }}>{projectName}</h1>
         </div>
         <Badge variant={roleColors[role] || 'secondary'} className="px-3 py-1 text-xs uppercase tracking-wider">
           {roleLabels[role] ?? role}
@@ -102,7 +102,7 @@ export default function Navbar({ projectId, projectName, role }: NavbarProps) {
       </div>
 
       {/* Tab Navigation */}
-      <nav className="border-b border-[rgba(255,255,255,0.07)]">
+      <nav className="border-b" style={{ borderColor: 'var(--ax-border)' }}>
         <div className="flex gap-1 overflow-x-auto scrollbar-thin pb-0.5">
           {visibleItems.map((item) => {
             const isActive = pathname === item.href;
@@ -115,12 +115,10 @@ export default function Navbar({ projectId, projectName, role }: NavbarProps) {
                 onFocus={() => warmApi(item.prefetchApi)}
                 className={cn(
                   "flex items-center gap-2 whitespace-nowrap px-4 py-3 text-sm font-medium border-b-2 transition-all duration-200 outline-none rounded-t-md",
-                  isActive
-                    ? "border-[#c4a35a] text-[#c4a35a] bg-[rgba(196,163,90,0.08)]"
-                    : "border-transparent text-[rgba(232,228,220,0.55)] hover:text-[#e8e4dc] hover:border-[rgba(255,255,255,0.12)] hover:bg-[rgba(255,255,255,0.03)]"
+                  isActive ? "ax-tab-active" : "ax-tab-inactive"
                 )}
               >
-                <item.icon className={cn("h-4 w-4", isActive ? "text-[#c4a35a]" : "text-[rgba(232,228,220,0.35)]")} />
+                <item.icon className="h-4 w-4" />
                 {item.label}
               </Link>
             );

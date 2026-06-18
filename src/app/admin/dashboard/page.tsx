@@ -15,15 +15,15 @@ interface Stats {
 }
 
 const ROLE_COLORS: Record<string, string> = {
-  CLIENT: '#c4a35a', PMC: '#60a5fa', VENDOR: '#5cba80',
-  CONSULTANT: '#a78bfa', VIEWER: 'rgba(232,228,220,0.4)',
+  CLIENT: 'var(--ax-accent)', PMC: '#60a5fa', VENDOR: '#5cba80',
+  CONSULTANT: '#a78bfa', VIEWER: 'rgba(var(--ax-text-rgb),0.4)',
 };
 const STATE_COLORS: Record<string, string> = {
-  DRAFT: 'rgba(232,228,220,0.3)', IN_PROGRESS: '#60a5fa',
-  SUBMITTED: '#fb923c', VERIFIED: '#5cba80', CLOSED: '#c4a35a',
+  DRAFT: 'rgba(var(--ax-text-rgb),0.3)', IN_PROGRESS: '#60a5fa',
+  SUBMITTED: '#fb923c', VERIFIED: '#5cba80', CLOSED: 'var(--ax-accent)',
 };
 const STATUS_COLORS: Record<string, string> = {
-  ONGOING: '#5cba80', COMPLETED: '#c4a35a', PAUSED: '#fb923c', CANCELLED: '#e06050',
+  ONGOING: '#5cba80', COMPLETED: 'var(--ax-accent)', PAUSED: '#fb923c', CANCELLED: '#e06050',
 };
 
 function fmt(d: string) {
@@ -73,11 +73,11 @@ export default function AdminDashboard() {
   const clientCount = stats.roleDistribution['CLIENT'] ?? 0;
 
   const kpis = [
-    { label: 'Total Users', value: stats.users.total, sub: `+${stats.users.new30Days} this month`, color: '#e8e4dc' },
-    { label: 'Owners / Clients', value: clientCount, sub: 'Companies using platform', color: '#c4a35a' },
+    { label: 'Total Users', value: stats.users.total, sub: `+${stats.users.new30Days} this month`, color: 'var(--ax-text)' },
+    { label: 'Owners / Clients', value: clientCount, sub: 'Companies using platform', color: 'var(--ax-accent)' },
     { label: 'PMC Users', value: pmcCount, sub: 'Project managers', color: '#60a5fa' },
     { label: 'Vendors', value: vendorCount, sub: 'Contractors & suppliers', color: '#5cba80' },
-    { label: 'Projects', value: stats.projects.total, sub: `${stats.projects.active} active · +${stats.projects.new30Days} new`, color: '#e8e4dc' },
+    { label: 'Projects', value: stats.projects.total, sub: `${stats.projects.active} active · +${stats.projects.new30Days} new`, color: 'var(--ax-text)' },
     { label: 'Open Issues', value: totalIssues, sub: `${stats.followUps.escalated} escalated`, color: totalIssues > 0 ? '#fb923c' : '#5cba80' },
   ];
 
@@ -88,7 +88,7 @@ export default function AdminDashboard() {
       <div className="mb-6">
         <div className="flex items-center gap-2.5 mb-1">
           <h1 className="text-xl sm:text-2xl font-bold text-[#e8e4dc]">Platform Dashboard</h1>
-          <span className="text-[10px] font-bold text-[#c4a35a] bg-[rgba(196,163,90,0.12)] border border-[rgba(196,163,90,0.25)] px-2 py-0.5 rounded-full uppercase tracking-wide">Admin</span>
+          <span className="text-[10px] font-bold text-[var(--ax-accent)] bg-[rgba(var(--ax-accent-rgb),0.12)] border border-[rgba(var(--ax-accent-rgb),0.25)] px-2 py-0.5 rounded-full uppercase tracking-wide">Admin</span>
         </div>
         <p className="text-[13px] text-[rgba(232,228,220,0.45)]">Live overview of all users, projects, and platform activity</p>
       </div>
@@ -143,8 +143,8 @@ export default function AdminDashboard() {
           <div className="text-[11px] text-[rgba(232,228,220,0.4)] mb-3">{stats.milestones.total} total milestones</div>
           <ResponsiveContainer width="100%" height={180}>
             <BarChart data={stateData} barCategoryGap="30%">
-              <XAxis dataKey="name" tick={{ fill: 'rgba(232,228,220,0.4)', fontSize: 10 }} axisLine={false} tickLine={false} />
-              <YAxis tick={{ fill: 'rgba(232,228,220,0.4)', fontSize: 10 }} axisLine={false} tickLine={false} />
+              <XAxis dataKey="name" tick={{ fill: 'rgba(var(--ax-text-rgb),0.4)', fontSize: 10 }} axisLine={false} tickLine={false} />
+              <YAxis tick={{ fill: 'rgba(var(--ax-text-rgb),0.4)', fontSize: 10 }} axisLine={false} tickLine={false} />
               <Tooltip content={<ChartTooltip />} cursor={{ fill: 'rgba(255,255,255,0.04)' }} />
               <Bar dataKey="value" radius={[4, 4, 0, 0]}>
                 {stateData.map((e, i) => <Cell key={i} fill={e.fill} />)}
@@ -177,7 +177,7 @@ export default function AdminDashboard() {
                   <tr key={u.id} className="border-t border-[rgba(255,255,255,0.04)] hover:bg-[rgba(255,255,255,0.02)]">
                     <td className="px-4 py-3">
                       <div className="flex items-center gap-2.5">
-                        <div className="w-7 h-7 rounded-full bg-[rgba(196,163,90,0.15)] flex items-center justify-center text-[11px] font-bold text-[#c4a35a] shrink-0">
+                        <div className="w-7 h-7 rounded-full bg-[rgba(var(--ax-accent-rgb),0.15)] flex items-center justify-center text-[11px] font-bold text-[var(--ax-accent)] shrink-0">
                           {u.name.charAt(0).toUpperCase()}
                         </div>
                         <span className="text-[13px] font-medium text-[#e8e4dc] truncate max-w-[100px]">{u.name}</span>
@@ -209,7 +209,7 @@ export default function AdminDashboard() {
               </thead>
               <tbody>
                 {stats.recentProjects.map(p => {
-                  const sc = { ONGOING: '#5cba80', COMPLETED: '#c4a35a', PAUSED: '#fb923c', CANCELLED: '#e06050' }[p.status] ?? '#888';
+                  const sc = { ONGOING: '#5cba80', COMPLETED: 'var(--ax-accent)', PAUSED: '#fb923c', CANCELLED: '#e06050' }[p.status] ?? '#888';
                   return (
                     <tr key={p.id} className="border-t border-[rgba(255,255,255,0.04)] hover:bg-[rgba(255,255,255,0.02)]">
                       <td className="px-4 py-3">

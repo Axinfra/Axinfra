@@ -100,7 +100,7 @@ export default function MilestoneSearch({ projectId, onSearchActive }: Milestone
             value={q}
             onChange={(e) => setQ(e.target.value)}
             placeholder="Search milestones by name, status, vendor..."
-            className="w-full pl-10 pr-10 py-2.5 text-sm border border-[rgba(255,255,255,0.07)] rounded-lg bg-[rgba(255,255,255,0.03)] focus:outline-none focus:ring-2 focus:ring-[rgba(196,163,90,0.3)] focus:border-transparent"
+            className="w-full pl-10 pr-10 py-2.5 text-sm border border-[rgba(255,255,255,0.07)] rounded-lg bg-[rgba(255,255,255,0.03)] focus:outline-none focus:ring-2 focus:ring-[rgba(var(--ax-accent-rgb),0.3)] focus:border-transparent"
           />
           {isActive && (
             <button
@@ -115,7 +115,7 @@ export default function MilestoneSearch({ projectId, onSearchActive }: Milestone
         <button
           onClick={() => setShowFilters(!showFilters)}
           className={`flex items-center gap-1.5 px-3 py-2.5 text-sm rounded-lg border transition-colors ${
-            showFilters ? 'bg-[rgba(196,163,90,0.08)] border-primary-200 text-[#c4a35a]' : 'bg-[rgba(255,255,255,0.03)] border-[rgba(255,255,255,0.07)] text-[rgba(232,228,220,0.55)] hover:bg-[rgba(255,255,255,0.05)]'
+            showFilters ? 'bg-[rgba(var(--ax-accent-rgb),0.08)] border-primary-200 text-[var(--ax-accent)]' : 'bg-[rgba(255,255,255,0.03)] border-[rgba(255,255,255,0.07)] text-[rgba(232,228,220,0.55)] hover:bg-[rgba(255,255,255,0.05)]'
           }`}
         >
           <Filter className="w-4 h-4" />
@@ -132,7 +132,7 @@ export default function MilestoneSearch({ projectId, onSearchActive }: Milestone
               <select
                 value={status}
                 onChange={(e) => setStatus(e.target.value)}
-                className="w-full py-2 px-3 text-sm bg-[#1a1c22] text-[#e8e4dc] placeholder:text-[rgba(232,228,220,0.35)] border border-[rgba(255,255,255,0.07)] rounded-lg focus:outline-none focus:ring-2 focus:ring-[rgba(196,163,90,0.3)]"
+                className="w-full py-2 px-3 text-sm bg-[#1a1c22] text-[#e8e4dc] placeholder:text-[rgba(232,228,220,0.35)] border border-[rgba(255,255,255,0.07)] rounded-lg focus:outline-none focus:ring-2 focus:ring-[rgba(var(--ax-accent-rgb),0.3)]"
               >
                 {STATUS_OPTIONS.map((opt) => (
                   <option key={opt.value} value={opt.value}>{opt.label}</option>
@@ -146,7 +146,7 @@ export default function MilestoneSearch({ projectId, onSearchActive }: Milestone
                 value={vendorName}
                 onChange={(e) => setVendorName(e.target.value)}
                 placeholder="Search vendor..."
-                className="w-full py-2 px-3 text-sm bg-[#1a1c22] text-[#e8e4dc] placeholder:text-[rgba(232,228,220,0.35)] border border-[rgba(255,255,255,0.07)] rounded-lg focus:outline-none focus:ring-2 focus:ring-[rgba(196,163,90,0.3)]"
+                className="w-full py-2 px-3 text-sm bg-[#1a1c22] text-[#e8e4dc] placeholder:text-[rgba(232,228,220,0.35)] border border-[rgba(255,255,255,0.07)] rounded-lg focus:outline-none focus:ring-2 focus:ring-[rgba(var(--ax-accent-rgb),0.3)]"
               />
             </div>
             <div>
@@ -155,7 +155,7 @@ export default function MilestoneSearch({ projectId, onSearchActive }: Milestone
                 type="date"
                 value={dateFrom}
                 onChange={(e) => setDateFrom(e.target.value)}
-                className="w-full py-2 px-3 text-sm bg-[#1a1c22] text-[#e8e4dc] placeholder:text-[rgba(232,228,220,0.35)] border border-[rgba(255,255,255,0.07)] rounded-lg focus:outline-none focus:ring-2 focus:ring-[rgba(196,163,90,0.3)]"
+                className="w-full py-2 px-3 text-sm bg-[#1a1c22] text-[#e8e4dc] placeholder:text-[rgba(232,228,220,0.35)] border border-[rgba(255,255,255,0.07)] rounded-lg focus:outline-none focus:ring-2 focus:ring-[rgba(var(--ax-accent-rgb),0.3)]"
               />
             </div>
             <div>
@@ -164,7 +164,7 @@ export default function MilestoneSearch({ projectId, onSearchActive }: Milestone
                 type="date"
                 value={dateTo}
                 onChange={(e) => setDateTo(e.target.value)}
-                className="w-full py-2 px-3 text-sm bg-[#1a1c22] text-[#e8e4dc] placeholder:text-[rgba(232,228,220,0.35)] border border-[rgba(255,255,255,0.07)] rounded-lg focus:outline-none focus:ring-2 focus:ring-[rgba(196,163,90,0.3)]"
+                className="w-full py-2 px-3 text-sm bg-[#1a1c22] text-[#e8e4dc] placeholder:text-[rgba(232,228,220,0.35)] border border-[rgba(255,255,255,0.07)] rounded-lg focus:outline-none focus:ring-2 focus:ring-[rgba(var(--ax-accent-rgb),0.3)]"
               />
             </div>
           </div>
@@ -177,7 +177,7 @@ export default function MilestoneSearch({ projectId, onSearchActive }: Milestone
             </button>
             <button
               onClick={applyFilters}
-              className="px-4 py-1.5 text-sm bg-[#c4a35a] text-[#0a0c10] rounded-lg hover:bg-[#b3943f] transition-colors"
+              className="px-4 py-1.5 text-sm bg-[var(--ax-accent)] text-[#0a0c10] rounded-lg hover:bg-[var(--ax-accent-hover)] transition-colors"
             >
               Apply Filters
             </button>
@@ -211,7 +211,7 @@ export default function MilestoneSearch({ projectId, onSearchActive }: Milestone
               <p className="text-sm text-[rgba(232,228,220,0.55)] mb-3">Search failed. Please try again.</p>
               <button
                 onClick={() => setPage(page)}
-                className="px-4 py-2 text-sm bg-[#c4a35a] text-[#0a0c10] rounded-lg hover:bg-[#b3943f]"
+                className="px-4 py-2 text-sm bg-[var(--ax-accent)] text-[#0a0c10] rounded-lg hover:bg-[var(--ax-accent-hover)]"
               >
                 Retry
               </button>
@@ -267,7 +267,7 @@ export default function MilestoneSearch({ projectId, onSearchActive }: Milestone
                         <div
                           className={`h-1.5 rounded-full transition-all ${
                             milestone.completionPercentage === 100 ? 'bg-[#5cba80]'
-                            : milestone.completionPercentage >= 50 ? 'bg-[#c4a35a]'
+                            : milestone.completionPercentage >= 50 ? 'bg-[var(--ax-accent)]'
                             : 'bg-[rgba(232,228,220,0.35)]'
                           }`}
                           style={{ width: `${milestone.completionPercentage}%` }}

@@ -45,11 +45,11 @@ export default function ViseronVendorsPage() {
       {loading ? (
         <div className="space-y-4">
           {[1, 2].map((i) => (
-            <div key={i} className="h-64 rounded-xl bg-[rgba(255,255,255,0.05)] animate-pulse" />
+            <div key={i} className="h-64 rounded-xl bg-[var(--ax-overlay-hover)] animate-pulse" />
           ))}
         </div>
       ) : !data ? (
-        <div className="text-center py-16 text-[rgba(232,228,220,0.35)] text-sm">No data available.</div>
+        <div className="text-center py-16 text-[rgba(var(--ax-text-rgb),0.35)] text-sm">No data available.</div>
       ) : (
         <div className="animate-fade-in">
           <VendorRankings vendors={data.vendorScores} />

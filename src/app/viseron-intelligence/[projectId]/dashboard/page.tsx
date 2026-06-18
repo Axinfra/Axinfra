@@ -87,18 +87,18 @@ export default function ViseronDashboardPage() {
       {loading ? (
         <DashboardSkeleton />
       ) : !data ? (
-        <div className="text-center py-16 text-[rgba(232,228,220,0.35)] text-sm">No data available.</div>
+        <div className="text-center py-16 text-[rgba(var(--ax-text-rgb),0.35)] text-sm">No data available.</div>
       ) : (
         <div className="space-y-6 animate-fade-in">
           {/* Top row: Health Gauge + KPI Cards */}
           <div className="grid grid-cols-1 lg:grid-cols-12 gap-5">
             {/* Health gauge */}
-            <div className="lg:col-span-4 bg-[rgba(255,255,255,0.03)] border border-[rgba(255,255,255,0.07)] rounded-xl p-6 flex flex-col items-center justify-center">
-              <p className="text-[11px] font-medium text-[rgba(232,228,220,0.35)] uppercase tracking-wider mb-2">
+            <div className="lg:col-span-4 bg-[var(--ax-card)] border border-[var(--ax-border)] rounded-xl p-6 flex flex-col items-center justify-center">
+              <p className="text-[11px] font-medium text-[rgba(var(--ax-text-rgb),0.35)] uppercase tracking-wider mb-2">
                 Project Health
               </p>
               <HealthGauge score={data.healthScore} label={data.healthLabel} size="md" />
-              <p className="text-[12px] text-[rgba(232,228,220,0.35)] mt-3 text-center">
+              <p className="text-[12px] text-[rgba(var(--ax-text-rgb),0.35)] mt-3 text-center">
                 {data.completionPct}% complete &middot; {data.totalMilestones} milestones
               </p>
             </div>
@@ -132,8 +132,8 @@ export default function ViseronDashboardPage() {
               />
 
               {/* State distribution mini chart */}
-              <div className="col-span-2 sm:col-span-4 bg-[rgba(255,255,255,0.03)] border border-[rgba(255,255,255,0.07)] rounded-xl p-4">
-                <p className="text-[11px] font-medium text-[rgba(232,228,220,0.35)] uppercase tracking-wider mb-3">
+              <div className="col-span-2 sm:col-span-4 bg-[var(--ax-card)] border border-[var(--ax-border)] rounded-xl p-4">
+                <p className="text-[11px] font-medium text-[rgba(var(--ax-text-rgb),0.35)] uppercase tracking-wider mb-3">
                   Milestone Distribution
                 </p>
                 <div className="flex items-center gap-6">
@@ -160,7 +160,7 @@ export default function ViseronDashboardPage() {
                         </Pie>
                         <Tooltip
                           formatter={(value: number, name: string) => [value, STATE_LABELS[name] || name]}
-                          contentStyle={{ borderRadius: 10, border: '1px solid rgba(255,255,255,0.1)', background: '#1a1c22', boxShadow: '0 4px 12px rgba(0,0,0,0.4)', fontSize: 12, color: '#e8e4dc' }}
+                          contentStyle={{ borderRadius: 10, border: '1px solid var(--ax-border)', background: 'var(--ax-modal)', boxShadow: '0 4px 12px rgba(0,0,0,0.4)', fontSize: 12, color: 'var(--ax-text)' }}
                           wrapperStyle={{ outline: 'none' }}
                         />
                       </PieChart>
@@ -173,10 +173,10 @@ export default function ViseronDashboardPage() {
                           className="w-2.5 h-2.5 rounded-full shrink-0"
                           style={{ background: STATE_COLORS[s.state] || '#94a3b8' }}
                         />
-                        <span className="text-[12px] text-[rgba(232,228,220,0.55)]">
+                        <span className="text-[12px] text-[rgba(var(--ax-text-rgb),0.55)]">
                           {STATE_LABELS[s.state] || s.state}
                         </span>
-                        <span className="text-[12px] font-semibold text-[#e8e4dc] tabular-nums">
+                        <span className="text-[12px] font-semibold text-[var(--ax-text)] tabular-nums">
                           {s.count}
                         </span>
                       </div>
@@ -192,14 +192,14 @@ export default function ViseronDashboardPage() {
             <RiskPanel milestones={data.riskyMilestones} />
 
             {/* Quick vendor performance */}
-            <div className="bg-[rgba(255,255,255,0.03)] border border-[rgba(255,255,255,0.07)] rounded-xl p-6">
-              <h3 className="text-[14px] font-semibold text-[#e8e4dc] mb-1">
+            <div className="bg-[var(--ax-card)] border border-[var(--ax-border)] rounded-xl p-6">
+              <h3 className="text-[14px] font-semibold text-[var(--ax-text)] mb-1">
                 Vendor Performance
               </h3>
-              <p className="text-[12px] text-[rgba(232,228,220,0.35)] mb-4">Reliability at a glance</p>
+              <p className="text-[12px] text-[rgba(var(--ax-text-rgb),0.35)] mb-4">Reliability at a glance</p>
 
               {data.vendorScores.length === 0 ? (
-                <div className="flex items-center justify-center py-10 text-[13px] text-[rgba(232,228,220,0.35)]">
+                <div className="flex items-center justify-center py-10 text-[13px] text-[rgba(var(--ax-text-rgb),0.35)]">
                   No vendor data
                 </div>
               ) : (
@@ -209,12 +209,12 @@ export default function ViseronDashboardPage() {
                     layout="vertical"
                     margin={{ top: 0, right: 24, left: 4, bottom: 0 }}
                   >
-                    <CartesianGrid strokeDasharray="3 3" stroke="rgba(255,255,255,0.05)" horizontal={false} />
-                    <XAxis type="number" domain={[0, 100]} tick={{ fontSize: 10, fill: 'rgba(232,228,220,0.45)' }} unit="%" />
+                    <CartesianGrid strokeDasharray="3 3" stroke="var(--ax-chart-line-faint)" horizontal={false} />
+                    <XAxis type="number" domain={[0, 100]} tick={{ fontSize: 10, fill: 'rgba(var(--ax-text-rgb),0.45)' }} unit="%" />
                     <YAxis
                       dataKey="vendorName"
                       type="category"
-                      tick={{ fontSize: 11, fill: 'rgba(232,228,220,0.55)' }}
+                      tick={{ fontSize: 11, fill: 'rgba(var(--ax-text-rgb),0.55)' }}
                       width={90}
                     />
                     <Tooltip {...DARK_TOOLTIP} formatter={(v: number) => `${v}%`} />
@@ -234,17 +234,17 @@ export default function ViseronDashboardPage() {
 
           {/* Bottom: Recent activity */}
           {data.recentActivity.length > 0 && (
-            <div className="bg-[rgba(255,255,255,0.03)] border border-[rgba(255,255,255,0.07)] rounded-xl p-6">
-              <h3 className="text-[14px] font-semibold text-[#e8e4dc] mb-4">Recent Activity</h3>
+            <div className="bg-[var(--ax-card)] border border-[var(--ax-border)] rounded-xl p-6">
+              <h3 className="text-[14px] font-semibold text-[var(--ax-text)] mb-4">Recent Activity</h3>
               <div className="space-y-0">
                 {data.recentActivity.map((act, i) => (
                   <div
                     key={i}
-                    className="flex items-center gap-3 py-2.5 border-b border-[rgba(255,255,255,0.07)] last:border-0"
+                    className="flex items-center gap-3 py-2.5 border-b border-[var(--ax-border)] last:border-0"
                   >
-                    <div className="w-1.5 h-1.5 rounded-full bg-primary-400 shrink-0" />
-                    <p className="text-[12px] text-[rgba(232,228,220,0.55)] flex-1 capitalize">{act.description}</p>
-                    <span className="text-[11px] text-[rgba(232,228,220,0.35)] tabular-nums shrink-0">
+                    <div className="w-1.5 h-1.5 rounded-full shrink-0" style={{ background: 'var(--ax-accent)' }} />
+                    <p className="text-[12px] text-[rgba(var(--ax-text-rgb),0.55)] flex-1 capitalize">{act.description}</p>
+                    <span className="text-[11px] text-[rgba(var(--ax-text-rgb),0.35)] tabular-nums shrink-0">
                       {formatRelativeTime(act.date)}
                     </span>
                   </div>
@@ -277,17 +277,17 @@ function KpiCard({
     success: 'text-success-600',
     danger: 'text-[#e06050]',
     warning: 'text-warning-600',
-    primary: 'text-[#c4a35a]',
-    neutral: 'text-[rgba(232,228,220,0.55)]',
+    primary: 'text-[var(--ax-accent)]',
+    neutral: 'text-[rgba(var(--ax-text-rgb),0.55)]',
   };
 
   return (
-    <div className="bg-[rgba(255,255,255,0.03)] border border-[rgba(255,255,255,0.07)] rounded-xl p-4">
-      <p className="text-[11px] font-medium text-[rgba(232,228,220,0.35)] uppercase tracking-wider">{label}</p>
-      <p className={`${isText ? 'text-lg' : 'text-2xl'} font-bold ${colorMap[color] || 'text-[#e8e4dc]'} mt-1 tabular-nums`}>
+    <div className="bg-[var(--ax-card)] border border-[var(--ax-border)] rounded-xl p-4">
+      <p className="text-[11px] font-medium text-[rgba(var(--ax-text-rgb),0.35)] uppercase tracking-wider">{label}</p>
+      <p className={`${isText ? 'text-lg' : 'text-2xl'} font-bold ${colorMap[color] || 'text-[var(--ax-text)]'} mt-1 tabular-nums`}>
         {value}
       </p>
-      <p className="text-[11px] text-[rgba(232,228,220,0.35)] mt-0.5">{subtitle}</p>
+      <p className="text-[11px] text-[rgba(var(--ax-text-rgb),0.35)] mt-0.5">{subtitle}</p>
     </div>
   );
 }
@@ -296,16 +296,16 @@ function DashboardSkeleton() {
   return (
     <div className="space-y-5">
       <div className="grid grid-cols-1 lg:grid-cols-12 gap-5">
-        <div className="lg:col-span-4 h-52 rounded-xl bg-[rgba(255,255,255,0.05)] animate-pulse" />
+        <div className="lg:col-span-4 h-52 rounded-xl bg-[var(--ax-overlay-hover)] animate-pulse" />
         <div className="lg:col-span-8 grid grid-cols-2 sm:grid-cols-4 gap-3">
           {[1, 2, 3, 4].map((i) => (
-            <div key={i} className="h-24 rounded-xl bg-[rgba(255,255,255,0.05)] animate-pulse" />
+            <div key={i} className="h-24 rounded-xl bg-[var(--ax-overlay-hover)] animate-pulse" />
           ))}
         </div>
       </div>
       <div className="grid grid-cols-1 lg:grid-cols-2 gap-5">
         {[1, 2].map((i) => (
-          <div key={i} className="h-64 rounded-xl bg-[rgba(255,255,255,0.05)] animate-pulse" />
+          <div key={i} className="h-64 rounded-xl bg-[var(--ax-overlay-hover)] animate-pulse" />
         ))}
       </div>
     </div>

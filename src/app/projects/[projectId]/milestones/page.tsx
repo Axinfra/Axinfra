@@ -182,9 +182,9 @@ export default function MilestonesPage() {
 
         {/* Evidence-submitted alert for OWNER / PMC */}
         {(myRole === 'CLIENT' || myRole === 'PMC') && awaitingReview.length > 0 && (
-          <div className="flex items-center gap-3 p-3 rounded-lg bg-[rgba(196,163,90,0.08)] border border-[rgba(196,163,90,0.25)]">
-            <span className="text-[#c4a35a] text-lg leading-none">⚠</span>
-            <p className="text-sm text-[#c4a35a] font-medium">
+          <div className="flex items-center gap-3 p-3 rounded-lg bg-[rgba(var(--ax-accent-rgb),0.08)] border border-[rgba(var(--ax-accent-rgb),0.25)]">
+            <span className="text-[var(--ax-accent)] text-lg leading-none">⚠</span>
+            <p className="text-sm text-[var(--ax-accent)] font-medium">
               {awaitingReview.length} milestone{awaitingReview.length > 1 ? 's have' : ' has'} evidence submitted and{' '}
               {awaitingReview.length > 1 ? 'are' : 'is'} awaiting your review.
             </p>
@@ -257,7 +257,7 @@ export default function MilestonesPage() {
                         <div className="flex items-center gap-2">
                           <Link
                             href={`/projects/${projectId}/milestones/${milestone.id}`}
-                            className="text-[#c4a35a] hover:underline font-medium"
+                            className="text-[var(--ax-accent)] hover:underline font-medium"
                           >
                             {milestone.title}
                           </Link>
@@ -265,7 +265,7 @@ export default function MilestonesPage() {
                             <span className={`text-xs px-2 py-0.5 rounded-full ${
                               milestone.extraApprovedAt
                                 ? 'bg-[rgba(50,200,120,0.1)] text-[#5cba80]'
-                                : 'bg-[rgba(196,163,90,0.08)] text-[#c4a35a]'
+                                : 'bg-[rgba(var(--ax-accent-rgb),0.08)] text-[var(--ax-accent)]'
                             }`}>
                               {milestone.extraApprovedAt ? 'Extra ✓' : 'Extra (Pending)'}
                             </span>
@@ -320,7 +320,7 @@ export default function MilestonesPage() {
                           <span className="text-xs text-[rgba(232,228,220,0.35)] ml-1">({milestone.advancePercent}%)</span>
                         )}
                       </td>
-                      <td className="font-medium text-[#c4a35a]">
+                      <td className="font-medium text-[var(--ax-accent)]">
                         {milestone.paymentEligibility?.remainingAmount
                           ? formatCurrency(milestone.paymentEligibility.remainingAmount)
                           : '-'}
@@ -354,7 +354,7 @@ export default function MilestonesPage() {
                           {myRole === 'PMC' && milestone.state === 'SUBMITTED' && (
                             <Link
                               href={`/projects/${projectId}/milestones/${milestone.id}/verify`}
-                              className="btn btn-sm bg-[rgba(196,163,90,0.15)] text-[#c4a35a] hover:bg-[rgba(196,163,90,0.25)] text-xs"
+                              className="btn btn-sm bg-[rgba(var(--ax-accent-rgb),0.15)] text-[var(--ax-accent)] hover:bg-[rgba(var(--ax-accent-rgb),0.25)] text-xs"
                             >
                               Review
                             </Link>

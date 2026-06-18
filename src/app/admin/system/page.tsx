@@ -87,8 +87,8 @@ export default function AdminSystemPage() {
           <button key={key} onClick={() => setTab(key)}
             className="shrink-0 px-3 sm:px-4 py-2 rounded-lg text-[12.5px] sm:text-[13px] font-medium transition-colors whitespace-nowrap"
             style={{
-              background: tab === key ? 'rgba(196,163,90,0.12)' : 'transparent',
-              color: tab === key ? '#c4a35a' : 'rgba(232,228,220,0.5)',
+              background: tab === key ? 'rgba(var(--ax-accent-rgb),0.12)' : 'transparent',
+              color: tab === key ? 'var(--ax-accent)' : 'rgba(var(--ax-text-rgb),0.5)',
             }}>
             {label}
           </button>
@@ -111,7 +111,7 @@ export default function AdminSystemPage() {
                   {/* Mobile cards */}
                   <div className="block sm:hidden divide-y divide-[rgba(255,255,255,0.05)]">
                     {data.followUps.map(f => {
-                      const s = FU[f.status] ?? { bg: 'rgba(255,255,255,0.05)', fg: '#e8e4dc' };
+                      const s = FU[f.status] ?? { bg: 'rgba(255,255,255,0.05)', fg: 'var(--ax-text)' };
                       return (
                         <div key={f.id} className="p-4">
                           <div className="flex items-center gap-2 mb-2">
@@ -134,7 +134,7 @@ export default function AdminSystemPage() {
                       </tr></thead>
                       <tbody>
                         {data.followUps.map(f => {
-                          const s = FU[f.status] ?? { bg: 'rgba(255,255,255,0.05)', fg: '#e8e4dc' };
+                          const s = FU[f.status] ?? { bg: 'rgba(255,255,255,0.05)', fg: 'var(--ax-text)' };
                           return (
                             <tr key={f.id} className="border-t border-[rgba(255,255,255,0.04)] hover:bg-[rgba(255,255,255,0.02)]">
                               <td className="px-4 py-3"><span className="text-[10.5px] font-bold px-2 py-0.5 rounded-full" style={{ background: s.bg, color: s.fg }}>{f.status}</span></td>
@@ -217,7 +217,7 @@ export default function AdminSystemPage() {
                       <div key={a.id} className="p-4">
                         <div className="flex items-center gap-2 mb-1">
                           <span className="text-[13px] font-semibold text-[#e8e4dc]">{a.actor?.name ?? '—'}</span>
-                          <span className="text-[10px] font-bold px-1.5 py-0.5 rounded-full bg-[rgba(196,163,90,0.1)] text-[#c4a35a]">{a.role}</span>
+                          <span className="text-[10px] font-bold px-1.5 py-0.5 rounded-full bg-[rgba(var(--ax-accent-rgb),0.1)] text-[var(--ax-accent)]">{a.role}</span>
                         </div>
                         <div className="text-[12.5px] text-[rgba(232,228,220,0.6)] mb-1">
                           {fmtType(a.actionType)} · <span className="text-[rgba(232,228,220,0.45)]">{a.entityType}</span>
@@ -237,7 +237,7 @@ export default function AdminSystemPage() {
                       <tbody>
                         {data.auditLogs.map(a => (
                           <tr key={a.id} className="border-t border-[rgba(255,255,255,0.04)] hover:bg-[rgba(255,255,255,0.02)]">
-                            <td className="px-4 py-3 text-[12.5px] text-[#c4a35a] font-semibold whitespace-nowrap">{fmtType(a.actionType)}</td>
+                            <td className="px-4 py-3 text-[12.5px] text-[var(--ax-accent)] font-semibold whitespace-nowrap">{fmtType(a.actionType)}</td>
                             <td className="px-4 py-3 text-[12.5px] text-[rgba(232,228,220,0.65)]">{a.entityType}</td>
                             <td className="px-4 py-3">
                               <div className="text-[13px] text-[#e8e4dc] font-medium">{a.actor?.name ?? '—'}</div>

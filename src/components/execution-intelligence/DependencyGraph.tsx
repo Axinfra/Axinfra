@@ -14,7 +14,7 @@ const PAD      = 32;    // outer padding
 const STATE_COLOR: Record<string, string> = {
   VERIFIED: '#22c55e', CLOSED: '#22c55e',
   SUBMITTED: '#f59e0b', IN_PROGRESS: '#3b82f6',
-  DRAFT: 'rgba(232,228,220,0.35)',
+  DRAFT: 'rgba(var(--ax-text-rgb),0.35)',
 };
 const STATE_LABEL: Record<string, string> = {
   VERIFIED: 'Verified', CLOSED: 'Closed',
@@ -121,7 +121,7 @@ export default function DependencyGraph({
   }, []);
 
   function nodeColor(state: string, crit: boolean) {
-    return crit ? '#ef4444' : (STATE_COLOR[state] ?? 'rgba(232,228,220,0.3)');
+    return crit ? '#ef4444' : (STATE_COLOR[state] ?? 'rgba(var(--ax-text-rgb),0.3)');
   }
 
   if (!milestones.length) {
@@ -178,19 +178,19 @@ export default function DependencyGraph({
       <div
         ref={svgContainerRef}
         className="overflow-auto rounded-xl border border-[rgba(255,255,255,0.07)]"
-        style={{ background: '#09090d', maxHeight: 500 }}
+        style={{ background: 'var(--ax-card)', maxHeight: 500 }}
         onMouseMove={handleMouseMove}
       >
         <svg width={svgW} height={svgH} style={{ display: 'block' }}>
           <defs>
             {/* Grid pattern */}
             <pattern id="dep-grid" width={48} height={48} patternUnits="userSpaceOnUse">
-              <path d="M 48 0 L 0 0 0 48" fill="none" stroke="rgba(255,255,255,0.025)" strokeWidth={1} />
+              <path d="M 48 0 L 0 0 0 48" fill="none" stroke="var(--ax-chart-line-faint)" strokeWidth={1} />
             </pattern>
             {/* Arrow markers */}
             <marker id="arr-std" viewBox="0 0 10 10" refX={8} refY={5}
               markerWidth={6} markerHeight={6} orient="auto">
-              <path d="M 0 0 L 10 5 L 0 10 z" fill="rgba(232,228,220,0.35)" />
+              <path d="M 0 0 L 10 5 L 0 10 z" fill="var(--ax-chart-text-faint)" />
             </marker>
             <marker id="arr-crit" viewBox="0 0 10 10" refX={8} refY={5}
               markerWidth={6} markerHeight={6} orient="auto">
@@ -206,7 +206,7 @@ export default function DependencyGraph({
             const colNodes = nodes.filter(n => n.col === col);
             const x = PAD + col * (NODE_W + COL_GAP) + NODE_W / 2;
             return (
-              <text key={col} x={x} y={14} fontSize={10} fill="rgba(232,228,220,0.2)"
+              <text key={col} x={x} y={14} fontSize={10} fill="var(--ax-chart-text-faint)"
                 textAnchor="middle" fontWeight="600">
                 STEP {col + 1}
               </text>
@@ -240,7 +240,7 @@ export default function DependencyGraph({
               return (
                 <g key={`${dep.predecessorId}→${to.id}`}>
                   <path d={d} fill="none"
-                    stroke={bothCrit ? '#ef4444' : 'rgba(232,228,220,0.18)'}
+                    stroke={bothCrit ? '#ef4444' : 'var(--ax-chart-line)'}
                     strokeWidth={bothCrit ? 2 : 1.5}
                     markerEnd={bothCrit ? 'url(#arr-crit)' : 'url(#arr-std)'}
                   />
@@ -250,7 +250,7 @@ export default function DependencyGraph({
                       x={(x1 + x2) / 2}
                       y={(y1 + y2) / 2 - 5}
                       fontSize={9} textAnchor="middle"
-                      fill={bothCrit ? 'rgba(239,68,68,0.7)' : 'rgba(232,228,220,0.3)'}>
+                      fill={bothCrit ? 'rgba(239,68,68,0.7)' : 'rgba(var(--ax-text-rgb),0.3)'}>
                       {dep.dependencyType}{dep.lagDays > 0 ? `+${dep.lagDays}d` : dep.lagDays < 0 ? `${dep.lagDays}d` : ''}
                     </text>
                   )}
@@ -264,7 +264,7 @@ export default function DependencyGraph({
             const color     = nodeColor(node.state, node.isCritical);
             const isHovered = hoverId === node.id;
             const stateLabel = STATE_LABEL[node.state] ?? node.state;
-            const stateC    = STATE_COLOR[node.state] ?? 'rgba(232,228,220,0.3)';
+            const stateC    = STATE_COLOR[node.state] ?? 'rgba(var(--ax-text-rgb),0.3)';
 
             return (
               <g key={node.id}
@@ -283,7 +283,7 @@ export default function DependencyGraph({
                 {/* Node body */}
                 <rect x={node.x} y={node.y} width={NODE_W} height={NODE_H}
                   rx={8}
-                  fill={isHovered ? '#1e1e28' : '#14141a'}
+                  fill={isHovered ? 'var(--ax-card-hover)' : 'var(--ax-card)'}
                   stroke={color}
                   strokeWidth={node.isCritical ? 2 : 1} />
 
@@ -296,7 +296,7 @@ export default function DependencyGraph({
                   <rect x={node.x + 11} y={node.y + 9} width={NODE_W - 18} height={20} />
                 </clipPath>
                 <text x={node.x + 11} y={node.y + 22}
-                  fontSize={12} fontWeight="600" fill="#e8e4dc"
+                  fontSize={12} fontWeight="600" fill="var(--ax-text)"
                   clipPath={`url(#cp-${node.id})`}>
                   {node.title}
                 </text>
@@ -318,7 +318,7 @@ export default function DependencyGraph({
                   </text>
                 ) : node.totalFloat !== null ? (
                   <text x={node.x + 86} y={node.y + 45}
-                    fontSize={9} fill="rgba(232,228,220,0.38)">
+                    fontSize={9} fill="var(--ax-chart-text-faint)">
                     F:{node.totalFloat}d
                   </text>
                 ) : null}
@@ -330,7 +330,7 @@ export default function DependencyGraph({
                       <rect x={node.x + NODE_W - 62} y={node.y + 7} width={56} height={14} />
                     </clipPath>
                     <text x={node.x + NODE_W - 9} y={node.y + 18}
-                      fontSize={8.5} fill="rgba(232,228,220,0.28)"
+                      fontSize={8.5} fill="var(--ax-chart-text-faint)"
                       textAnchor="end" clipPath={`url(#pcp-${node.id})`}>
                       {node.phaseName}
                     </text>
@@ -350,14 +350,14 @@ export default function DependencyGraph({
           top: tipPos.y,
           zIndex: 9999,
           pointerEvents: 'none',
-          background: '#1a1c22',
-          border: '1px solid rgba(255,255,255,0.12)',
+          background: 'var(--ax-modal)',
+          border: '1px solid var(--ax-border)',
           borderRadius: 10,
           padding: '10px 14px',
           minWidth: 210,
           boxShadow: '0 8px 32px rgba(0,0,0,0.6)',
         }}>
-          <div style={{ fontSize: 13, fontWeight: 700, color: '#e8e4dc', marginBottom: 7 }}>
+          <div style={{ fontSize: 13, fontWeight: 700, color: 'var(--ax-text)', marginBottom: 7 }}>
             {hovered.title}
           </div>
           {[
@@ -370,8 +370,8 @@ export default function DependencyGraph({
             ['Depends on', String(hovered.predecessors.length) + ' milestone' + (hovered.predecessors.length !== 1 ? 's' : '')],
           ].map(([k, v]) => (
             <div key={k} style={{ display: 'flex', justifyContent: 'space-between', gap: 20, marginBottom: 3 }}>
-              <span style={{ fontSize: 11.5, color: 'rgba(232,228,220,0.45)', flexShrink: 0 }}>{k}</span>
-              <span style={{ fontSize: 11.5, color: '#e8e4dc', fontWeight: 500, textAlign: 'right' }}>{v}</span>
+              <span style={{ fontSize: 11.5, color: 'rgba(var(--ax-text-rgb),0.45)', flexShrink: 0 }}>{k}</span>
+              <span style={{ fontSize: 11.5, color: 'var(--ax-text)', fontWeight: 500, textAlign: 'right' }}>{v}</span>
             </div>
           ))}
           {hovered.isCritical && (
@@ -384,8 +384,8 @@ export default function DependencyGraph({
           )}
           {!hovered.isCritical && hovered.totalFloat !== null && hovered.totalFloat > 0 && (
             <div style={{
-              marginTop: 7, paddingTop: 7, borderTop: '1px solid rgba(255,255,255,0.06)',
-              fontSize: 11.5, color: 'rgba(232,228,220,0.45)',
+              marginTop: 7, paddingTop: 7, borderTop: '1px solid var(--ax-border-subtle)',
+              fontSize: 11.5, color: 'rgba(var(--ax-text-rgb),0.45)',
             }}>
               Can slip up to {hovered.totalFloat} days without delaying project
             </div>

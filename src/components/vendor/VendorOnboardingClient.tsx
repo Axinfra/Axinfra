@@ -105,10 +105,10 @@ export default function VendorOnboardingClient({
       {/* Header */}
       <div>
         <div className="flex items-center gap-2 mb-1">
-          <Users className="w-5 h-5 text-[#c4a35a]" />
-          <h1 className="text-xl font-semibold text-[#e8e4dc]">Vendor Onboarding</h1>
+          <Users className="w-5 h-5 text-[var(--ax-accent)]" />
+          <h1 className="text-xl font-semibold text-[var(--ax-text)]">Vendor Onboarding</h1>
         </div>
-        <p className="text-sm text-[rgba(232,228,220,0.55)]">
+        <p className="text-sm text-[rgba(var(--ax-text-rgb),0.55)]">
           Create vendor accounts and assign them to projects.
         </p>
       </div>
@@ -116,10 +116,10 @@ export default function VendorOnboardingClient({
       {/* Project selector */}
       {projects.length > 1 && (
         <div className="max-w-xs">
-          <label className="block text-sm font-medium text-[#e8e4dc] mb-1.5">Project</label>
+          <label className="block text-sm font-medium text-[var(--ax-text)] mb-1.5">Project</label>
           <select
-            className="w-full h-10 rounded-[10px] border border-[rgba(255,255,255,0.1)] bg-[rgba(255,255,255,0.03)] px-3 text-sm
-              focus:outline-none focus:ring-4 focus:ring-[rgba(196,163,90,0.3)]/10 focus:border-[#c4a35a]
+            className="w-full h-10 rounded-[10px] border border-[var(--ax-border)] bg-[var(--ax-card)] px-3 text-sm
+              focus:outline-none focus:ring-4 focus:ring-[rgba(var(--ax-accent-rgb),0.3)]/10 focus:border-[var(--ax-accent)]
               transition-all duration-200"
             value={selectedProject}
             onChange={(e) => setSelectedProject(e.target.value)}
@@ -136,10 +136,10 @@ export default function VendorOnboardingClient({
       <div className="grid grid-cols-1 lg:grid-cols-5 gap-8">
         {/* New Vendor form */}
         <div className="lg:col-span-2">
-          <div className="bg-[rgba(255,255,255,0.03)] border border-[rgba(255,255,255,0.07)] rounded-xl p-6">
+          <div className="bg-[var(--ax-card)] border border-[var(--ax-border)] rounded-xl p-6">
             <div className="flex items-center gap-2 mb-5">
-              <Plus className="w-4 h-4 text-[#c4a35a]" />
-              <h2 className="text-sm font-semibold text-[#e8e4dc]">New Vendor</h2>
+              <Plus className="w-4 h-4 text-[var(--ax-accent)]" />
+              <h2 className="text-sm font-semibold text-[var(--ax-text)]">New Vendor</h2>
             </div>
 
             <form onSubmit={handleCreate} className="space-y-4">
@@ -157,7 +157,7 @@ export default function VendorOnboardingClient({
               )}
 
               <div>
-                <label className="block text-sm font-medium text-[#e8e4dc] mb-1">
+                <label className="block text-sm font-medium text-[var(--ax-text)] mb-1">
                   Display Name *
                 </label>
                 <Input
@@ -169,7 +169,7 @@ export default function VendorOnboardingClient({
               </div>
 
               <div>
-                <label className="block text-sm font-medium text-[#e8e4dc] mb-1">
+                <label className="block text-sm font-medium text-[var(--ax-text)] mb-1">
                   Username *
                 </label>
                 <Input
@@ -178,14 +178,14 @@ export default function VendorOnboardingClient({
                   placeholder="e.g. apex_construction"
                   required
                 />
-                <p className="text-xs text-[rgba(232,228,220,0.35)] mt-1">
+                <p className="text-xs text-[rgba(var(--ax-text-rgb),0.35)] mt-1">
                   Login email will be{' '}
                   <span className="font-mono">{username || 'username'}@vendor.local</span>
                 </p>
               </div>
 
               <div>
-                <label className="block text-sm font-medium text-[#e8e4dc] mb-1">
+                <label className="block text-sm font-medium text-[var(--ax-text)] mb-1">
                   Password *
                 </label>
                 <div className="relative">
@@ -201,7 +201,7 @@ export default function VendorOnboardingClient({
                   <button
                     type="button"
                     onClick={() => setShowPassword(!showPassword)}
-                    className="absolute right-3 top-1/2 -translate-y-1/2 text-[rgba(232,228,220,0.35)] hover:text-[rgba(232,228,220,0.55)]"
+                    className="absolute right-3 top-1/2 -translate-y-1/2 text-[rgba(var(--ax-text-rgb),0.35)] hover:text-[rgba(var(--ax-text-rgb),0.55)]"
                     tabIndex={-1}
                   >
                     {showPassword ? <EyeOff className="w-4 h-4" /> : <Eye className="w-4 h-4" />}
@@ -210,10 +210,10 @@ export default function VendorOnboardingClient({
               </div>
 
               <div className="pt-1">
-                <p className="text-xs text-[rgba(232,228,220,0.55)] mb-3">
+                <p className="text-xs text-[rgba(var(--ax-text-rgb),0.55)] mb-3">
                   Assigning to:{' '}
-                  <span className="font-medium text-[#e8e4dc]">{currentProjectName}</span> as{' '}
-                  <span className="font-medium text-[#c4a35a]">VENDOR</span>
+                  <span className="font-medium text-[var(--ax-text)]">{currentProjectName}</span> as{' '}
+                  <span className="font-medium text-[var(--ax-accent)]">VENDOR</span>
                 </p>
                 <Button type="submit" className="w-full" disabled={creating}>
                   {creating ? (
@@ -235,37 +235,37 @@ export default function VendorOnboardingClient({
 
         {/* Vendor list */}
         <div className="lg:col-span-3">
-          <div className="bg-[rgba(255,255,255,0.03)] border border-[rgba(255,255,255,0.07)] rounded-xl p-6">
+          <div className="bg-[var(--ax-card)] border border-[var(--ax-border)] rounded-xl p-6">
             <div className="flex items-center justify-between mb-5">
-              <h2 className="text-sm font-semibold text-[#e8e4dc]">
+              <h2 className="text-sm font-semibold text-[var(--ax-text)]">
                 Vendors in {currentProjectName}
               </h2>
-              <span className="text-xs text-[rgba(232,228,220,0.35)]">
+              <span className="text-xs text-[rgba(var(--ax-text-rgb),0.35)]">
                 {vendors.length} vendor{vendors.length !== 1 ? 's' : ''}
               </span>
             </div>
 
             {vendorsLoading ? (
               <div className="flex justify-center py-10">
-                <Loader2 className="w-5 h-5 animate-spin text-[rgba(232,228,220,0.35)]" />
+                <Loader2 className="w-5 h-5 animate-spin text-[rgba(var(--ax-text-rgb),0.35)]" />
               </div>
             ) : vendors.length === 0 ? (
               <div className="text-center py-10">
-                <Users className="w-8 h-8 text-[rgba(232,228,220,0.25)] mx-auto mb-2" />
-                <p className="text-sm text-[rgba(232,228,220,0.35)]">No vendors assigned yet</p>
+                <Users className="w-8 h-8 text-[rgba(var(--ax-text-rgb),0.25)] mx-auto mb-2" />
+                <p className="text-sm text-[rgba(var(--ax-text-rgb),0.35)]">No vendors assigned yet</p>
               </div>
             ) : (
               <div className="overflow-x-auto">
                 <table className="w-full text-sm">
                   <thead>
-                    <tr className="border-b border-[rgba(255,255,255,0.07)]">
-                      <th className="text-left py-2.5 px-3 text-xs font-medium text-[rgba(232,228,220,0.55)] uppercase tracking-wider">
+                    <tr className="border-b border-[var(--ax-border)]">
+                      <th className="text-left py-2.5 px-3 text-xs font-medium text-[rgba(var(--ax-text-rgb),0.55)] uppercase tracking-wider">
                         Name
                       </th>
-                      <th className="text-left py-2.5 px-3 text-xs font-medium text-[rgba(232,228,220,0.55)] uppercase tracking-wider">
+                      <th className="text-left py-2.5 px-3 text-xs font-medium text-[rgba(var(--ax-text-rgb),0.55)] uppercase tracking-wider">
                         Email
                       </th>
-                      <th className="text-left py-2.5 px-3 text-xs font-medium text-[rgba(232,228,220,0.55)] uppercase tracking-wider">
+                      <th className="text-left py-2.5 px-3 text-xs font-medium text-[rgba(var(--ax-text-rgb),0.55)] uppercase tracking-wider">
                         Assigned
                       </th>
                     </tr>
@@ -274,7 +274,7 @@ export default function VendorOnboardingClient({
                     {vendors.map((v) => (
                       <tr
                         key={v.userId}
-                        className="border-b border-[rgba(255,255,255,0.05)] last:border-0 hover:bg-[rgba(255,255,255,0.04)]"
+                        className="border-b border-[var(--ax-border-subtle)] last:border-0 hover:bg-[var(--ax-overlay)]"
                       >
                         <td className="py-3 px-3">
                           <div className="flex items-center gap-2.5">
@@ -288,13 +288,13 @@ export default function VendorOnboardingClient({
                                   .slice(0, 2)}
                               </span>
                             </div>
-                            <span className="font-medium text-[#e8e4dc]">{v.name}</span>
+                            <span className="font-medium text-[var(--ax-text)]">{v.name}</span>
                           </div>
                         </td>
-                        <td className="py-3 px-3 text-[rgba(232,228,220,0.55)] font-mono text-xs">
+                        <td className="py-3 px-3 text-[rgba(var(--ax-text-rgb),0.55)] font-mono text-xs">
                           {v.email}
                         </td>
-                        <td className="py-3 px-3 text-[rgba(232,228,220,0.35)] text-xs">
+                        <td className="py-3 px-3 text-[rgba(var(--ax-text-rgb),0.35)] text-xs">
                           {formatDate(v.assignedAt)}
                         </td>
                       </tr>

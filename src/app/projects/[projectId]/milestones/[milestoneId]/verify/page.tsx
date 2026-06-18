@@ -41,12 +41,12 @@ function FileCard({ file }: { file: EvidenceFile }) {
 
   if (isPDF) return (
     <a href={url} target="_blank" rel="noopener noreferrer"
-      className="flex items-center gap-3 p-3 rounded-lg border border-[rgba(255,255,255,0.08)] hover:border-[rgba(196,163,90,0.4)] transition-colors">
+      className="flex items-center gap-3 p-3 rounded-lg border border-[rgba(255,255,255,0.08)] hover:border-[rgba(var(--ax-accent-rgb),0.4)] transition-colors">
       <div className="w-10 h-12 flex items-center justify-center rounded bg-[rgba(220,53,69,0.15)] border border-[rgba(220,53,69,0.3)] shrink-0">
         <span className="text-[#e06050] text-xs font-bold">PDF</span>
       </div>
       <div className="min-w-0">
-        <p className="text-sm text-[#c4a35a] hover:underline truncate">{file.fileName}</p>
+        <p className="text-sm text-[var(--ax-accent)] hover:underline truncate">{file.fileName}</p>
         <p className="text-xs text-[rgba(232,228,220,0.4)]">{kb} KB</p>
       </div>
     </a>
@@ -54,12 +54,12 @@ function FileCard({ file }: { file: EvidenceFile }) {
 
   return (
     <a href={url} target="_blank" rel="noopener noreferrer"
-      className="flex items-center gap-3 p-3 rounded-lg border border-[rgba(255,255,255,0.08)] hover:border-[rgba(196,163,90,0.4)] transition-colors">
+      className="flex items-center gap-3 p-3 rounded-lg border border-[rgba(255,255,255,0.08)] hover:border-[rgba(var(--ax-accent-rgb),0.4)] transition-colors">
       <div className="w-10 h-10 flex items-center justify-center rounded bg-[rgba(255,255,255,0.05)] shrink-0">
         <span className="text-xs text-[rgba(232,228,220,0.55)]">FILE</span>
       </div>
       <div className="min-w-0">
-        <p className="text-sm text-[#c4a35a] truncate">{file.fileName}</p>
+        <p className="text-sm text-[var(--ax-accent)] truncate">{file.fileName}</p>
         <p className="text-xs text-[rgba(232,228,220,0.4)]">{kb} KB</p>
       </div>
     </a>
@@ -191,7 +191,7 @@ export default function VerifyMilestonePage() {
                       <circle cx="18" cy="18" r="15.9" fill="none" stroke="rgba(255,255,255,0.06)" strokeWidth="3" />
                       <circle
                         cx="18" cy="18" r="15.9" fill="none"
-                        stroke={submittedPercent >= 80 ? '#5cba80' : submittedPercent >= 40 ? '#c4a35a' : '#e06050'}
+                        stroke={submittedPercent >= 80 ? '#5cba80' : submittedPercent >= 40 ? 'var(--ax-accent)' : '#e06050'}
                         strokeWidth="3"
                         strokeDasharray={`${submittedPercent} ${100 - submittedPercent}`}
                         strokeLinecap="round"
@@ -236,7 +236,7 @@ export default function VerifyMilestonePage() {
                 <div key={ev.id} className="border border-[rgba(255,255,255,0.07)] rounded-lg p-3 space-y-2">
                   <div className="flex items-center justify-between">
                     <p className="text-sm text-[rgba(232,228,220,0.65)]">{ev.submittedBy.name} · {formatDateTime(ev.submittedAt)}</p>
-                    <span className="text-sm font-semibold text-[#c4a35a]">{ev.qtyOrPercent}%</span>
+                    <span className="text-sm font-semibold text-[var(--ax-accent)]">{ev.qtyOrPercent}%</span>
                   </div>
                   {ev.remarks && <p className="text-xs text-[rgba(232,228,220,0.5)]">{ev.remarks}</p>}
                   {ev.files.length > 0 && (
