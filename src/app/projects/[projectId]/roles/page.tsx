@@ -9,7 +9,7 @@ import Navbar from '@/components/Navbar';
 import { formatDate } from '@/lib/utils';
 import { useProject } from '@/lib/contexts/ProjectContext';
 import { jsonFetcher } from '@/lib/fetcher';
-import { Clock, Mail } from 'lucide-react';
+import { AlertTriangle, Clock, Mail } from 'lucide-react';
 
 interface RoleEntry {
   userId: string | null;
@@ -47,11 +47,15 @@ export default function RolesPage() {
   const [addError, setAddError] = useState('');
   const [addSuccess, setAddSuccess] = useState('');
   const [adding, setAdding] = useState(false);
+  const [conflictData, setConflictData] = useState<{ userPreferredRole: string; message: string } | null>(null);
   const [confirmRemoveUserId, setConfirmRemoveUserId] = useState<string | null>(null);
   const [confirmCancelInviteId, setConfirmCancelInviteId] = useState<string | null>(null);
 
-  const handleAddRole = async (e: React.FormEvent) => {
-    e.preventDefault();
+  const ROLE_LABELS: Record<string, string> = {
+    CLIENT: 'Project Owner', PMC: 'PMC', VENDOR: 'Vendor', CONSULTANT: 'Consultant', VIEWER: 'Viewer',
+  };
+
+  const submitRole = async (force: boolean) => {
     setAddError('');
     setAddSuccess('');
     setAdding(true);
@@ -60,14 +64,14 @@ export default function RolesPage() {
       const res = await fetch(`/api/projects/${projectId}/roles`, {
         method: 'POST',
         headers: { 'Content-Type': 'application/json' },
-        body: JSON.stringify({ email: newEmail, role: newRole }),
+        body: JSON.stringify({ email: newEmail, role: newRole, force }),
       });
 
       const data = await res.json();
 
       if (data.success) {
+        setConflictData(null);
         if (data.invited) {
-          // Show success inside modal with invite message
           setAddSuccess(data.message ?? 'Invitation sent!');
         } else {
           setShowAddModal(false);
@@ -75,6 +79,8 @@ export default function RolesPage() {
           setNewRole('PMC');
         }
         void refetchRoles();
+      } else if (data.conflict) {
+        setConflictData({ userPreferredRole: data.userPreferredRole, message: data.error });
       } else {
         setAddError(data.error);
       }
@@ -83,6 +89,16 @@ export default function RolesPage() {
     } finally {
       setAdding(false);
     }
+  };
+
+  const handleAddRole = (e: React.FormEvent) => {
+    e.preventDefault();
+    setConflictData(null);
+    void submitRole(false);
+  };
+
+  const handleConfirmConflict = () => {
+    void submitRole(true);
   };
 
   const handleRemoveRole = async (userId: string) => {
@@ -139,7 +155,7 @@ export default function RolesPage() {
         <div className="flex justify-between items-center">
           <h1 className="text-2xl font-bold text-[#e8e4dc]">Project Roles</h1>
           {myRole === 'CLIENT' && (
-            <button onClick={() => { setShowAddModal(true); setAddSuccess(''); setAddError(''); }} className="btn btn-primary">
+            <button onClick={() => { setShowAddModal(true); setAddSuccess(''); setAddError(''); setConflictData(null); }} className="btn btn-primary">
               Add User
             </button>
           )}
@@ -375,6 +391,42 @@ export default function RolesPage() {
                     </button>
                   </div>
                 </div>
+              ) : conflictData ? (
+                /* Role conflict confirmation step */
+                <div className="space-y-4">
+                  <div className="flex items-start gap-3 p-4 rounded-xl bg-[rgba(224,152,64,0.07)] border border-[rgba(224,152,64,0.22)]">
+                    <AlertTriangle className="w-5 h-5 text-[#e09840] shrink-0 mt-0.5" />
+                    <div>
+                      <p className="text-sm font-semibold text-[#e09840] mb-1">Role Mismatch</p>
+                      <p className="text-xs text-[rgba(232,228,220,0.65)] leading-relaxed">{conflictData.message}</p>
+                    </div>
+                  </div>
+                  <div className="rounded-xl border border-[rgba(255,255,255,0.07)] bg-[rgba(255,255,255,0.02)] px-4 py-3 text-xs text-[rgba(232,228,220,0.55)] space-y-1">
+                    <p><span className="text-[rgba(232,228,220,0.35)]">Email:</span> <span className="font-medium text-[#e8e4dc]">{newEmail}</span></p>
+                    <p><span className="text-[rgba(232,228,220,0.35)]">Registered as:</span> <span className="font-medium text-[#e8e4dc]">{ROLE_LABELS[conflictData.userPreferredRole] ?? conflictData.userPreferredRole}</span></p>
+                    <p><span className="text-[rgba(232,228,220,0.35)]">You're assigning:</span> <span className="font-medium text-[var(--ax-accent)]">{ROLE_LABELS[newRole] ?? newRole}</span></p>
+                  </div>
+                  <p className="text-xs text-[rgba(232,228,220,0.4)]">
+                    If you confirm, the user will receive an email explaining the change and must accept the invitation before they are added to the project.
+                  </p>
+                  <div className="flex justify-end gap-3 pt-1">
+                    <button
+                      type="button"
+                      onClick={() => setConflictData(null)}
+                      className="btn btn-secondary"
+                    >
+                      Go Back
+                    </button>
+                    <button
+                      type="button"
+                      disabled={adding}
+                      onClick={handleConfirmConflict}
+                      className="btn btn-primary"
+                    >
+                      {adding ? 'Sending…' : 'Confirm & Invite'}
+                    </button>
+                  </div>
+                </div>
               ) : (
                 <form onSubmit={handleAddRole} className="space-y-4">
                   {addError && <div className="alert alert-error">{addError}</div>}
@@ -410,7 +462,7 @@ export default function RolesPage() {
                   <div className="flex justify-end space-x-3 pt-4">
                     <button
                       type="button"
-                      onClick={() => { setShowAddModal(false); setAddError(''); }}
+                      onClick={() => { setShowAddModal(false); setAddError(''); setConflictData(null); }}
                       className="btn btn-secondary"
                     >
                       Cancel

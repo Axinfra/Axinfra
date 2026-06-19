@@ -13,12 +13,14 @@ interface ProjectOption {
 }
 
 interface VendorRow {
-  userId: string;
+  userId: string | null;
+  inviteId: string | null;
   name: string;
   email: string;
   role: string;
   assignedAt: string;
-  userCreatedAt: string;
+  userCreatedAt: string | null;
+  isPendingInvite: boolean;
 }
 
 interface PageData {

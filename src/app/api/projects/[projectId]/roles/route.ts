@@ -9,12 +9,13 @@ import { RoleGuard } from '@/services/RoleGuard';
 import { AuditLogger } from '@/services/AuditLogger';
 import { AuditActionTypes, Role } from '@/types';
 import { z } from 'zod';
-import { sendProjectAssignedEmail, sendProjectInviteEmail } from '@/lib/email';
+import { sendProjectAssignedEmail, sendProjectInviteEmail, sendRoleConflictInviteEmail } from '@/lib/email';
 import { randomBytes } from 'crypto';
 
 const assignRoleSchema = z.object({
   email: z.string().email(),
   role: z.enum(['CLIENT', 'PMC', 'VENDOR', 'VIEWER', 'CONSULTANT']),
+  force: z.boolean().optional().default(false),
 });
 
 const removeRoleSchema = z.object({
@@ -99,7 +100,7 @@ export async function POST(
     RoleGuard.requireRole(auth, ['CLIENT']);
 
     const body = await request.json();
-    const { email, role } = assignRoleSchema.parse(body);
+    const { email, role, force } = assignRoleSchema.parse(body);
 
     // $queryRaw used for user so we can read preferredRole (Prisma client predates that column)
     const [userRows, project] = await Promise.all([
@@ -149,18 +150,59 @@ export async function POST(
       });
     }
 
-    // ── User exists → validate preferredRole ─────────────────────────────────
+    // ── User exists → check preferredRole conflict ───────────────────────────
     if (user.preferredRole && user.preferredRole !== role) {
-      return NextResponse.json(
-        {
-          success: false,
-          error: `This user registered as ${ROLE_LABELS[user.preferredRole] ?? user.preferredRole}. You can only assign them the ${ROLE_LABELS[user.preferredRole] ?? user.preferredRole} role.`,
-        },
-        { status: 400 }
-      );
+      if (!force) {
+        // Warn the admin — let them confirm before proceeding
+        return NextResponse.json(
+          {
+            success: false,
+            conflict: true,
+            userPreferredRole: user.preferredRole,
+            error: `This user is registered as ${ROLE_LABELS[user.preferredRole] ?? user.preferredRole}. Do you want to invite them as ${ROLE_LABELS[role] ?? role} instead? They will receive a notification and must accept.`,
+          },
+          { status: 409 }
+        );
+      }
+
+      // force=true: admin confirmed — create a pending invite so the user accepts explicitly
+      await prisma.$executeRaw`
+        DELETE FROM "ProjectInvite"
+        WHERE "projectId" = ${projectId} AND email = ${email}
+      `;
+
+      const token = randomBytes(32).toString('hex');
+      const expiresAt = new Date(Date.now() + 30 * 24 * 60 * 60 * 1000);
+
+      await prisma.$executeRaw`
+        INSERT INTO "ProjectInvite" (id, "projectId", email, role, token, status, "invitedById", "expiresAt", "createdAt")
+        VALUES (
+          gen_random_uuid(),
+          ${projectId},
+          ${email},
+          ${role},
+          ${token},
+          'PENDING',
+          ${auth.userId},
+          ${expiresAt},
+          NOW()
+        )
+      `;
+
+      if (project) {
+        sendRoleConflictInviteEmail(email, user.name, auth.name, project.name, role, user.preferredRole, token).catch((e) =>
+          console.error('[email] role-conflict-invite failed:', e)
+        );
+      }
+
+      return NextResponse.json({
+        success: true,
+        invited: true,
+        message: `Invitation sent to ${email}. They will be notified about the role change and must accept.`,
+      });
     }
 
-    // Check no duplicate role
+    // ── No conflict → assign directly ────────────────────────────────────────
     const existingRole = await prisma.projectRole.findUnique({
       where: { projectId_userId: { projectId, userId: user.id } },
     });

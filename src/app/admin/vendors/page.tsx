@@ -50,11 +50,13 @@ export default async function AdminVendorsPage() {
 
   const initialVendors = initialVendorRoles.map((vr) => ({
     userId: vr.user.id,
+    inviteId: null,
     name: vr.user.name,
     email: vr.user.email,
     role: vr.role,
     assignedAt: vr.createdAt.toISOString(),
     userCreatedAt: vr.user.createdAt.toISOString(),
+    isPendingInvite: false,
   }));
 
   return (

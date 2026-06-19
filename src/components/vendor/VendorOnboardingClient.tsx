@@ -6,7 +6,7 @@ import { Button } from '@/components/ui/Button';
 import { Input } from '@/components/ui/Input';
 import { jsonFetcher } from '@/lib/fetcher';
 import { formatDate } from '@/lib/utils';
-import { AlertCircle, Loader2, Plus, Users, Eye, EyeOff, Check } from 'lucide-react';
+import { AlertCircle, AlertTriangle, Clock, Loader2, Mail, Plus, Users, Check } from 'lucide-react';
 
 interface ProjectOption {
   projectId: string;
@@ -15,12 +15,14 @@ interface ProjectOption {
 }
 
 interface VendorRow {
-  userId: string;
+  userId: string | null;
+  inviteId: string | null;
   name: string;
   email: string;
   role: string;
   assignedAt: string;
-  userCreatedAt: string;
+  userCreatedAt: string | null;
+  isPendingInvite: boolean;
 }
 
 interface Props {
@@ -36,16 +38,16 @@ export default function VendorOnboardingClient({
 }: Props) {
   const [selectedProject, setSelectedProject] = useState(initialProjectId);
 
-  // Form state
-  const [username, setUsername] = useState('');
-  const [password, setPassword] = useState('');
-  const [displayName, setDisplayName] = useState('');
-  const [showPassword, setShowPassword] = useState(false);
-  const [creating, setCreating] = useState(false);
+  const [email, setEmail] = useState('');
+  const [submitting, setSubmitting] = useState(false);
   const [formError, setFormError] = useState('');
   const [formSuccess, setFormSuccess] = useState('');
+  const [conflictData, setConflictData] = useState<{ userPreferredRole: string; message: string } | null>(null);
 
-  // Vendor list — initial data from server, SWR refetches on project switch.
+  const ROLE_LABELS: Record<string, string> = {
+    CLIENT: 'Project Owner', PMC: 'PMC', VENDOR: 'Vendor', CONSULTANT: 'Consultant', VIEWER: 'Viewer',
+  };
+
   const { data, isValidating, mutate } = useSWR<VendorRow[]>(
     selectedProject ? `/api/admin/vendors?projectId=${selectedProject}` : null,
     jsonFetcher,
@@ -59,42 +61,47 @@ export default function VendorOnboardingClient({
   const vendorsLoading =
     isValidating && selectedProject !== initialProjectId && !data;
 
-  const handleCreate = async (e: React.FormEvent) => {
-    e.preventDefault();
+  const submitVendor = async (force: boolean) => {
     setFormError('');
     setFormSuccess('');
-    setCreating(true);
+    setSubmitting(true);
 
     try {
       const res = await fetch('/api/admin/vendors', {
         method: 'POST',
         headers: { 'Content-Type': 'application/json' },
-        body: JSON.stringify({
-          username,
-          password,
-          displayName,
-          projectId: selectedProject,
-        }),
+        body: JSON.stringify({ email, projectId: selectedProject, force }),
       });
       const body = await res.json();
       if (body.success) {
-        setFormSuccess(
-          body.data.created
-            ? `Vendor "${body.data.name}" created and assigned successfully.`
-            : `Existing user "${body.data.name}" assigned as vendor.`,
-        );
-        setUsername('');
-        setPassword('');
-        setDisplayName('');
+        setConflictData(null);
+        if (body.invited) {
+          setFormSuccess(body.message ?? `Invitation sent to ${email}.`);
+        } else {
+          setFormSuccess(`Vendor "${body.data.name}" added to the project.`);
+        }
+        setEmail('');
         mutate();
+      } else if (body.conflict) {
+        setConflictData({ userPreferredRole: body.userPreferredRole, message: body.error });
       } else {
-        setFormError(body.error || 'Failed to create vendor');
+        setFormError(body.error || 'Failed to add vendor');
       }
     } catch {
       setFormError('An error occurred');
     } finally {
-      setCreating(false);
+      setSubmitting(false);
     }
+  };
+
+  const handleSubmit = (e: React.FormEvent) => {
+    e.preventDefault();
+    setConflictData(null);
+    void submitVendor(false);
+  };
+
+  const handleConfirmConflict = () => {
+    void submitVendor(true);
   };
 
   const currentProjectName =
@@ -109,7 +116,7 @@ export default function VendorOnboardingClient({
           <h1 className="text-xl font-semibold text-[var(--ax-text)]">Vendor Onboarding</h1>
         </div>
         <p className="text-sm text-[rgba(var(--ax-text-rgb),0.55)]">
-          Create vendor accounts and assign them to projects.
+          Invite vendors by email. They'll receive an invitation link to join the project.
         </p>
       </div>
 
@@ -122,7 +129,12 @@ export default function VendorOnboardingClient({
               focus:outline-none focus:ring-4 focus:ring-[rgba(var(--ax-accent-rgb),0.3)]/10 focus:border-[var(--ax-accent)]
               transition-all duration-200"
             value={selectedProject}
-            onChange={(e) => setSelectedProject(e.target.value)}
+            onChange={(e) => {
+              setSelectedProject(e.target.value);
+              setFormError('');
+              setFormSuccess('');
+              setConflictData(null);
+            }}
           >
             {projects.map((p) => (
               <option key={p.projectId} value={p.projectId}>
@@ -134,102 +146,109 @@ export default function VendorOnboardingClient({
       )}
 
       <div className="grid grid-cols-1 lg:grid-cols-5 gap-8">
-        {/* New Vendor form */}
+        {/* Invite form */}
         <div className="lg:col-span-2">
           <div className="bg-[var(--ax-card)] border border-[var(--ax-border)] rounded-xl p-6">
             <div className="flex items-center gap-2 mb-5">
               <Plus className="w-4 h-4 text-[var(--ax-accent)]" />
-              <h2 className="text-sm font-semibold text-[var(--ax-text)]">New Vendor</h2>
+              <h2 className="text-sm font-semibold text-[var(--ax-text)]">Invite Vendor</h2>
             </div>
 
-            <form onSubmit={handleCreate} className="space-y-4">
-              {formError && (
-                <div className="bg-[rgba(220,80,60,0.1)] border border-[rgba(224,96,80,0.3)] rounded-lg p-3 flex items-start gap-2 text-sm text-[#e06050]">
-                  <AlertCircle className="h-4 w-4 mt-0.5 shrink-0" />
-                  <p>{formError}</p>
+            {conflictData ? (
+              /* Role conflict confirmation step */
+              <div className="space-y-4">
+                <div className="flex items-start gap-3 p-4 rounded-xl bg-[rgba(224,152,64,0.07)] border border-[rgba(224,152,64,0.22)]">
+                  <AlertTriangle className="w-5 h-5 text-[#e09840] shrink-0 mt-0.5" />
+                  <div>
+                    <p className="text-sm font-semibold text-[#e09840] mb-1">Role Mismatch</p>
+                    <p className="text-xs text-[rgba(232,228,220,0.65)] leading-relaxed">{conflictData.message}</p>
+                  </div>
                 </div>
-              )}
-              {formSuccess && (
-                <div className="bg-[rgba(50,200,120,0.1)] border border-[rgba(92,186,128,0.3)] rounded-lg p-3 flex items-start gap-2 text-sm text-[#5cba80]">
-                  <Check className="h-4 w-4 mt-0.5 shrink-0" />
-                  <p>{formSuccess}</p>
+                <div className="rounded-xl border border-[var(--ax-border)] bg-[rgba(255,255,255,0.02)] px-4 py-3 text-xs text-[rgba(var(--ax-text-rgb),0.55)] space-y-1.5">
+                  <p><span className="text-[rgba(var(--ax-text-rgb),0.35)]">Email:</span> <span className="font-medium text-[var(--ax-text)]">{email}</span></p>
+                  <p><span className="text-[rgba(var(--ax-text-rgb),0.35)]">Registered as:</span> <span className="font-medium text-[var(--ax-text)]">{ROLE_LABELS[conflictData.userPreferredRole] ?? conflictData.userPreferredRole}</span></p>
+                  <p><span className="text-[rgba(var(--ax-text-rgb),0.35)]">You're assigning:</span> <span className="font-medium text-[var(--ax-accent)]">Vendor</span></p>
                 </div>
-              )}
-
-              <div>
-                <label className="block text-sm font-medium text-[var(--ax-text)] mb-1">
-                  Display Name *
-                </label>
-                <Input
-                  value={displayName}
-                  onChange={(e) => setDisplayName(e.target.value)}
-                  placeholder="e.g. Apex Construction"
-                  required
-                />
-              </div>
-
-              <div>
-                <label className="block text-sm font-medium text-[var(--ax-text)] mb-1">
-                  Username *
-                </label>
-                <Input
-                  value={username}
-                  onChange={(e) => setUsername(e.target.value)}
-                  placeholder="e.g. apex_construction"
-                  required
-                />
-                <p className="text-xs text-[rgba(var(--ax-text-rgb),0.35)] mt-1">
-                  Login email will be{' '}
-                  <span className="font-mono">{username || 'username'}@vendor.local</span>
+                <p className="text-xs text-[rgba(var(--ax-text-rgb),0.4)]">
+                  If you confirm, this user will receive an email explaining the change and must accept before being added to the project.
                 </p>
-              </div>
-
-              <div>
-                <label className="block text-sm font-medium text-[var(--ax-text)] mb-1">
-                  Password *
-                </label>
-                <div className="relative">
-                  <Input
-                    type={showPassword ? 'text' : 'password'}
-                    value={password}
-                    onChange={(e) => setPassword(e.target.value)}
-                    placeholder="Min 6 characters"
-                    required
-                    minLength={6}
-                    className="pr-10"
-                  />
-                  <button
+                <div className="flex gap-3">
+                  <Button
                     type="button"
-                    onClick={() => setShowPassword(!showPassword)}
-                    className="absolute right-3 top-1/2 -translate-y-1/2 text-[rgba(var(--ax-text-rgb),0.35)] hover:text-[rgba(var(--ax-text-rgb),0.55)]"
-                    tabIndex={-1}
+                    className="flex-1"
+                    onClick={() => setConflictData(null)}
+                    disabled={submitting}
+                    style={{ background: 'transparent', border: '1px solid var(--ax-border)', color: 'rgba(var(--ax-text-rgb),0.7)' }}
                   >
-                    {showPassword ? <EyeOff className="w-4 h-4" /> : <Eye className="w-4 h-4" />}
-                  </button>
+                    Go Back
+                  </Button>
+                  <Button
+                    type="button"
+                    className="flex-1"
+                    disabled={submitting}
+                    onClick={handleConfirmConflict}
+                  >
+                    {submitting ? (
+                      <><Loader2 className="mr-2 h-4 w-4 animate-spin" />Sending…</>
+                    ) : (
+                      'Confirm & Invite'
+                    )}
+                  </Button>
                 </div>
               </div>
+            ) : (
+              <form onSubmit={handleSubmit} className="space-y-4">
+                {formError && (
+                  <div className="bg-[rgba(220,80,60,0.1)] border border-[rgba(224,96,80,0.3)] rounded-lg p-3 flex items-start gap-2 text-sm text-[#e06050]">
+                    <AlertCircle className="h-4 w-4 mt-0.5 shrink-0" />
+                    <p>{formError}</p>
+                  </div>
+                )}
+                {formSuccess && (
+                  <div className="bg-[rgba(50,200,120,0.1)] border border-[rgba(92,186,128,0.3)] rounded-lg p-3 flex items-start gap-2 text-sm text-[#5cba80]">
+                    <Check className="h-4 w-4 mt-0.5 shrink-0" />
+                    <p>{formSuccess}</p>
+                  </div>
+                )}
 
-              <div className="pt-1">
-                <p className="text-xs text-[rgba(var(--ax-text-rgb),0.55)] mb-3">
-                  Assigning to:{' '}
-                  <span className="font-medium text-[var(--ax-text)]">{currentProjectName}</span> as{' '}
-                  <span className="font-medium text-[var(--ax-accent)]">VENDOR</span>
-                </p>
-                <Button type="submit" className="w-full" disabled={creating}>
-                  {creating ? (
-                    <>
-                      <Loader2 className="mr-2 h-4 w-4 animate-spin" />
-                      Creating...
-                    </>
-                  ) : (
-                    <>
-                      <Plus className="mr-2 h-4 w-4" />
-                      Create Vendor
-                    </>
-                  )}
-                </Button>
-              </div>
-            </form>
+                <div>
+                  <label className="block text-sm font-medium text-[var(--ax-text)] mb-1">
+                    Email Address *
+                  </label>
+                  <Input
+                    type="email"
+                    value={email}
+                    onChange={(e) => setEmail(e.target.value)}
+                    placeholder="vendor@company.com"
+                    required
+                  />
+                  <p className="text-xs text-[rgba(var(--ax-text-rgb),0.35)] mt-1">
+                    If they&apos;re not on Axinfra yet, they&apos;ll receive an invitation link.
+                  </p>
+                </div>
+
+                <div className="pt-1">
+                  <p className="text-xs text-[rgba(var(--ax-text-rgb),0.55)] mb-3">
+                    Assigning to:{' '}
+                    <span className="font-medium text-[var(--ax-text)]">{currentProjectName}</span> as{' '}
+                    <span className="font-medium text-[var(--ax-accent)]">VENDOR</span>
+                  </p>
+                  <Button type="submit" className="w-full" disabled={submitting}>
+                    {submitting ? (
+                      <>
+                        <Loader2 className="mr-2 h-4 w-4 animate-spin" />
+                        Sending…
+                      </>
+                    ) : (
+                      <>
+                        <Mail className="mr-2 h-4 w-4" />
+                        Invite Vendor
+                      </>
+                    )}
+                  </Button>
+                </div>
+              </form>
+            )}
           </div>
         </div>
 
@@ -266,36 +285,53 @@ export default function VendorOnboardingClient({
                         Email
                       </th>
                       <th className="text-left py-2.5 px-3 text-xs font-medium text-[rgba(var(--ax-text-rgb),0.55)] uppercase tracking-wider">
-                        Assigned
+                        Status
                       </th>
                     </tr>
                   </thead>
                   <tbody>
-                    {vendors.map((v) => (
+                    {vendors.map((v, idx) => (
                       <tr
-                        key={v.userId}
+                        key={v.userId ?? v.inviteId ?? idx}
                         className="border-b border-[var(--ax-border-subtle)] last:border-0 hover:bg-[var(--ax-overlay)]"
                       >
                         <td className="py-3 px-3">
                           <div className="flex items-center gap-2.5">
-                            <div className="w-7 h-7 rounded-full bg-[rgba(50,200,120,0.1)] flex items-center justify-center shrink-0">
-                              <span className="text-[10px] font-semibold text-[#5cba80]">
-                                {v.name
-                                  .split(' ')
-                                  .map((n) => n[0])
-                                  .join('')
-                                  .toUpperCase()
-                                  .slice(0, 2)}
-                              </span>
-                            </div>
-                            <span className="font-medium text-[var(--ax-text)]">{v.name}</span>
+                            {v.isPendingInvite ? (
+                              <div className="w-7 h-7 rounded-full bg-[rgba(196,163,90,0.1)] flex items-center justify-center shrink-0">
+                                <Clock className="w-3.5 h-3.5 text-[var(--ax-accent)]" />
+                              </div>
+                            ) : (
+                              <div className="w-7 h-7 rounded-full bg-[rgba(50,200,120,0.1)] flex items-center justify-center shrink-0">
+                                <span className="text-[10px] font-semibold text-[#5cba80]">
+                                  {v.name
+                                    .split(' ')
+                                    .map((n) => n[0])
+                                    .join('')
+                                    .toUpperCase()
+                                    .slice(0, 2)}
+                                </span>
+                              </div>
+                            )}
+                            <span className={`font-medium ${v.isPendingInvite ? 'text-[rgba(var(--ax-text-rgb),0.45)] italic' : 'text-[var(--ax-text)]'}`}>
+                              {v.isPendingInvite ? 'Pending Invite' : v.name}
+                            </span>
                           </div>
                         </td>
                         <td className="py-3 px-3 text-[rgba(var(--ax-text-rgb),0.55)] font-mono text-xs">
                           {v.email}
                         </td>
-                        <td className="py-3 px-3 text-[rgba(var(--ax-text-rgb),0.35)] text-xs">
-                          {formatDate(v.assignedAt)}
+                        <td className="py-3 px-3 text-xs">
+                          {v.isPendingInvite ? (
+                            <span className="inline-flex items-center gap-1 px-2 py-0.5 rounded-full bg-[rgba(196,163,90,0.1)] border border-[rgba(196,163,90,0.2)] text-[var(--ax-accent)]">
+                              <Clock className="w-3 h-3" />
+                              Invite sent
+                            </span>
+                          ) : (
+                            <span className="text-[rgba(var(--ax-text-rgb),0.35)]">
+                              {formatDate(v.assignedAt)}
+                            </span>
+                          )}
                         </td>
                       </tr>
                     ))}

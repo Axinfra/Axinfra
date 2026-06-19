@@ -1,43 +1,25 @@
 /**
- * GET  /api/admin/vendors?projectId=xxx — List vendor users in a project
- * POST /api/admin/vendors               — Create a new vendor user + assign to project
+ * GET  /api/admin/vendors?projectId=xxx — List vendor users + pending invites in a project
+ * POST /api/admin/vendors               — Invite or directly assign a vendor to a project
  *
- * Access: OWNER or PMC only (checked via any project role).
+ * Access: CLIENT or PMC only (checked per-project).
  */
 
 import { NextRequest, NextResponse } from 'next/server';
 import { prisma } from '@/lib/db';
 import { requireAuth } from '@/lib/auth';
 import { Role } from '@/types';
-import bcrypt from 'bcryptjs';
 import { z } from 'zod';
+import { randomBytes } from 'crypto';
+import { sendProjectInviteEmail, sendProjectAssignedEmail, sendRoleConflictInviteEmail } from '@/lib/email';
 
 const createVendorSchema = z.object({
-  username: z
-    .string()
-    .min(3, 'Username must be at least 3 characters')
-    .max(50)
-    .regex(/^[a-zA-Z0-9_.-]+$/, 'Username may only contain letters, numbers, dots, hyphens, underscores'),
-  password: z.string().min(6, 'Password must be at least 6 characters'),
-  displayName: z.string().min(1, 'Display name is required').max(100),
+  email: z.string().email('Invalid email address'),
   projectId: z.string().uuid('Invalid project ID'),
+  force: z.boolean().optional().default(false),
 });
 
-/** Verify caller is OWNER or PMC in at least one project */
-async function requireAdminCaller(userId: string) {
-  const adminRole = await prisma.projectRole.findFirst({
-    where: {
-      userId,
-      role: { in: [Role.CLIENT, Role.PMC] },
-    },
-  });
-  if (!adminRole) {
-    throw new Error('FORBIDDEN: Only Owner or PMC can manage vendors');
-  }
-  return adminRole;
-}
-
-// ─── GET: list vendors for a project ────────────────────────────────────────
+// ─── GET: list vendors + pending invites for a project ───────────────────────
 export async function GET(request: NextRequest) {
   try {
     const auth = await requireAuth();
@@ -50,7 +32,6 @@ export async function GET(request: NextRequest) {
       );
     }
 
-    // Verify caller has OWNER or PMC role in THIS specific project (not just any project)
     const callerRole = await prisma.projectRole.findUnique({
       where: { projectId_userId: { projectId, userId: auth.userId } },
     });
@@ -61,24 +42,49 @@ export async function GET(request: NextRequest) {
       );
     }
 
-    const vendorRoles = await prisma.projectRole.findMany({
-      where: { projectId, role: Role.VENDOR },
-      include: {
-        user: { select: { id: true, name: true, email: true, createdAt: true } },
-      },
-      orderBy: { createdAt: 'desc' },
-    });
+    const [vendorRoles, pendingInvites] = await Promise.all([
+      prisma.projectRole.findMany({
+        where: { projectId, role: Role.VENDOR },
+        include: {
+          user: { select: { id: true, name: true, email: true, createdAt: true } },
+        },
+        orderBy: { createdAt: 'desc' },
+      }),
+      prisma.$queryRaw<Array<{ id: string; email: string; createdAt: Date }>>`
+        SELECT id, email, "createdAt"
+        FROM "ProjectInvite"
+        WHERE "projectId" = ${projectId}
+          AND role = 'VENDOR'
+          AND status = 'PENDING'
+          AND "expiresAt" > NOW()
+        ORDER BY "createdAt" DESC
+      `,
+    ]);
 
     return NextResponse.json({
       success: true,
-      data: vendorRoles.map((vr) => ({
-        userId: vr.user.id,
-        name: vr.user.name,
-        email: vr.user.email,
-        role: vr.role,
-        assignedAt: vr.createdAt,
-        userCreatedAt: vr.user.createdAt,
-      })),
+      data: [
+        ...vendorRoles.map((vr) => ({
+          userId: vr.user.id,
+          inviteId: null,
+          name: vr.user.name,
+          email: vr.user.email,
+          role: vr.role,
+          assignedAt: vr.createdAt,
+          userCreatedAt: vr.user.createdAt,
+          isPendingInvite: false,
+        })),
+        ...pendingInvites.map((inv) => ({
+          userId: null,
+          inviteId: inv.id,
+          name: 'Pending Invite',
+          email: inv.email,
+          role: 'VENDOR',
+          assignedAt: inv.createdAt,
+          userCreatedAt: null,
+          isPendingInvite: true,
+        })),
+      ],
     });
   } catch (err: unknown) {
     const msg = err instanceof Error ? err.message : 'Unknown error';
@@ -93,31 +99,23 @@ export async function GET(request: NextRequest) {
   }
 }
 
-// ─── POST: create vendor user + assign to project ───────────────────────────
+// ─── POST: invite or directly assign vendor ──────────────────────────────────
 export async function POST(request: NextRequest) {
   try {
     const auth = await requireAuth();
-    await requireAdminCaller(auth.userId);
 
     const body = await request.json();
-    const { username, password, displayName, projectId } = createVendorSchema.parse(body);
+    const { email, projectId, force } = createVendorSchema.parse(body);
 
-    // Build email from username (demo convention)
-    const email = username.includes('@') ? username : `${username}@vendor.local`;
-
-    // Project existence + caller-role check are independent — fan out.
     const [project, callerRole] = await Promise.all([
-      prisma.project.findUnique({ where: { id: projectId } }),
+      prisma.project.findUnique({ where: { id: projectId }, select: { name: true } }),
       prisma.projectRole.findUnique({
         where: { projectId_userId: { projectId, userId: auth.userId } },
       }),
     ]);
 
     if (!project) {
-      return NextResponse.json(
-        { success: false, error: 'Project not found' },
-        { status: 404 },
-      );
+      return NextResponse.json({ success: false, error: 'Project not found' }, { status: 404 });
     }
 
     if (!callerRole || (callerRole.role !== Role.CLIENT && callerRole.role !== Role.PMC)) {
@@ -127,69 +125,130 @@ export async function POST(request: NextRequest) {
       );
     }
 
-    // Check if email already taken
-    const existingUser = await prisma.user.findUnique({ where: { email } });
-    if (existingUser) {
-      // User exists — just assign vendor role if not already assigned
-      const existingRole = await prisma.projectRole.findUnique({
-        where: { projectId_userId: { projectId, userId: existingUser.id } },
-      });
-      if (existingRole) {
-        return NextResponse.json(
-          { success: false, error: 'User already has a role in this project' },
-          { status: 400 },
-        );
-      }
+    const userRows = await prisma.$queryRaw<Array<{ id: string; name: string; email: string; preferredRole: string | null }>>`
+      SELECT id, name, email, "preferredRole" FROM "User" WHERE email = ${email} LIMIT 1
+    `;
+    const existingUser = userRows[0] ?? null;
 
-      await prisma.projectRole.create({
-        data: { projectId, userId: existingUser.id, role: Role.VENDOR },
-      });
+    // ── Vendor not in DB → send invite ───────────────────────────────────────
+    if (!existingUser) {
+      // Remove any previous invite for this email+project before creating a new one
+      await prisma.$executeRaw`
+        DELETE FROM "ProjectInvite"
+        WHERE "projectId" = ${projectId} AND email = ${email}
+      `;
+
+      const token = randomBytes(32).toString('hex');
+      const expiresAt = new Date(Date.now() + 30 * 24 * 60 * 60 * 1000); // 30 days
+
+      await prisma.$executeRaw`
+        INSERT INTO "ProjectInvite" (id, "projectId", email, role, token, status, "invitedById", "expiresAt", "createdAt")
+        VALUES (
+          gen_random_uuid(),
+          ${projectId},
+          ${email},
+          'VENDOR',
+          ${token},
+          'PENDING',
+          ${auth.userId},
+          ${expiresAt},
+          NOW()
+        )
+      `;
+
+      sendProjectInviteEmail(email, auth.name, project.name, 'VENDOR', token).catch((e) =>
+        console.error('[email] vendor-invite failed:', e)
+      );
 
       return NextResponse.json({
         success: true,
-        data: {
-          userId: existingUser.id,
-          name: existingUser.name,
-          email: existingUser.email,
-          role: Role.VENDOR,
-          projectId,
-          created: false,
-        },
+        invited: true,
+        message: `Invitation sent to ${email}. They will appear as "Pending Invite" until they accept.`,
       });
     }
 
-    // Create new user with hashed password
-    const hashedPassword = await bcrypt.hash(password, 10);
+    // ── Vendor in DB → check preferredRole conflict ──────────────────────────
+    const ROLE_LABELS: Record<string, string> = {
+      CLIENT: 'Project Owner', PMC: 'PMC', VENDOR: 'Vendor', CONSULTANT: 'Consultant', VIEWER: 'Viewer',
+    };
 
-    const result = await prisma.$transaction(async (tx) => {
-      const user = await tx.user.create({
-        data: {
-          name: displayName,
-          email,
-          hashedPassword,
-        },
+    if (existingUser.preferredRole && existingUser.preferredRole !== 'VENDOR') {
+      if (!force) {
+        return NextResponse.json(
+          {
+            success: false,
+            conflict: true,
+            userPreferredRole: existingUser.preferredRole,
+            error: `This user is registered as ${ROLE_LABELS[existingUser.preferredRole] ?? existingUser.preferredRole}. Invite them as Vendor anyway? They will receive a notification and must accept.`,
+          },
+          { status: 409 },
+        );
+      }
+
+      // force=true → create pending invite so user accepts explicitly
+      await prisma.$executeRaw`
+        DELETE FROM "ProjectInvite"
+        WHERE "projectId" = ${projectId} AND email = ${email}
+      `;
+
+      const token = randomBytes(32).toString('hex');
+      const expiresAt = new Date(Date.now() + 30 * 24 * 60 * 60 * 1000);
+
+      await prisma.$executeRaw`
+        INSERT INTO "ProjectInvite" (id, "projectId", email, role, token, status, "invitedById", "expiresAt", "createdAt")
+        VALUES (
+          gen_random_uuid(),
+          ${projectId},
+          ${email},
+          'VENDOR',
+          ${token},
+          'PENDING',
+          ${auth.userId},
+          ${expiresAt},
+          NOW()
+        )
+      `;
+
+      sendRoleConflictInviteEmail(email, existingUser.name, auth.name, project.name, 'VENDOR', existingUser.preferredRole, token).catch((e) =>
+        console.error('[email] vendor-conflict-invite failed:', e)
+      );
+
+      return NextResponse.json({
+        success: true,
+        invited: true,
+        message: `Invitation sent to ${email}. They will be notified about the role change and must accept.`,
       });
+    }
 
-      await tx.projectRole.create({
-        data: {
-          projectId,
-          userId: user.id,
-          role: Role.VENDOR,
-        },
-      });
-
-      return user;
+    // ── No conflict → assign directly ────────────────────────────────────────
+    const existingRole = await prisma.projectRole.findUnique({
+      where: { projectId_userId: { projectId, userId: existingUser.id } },
     });
+
+    if (existingRole) {
+      return NextResponse.json(
+        { success: false, error: 'This user already has a role in this project' },
+        { status: 400 },
+      );
+    }
+
+    await prisma.projectRole.create({
+      data: { projectId, userId: existingUser.id, role: Role.VENDOR },
+    });
+
+    sendProjectAssignedEmail(existingUser.email, existingUser.name, project.name, 'VENDOR', projectId).catch((e) =>
+      console.error('[email] vendor-assigned failed:', e)
+    );
 
     return NextResponse.json({
       success: true,
+      invited: false,
       data: {
-        userId: result.id,
-        name: result.name,
-        email: result.email,
+        userId: existingUser.id,
+        name: existingUser.name,
+        email: existingUser.email,
         role: Role.VENDOR,
         projectId,
-        created: true,
       },
     });
   } catch (err: unknown) {

@@ -361,6 +361,64 @@ export async function sendDemoRequestEmail(
   });
 }
 
+export async function sendRoleConflictInviteEmail(
+  to: string,
+  name: string,
+  inviterName: string,
+  projectName: string,
+  assignedRole: string,
+  registeredRole: string,
+  inviteToken: string,
+) {
+  const acceptUrl = `${APP_URL}/invite/${inviteToken}`;
+  const roleLabel: Record<string, string> = {
+    CLIENT: 'Project Owner',
+    PMC: 'Project Management Consultant',
+    VENDOR: 'Vendor',
+    CONSULTANT: 'Consultant',
+    VIEWER: 'Viewer',
+  };
+
+  const html = baseTemplate(`
+    <h1 style="margin:0 0 6px;font-size:20px;font-weight:800;color:#e8e4dc;">You've been invited to a project</h1>
+    <p style="margin:0 0 20px;font-size:13.5px;color:rgba(232,228,220,0.55);">
+      Hi ${escapeHtml(name)}, <strong style="color:#e8e4dc;">${escapeHtml(inviterName)}</strong> has invited you to collaborate on a project on Axinfra.
+    </p>
+
+    <table width="100%" cellpadding="0" cellspacing="0" style="background:rgba(255,255,255,0.03);border:1px solid rgba(255,255,255,0.07);border-radius:10px;margin-bottom:16px;">
+      ${credential('Project', projectName)}
+      ${credential('Invited by', inviterName)}
+      ${credential('Role for this project', roleLabel[assignedRole] ?? assignedRole)}
+    </table>
+
+    <div style="background:rgba(224,152,64,0.07);border:1px solid rgba(224,152,64,0.22);border-radius:10px;padding:14px 16px;margin-bottom:16px;">
+      <p style="font-size:11.5px;color:rgba(232,228,220,0.5);margin:0 0 6px;font-weight:600;text-transform:uppercase;letter-spacing:0.07em;">Role Change Notice</p>
+      <p style="font-size:13px;color:rgba(232,228,220,0.75);margin:0;line-height:1.6;">
+        Your account is registered as <strong style="color:#e8e4dc;">${escapeHtml(roleLabel[registeredRole] ?? registeredRole)}</strong>.
+        ${escapeHtml(inviterName)} is inviting you to this project as <strong style="color:#e8e4dc;">${escapeHtml(roleLabel[assignedRole] ?? assignedRole)}</strong> instead.
+        Click Accept if you agree to participate in this role.
+      </p>
+    </div>
+
+    <p style="font-size:12px;color:rgba(232,228,220,0.35);margin:0 0 4px;">
+      This invitation link expires in 30 days. You must sign in with <strong style="color:rgba(232,228,220,0.55);">${escapeHtml(to)}</strong> to accept.
+    </p>
+
+    ${btn('Accept Invitation', acceptUrl)}
+
+    <p style="font-size:11px;color:rgba(232,228,220,0.25);margin:20px 0 0;text-align:center;">
+      If you weren&apos;t expecting this invitation, you can safely ignore this email.
+    </p>
+  `);
+
+  return getResend().emails.send({
+    from: FROM,
+    to,
+    subject: `${escapeHtml(inviterName)} invited you to "${projectName}" on Axinfra`,
+    html,
+  });
+}
+
 export async function sendProjectAssignedEmail(
   to: string,
   name: string,
