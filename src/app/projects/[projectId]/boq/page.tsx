@@ -1,7 +1,7 @@
 'use client';
 
 import { TablePageSkeleton } from '@/components/ui/SkeletonPage';
-import { useState, useRef } from 'react';
+import { useState, useRef, useEffect } from 'react';
 import { useParams, useSearchParams } from 'next/navigation';
 import { CheckCircle2 } from 'lucide-react';
 import useSWR from 'swr';
@@ -73,7 +73,7 @@ export default function BOQPage() {
   const [revisionReason, setRevisionReason] = useState('');
   const [revisionSubmitting, setRevisionSubmitting] = useState(false);
 
-  // Inline confirm state (replaces browser confirm())
+  // Inline confirm state
   const [confirmApproveBoqId, setConfirmApproveBoqId] = useState<string | null>(null);
   const [confirmDeleteItemId, setConfirmDeleteItemId] = useState<{ boqId: string; itemId: string } | null>(null);
 
@@ -95,6 +95,10 @@ export default function BOQPage() {
     rate: '',
   });
   const [itemSaving, setItemSaving] = useState(false);
+
+  // Track which phase we've already auto-created a BOQ for so we don't loop
+  const autoCreateAttemptedRef = useRef<string | null>(null);
+  const [autoCreating, setAutoCreating] = useState(false);
 
   const { project, isLoading: projectLoading } = useProject();
   const projectName = project?.name ?? '';
@@ -124,48 +128,68 @@ export default function BOQPage() {
   const [selectedPhaseId, setSelectedPhaseId] = useState(prefilledPhaseId);
   const selectedPhase = phases.find((p) => p.id === selectedPhaseId) ?? null;
 
+  // Sync when the URL ?phaseId changes — e.g. navigating from overview → different phase.
+  // useState only uses the initial value, so without this the old phase stays selected.
+  useEffect(() => {
+    if (!prefilledPhaseId || prefilledPhaseId === selectedPhaseId) return;
+    setSelectedPhaseId(prefilledPhaseId);
+    autoCreateAttemptedRef.current = null;
+    setError('');
+  // selectedPhaseId intentionally excluded — we only want to react to URL changes
+  // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [prefilledPhaseId]);
+
   const loading = projectLoading || boqLoading || phasesLoading;
 
   const currentBOQ = selectedPhaseId
     ? boqs.find((b) => b.phaseId === selectedPhaseId) ?? null
     : null;
 
-  const handleCreateBOQ = async () => {
-    const tempId = `temp-${Date.now()}`;
+  // Auto-create a BOQ when PMC lands on the page with a phase selected and no BOQ exists yet.
+  // We track which phase we've attempted so this never loops.
+  useEffect(() => {
+    if (
+      loading ||
+      !selectedPhaseId ||
+      currentBOQ ||
+      !permissions.canEditBOQ ||
+      autoCreateAttemptedRef.current === selectedPhaseId
+    ) return;
 
-    // Show the empty draft BOQ immediately — no waiting for the server
-    void refetchBoqs(
-      (current = []) => [
-        ...current,
-        {
-          id: tempId,
-          phaseId: selectedPhaseId,
-          status: 'DRAFT',
-          phase: selectedPhase
-            ? { id: selectedPhase.id, name: selectedPhase.name, sortOrder: 0 }
-            : null,
-          items: [],
-          revisions: [],
-        },
-      ],
-      { revalidate: false },
-    );
+    autoCreateAttemptedRef.current = selectedPhaseId;
+    setAutoCreating(true);
+    setError('');
 
-    const res = await fetch(`/api/projects/${projectId}/boq`, {
+    fetch(`/api/projects/${projectId}/boq`, {
       method: 'POST',
       headers: { 'Content-Type': 'application/json' },
-      body: JSON.stringify(selectedPhaseId ? { phaseId: selectedPhaseId } : {}),
-    });
-    const data = await res.json();
-    if (data.success || data.error === 'This phase already has a BOQ') {
-      // On success OR when a BOQ already existed (stale cache caught up),
-      // just sync — the real BOQ will replace the optimistic one.
-      void refetchBoqs();
-      void refetchPhases();
-    } else {
-      void refetchBoqs(); // revert optimistic
-      void refetchPhases();
-      setError(data.error);
+      body: JSON.stringify({ phaseId: selectedPhaseId }),
+    })
+      .then((r) => r.json())
+      .then((data) => {
+        if (data.success || data.error === 'This phase already has a BOQ') {
+          // Succeeded or BOQ already existed — refetch to get the real record
+          void refetchBoqs();
+          void refetchPhases();
+        } else {
+          setError(data.error ?? 'Failed to set up BOQ');
+          // Reset so the user can retry via the button
+          autoCreateAttemptedRef.current = null;
+        }
+      })
+      .catch(() => {
+        setError('Failed to set up BOQ. Please try again.');
+        autoCreateAttemptedRef.current = null;
+      })
+      .finally(() => setAutoCreating(false));
+  }, [loading, selectedPhaseId, currentBOQ, permissions.canEditBOQ, projectId, refetchBoqs, refetchPhases]);
+
+  // Reset auto-create tracking when the user picks a different phase from the dropdown
+  const handlePhaseChange = (phaseId: string) => {
+    setSelectedPhaseId(phaseId);
+    setError('');
+    if (phaseId !== autoCreateAttemptedRef.current) {
+      autoCreateAttemptedRef.current = null;
     }
   };
 
@@ -214,9 +238,9 @@ export default function BOQPage() {
 
     const data = await res.json();
     if (data.success) {
-      void refetchBoqs(); // sync real ID from server
+      void refetchBoqs();
     } else {
-      void refetchBoqs(); // revert optimistic
+      void refetchBoqs();
       setError(data.error);
     }
   };
@@ -224,7 +248,6 @@ export default function BOQPage() {
   const handleApproveBOQ = async (boqId: string) => {
     setConfirmApproveBoqId(null);
 
-    // Optimistic update — show APPROVED immediately before server responds
     void refetchBoqs(
       (current) => current?.map((b) => b.id === boqId ? { ...b, status: 'APPROVED' } : b),
       { revalidate: false },
@@ -238,7 +261,7 @@ export default function BOQPage() {
     if (data.success) {
       void refetchBoqs();
     } else {
-      void refetchBoqs(); // revert optimistic update
+      void refetchBoqs();
       setError(data.error);
     }
   };
@@ -301,6 +324,24 @@ export default function BOQPage() {
       }
     } catch {
       setError('An error occurred');
+    }
+  };
+
+  const handleSubmitForApproval = async (boqId: string) => {
+    // Optimistically mark as pending so UI updates immediately
+    void refetchBoqs(
+      (current) => current?.map((b) => b.id === boqId ? { ...b, status: 'PENDING_APPROVAL' } : b),
+      { revalidate: false },
+    );
+
+    const res = await fetch(`/api/projects/${projectId}/boq/${boqId}/submit`, { method: 'POST' });
+    const data = await res.json();
+    if (data.success) {
+      void refetchBoqs();
+      void refetchPhases();
+    } else {
+      void refetchBoqs(); // revert
+      setError(data.error ?? 'Failed to submit for approval');
     }
   };
 
@@ -431,12 +472,21 @@ export default function BOQPage() {
   }
 
   const totalValue = currentBOQ?.items.reduce((sum, item) => sum + item.plannedValue, 0) || 0;
+
+  // PMC can edit items only when DRAFT or REVISED (not while awaiting approval)
   const canEditCurrentBOQ =
     permissions.canEditBOQ && currentBOQ && (currentBOQ.status === 'DRAFT' || currentBOQ.status === 'REVISED');
+  // PMC can send for approval when DRAFT/REVISED and has at least one item
+  const canSendForApproval =
+    permissions.canEditBOQ &&
+    currentBOQ &&
+    (currentBOQ.status === 'DRAFT' || currentBOQ.status === 'REVISED') &&
+    currentBOQ.items.length > 0;
+  // Owner can approve/reject only when PMC has submitted (PENDING_APPROVAL)
   const canOwnerReview =
     permissions.canApproveBOQ &&
     currentBOQ &&
-    (currentBOQ.status === 'DRAFT' || currentBOQ.status === 'REVISED') &&
+    currentBOQ.status === 'PENDING_APPROVAL' &&
     currentBOQ.items.length > 0;
 
   return (
@@ -446,7 +496,7 @@ export default function BOQPage() {
       <div className="space-y-6">
         <div className="flex justify-between items-center">
           <h1 className="text-2xl font-bold text-[#e8e4dc]">Bill of Quantities</h1>
-          {permissions.canEditBOQ && (
+          {permissions.canEditBOQ && currentBOQ && (
             <button onClick={openImport} className="btn btn-sm btn-secondary">
               ↑ Import Excel
             </button>
@@ -465,8 +515,24 @@ export default function BOQPage() {
           }}
         />
 
-        {error && <div className="alert alert-error">{error}</div>}
+        {error && (
+          <div className="alert alert-error flex items-center justify-between">
+            <span>{error}</span>
+            {!currentBOQ && permissions.canEditBOQ && selectedPhaseId && (
+              <button
+                onClick={() => {
+                  autoCreateAttemptedRef.current = null;
+                  setError('');
+                }}
+                className="btn btn-sm btn-secondary ml-4 shrink-0"
+              >
+                Retry
+              </button>
+            )}
+          </div>
+        )}
 
+        {/* Phase selector — only show if no phase pre-filled from URL */}
         {phases.length > 0 && (
           <div className="card">
             <div className="card-body">
@@ -479,10 +545,7 @@ export default function BOQPage() {
                 <select
                   className="input"
                   value={selectedPhaseId}
-                  onChange={(e) => {
-                    setSelectedPhaseId(e.target.value);
-                    setError('');
-                  }}
+                  onChange={(e) => handlePhaseChange(e.target.value)}
                 >
                   <option value="">Select phase</option>
                   {phases.map((p) => (
@@ -496,30 +559,37 @@ export default function BOQPage() {
           </div>
         )}
 
-        {!currentBOQ ? (
+        {/* ── No phase selected ── */}
+        {!selectedPhaseId && (
           <div className="card">
-            <div className="card-body space-y-5 py-8">
-              <p className="text-[rgba(232,228,220,0.55)] text-center">
-                {selectedPhaseId
-                  ? 'No BOQ created for this phase yet'
-                  : permissions.canEditBOQ
-                  ? 'Select a phase to view or create its BOQ'
-                  : 'Select a phase to view its BOQ'}
+            <div className="card-body py-10 text-center">
+              <p className="text-[rgba(232,228,220,0.55)]">
+                Select a phase to view its BOQ
               </p>
-
-              {permissions.canEditBOQ && selectedPhaseId && (
-                <div className="flex justify-center">
-                  <button
-                    onClick={handleCreateBOQ}
-                    className="btn btn-primary"
-                  >
-                    Create BOQ
-                  </button>
-                </div>
-              )}
             </div>
           </div>
-        ) : (
+        )}
+
+        {/* ── Phase selected but BOQ not ready yet ── */}
+        {selectedPhaseId && !currentBOQ && (
+          <div className="card">
+            <div className="card-body py-10">
+              {autoCreating ? (
+                <div className="flex flex-col items-center gap-3">
+                  <div className="w-5 h-5 rounded-full border-2 border-[var(--ax-accent)] border-t-transparent animate-spin" />
+                  <p className="text-sm text-[rgba(232,228,220,0.45)]">Setting up BOQ…</p>
+                </div>
+              ) : !permissions.canEditBOQ ? (
+                <p className="text-center text-[rgba(232,228,220,0.55)]">
+                  No BOQ created for this phase yet
+                </p>
+              ) : null /* PMC: error shown above; auto-create will retry on button click */}
+            </div>
+          </div>
+        )}
+
+        {/* ── BOQ exists ── */}
+        {currentBOQ && (
           <>
             {/* BOQ Header */}
             <div className="card">
@@ -531,12 +601,16 @@ export default function BOQPage() {
                         <CheckCircle2 className="w-3.5 h-3.5" />
                         Approved
                       </span>
+                    ) : currentBOQ.status === 'PENDING_APPROVAL' ? (
+                      <span className="text-xs px-2 py-0.5 rounded-full bg-[rgba(234,179,8,0.15)] text-[#eab308] font-medium">
+                        Pending Approval
+                      </span>
                     ) : currentBOQ.status === 'REVISED' ? (
                       <span className="text-xs px-2 py-0.5 rounded-full bg-[rgba(234,88,12,0.12)] text-[#f97316] font-medium">
-                        Revised
+                        Needs Revision
                       </span>
                     ) : (
-                      <span className="badge badge-draft">{currentBOQ.status}</span>
+                      <span className="badge badge-draft">Draft</span>
                     )}
                     {currentBOQ.phase && (
                       <span className="text-sm text-[rgba(232,228,220,0.55)]">
@@ -557,14 +631,36 @@ export default function BOQPage() {
               </div>
             </div>
 
-            {/* Revision banner */}
-            {currentBOQ.status === 'REVISED' && canEditCurrentBOQ && (
+            {/* Status banners */}
+            {currentBOQ.status === 'REVISED' && permissions.canEditBOQ && (
               <div className="flex items-start gap-3 p-4 rounded-lg bg-[rgba(234,88,12,0.08)] border border-[rgba(249,115,22,0.25)]">
                 <span className="text-[#f97316] text-lg leading-none mt-0.5">⚠</span>
                 <div>
                   <p className="text-sm font-medium text-[#f97316]">Revision Required</p>
                   <p className="text-xs text-[rgba(249,115,22,0.7)] mt-0.5">
-                    Edit the items below and the Owner will re-approve.
+                    The Owner has requested changes. Edit the items below, then send for approval again.
+                  </p>
+                </div>
+              </div>
+            )}
+            {currentBOQ.status === 'PENDING_APPROVAL' && permissions.canEditBOQ && (
+              <div className="flex items-start gap-3 p-4 rounded-lg bg-[rgba(234,179,8,0.07)] border border-[rgba(234,179,8,0.25)]">
+                <span className="text-[#eab308] text-lg leading-none mt-0.5">⏳</span>
+                <div>
+                  <p className="text-sm font-medium text-[#eab308]">Awaiting Owner Approval</p>
+                  <p className="text-xs text-[rgba(234,179,8,0.7)] mt-0.5">
+                    BOQ submitted. Items are locked until the Owner reviews.
+                  </p>
+                </div>
+              </div>
+            )}
+            {currentBOQ.status === 'PENDING_APPROVAL' && permissions.canApproveBOQ && (
+              <div className="flex items-start gap-3 p-4 rounded-lg bg-[rgba(234,179,8,0.07)] border border-[rgba(234,179,8,0.25)]">
+                <span className="text-[#eab308] text-lg leading-none mt-0.5">👁</span>
+                <div>
+                  <p className="text-sm font-medium text-[#eab308]">BOQ Submitted for Your Approval</p>
+                  <p className="text-xs text-[rgba(234,179,8,0.7)] mt-0.5">
+                    Review the items below, then approve or request revisions.
                   </p>
                 </div>
               </div>
@@ -576,7 +672,7 @@ export default function BOQPage() {
                 <h2 className="text-lg font-semibold">Items ({currentBOQ.items.length})</h2>
                 {canEditCurrentBOQ && (
                   <button onClick={() => setShowAddItem(true)} className="btn btn-sm btn-primary">
-                    Add Item
+                    + Add Item
                   </button>
                 )}
               </div>
@@ -676,7 +772,9 @@ export default function BOQPage() {
                     {currentBOQ.items.length === 0 && (
                       <tr>
                         <td colSpan={canEditCurrentBOQ ? 6 : 5} className="text-center text-[rgba(232,228,220,0.55)] py-8">
-                          No items added yet
+                          {canEditCurrentBOQ
+                            ? 'No items yet — click "+ Add Item" above to get started'
+                            : 'No items added yet'}
                         </td>
                       </tr>
                     )}
@@ -707,16 +805,27 @@ export default function BOQPage() {
                   </button>
                 )}
               </div>
-            ) : canOwnerReview && (
+            ) : canOwnerReview ? (
+              // CLIENT: BOQ is PENDING_APPROVAL — show Approve / Request Revision
               <div className="flex justify-end gap-3">
                 <button onClick={() => handleRejectBOQ(currentBOQ.id)} className="btn btn-secondary">
-                  Send to Revision
+                  Request Revision
                 </button>
                 <button onClick={() => setConfirmApproveBoqId(currentBOQ.id)} className="btn btn-success">
                   Approve BOQ
                 </button>
               </div>
-            )}
+            ) : canSendForApproval ? (
+              // PMC: BOQ is DRAFT or REVISED with items — send to client for review
+              <div className="flex justify-end">
+                <button
+                  onClick={() => void handleSubmitForApproval(currentBOQ.id)}
+                  className="btn btn-primary"
+                >
+                  Send for Approval
+                </button>
+              </div>
+            ) : null}
 
             {/* Revisions */}
             {currentBOQ.revisions.length > 0 && (
@@ -740,7 +849,7 @@ export default function BOQPage() {
         )}
       </div>
 
-      {/* Revision Reason Modal */}
+      {/* ── Revision Reason Modal ── */}
       {revisionModal && (
         <div className="fixed inset-0 bg-black/70 flex items-center justify-center z-50">
           <div className="bg-[#13151a] border border-[rgba(255,255,255,0.1)] rounded-xl max-w-md w-full mx-4">
@@ -759,10 +868,7 @@ export default function BOQPage() {
               />
               {error && <p className="text-sm text-[#e06050] mt-2">{error}</p>}
               <div className="flex justify-end gap-3 mt-4">
-                <button
-                  onClick={() => setRevisionModal(null)}
-                  className="btn btn-secondary"
-                >
+                <button onClick={() => setRevisionModal(null)} className="btn btn-secondary">
                   Cancel
                 </button>
                 <button
@@ -778,7 +884,7 @@ export default function BOQPage() {
         </div>
       )}
 
-      {/* Add Item Modal */}
+      {/* ── Add Item Modal ── */}
       {showAddItem && currentBOQ && (
         <div className="fixed inset-0 bg-black/70 flex items-center justify-center z-50">
           <div className="bg-[#13151a] border border-[rgba(255,255,255,0.1)] rounded-xl max-w-md w-full mx-4">
@@ -788,6 +894,7 @@ export default function BOQPage() {
                 <div>
                   <label className="label">Description</label>
                   <input
+                    autoFocus
                     type="text"
                     className="input"
                     value={newItem.description}
@@ -824,12 +931,15 @@ export default function BOQPage() {
                     />
                   </div>
                 </div>
-
                 <div className="flex justify-end space-x-3 pt-4">
                   <button onClick={() => setShowAddItem(false)} className="btn btn-secondary">
                     Cancel
                   </button>
-                  <button onClick={() => handleAddItem(currentBOQ.id)} className="btn btn-primary">
+                  <button
+                    onClick={() => void handleAddItem(currentBOQ.id)}
+                    disabled={!newItem.description || !newItem.unit || !newItem.plannedQty || !newItem.rate}
+                    className="btn btn-primary disabled:opacity-50"
+                  >
                     Add Item
                   </button>
                 </div>
@@ -839,12 +949,11 @@ export default function BOQPage() {
         </div>
       )}
 
-      {/* ── Import Excel Modal ────────────────────────────────────────────── */}
+      {/* ── Import Excel Modal ── */}
       {showImport && (
         <div className="fixed inset-0 bg-black/70 flex items-start justify-center z-50 overflow-y-auto py-8 px-4">
           <div className="bg-[#13151a] border border-[rgba(255,255,255,0.1)] rounded-xl w-full max-w-2xl">
             <div className="p-6 space-y-5">
-              {/* Header */}
               <div className="flex justify-between items-center">
                 <h2 className="text-lg font-semibold text-[#e8e4dc]">Import BOQ from Excel</h2>
                 <button
@@ -856,7 +965,6 @@ export default function BOQPage() {
               </div>
 
               {importResult ? (
-                /* ── Step 3: Results ── */
                 <div className="space-y-4">
                   <div className={`p-4 rounded-lg border ${importResult.created > 0 ? 'bg-[rgba(92,186,128,0.07)] border-[rgba(92,186,128,0.2)]' : 'bg-[rgba(224,96,80,0.07)] border-[rgba(224,96,80,0.2)]'}`}>
                     <p className={`font-medium text-sm ${importResult.created > 0 ? 'text-[#5cba80]' : 'text-[#e06050]'}`}>
@@ -877,12 +985,11 @@ export default function BOQPage() {
                     ))}
                   </div>
                   <div className="flex justify-end gap-3 pt-2">
-                    <button onClick={() => { setShowImport(false); }} className="btn btn-secondary">Close</button>
+                    <button onClick={() => setShowImport(false)} className="btn btn-secondary">Close</button>
                     <button onClick={() => { setImportRows([]); setImportResult(null); setImportParseNote(''); setImportParseError(''); }} className="btn btn-primary">Import More</button>
                   </div>
                 </div>
               ) : importRows.length > 0 ? (
-                /* ── Step 2: Preview + phase mapping ── */
                 (() => {
                   const byPhase = new Map<string, ImportRow[]>();
                   for (const row of importRows) {
@@ -903,7 +1010,7 @@ export default function BOQPage() {
                         <p className="text-xs text-[rgba(249,115,22,0.8)] bg-[rgba(249,115,22,0.07)] border border-[rgba(249,115,22,0.2)] rounded-lg px-3 py-2">{importParseNote}</p>
                       )}
                       <p className="text-sm text-[rgba(232,228,220,0.55)]">
-                        <span className="text-[#e8e4dc] font-medium">{importRows.length} items</span> across <span className="text-[#e8e4dc] font-medium">{groups.length} phases</span> — auto-matched below
+                        <span className="text-[#e8e4dc] font-medium">{importRows.length} items</span> across <span className="text-[#e8e4dc] font-medium">{groups.length} phases</span>
                       </p>
                       <div className="rounded-lg border border-[rgba(255,255,255,0.07)] overflow-hidden">
                         <table className="w-full text-sm">
@@ -935,7 +1042,7 @@ export default function BOQPage() {
                       </div>
                       {unmatchedCount > 0 && (
                         <p className="text-xs text-[#e06050] bg-[rgba(224,96,80,0.07)] border border-[rgba(224,96,80,0.2)] rounded-lg px-3 py-2">
-                          {unmatchedCount} phase{unmatchedCount > 1 ? 's' : ''} not found in this project — those items will be skipped. Check spelling matches the Phase Reference sheet.
+                          {unmatchedCount} phase{unmatchedCount > 1 ? 's' : ''} not found in this project — those items will be skipped.
                         </p>
                       )}
                       {importParseError && <p className="text-xs text-[#e06050]">{importParseError}</p>}
@@ -953,9 +1060,7 @@ export default function BOQPage() {
                   );
                 })()
               ) : (
-                /* ── Step 1: Format guide + upload ── */
                 <div className="space-y-5">
-                  {/* Format table */}
                   <div>
                     <p className="text-xs font-medium text-[rgba(232,228,220,0.45)] uppercase tracking-wider mb-2">Required Columns (in order)</p>
                     <div className="rounded-lg border border-[rgba(255,255,255,0.07)] overflow-hidden">
@@ -975,13 +1080,6 @@ export default function BOQPage() {
                             <td className="px-3 py-2">50</td>
                             <td className="px-3 py-2">850</td>
                           </tr>
-                          <tr className="border-b border-[rgba(255,255,255,0.04)]">
-                            <td className="px-3 py-2 text-[var(--ax-accent)]">Foundation</td>
-                            <td className="px-3 py-2">PCC M10 below footing</td>
-                            <td className="px-3 py-2">cum</td>
-                            <td className="px-3 py-2">12</td>
-                            <td className="px-3 py-2">4200</td>
-                          </tr>
                           <tr>
                             <td className="px-3 py-2 text-[var(--ax-accent)]">Structure</td>
                             <td className="px-3 py-2">RCC M25 columns</td>
@@ -992,20 +1090,15 @@ export default function BOQPage() {
                         </tbody>
                       </table>
                     </div>
-                    <p className="text-xs text-[rgba(232,228,220,0.35)] mt-1.5">Phase name must match your project phases exactly · Value column is auto-calculated</p>
                   </div>
-
-                  {/* Download template */}
                   <a
                     href={`/api/projects/${projectId}/boq/template`}
                     download
-                    className="flex items-center gap-2 text-sm text-[var(--ax-accent)] hover:text-[var(--ax-accent)] transition-colors"
+                    className="flex items-center gap-2 text-sm text-[var(--ax-accent)] hover:underline"
                   >
                     <span>↓</span>
                     <span>Download template with your project&apos;s phase names pre-filled</span>
                   </a>
-
-                  {/* Upload zone */}
                   <div>
                     <p className="text-xs font-medium text-[rgba(232,228,220,0.45)] uppercase tracking-wider mb-2">Upload File</p>
                     <button
@@ -1018,7 +1111,6 @@ export default function BOQPage() {
                       <p className="text-xs text-[rgba(232,228,220,0.3)] mt-1">Supports .xlsx · .xls · .csv</p>
                     </button>
                   </div>
-
                   {importParseError && (
                     <p className="text-sm text-[#e06050] bg-[rgba(224,96,80,0.07)] border border-[rgba(224,96,80,0.2)] rounded-lg px-3 py-2">{importParseError}</p>
                   )}
@@ -1029,7 +1121,7 @@ export default function BOQPage() {
         </div>
       )}
 
-      {/* Confirm: Approve BOQ */}
+      {/* ── Confirm: Approve BOQ ── */}
       {confirmApproveBoqId && (
         <div className="fixed inset-0 bg-black/70 flex items-center justify-center z-50 p-4">
           <div className="bg-[#13151a] border border-[rgba(255,255,255,0.1)] rounded-xl max-w-sm w-full shadow-2xl p-6 space-y-4">
@@ -1047,7 +1139,7 @@ export default function BOQPage() {
         </div>
       )}
 
-      {/* Confirm: Delete BOQ Item */}
+      {/* ── Confirm: Delete BOQ Item ── */}
       {confirmDeleteItemId && (
         <div className="fixed inset-0 bg-black/70 flex items-center justify-center z-50 p-4">
           <div className="bg-[#13151a] border border-[rgba(255,255,255,0.1)] rounded-xl max-w-sm w-full shadow-2xl p-6 space-y-4">

@@ -38,17 +38,24 @@ function BOQStatusBadge({ status }: { status: string }) {
       </span>
     );
   }
+  if (status === 'PENDING_APPROVAL') {
+    return (
+      <span className="text-xs px-2 py-0.5 rounded-full bg-[rgba(234,179,8,0.15)] text-[#eab308] font-medium">
+        Pending Approval
+      </span>
+    );
+  }
   if (status === 'REVISED') {
     return (
       <span className="inline-flex items-center gap-1.5">
         <span className="text-xs px-2 py-0.5 rounded-full bg-[rgba(234,88,12,0.12)] text-[#f97316] font-medium">
-          Revised
+          Needs Revision
         </span>
         <span className="text-xs text-[rgba(249,115,22,0.7)]">Re-approval needed</span>
       </span>
     );
   }
-  return <span className="badge badge-draft text-xs">{status}</span>;
+  return <span className="badge badge-draft text-xs">Draft</span>;
 }
 
 export default function PhaseList({ projectId, userRole }: Props) {

@@ -3,7 +3,6 @@ import { prisma } from '@/lib/db';
 import { requireProjectAuth } from '@/lib/auth';
 import { RoleGuard } from '@/services/RoleGuard';
 import { BOQService } from '@/services/BOQService';
-import { cached } from '@/lib/cache';
 import { invalidateProjectAndMemberCaches } from '@/lib/cache-invalidation';
 
 // GET /api/projects/[projectId]/boq - List BOQs for project
@@ -15,28 +14,19 @@ export async function GET(
     const { projectId } = await params;
     await requireProjectAuth(projectId);
 
-    // BOQ data is rarely changed once approved — 120s TTL.
-    const boqs = await cached(`boq:${projectId}:list`, 120_000, () =>
-      prisma.bOQ.findMany({
-        where: { projectId },
-        include: {
-          items: {
-            orderBy: { createdAt: 'asc' },
-          },
-          revisions: {
-            orderBy: { revisionNumber: 'desc' },
-          },
-          phase: {
-            select: { id: true, name: true, sortOrder: true },
-          },
-        },
-        orderBy: [{ phase: { sortOrder: 'asc' } }, { createdAt: 'desc' }],
-      }),
-    );
+    const boqs = await prisma.bOQ.findMany({
+      where: { projectId },
+      include: {
+        items: { orderBy: { createdAt: 'asc' } },
+        revisions: { orderBy: { revisionNumber: 'desc' } },
+        phase: { select: { id: true, name: true, sortOrder: true } },
+      },
+      orderBy: [{ phase: { sortOrder: 'asc' } }, { createdAt: 'desc' }],
+    });
 
     return NextResponse.json(
       { success: true, data: boqs },
-      { headers: { 'Cache-Control': 's-maxage=60, stale-while-revalidate=300' } },
+      { headers: { 'Cache-Control': 'no-store' } },
     );
   } catch (error) {
     if (error instanceof Error && error.message === 'UNAUTHORIZED') {

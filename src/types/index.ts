@@ -61,6 +61,7 @@ export type EligibilityEventType = (typeof EligibilityEventType)[keyof typeof El
 
 export const BOQStatus = {
   DRAFT: 'DRAFT',
+  PENDING_APPROVAL: 'PENDING_APPROVAL',
   APPROVED: 'APPROVED',
   REVISED: 'REVISED',
 } as const;
@@ -430,6 +431,7 @@ export const AuditActionTypes = {
   ROLE_ASSIGN: 'ROLE_ASSIGN',
   ROLE_REMOVE: 'ROLE_REMOVE',
   BOQ_CREATE: 'BOQ_CREATE',
+  BOQ_SUBMIT: 'BOQ_SUBMIT',
   BOQ_APPROVE: 'BOQ_APPROVE',
   BOQ_REVISE: 'BOQ_REVISE',
   BOQ_ITEM_ADD: 'BOQ_ITEM_ADD',

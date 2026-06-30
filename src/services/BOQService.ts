@@ -1,4 +1,4 @@
-import { BOQStatus, Role, AuditActionTypes } from '@/types';
+import { BOQStatus, Role, AuditActionTypes, AuditActionType } from '@/types';
 import { prisma } from '@/lib/db';
 import { AuditLogger } from './AuditLogger';
 
@@ -261,8 +261,12 @@ export class BOQService {
     }
 
     const fromStatus = boq.status as BOQStatus;
-    if (fromStatus !== BOQStatus.DRAFT && fromStatus !== BOQStatus.REVISED) {
-      return { success: false, error: 'BOQ must be in DRAFT or REVISED status to approve' };
+    if (
+      fromStatus !== BOQStatus.DRAFT &&
+      fromStatus !== BOQStatus.REVISED &&
+      fromStatus !== BOQStatus.PENDING_APPROVAL
+    ) {
+      return { success: false, error: 'BOQ must be submitted for approval before it can be approved' };
     }
 
     if (boq.items.length === 0) {
@@ -329,9 +333,10 @@ export class BOQService {
     if (
       fromStatus !== BOQStatus.DRAFT &&
       fromStatus !== BOQStatus.REVISED &&
+      fromStatus !== BOQStatus.PENDING_APPROVAL &&
       fromStatus !== BOQStatus.APPROVED
     ) {
-      return { success: false, error: 'BOQ must be DRAFT, REVISED, or APPROVED to request revision' };
+      return { success: false, error: 'Cannot request revision in the current status' };
     }
 
     const revisionNumber = boq.revisions.length + 1;
@@ -512,6 +517,53 @@ export class BOQService {
     });
 
     return { success: true, revisionNumber };
+  }
+
+  /**
+   * PMC submits a BOQ for Owner review: DRAFT/REVISED → PENDING_APPROVAL.
+   */
+  static async sendForApproval(
+    boqId: string,
+    actorId: string,
+    role: Role,
+    projectId: string
+  ): Promise<{ success: boolean; error?: string }> {
+    if (role !== Role.PMC) {
+      return { success: false, error: 'Only PMC can submit a BOQ for approval' };
+    }
+
+    const boq = await prisma.bOQ.findFirst({
+      where: { id: boqId, projectId },
+      include: { items: true },
+    });
+
+    if (!boq) return { success: false, error: 'BOQ not found' };
+
+    if (boq.status !== BOQStatus.DRAFT && boq.status !== BOQStatus.REVISED) {
+      return { success: false, error: 'BOQ must be in DRAFT or REVISED status to submit for approval' };
+    }
+
+    if (boq.items.length === 0) {
+      return { success: false, error: 'Add at least one item before submitting for approval' };
+    }
+
+    await prisma.bOQ.update({
+      where: { id: boqId },
+      data: { status: BOQStatus.PENDING_APPROVAL },
+    });
+
+    await AuditLogger.log({
+      projectId,
+      actorId,
+      role,
+      actionType: AuditActionTypes.BOQ_SUBMIT as AuditActionType,
+      entityType: 'BOQ',
+      entityId: boqId,
+      beforeJson: { status: boq.status },
+      afterJson: { status: BOQStatus.PENDING_APPROVAL },
+    });
+
+    return { success: true };
   }
 
   /**
