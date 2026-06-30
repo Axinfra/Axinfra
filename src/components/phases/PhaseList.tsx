@@ -3,9 +3,10 @@
 import { useState } from 'react';
 import { useRouter } from 'next/navigation';
 import useSWR from 'swr';
-import { ChevronDown, ChevronRight, CheckCircle2 } from 'lucide-react';
+import { ChevronDown, ChevronRight, CheckCircle2, Calendar } from 'lucide-react';
 import { Skeleton } from '@/components/ui/Skeleton';
 import { jsonFetcher } from '@/lib/fetcher';
+import { formatDate } from '@/lib/utils';
 
 interface PhaseBOQ {
   id: string;
@@ -16,6 +17,8 @@ interface Phase {
   id: string;
   name: string;
   sortOrder: number;
+  plannedStart: string | null;
+  plannedEnd: string | null;
   createdAt: string;
   boq: PhaseBOQ | null;
   milestonesCount: number;
@@ -51,7 +54,7 @@ function BOQStatusBadge({ status }: { status: string }) {
 export default function PhaseList({ projectId, userRole }: Props) {
   const router = useRouter();
 
-  const canEdit = userRole === 'CLIENT' || userRole === 'PMC';
+  const canEdit   = userRole === 'CLIENT' || userRole === 'PMC';
   const canDelete = userRole === 'CLIENT';
 
   const {
@@ -64,7 +67,6 @@ export default function PhaseList({ projectId, userRole }: Props) {
     { dedupingInterval: 5_000 },
   );
 
-  // Collapsed/expanded state — all expanded by default
   const [expanded, setExpanded] = useState<Set<string>>(new Set());
   const toggleExpand = (id: string) =>
     setExpanded((prev) => {
@@ -72,35 +74,39 @@ export default function PhaseList({ projectId, userRole }: Props) {
       next.has(id) ? next.delete(id) : next.add(id);
       return next;
     });
-  const isExpanded = (id: string) => !expanded.has(id); // default: open
+  const isExpanded = (id: string) => !expanded.has(id);
 
   // Add phase modal
-  const [showAdd, setShowAdd] = useState(false);
-  const [newName, setNewName] = useState('');
-  const [adding, setAdding] = useState(false);
+  const [showAdd, setShowAdd]           = useState(false);
+  const [newName, setNewName]           = useState('');
+  const [newStart, setNewStart]         = useState('');
+  const [newEnd, setNewEnd]             = useState('');
+  const [adding, setAdding]             = useState(false);
 
   // Inline edit
-  const [editingId, setEditingId] = useState<string | null>(null);
-  const [editName, setEditName] = useState('');
-  const [saving, setSaving] = useState(false);
+  const [editingId, setEditingId]       = useState<string | null>(null);
+  const [editName, setEditName]         = useState('');
+  const [saving, setSaving]             = useState(false);
 
   // Delete confirm
-  const [deleteId, setDeleteId] = useState<string | null>(null);
-  const [deleteError, setDeleteError] = useState('');
-  const [deleting, setDeleting] = useState(false);
+  const [deleteId, setDeleteId]         = useState<string | null>(null);
+  const [deleteError, setDeleteError]   = useState('');
+  const [deleting, setDeleting]         = useState(false);
 
-  // General error
-  const [apiError, setApiError] = useState('');
+  const [apiError, setApiError]         = useState('');
 
   // ── Handlers ────────────────────────────────────────────────────────────────
 
   const handleAddPhase = async () => {
     const name = newName.trim();
     if (!name) return;
+    if (newStart && newEnd && newStart >= newEnd) {
+      setApiError('Start date must be before end date');
+      return;
+    }
     setAdding(true);
     setApiError('');
 
-    // Optimistic update — add a placeholder phase immediately
     const tempId = `temp-${Date.now()}`;
     void refetch(
       (current = []) => [
@@ -109,6 +115,8 @@ export default function PhaseList({ projectId, userRole }: Props) {
           id: tempId,
           name,
           sortOrder: (current[current.length - 1]?.sortOrder ?? 0) + 1,
+          plannedStart: newStart || null,
+          plannedEnd: newEnd || null,
           createdAt: new Date().toISOString(),
           boq: null,
           milestonesCount: 0,
@@ -119,18 +127,24 @@ export default function PhaseList({ projectId, userRole }: Props) {
 
     setShowAdd(false);
     setNewName('');
+    setNewStart('');
+    setNewEnd('');
 
     try {
       const res = await fetch(`/api/projects/${projectId}/phases`, {
         method: 'POST',
         headers: { 'Content-Type': 'application/json' },
-        body: JSON.stringify({ name }),
+        body: JSON.stringify({
+          name,
+          plannedStart: newStart || undefined,
+          plannedEnd:   newEnd   || undefined,
+        }),
       });
       const json = await res.json();
       if (json.success) {
-        void refetch(); // sync real ID from server
+        void refetch();
       } else {
-        void refetch(); // revert optimistic
+        void refetch();
         setApiError(json.error ?? 'Failed to create phase');
         setShowAdd(true);
         setNewName(name);
@@ -252,7 +266,6 @@ export default function PhaseList({ projectId, userRole }: Props) {
             {/* Phase header row */}
             <div className="card-body py-3 px-4">
               <div className="flex items-center gap-3">
-                {/* Expand toggle */}
                 <button
                   onClick={() => toggleExpand(phase.id)}
                   className="text-[rgba(232,228,220,0.4)] hover:text-[#e8e4dc] transition-colors shrink-0"
@@ -263,7 +276,6 @@ export default function PhaseList({ projectId, userRole }: Props) {
                     : <ChevronRight className="w-4 h-4" />}
                 </button>
 
-                {/* Name / inline edit */}
                 {isEditing ? (
                   <div className="flex items-center gap-2 flex-1">
                     <input
@@ -292,12 +304,21 @@ export default function PhaseList({ projectId, userRole }: Props) {
                     </button>
                   </div>
                 ) : (
-                  <span className="font-medium text-[#e8e4dc] flex-1 truncate">
-                    {phase.name}
-                  </span>
+                  <div className="flex-1 min-w-0">
+                    <span className="font-medium text-[#e8e4dc] truncate block">
+                      {phase.name}
+                    </span>
+                    {(phase.plannedStart || phase.plannedEnd) && (
+                      <span className="flex items-center gap-1 text-[11px] text-[rgba(232,228,220,0.38)] mt-0.5">
+                        <Calendar className="w-3 h-3 shrink-0" />
+                        {phase.plannedStart ? formatDate(phase.plannedStart) : '—'}
+                        {' → '}
+                        {phase.plannedEnd ? formatDate(phase.plannedEnd) : '—'}
+                      </span>
+                    )}
+                  </div>
                 )}
 
-                {/* Action buttons */}
                 {!isEditing && canEdit && (
                   <button
                     onClick={() => { setEditingId(phase.id); setEditName(phase.name); setApiError(''); }}
@@ -320,6 +341,25 @@ export default function PhaseList({ projectId, userRole }: Props) {
             {/* Expanded detail */}
             {open && (
               <div className="border-t border-[rgba(255,255,255,0.06)] px-4 py-3 space-y-2">
+                {/* Dates row */}
+                {(phase.plannedStart || phase.plannedEnd) && (
+                  <div className="flex items-center gap-2 text-sm text-[rgba(232,228,220,0.65)]">
+                    <span className="w-1 h-1 rounded-full bg-[rgba(232,228,220,0.3)]" />
+                    <Calendar className="w-3.5 h-3.5 shrink-0 text-[var(--ax-accent)]" />
+                    <span>
+                      {phase.plannedStart ? formatDate(phase.plannedStart) : '—'}
+                      {' → '}
+                      {phase.plannedEnd ? formatDate(phase.plannedEnd) : '—'}
+                    </span>
+                    <button
+                      onClick={() => router.push(`/projects/${projectId}/schedule`)}
+                      className="text-xs text-[var(--ax-accent)] hover:underline ml-1"
+                    >
+                      Edit in Schedule
+                    </button>
+                  </div>
+                )}
+
                 {/* BOQ row */}
                 <div className="flex items-center justify-between text-sm">
                   <div className="flex items-center gap-2 text-[rgba(232,228,220,0.65)]">
@@ -365,9 +405,7 @@ export default function PhaseList({ projectId, userRole }: Props) {
                   </div>
                   <button
                     onClick={() =>
-                      router.push(
-                        `/projects/${projectId}/milestones?phaseId=${phase.id}`
-                      )
+                      router.push(`/projects/${projectId}/milestones?phaseId=${phase.id}`)
                     }
                     className="btn btn-sm btn-secondary text-xs"
                   >
@@ -388,7 +426,7 @@ export default function PhaseList({ projectId, userRole }: Props) {
               <h2 className="text-lg font-semibold mb-4 text-[#e8e4dc]">Add Phase</h2>
               <div className="space-y-4">
                 <div>
-                  <label className="label">Phase Name</label>
+                  <label className="label">Phase Name <span className="text-[#e06050]">*</span></label>
                   <input
                     autoFocus
                     type="text"
@@ -399,12 +437,36 @@ export default function PhaseList({ projectId, userRole }: Props) {
                     onKeyDown={(e) => { if (e.key === 'Enter') void handleAddPhase(); }}
                   />
                 </div>
+                <div className="grid grid-cols-2 gap-3">
+                  <div>
+                    <label className="label">Start Date</label>
+                    <input
+                      type="date"
+                      className="input text-sm"
+                      value={newStart}
+                      onChange={(e) => setNewStart(e.target.value)}
+                    />
+                  </div>
+                  <div>
+                    <label className="label">End Date</label>
+                    <input
+                      type="date"
+                      className="input text-sm"
+                      value={newEnd}
+                      min={newStart || undefined}
+                      onChange={(e) => setNewEnd(e.target.value)}
+                    />
+                  </div>
+                </div>
+                <p className="text-xs text-[rgba(232,228,220,0.35)]">
+                  Dates are optional. All team members will be notified when the phase is created.
+                </p>
                 {apiError && (
                   <p className="text-sm text-[#e06050]">{apiError}</p>
                 )}
                 <div className="flex justify-end gap-3 pt-1">
                   <button
-                    onClick={() => { setShowAdd(false); setNewName(''); setApiError(''); }}
+                    onClick={() => { setShowAdd(false); setNewName(''); setNewStart(''); setNewEnd(''); setApiError(''); }}
                     className="btn btn-secondary"
                   >
                     Cancel

@@ -35,11 +35,33 @@ export async function PATCH(
       );
     }
 
+    const plannedStart = body.plannedStart !== undefined
+      ? (body.plannedStart ? new Date(body.plannedStart as string) : null)
+      : undefined;
+    const plannedEnd = body.plannedEnd !== undefined
+      ? (body.plannedEnd ? new Date(body.plannedEnd as string) : null)
+      : undefined;
+
+    if (plannedStart instanceof Date && isNaN(plannedStart.getTime())) {
+      return NextResponse.json({ success: false, error: 'Invalid plannedStart date' }, { status: 400 });
+    }
+    if (plannedEnd instanceof Date && isNaN(plannedEnd.getTime())) {
+      return NextResponse.json({ success: false, error: 'Invalid plannedEnd date' }, { status: 400 });
+    }
+
+    const resolvedStart = plannedStart !== undefined ? plannedStart : phase.plannedStart;
+    const resolvedEnd   = plannedEnd   !== undefined ? plannedEnd   : phase.plannedEnd;
+    if (resolvedStart && resolvedEnd && resolvedStart >= resolvedEnd) {
+      return NextResponse.json({ success: false, error: 'Start date must be before end date' }, { status: 400 });
+    }
+
     const updated = await prisma.phase.update({
       where: { id: phaseId },
       data: {
         ...(body.name !== undefined && { name: (body.name as string).trim() }),
         ...(body.sortOrder !== undefined && { sortOrder: body.sortOrder as number }),
+        ...(plannedStart !== undefined && { plannedStart }),
+        ...(plannedEnd   !== undefined && { plannedEnd }),
       },
     });
 

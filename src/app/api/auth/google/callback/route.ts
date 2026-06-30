@@ -2,6 +2,7 @@ import { NextRequest, NextResponse } from 'next/server';
 import { prisma } from '@/lib/db';
 import { createSession } from '@/lib/auth';
 import { sendSignupWelcomeEmail } from '@/lib/email';
+import { autoAcceptPendingInvites, isDemoEmail } from '@/lib/invite-utils';
 
 export const dynamic = 'force-dynamic';
 
@@ -98,6 +99,12 @@ export async function GET(request: NextRequest) {
       sendSignupWelcomeEmail(user.email, user.name).catch(e =>
         console.error('[email] google signup welcome failed:', e)
       );
+      // Auto-accept ONLY for demo @example.com — real vendors must click their link
+      if (isDemoEmail(user.email)) {
+        autoAcceptPendingInvites(user.id, user.email).catch(e =>
+          console.error('[invite] auto-accept failed on google signup:', e)
+        );
+      }
     } else {
       // Existing user — link Google account and update role if a new one was provided
       user = await prisma.user.update({

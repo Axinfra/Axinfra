@@ -2,6 +2,7 @@ import { NextRequest, NextResponse } from 'next/server';
 import { prisma } from '@/lib/db';
 import { createSession } from '@/lib/auth';
 import { sendSignupWelcomeEmail } from '@/lib/email';
+import { autoAcceptPendingInvites, isDemoEmail } from '@/lib/invite-utils';
 import bcrypt from 'bcryptjs';
 import { z } from 'zod';
 
@@ -44,6 +45,14 @@ export async function POST(request: NextRequest) {
     sendSignupWelcomeEmail(user.email, user.name).catch(e =>
       console.error('[email] signup welcome failed:', e)
     );
+
+    // Auto-accept pending invites ONLY for demo @example.com addresses.
+    // Real email vendors must click their invitation link to accept.
+    if (isDemoEmail(user.email)) {
+      autoAcceptPendingInvites(user.id, user.email).catch(e =>
+        console.error('[invite] auto-accept failed on register:', e)
+      );
+    }
 
     const token = await createSession({ id: user.id, email: user.email, name: user.name });
 

@@ -458,3 +458,113 @@ export async function sendProjectAssignedEmail(
     html,
   });
 }
+
+export async function sendPhaseCreatedEmail(
+  to: string,
+  recipientName: string,
+  projectName: string,
+  phaseName: string,
+  plannedStart: string | null,
+  plannedEnd: string | null,
+  projectId: string,
+  actorName: string,
+  actorRole: string,
+) {
+  const projectUrl = `${APP_URL}/projects/${projectId}/schedule`;
+  const roleLabels: Record<string, string> = {
+    CLIENT: 'Project Owner', PMC: 'PMC', VENDOR: 'Vendor',
+    CONSULTANT: 'Consultant', VIEWER: 'Viewer',
+  };
+  const actorLabel = roleLabels[actorRole] ?? actorRole;
+
+  const fmt = (d: string | null) =>
+    d ? new Date(d).toLocaleDateString('en-IN', { day: 'numeric', month: 'long', year: 'numeric' }) : '—';
+
+  const html = baseTemplate(`
+    <h1 style="margin:0 0 6px;font-size:20px;font-weight:800;color:#e8e4dc;">New Phase Added</h1>
+    <p style="margin:0 0 20px;font-size:13.5px;color:rgba(232,228,220,0.55);">
+      Hi ${escapeHtml(recipientName)}, <strong style="color:#e8e4dc;">${escapeHtml(actorName)}</strong>
+      (${escapeHtml(actorLabel)}) has added a new phase to
+      <strong style="color:#e8e4dc;">${escapeHtml(projectName)}</strong>.
+    </p>
+
+    <table width="100%" cellpadding="0" cellspacing="0" style="background:rgba(255,255,255,0.03);border:1px solid rgba(255,255,255,0.07);border-radius:10px;margin-bottom:16px;">
+      ${credential('Project', projectName)}
+      ${credential('New Phase', phaseName)}
+      ${credential('Planned Start', fmt(plannedStart))}
+      ${credential('Planned End', fmt(plannedEnd))}
+      ${credential('Added by', `${actorName} (${actorLabel})`)}
+    </table>
+
+    <p style="font-size:12px;color:rgba(232,228,220,0.35);margin:0 0 0;">
+      Open the project schedule to see the updated phase timeline.
+    </p>
+
+    ${btn('View Schedule', projectUrl)}
+  `);
+
+  return getResend().emails.send({
+    from: FROM,
+    to,
+    subject: `New phase "${phaseName}" added to ${projectName}`,
+    html,
+  });
+}
+
+export async function sendScheduleUpdatedEmail(
+  to: string,
+  recipientName: string,
+  projectName: string,
+  phaseName: string,
+  newEndDate: string,
+  projectId: string,
+  actorName: string,
+  actorRole: string,
+  newStartDate?: string,
+) {
+  const projectUrl = `${APP_URL}/projects/${projectId}/schedule`;
+
+  const fmt = (iso: string) =>
+    new Date(iso).toLocaleDateString('en-IN', { day: 'numeric', month: 'long', year: 'numeric' });
+
+  const roleLabels: Record<string, string> = {
+    CLIENT: 'Project Owner', PMC: 'PMC', VENDOR: 'Vendor',
+    CONSULTANT: 'Consultant', VIEWER: 'Viewer',
+  };
+  const actorLabel = roleLabels[actorRole] ?? actorRole;
+
+  const changedFields: string[] = [];
+  if (newStartDate) changedFields.push('start date');
+  if (newEndDate)   changedFields.push('end date');
+  const changeLabel = changedFields.join(' and ');
+
+  const html = baseTemplate(`
+    <h1 style="margin:0 0 6px;font-size:20px;font-weight:800;color:#e8e4dc;">Phase Schedule Updated</h1>
+    <p style="margin:0 0 20px;font-size:13.5px;color:rgba(232,228,220,0.55);">
+      Hi ${escapeHtml(recipientName)}, <strong style="color:#e8e4dc;">${escapeHtml(actorName)}</strong>
+      (${escapeHtml(actorLabel)}) has updated the ${escapeHtml(changeLabel)} for a phase in
+      <strong style="color:#e8e4dc;">${escapeHtml(projectName)}</strong>.
+    </p>
+
+    <table width="100%" cellpadding="0" cellspacing="0" style="background:rgba(255,255,255,0.03);border:1px solid rgba(255,255,255,0.07);border-radius:10px;margin-bottom:16px;">
+      ${credential('Project', projectName)}
+      ${credential('Phase', phaseName)}
+      ${newStartDate ? credential('New Start Date', fmt(newStartDate)) : ''}
+      ${newEndDate   ? credential('New End Date',   fmt(newEndDate))   : ''}
+      ${credential('Changed by', `${actorName} (${actorLabel})`)}
+    </table>
+
+    <p style="font-size:12px;color:rgba(232,228,220,0.35);margin:0 0 0;">
+      Open the project schedule to review the updated timeline and check your assigned milestones.
+    </p>
+
+    ${btn('View Schedule', projectUrl)}
+  `);
+
+  return getResend().emails.send({
+    from: FROM,
+    to,
+    subject: `"${phaseName}" dates updated — ${projectName}`,
+    html,
+  });
+}

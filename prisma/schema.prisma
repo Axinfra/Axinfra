@@ -217,6 +217,7 @@ model Milestone {
   verifications           Verification[]
   successorDependencies   MilestoneDependency[]      @relation("DependencySuccessor")
   predecessorDependencies MilestoneDependency[]      @relation("DependencyPredecessor")
+  customScheduleLinks     CustomScheduleMilestoneLink[]
 
   @@index([projectId])
   @@index([state])
@@ -319,6 +320,7 @@ model Project {
   setRequests      SetRequest[]
   vendorRequests   VendorRequest[]
   projectInvites   ProjectInvite[]
+  customSchedule   CustomSchedule?
 }
 
 /// Dependency link between two milestones (CPM / Gantt edges)
@@ -405,6 +407,7 @@ model User {
   vendorRequestsResponded  VendorRequest[]     @relation("VendorRequestResponder")
   vendorRequestFiles       VendorRequestFile[] @relation("VendorRequestFileUploader")
   projectInvitesSent       ProjectInvite[]     @relation("ProjectInviteInviter")
+  customSchedules          CustomSchedule[]    @relation("CustomScheduleCreator")
 }
 
 model Verification {
@@ -534,18 +537,66 @@ model PrivateCostEntry {
 }
 
 model Phase {
-  id         String      @id @default(uuid())
-  projectId  String
-  name       String
-  sortOrder  Int         @default(0)
-  createdAt  DateTime    @default(now())
-  updatedAt  DateTime    @updatedAt
-  project    Project     @relation(fields: [projectId], references: [id], onDelete: Cascade)
-  boq        BOQ?
-  milestones Milestone[]
+  id           String      @id @default(uuid())
+  projectId    String
+  name         String
+  sortOrder    Int         @default(0)
+  plannedStart DateTime?
+  plannedEnd   DateTime?
+  createdAt    DateTime    @default(now())
+  updatedAt    DateTime    @updatedAt
+  project      Project     @relation(fields: [projectId], references: [id], onDelete: Cascade)
+  boq          BOQ?
+  milestones   Milestone[]
 
   @@index([projectId])
   @@index([projectId, sortOrder])
+}
+
+// ── Custom Schedule Module ────────────────────────────────────────────────────
+
+/// PMC-created custom schedule for a project — shows preferred view to all roles
+model CustomSchedule {
+  id          String               @id @default(uuid())
+  projectId   String               @unique
+  isPreferred Boolean              @default(false)
+  createdById String
+  createdAt   DateTime             @default(now())
+  updatedAt   DateTime             @updatedAt
+  project     Project              @relation(fields: [projectId], references: [id], onDelete: Cascade)
+  createdBy   User                 @relation("CustomScheduleCreator", fields: [createdById], references: [id])
+  phases      CustomSchedulePhase[]
+
+  @@index([projectId])
+}
+
+model CustomSchedulePhase {
+  id               String                       @id @default(uuid())
+  customScheduleId String
+  name             String
+  plannedStart     DateTime
+  plannedEnd       DateTime
+  sortOrder        Int                          @default(0)
+  createdAt        DateTime                     @default(now())
+  updatedAt        DateTime                     @updatedAt
+  customSchedule   CustomSchedule               @relation(fields: [customScheduleId], references: [id], onDelete: Cascade)
+  milestoneLinks   CustomScheduleMilestoneLink[]
+
+  @@index([customScheduleId])
+  @@index([customScheduleId, sortOrder])
+}
+
+model CustomScheduleMilestoneLink {
+  id                    String              @id @default(uuid())
+  customSchedulePhaseId String
+  milestoneId           String
+  createdAt             DateTime            @default(now())
+  customSchedulePhase   CustomSchedulePhase @relation(fields: [customSchedulePhaseId], references: [id], onDelete: Cascade)
+  milestone             Milestone           @relation(fields: [milestoneId], references: [id], onDelete: Cascade)
+
+  @@unique([customSchedulePhaseId, milestoneId])
+  @@index([customSchedulePhaseId])
+  @@index([milestoneId])
 }
 
 // ── Architecture Module ───────────────────────────────────────────────────────

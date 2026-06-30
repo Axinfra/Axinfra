@@ -10,6 +10,7 @@ import { AuditLogger } from '@/services/AuditLogger';
 import { AuditActionTypes, Role } from '@/types';
 import { z } from 'zod';
 import { sendProjectAssignedEmail, sendProjectInviteEmail, sendRoleConflictInviteEmail } from '@/lib/email';
+import { isDemoEmail } from '@/lib/invite-utils';
 import { randomBytes } from 'crypto';
 
 const assignRoleSchema = z.object({
@@ -137,16 +138,21 @@ export async function POST(
         )
       `;
 
-      if (project) {
+      // Skip sending email for demo/placeholder addresses (@example.com).
+      // Those users get auto-accepted when they register — no email needed.
+      if (project && !isDemoEmail(email)) {
         sendProjectInviteEmail(email, auth.name, project.name, role, token).catch((e) =>
           console.error('[email] project-invite failed:', e)
         );
       }
 
+      const isDemo = isDemoEmail(email);
       return NextResponse.json({
         success: true,
         invited: true,
-        message: `Invitation sent to ${email}. They will appear as "Pending Invite" until they accept.`,
+        message: isDemo
+          ? `Demo vendor added. They will be auto-assigned to this project when they register with ${email}.`
+          : `Invitation sent to ${email}. They will appear as "Pending Invite" until they accept.`,
       });
     }
 

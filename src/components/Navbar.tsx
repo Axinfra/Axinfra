@@ -18,7 +18,8 @@ import {
   Settings,
   ChevronRight,
   FolderOpen,
-  Ruler
+  Ruler,
+  CalendarRange,
 } from 'lucide-react';
 import { cn } from '@/lib/utils';
 
@@ -50,6 +51,7 @@ export default function Navbar({ projectId, projectName, role }: NavbarProps) {
     { href: `/projects/${projectId}`, label: 'Overview', icon: LayoutDashboard, always: true, prefetchApi: [`/api/projects/${projectId}`] },
     { href: `/projects/${projectId}/architecture`, label: 'Architecture', icon: Ruler, roles: ['CLIENT', 'PMC', 'CONSULTANT', 'VIEWER', 'VENDOR'], prefetchApi: [`/api/projects/${projectId}/architecture`] },
     { href: `/projects/${projectId}/boq`, label: role === 'CLIENT' ? 'View BOQ' : 'BOQ', icon: FileText, roles: ['CLIENT', 'PMC', 'CONSULTANT', 'VIEWER'], prefetchApi: [`/api/projects/${projectId}/boq`] },
+    { href: `/projects/${projectId}/schedule`, label: 'Schedule', icon: CalendarRange, roles: ['CLIENT', 'PMC', 'VENDOR', 'CONSULTANT'], prefetchApi: [`/api/projects/${projectId}/schedule`] },
     { href: `/projects/${projectId}/milestones`, label: 'Milestones', icon: Flag, always: true, prefetchApi: [`/api/projects/${projectId}/milestones`] },
     { href: `/projects/${projectId}/views`, label: 'Views', icon: Layers, always: true, prefetchApi: [`/api/projects/${projectId}/views`] },
     { href: `/projects/${projectId}/analysis`, label: 'Analysis', icon: BarChart2, roles: ['CLIENT', 'PMC'], prefetchApi: [`/api/projects/${projectId}/analysis`] },
