@@ -471,7 +471,7 @@ export default function ProjectsPage() {
               </div>
 
               <div>
-                <label className="label text-xs">Contract Value (AED)</label>
+                <label className="label text-xs">Contract Value (INR)</label>
                 <input
                   type="number"
                   value={form.contractValue}
