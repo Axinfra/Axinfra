@@ -1,7 +1,7 @@
 'use client';
 
 import { TablePageSkeleton } from '@/components/ui/SkeletonPage';
-import { useState, useRef } from 'react';
+import { useState, useRef, useEffect } from 'react';
 import { useParams, useSearchParams } from 'next/navigation';
 import { CheckCircle2 } from 'lucide-react';
 import useSWR from 'swr';
@@ -129,6 +129,18 @@ export default function BOQPage() {
 
   const loading = projectLoading || boqLoading || phasesLoading;
 
+  const currentBOQ = selectedPhaseId
+    ? boqs.find((b) => b.phaseId === selectedPhaseId) ?? null
+    : null;
+
+  // When phases data shows a BOQ exists but the BOQ list cache is stale (doesn't have it yet),
+  // auto-refetch the BOQ list so the actual BOQ appears instead of the contradictory empty state.
+  useEffect(() => {
+    if (phaseHasBoq && !currentBOQ && !boqLoading) {
+      void refetchBoqs();
+    }
+  }, [phaseHasBoq, currentBOQ, boqLoading, refetchBoqs]);
+
   const handleCreateBOQ = async () => {
     const res = await fetch(`/api/projects/${projectId}/boq`, {
       method: 'POST',
@@ -141,6 +153,9 @@ export default function BOQPage() {
       void refetchPhases();
     } else {
       setError(data.error);
+      // Refetch in case the BOQ already exists but wasn't showing due to a stale cache
+      void refetchBoqs();
+      void refetchPhases();
     }
   };
 
@@ -405,9 +420,6 @@ export default function BOQPage() {
     );
   }
 
-  const currentBOQ = selectedPhaseId
-    ? boqs.find((b) => b.phaseId === selectedPhaseId) ?? null
-    : null;
   const totalValue = currentBOQ?.items.reduce((sum, item) => sum + item.plannedValue, 0) || 0;
   const canEditCurrentBOQ =
     permissions.canEditBOQ && currentBOQ && (currentBOQ.status === 'DRAFT' || currentBOQ.status === 'REVISED');
@@ -477,31 +489,31 @@ export default function BOQPage() {
         {!currentBOQ ? (
           <div className="card">
             <div className="card-body space-y-5 py-8">
-              <p className="text-[rgba(232,228,220,0.55)] text-center">
-                {selectedPhaseId
-                  ? 'No BOQ created for this phase yet'
-                  : permissions.canEditBOQ
-                  ? 'Select a phase to view or create its BOQ'
-                  : 'Select a phase to view its BOQ'}
-              </p>
-
-              {permissions.canEditBOQ && (
+              {phaseHasBoq ? (
+                // BOQ exists in DB (from phases data) but hasn't loaded into the list yet — auto-refetching
+                <p className="text-[rgba(232,228,220,0.55)] text-center">
+                  Loading BOQ…
+                </p>
+              ) : (
                 <>
-                  {phaseHasBoq && (
-                    <p className="text-sm text-[#e06050] text-center">
-                      This phase already has a BOQ.
-                    </p>
-                  )}
+                  <p className="text-[rgba(232,228,220,0.55)] text-center">
+                    {selectedPhaseId
+                      ? 'No BOQ created for this phase yet'
+                      : permissions.canEditBOQ
+                      ? 'Select a phase to view or create its BOQ'
+                      : 'Select a phase to view its BOQ'}
+                  </p>
 
-                  <div className="flex justify-center">
-                    <button
-                      onClick={handleCreateBOQ}
-                      disabled={!selectedPhaseId || phaseHasBoq}
-                      className="btn btn-primary disabled:opacity-50"
-                    >
-                      Create BOQ
-                    </button>
-                  </div>
+                  {permissions.canEditBOQ && selectedPhaseId && (
+                    <div className="flex justify-center">
+                      <button
+                        onClick={handleCreateBOQ}
+                        className="btn btn-primary"
+                      >
+                        Create BOQ
+                      </button>
+                    </div>
+                  )}
                 </>
               )}
             </div>
