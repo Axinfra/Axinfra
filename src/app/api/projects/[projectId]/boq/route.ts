@@ -71,6 +71,11 @@ export async function POST(
     const result = await BOQService.create(projectId, auth.userId, auth.role, phaseId);
 
     if (!result.success) {
+      // If the BOQ already exists the server-side cache is stale — bust it so the
+      // client's follow-up GET returns the real BOQ instead of empty data.
+      if (result.error === 'This phase already has a BOQ') {
+        void invalidateProjectAndMemberCaches(projectId);
+      }
       return NextResponse.json(
         { success: false, error: result.error },
         { status: 400 }

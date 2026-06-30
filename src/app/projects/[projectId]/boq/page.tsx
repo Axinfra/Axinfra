@@ -157,7 +157,9 @@ export default function BOQPage() {
       body: JSON.stringify(selectedPhaseId ? { phaseId: selectedPhaseId } : {}),
     });
     const data = await res.json();
-    if (data.success) {
+    if (data.success || data.error === 'This phase already has a BOQ') {
+      // On success OR when a BOQ already existed (stale cache caught up),
+      // just sync — the real BOQ will replace the optimistic one.
       void refetchBoqs();
       void refetchPhases();
     } else {
