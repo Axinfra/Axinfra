@@ -17,7 +17,7 @@ export async function GET(
     const phases = await prisma.phase.findMany({
       where: { projectId },
       include: {
-        boq: { select: { id: true, status: true } },
+        boq: { select: { id: true, status: true, _count: { select: { items: true } } } },
         _count: { select: { milestones: true } },
       },
       orderBy: { sortOrder: 'asc' },
@@ -30,7 +30,7 @@ export async function GET(
       plannedStart: p.plannedStart?.toISOString() ?? null,
       plannedEnd:   p.plannedEnd?.toISOString()   ?? null,
       createdAt: p.createdAt,
-      boq: p.boq ?? null,
+      boq: p.boq ? { id: p.boq.id, status: p.boq.status, itemsCount: p.boq._count.items } : null,
       milestonesCount: p._count.milestones,
     }));
 

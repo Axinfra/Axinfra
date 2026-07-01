@@ -145,7 +145,9 @@ export default function BOQPage() {
     ? boqs.find((b) => b.phaseId === selectedPhaseId) ?? null
     : null;
 
-  // Auto-create a BOQ when PMC lands on the page with a phase selected and no BOQ exists yet.
+  // Auto-create a BOQ when PMC lands on the page with a phase selected and no BOQ exists yet —
+  // whether they arrived via the "Create BOQ" link or picked the phase from the dropdown here.
+  // The BOQ page never exposes a "Create BOQ" action itself; it just goes straight to Add Items.
   // We track which phase we've attempted so this never loops.
   useEffect(() => {
     if (
@@ -583,7 +585,7 @@ export default function BOQPage() {
                 <p className="text-center text-[rgba(232,228,220,0.55)]">
                   No BOQ created for this phase yet
                 </p>
-              ) : null /* PMC: error shown above; auto-create will retry on button click */}
+              ) : null /* PMC: error (if any) is shown above with a Retry button */}
             </div>
           </div>
         )}

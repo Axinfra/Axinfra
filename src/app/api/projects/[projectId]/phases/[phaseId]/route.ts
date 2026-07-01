@@ -89,7 +89,7 @@ export async function PATCH(
   }
 }
 
-// DELETE /api/projects/[projectId]/phases/[phaseId] - Delete a phase (OWNER only)
+// DELETE /api/projects/[projectId]/phases/[phaseId] - Delete a phase (CLIENT or PMC)
 export async function DELETE(
   _request: NextRequest,
   { params }: { params: Promise<{ projectId: string; phaseId: string }> }
@@ -98,7 +98,7 @@ export async function DELETE(
     const { projectId, phaseId } = await params;
     const auth = await requireProjectAuth(projectId);
 
-    RoleGuard.requireRole(auth, ['CLIENT']);
+    RoleGuard.requireRole(auth, ['CLIENT', 'PMC']);
 
     const phase = await prisma.phase.findFirst({
       where: { id: phaseId, projectId },

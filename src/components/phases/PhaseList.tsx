@@ -3,7 +3,7 @@
 import { useState } from 'react';
 import { useRouter } from 'next/navigation';
 import useSWR from 'swr';
-import { ChevronDown, ChevronRight, CheckCircle2, Calendar } from 'lucide-react';
+import { ChevronDown, ChevronRight, CheckCircle2, Calendar, GripVertical, Plus } from 'lucide-react';
 import { Skeleton } from '@/components/ui/Skeleton';
 import { jsonFetcher } from '@/lib/fetcher';
 import { formatDate } from '@/lib/utils';
@@ -11,6 +11,7 @@ import { formatDate } from '@/lib/utils';
 interface PhaseBOQ {
   id: string;
   status: string;
+  itemsCount: number;
 }
 
 interface Phase {
@@ -62,7 +63,7 @@ export default function PhaseList({ projectId, userRole }: Props) {
   const router = useRouter();
 
   const canEdit   = userRole === 'CLIENT' || userRole === 'PMC';
-  const canDelete = userRole === 'CLIENT';
+  const canDelete = userRole === 'CLIENT' || userRole === 'PMC';
 
   const {
     data: phases = [],
@@ -83,12 +84,19 @@ export default function PhaseList({ projectId, userRole }: Props) {
     });
   const isExpanded = (id: string) => !expanded.has(id);
 
-  // Add phase modal
+  // Add / insert phase modal
   const [showAdd, setShowAdd]           = useState(false);
   const [newName, setNewName]           = useState('');
   const [newStart, setNewStart]         = useState('');
   const [newEnd, setNewEnd]             = useState('');
   const [adding, setAdding]             = useState(false);
+  // null = append at end; a number = insert at that gap index between phases
+  const [insertGapIndex, setInsertGapIndex] = useState<number | null>(null);
+
+  // Drag-to-reorder
+  const [draggedIndex, setDraggedIndex] = useState<number | null>(null);
+  const [dragOverIndex, setDragOverIndex] = useState<number | null>(null);
+  const [reordering, setReordering]     = useState(false);
 
   // Inline edit
   const [editingId, setEditingId]       = useState<string | null>(null);
@@ -104,6 +112,71 @@ export default function PhaseList({ projectId, userRole }: Props) {
 
   // ── Handlers ────────────────────────────────────────────────────────────────
 
+  // Persists a full reordering of phases as sequential sortOrder values (0, 1, 2…).
+  // `baseline` is the phase list to diff against — pass a freshly-fetched list when
+  // one is available (e.g. right after creating a phase) since `phases` may be stale.
+  const reorderPhases = async (baseline: Phase[], orderedIds: string[]) => {
+    const byId = new Map(baseline.map((p) => [p.id, p]));
+    const next = orderedIds
+      .map((id, index) => {
+        const p = byId.get(id);
+        return p ? { ...p, sortOrder: index } : null;
+      })
+      .filter((p): p is Phase => p !== null);
+
+    setReordering(true);
+    void refetch(next, { revalidate: false });
+
+    const changes = orderedIds
+      .map((id, index) => ({ id, index, prevOrder: byId.get(id)?.sortOrder }))
+      .filter(({ prevOrder, index }) => prevOrder !== undefined && prevOrder !== index);
+
+    try {
+      await Promise.all(
+        changes.map(({ id, index }) =>
+          fetch(`/api/projects/${projectId}/phases/${id}`, {
+            method: 'PATCH',
+            headers: { 'Content-Type': 'application/json' },
+            body: JSON.stringify({ sortOrder: index }),
+          }),
+        ),
+      );
+    } catch {
+      setApiError('Failed to save the new phase order');
+    } finally {
+      setReordering(false);
+      void refetch();
+    }
+  };
+
+  const handleDragStart = (index: number) => (e: React.DragEvent) => {
+    setDraggedIndex(index);
+    e.dataTransfer.effectAllowed = 'move';
+  };
+
+  const handleDragOver = (index: number) => (e: React.DragEvent) => {
+    if (draggedIndex === null) return;
+    e.preventDefault();
+    if (dragOverIndex !== index) setDragOverIndex(index);
+  };
+
+  const handleDrop = (index: number) => (e: React.DragEvent) => {
+    e.preventDefault();
+    const from = draggedIndex;
+    setDraggedIndex(null);
+    setDragOverIndex(null);
+    if (from === null || from === index) return;
+    const ids = phases.map((p) => p.id);
+    const [moved] = ids.splice(from, 1);
+    ids.splice(index, 0, moved);
+    void reorderPhases(phases, ids);
+  };
+
+  const handleDragEnd = () => {
+    setDraggedIndex(null);
+    setDragOverIndex(null);
+  };
+
   const handleAddPhase = async () => {
     const name = newName.trim();
     if (!name) return;
@@ -114,21 +187,25 @@ export default function PhaseList({ projectId, userRole }: Props) {
     setAdding(true);
     setApiError('');
 
+    const gapIndex = insertGapIndex;
     const tempId = `temp-${Date.now()}`;
     void refetch(
-      (current = []) => [
-        ...current,
-        {
+      (current = []) => {
+        const draft: Phase = {
           id: tempId,
           name,
-          sortOrder: (current[current.length - 1]?.sortOrder ?? 0) + 1,
+          sortOrder: gapIndex ?? (current[current.length - 1]?.sortOrder ?? 0) + 1,
           plannedStart: newStart || null,
           plannedEnd: newEnd || null,
           createdAt: new Date().toISOString(),
           boq: null,
           milestonesCount: 0,
-        },
-      ],
+        };
+        if (gapIndex === null) return [...current, draft];
+        const next = [...current];
+        next.splice(gapIndex, 0, draft);
+        return next;
+      },
       { revalidate: false },
     );
 
@@ -149,7 +226,20 @@ export default function PhaseList({ projectId, userRole }: Props) {
       });
       const json = await res.json();
       if (json.success) {
-        void refetch();
+        if (gapIndex !== null) {
+          // Re-fetch to get the real record, then renumber sortOrder so the new
+          // phase actually lands in the gap the user dropped it into.
+          const fresh = await refetch();
+          if (fresh) {
+            const newId = json.data.id as string;
+            const ids = fresh.map((p) => p.id).filter((id) => id !== newId);
+            ids.splice(gapIndex, 0, newId);
+            await reorderPhases(fresh, ids);
+          }
+        } else {
+          void refetch();
+        }
+        setInsertGapIndex(null);
       } else {
         void refetch();
         setApiError(json.error ?? 'Failed to create phase');
@@ -236,16 +326,30 @@ export default function PhaseList({ projectId, userRole }: Props) {
     <div className="space-y-4">
       {/* Header */}
       <div className="flex justify-between items-center">
-        <h2 className="text-lg font-semibold text-[#e8e4dc]">Phases</h2>
+        <div className="flex items-center gap-2.5">
+          <h2 className="text-lg font-semibold text-[#e8e4dc]">Phases</h2>
+          {reordering && (
+            <span className="flex items-center gap-1.5 text-xs text-[rgba(232,228,220,0.4)]">
+              <span className="w-3 h-3 rounded-full border-2 border-[var(--ax-accent)] border-t-transparent animate-spin" />
+              Saving order…
+            </span>
+          )}
+        </div>
         {canEdit && (
           <button
-            onClick={() => { setShowAdd(true); setApiError(''); }}
+            onClick={() => { setInsertGapIndex(null); setShowAdd(true); setApiError(''); }}
             className="btn btn-sm btn-primary"
           >
             + Add Phase
           </button>
         )}
       </div>
+
+      {canEdit && phases.length > 1 && (
+        <p className="text-xs text-[rgba(232,228,220,0.35)] -mt-2">
+          Drag <GripVertical className="inline w-3 h-3 -mt-0.5 mx-0.5" /> to reorder, or hover between phases to insert a new one.
+        </p>
+      )}
 
       {apiError && <div className="alert alert-error">{apiError}</div>}
 
@@ -261,18 +365,58 @@ export default function PhaseList({ projectId, userRole }: Props) {
       )}
 
       {/* Phase rows */}
-      {phases.map((phase) => {
+      {phases.map((phase, i) => {
         const open = isExpanded(phase.id);
         const isEditing = editingId === phase.id;
+        const isDragging = draggedIndex === i;
+        const isDropTarget = dragOverIndex === i && draggedIndex !== null && draggedIndex !== i;
+        const canDrag = canEdit && editingId === null;
 
         return (
-          <div
-            key={phase.id}
-            className="card border border-[rgba(255,255,255,0.07)]"
-          >
+          <div key={phase.id}>
+            {/* Insert-phase gap — sits above this phase */}
+            {canEdit && (
+              <div className="relative h-4 -my-2 group/gap z-10">
+                <button
+                  onClick={() => { setInsertGapIndex(i); setShowAdd(true); setApiError(''); }}
+                  aria-label="Insert phase here"
+                  title="Insert phase here"
+                  className="absolute inset-0 flex items-center justify-center opacity-0 group-hover/gap:opacity-100 focus-visible:opacity-100 transition-opacity duration-150"
+                >
+                  <span className="flex-1 border-t border-dashed border-[rgba(var(--ax-accent-rgb),0.4)]" />
+                  <span className="mx-2 w-5 h-5 rounded-full bg-[var(--ax-accent)] text-[#0d0f13] flex items-center justify-center shadow-[0_2px_8px_rgba(0,0,0,0.4)] hover:scale-110 transition-transform shrink-0">
+                    <Plus className="w-3 h-3" strokeWidth={2.5} />
+                  </span>
+                  <span className="flex-1 border-t border-dashed border-[rgba(var(--ax-accent-rgb),0.4)]" />
+                </button>
+              </div>
+            )}
+
+            <div
+              draggable={canDrag}
+              onDragStart={handleDragStart(i)}
+              onDragOver={handleDragOver(i)}
+              onDrop={handleDrop(i)}
+              onDragEnd={handleDragEnd}
+              className={`card border transition-all duration-150 ${
+                isDragging
+                  ? 'opacity-40 scale-[0.98] border-[rgba(var(--ax-accent-rgb),0.4)]'
+                  : isDropTarget
+                  ? 'border-[var(--ax-accent)] shadow-[0_0_0_1px_var(--ax-accent)]'
+                  : 'border-[rgba(255,255,255,0.07)]'
+              }`}
+            >
             {/* Phase header row */}
             <div className="card-body py-3 px-4">
               <div className="flex items-center gap-3">
+                {canDrag && (
+                  <span
+                    className="text-[rgba(232,228,220,0.25)] hover:text-[rgba(232,228,220,0.55)] cursor-grab active:cursor-grabbing shrink-0 touch-none"
+                    title="Drag to reorder"
+                  >
+                    <GripVertical className="w-4 h-4" />
+                  </span>
+                )}
                 <button
                   onClick={() => toggleExpand(phase.id)}
                   className="text-[rgba(232,228,220,0.4)] hover:text-[#e8e4dc] transition-colors shrink-0"
@@ -367,37 +511,42 @@ export default function PhaseList({ projectId, userRole }: Props) {
                   </div>
                 )}
 
-                {/* BOQ row */}
-                <div className="flex items-center justify-between text-sm">
-                  <div className="flex items-center gap-2 text-[rgba(232,228,220,0.65)]">
-                    <span className="w-1 h-1 rounded-full bg-[rgba(232,228,220,0.3)]" />
-                    {phase.boq ? (
-                      <>
-                        <span>BOQ:</span>
-                        <BOQStatusBadge status={phase.boq.status} />
-                      </>
-                    ) : (
-                      <span>No BOQ yet</span>
-                    )}
-                  </div>
-                  <div>
-                    {phase.boq ? (
-                      <button
-                        onClick={() => router.push(`/projects/${projectId}/boq?phaseId=${phase.id}`)}
-                        className="btn btn-sm btn-secondary text-xs"
-                      >
-                        View BOQ
-                      </button>
-                    ) : userRole === 'PMC' ? (
-                      <button
-                        onClick={() => handleCreateBOQ(phase.id)}
-                        className="btn btn-sm btn-primary text-xs"
-                      >
-                        + Create BOQ
-                      </button>
-                    ) : null}
-                  </div>
-                </div>
+                {/* BOQ row — a BOQ with zero items counts as "no BOQ yet" */}
+                {(() => {
+                  const hasItems = !!phase.boq && phase.boq.itemsCount > 0;
+                  return (
+                    <div className="flex items-center justify-between text-sm">
+                      <div className="flex items-center gap-2 text-[rgba(232,228,220,0.65)]">
+                        <span className="w-1 h-1 rounded-full bg-[rgba(232,228,220,0.3)]" />
+                        {hasItems ? (
+                          <>
+                            <span>BOQ:</span>
+                            <BOQStatusBadge status={phase.boq!.status} />
+                          </>
+                        ) : (
+                          <span>No BOQ yet</span>
+                        )}
+                      </div>
+                      <div>
+                        {hasItems ? (
+                          <button
+                            onClick={() => router.push(`/projects/${projectId}/boq?phaseId=${phase.id}`)}
+                            className="btn btn-sm btn-secondary text-xs"
+                          >
+                            View BOQ
+                          </button>
+                        ) : userRole === 'PMC' ? (
+                          <button
+                            onClick={() => handleCreateBOQ(phase.id)}
+                            className="btn btn-sm btn-primary text-xs"
+                          >
+                            + Create BOQ
+                          </button>
+                        ) : null}
+                      </div>
+                    </div>
+                  );
+                })()}
 
                 {/* Milestones row */}
                 <div className="flex items-center justify-between text-sm">
@@ -421,17 +570,48 @@ export default function PhaseList({ projectId, userRole }: Props) {
                 </div>
               </div>
             )}
+            </div>
           </div>
         );
       })}
+
+      {/* Bottom insert gap — append after the last phase */}
+      {canEdit && phases.length > 0 && (
+        <div className="relative h-4 -my-2 group/gap z-10">
+          <button
+            onClick={() => { setInsertGapIndex(phases.length); setShowAdd(true); setApiError(''); }}
+            aria-label="Add phase at the end"
+            title="Add phase at the end"
+            className="absolute inset-0 flex items-center justify-center opacity-0 group-hover/gap:opacity-100 focus-visible:opacity-100 transition-opacity duration-150"
+          >
+            <span className="flex-1 border-t border-dashed border-[rgba(var(--ax-accent-rgb),0.4)]" />
+            <span className="mx-2 w-5 h-5 rounded-full bg-[var(--ax-accent)] text-[#0d0f13] flex items-center justify-center shadow-[0_2px_8px_rgba(0,0,0,0.4)] hover:scale-110 transition-transform shrink-0">
+              <Plus className="w-3 h-3" strokeWidth={2.5} />
+            </span>
+            <span className="flex-1 border-t border-dashed border-[rgba(var(--ax-accent-rgb),0.4)]" />
+          </button>
+        </div>
+      )}
 
       {/* Add Phase modal */}
       {showAdd && (
         <div className="fixed inset-0 bg-black/70 flex items-center justify-center z-50">
           <div className="bg-[#13151a] border border-[rgba(255,255,255,0.1)] rounded-xl max-w-sm w-full mx-4">
             <div className="p-6">
-              <h2 className="text-lg font-semibold mb-4 text-[#e8e4dc]">Add Phase</h2>
-              <div className="space-y-4">
+              <h2 className="text-lg font-semibold mb-1 text-[#e8e4dc]">
+                {insertGapIndex === null ? 'Add Phase' : 'Insert Phase'}
+              </h2>
+              {insertGapIndex !== null && (
+                <p className="text-xs text-[var(--ax-accent)] mb-4 flex items-center gap-1">
+                  <Plus className="w-3 h-3 shrink-0" strokeWidth={2.5} />
+                  {insertGapIndex === 0
+                    ? `Will be placed before "${phases[0]?.name}"`
+                    : insertGapIndex >= phases.length
+                    ? `Will be placed after "${phases[phases.length - 1]?.name}"`
+                    : `Will be placed between "${phases[insertGapIndex - 1]?.name}" and "${phases[insertGapIndex]?.name}"`}
+                </p>
+              )}
+              <div className={insertGapIndex === null ? 'space-y-4 mt-4' : 'space-y-4'}>
                 <div>
                   <label className="label">Phase Name <span className="text-[#e06050]">*</span></label>
                   <input
@@ -473,7 +653,7 @@ export default function PhaseList({ projectId, userRole }: Props) {
                 )}
                 <div className="flex justify-end gap-3 pt-1">
                   <button
-                    onClick={() => { setShowAdd(false); setNewName(''); setNewStart(''); setNewEnd(''); setApiError(''); }}
+                    onClick={() => { setShowAdd(false); setNewName(''); setNewStart(''); setNewEnd(''); setApiError(''); setInsertGapIndex(null); }}
                     className="btn btn-secondary"
                   >
                     Cancel
@@ -483,7 +663,7 @@ export default function PhaseList({ projectId, userRole }: Props) {
                     disabled={adding || !newName.trim()}
                     className="btn btn-primary disabled:opacity-50"
                   >
-                    {adding ? 'Creating…' : 'Create Phase'}
+                    {adding ? (insertGapIndex === null ? 'Creating…' : 'Inserting…') : (insertGapIndex === null ? 'Create Phase' : 'Insert Phase')}
                   </button>
                 </div>
               </div>
