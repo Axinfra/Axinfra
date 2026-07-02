@@ -1,7 +1,7 @@
 'use client';
 
 import { TablePageSkeleton } from '@/components/ui/SkeletonPage';
-import { useState, useRef, useEffect } from 'react';
+import { useState, useRef, useEffect, useMemo } from 'react';
 import { useParams, useSearchParams } from 'next/navigation';
 import { CheckCircle2 } from 'lucide-react';
 import useSWR from 'swr';
@@ -50,7 +50,7 @@ interface ImportRow {
 interface ImportResult {
   created: number;
   skipped: number;
-  results: Array<{ phaseName: string; itemsAdded?: number; error?: string }>;
+  results: Array<{ phaseName: string; itemsAdded?: number; error?: string; phaseCreated?: boolean }>;
 }
 
 export default function BOQPage() {
@@ -85,6 +85,9 @@ export default function BOQPage() {
   const [importParseError, setImportParseError] = useState('');
   const [importing, setImporting] = useState(false);
   const [importResult, setImportResult] = useState<ImportResult | null>(null);
+  // Which phase groups (by name from the Excel) the user wants included in the import.
+  // Matched phases default to included; unmatched (new) phases default to excluded.
+  const [includedPhases, setIncludedPhases] = useState<Set<string>>(new Set());
 
   // Inline edit state for existing items
   const [editingItemId, setEditingItemId] = useState<string | null>(null);
@@ -127,6 +130,39 @@ export default function BOQPage() {
 
   const [selectedPhaseId, setSelectedPhaseId] = useState(prefilledPhaseId);
   const selectedPhase = phases.find((p) => p.id === selectedPhaseId) ?? null;
+
+  // Group parsed import rows by phase name and match against existing project phases.
+  const importGroups = useMemo(() => {
+    const byPhase = new Map<string, ImportRow[]>();
+    for (const row of importRows) {
+      const list = byPhase.get(row.phaseName) ?? [];
+      list.push(row);
+      byPhase.set(row.phaseName, list);
+    }
+    return Array.from(byPhase.entries()).map(([name, rows]) => ({
+      name,
+      rows,
+      matched: phases.find((p) => p.name.toLowerCase().trim() === name.toLowerCase().trim()) ?? null,
+      total: rows.reduce((s, r) => s + r.plannedQty * r.rate, 0),
+    }));
+  }, [importRows, phases]);
+
+  // Default checkbox state whenever a new file is parsed: matched phases start included,
+  // new (unmatched) phases start excluded — the user opts in per-phase from there.
+  useEffect(() => {
+    if (importRows.length === 0) return;
+    setIncludedPhases(new Set(importGroups.filter((g) => g.matched).map((g) => g.name)));
+  // Only re-run when the parsed rows change (a fresh upload), not on every importGroups recompute.
+  // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [importRows]);
+
+  const togglePhaseIncluded = (name: string) => {
+    setIncludedPhases((prev) => {
+      const next = new Set(prev);
+      if (next.has(name)) next.delete(name); else next.add(name);
+      return next;
+    });
+  };
 
   // Sync when the URL ?phaseId changes — e.g. navigating from overview → different phase.
   // useState only uses the initial value, so without this the old phase stays selected.
@@ -384,6 +420,7 @@ export default function BOQPage() {
     setImportParseNote('');
     setImportParseError('');
     setImportResult(null);
+    setIncludedPhases(new Set());
     setShowImport(true);
   };
 
@@ -392,6 +429,7 @@ export default function BOQPage() {
     setImportParseNote('');
     setImportRows([]);
     setImportResult(null);
+    setIncludedPhases(new Set());
     try {
       const XLSX = await import('xlsx');
       const buf = await file.arrayBuffer();
@@ -441,14 +479,15 @@ export default function BOQPage() {
   };
 
   const handleImport = async () => {
-    if (!importRows.length) return;
+    const selectedRows = importRows.filter((r) => includedPhases.has(r.phaseName));
+    if (!selectedRows.length) return;
     setImporting(true);
     setImportParseError('');
     try {
       const res = await fetch(`/api/projects/${projectId}/boq/import`, {
         method: 'POST',
         headers: { 'Content-Type': 'application/json' },
-        body: JSON.stringify({ items: importRows }),
+        body: JSON.stringify({ items: selectedRows }),
       });
       const data = await res.json();
       if (data.success) {
@@ -979,7 +1018,14 @@ export default function BOQPage() {
                   <div className="space-y-2">
                     {importResult.results.map((r, i) => (
                       <div key={i} className="flex items-center justify-between text-sm py-2 border-b border-[rgba(255,255,255,0.05)] last:border-0">
-                        <span className="text-[#e8e4dc] font-medium">{r.phaseName}</span>
+                        <span className="text-[#e8e4dc] font-medium flex items-center gap-2">
+                          {r.phaseName}
+                          {r.phaseCreated && (
+                            <span className="text-[10px] px-1.5 py-0.5 rounded-full bg-[rgba(var(--ax-accent-rgb),0.15)] text-[var(--ax-accent)]">
+                              New Phase
+                            </span>
+                          )}
+                        </span>
                         {r.error
                           ? <span className="text-[#e06050] text-xs">{r.error}</span>
                           : <span className="text-[#5cba80] text-xs">{r.itemsAdded} items added</span>}
@@ -988,24 +1034,19 @@ export default function BOQPage() {
                   </div>
                   <div className="flex justify-end gap-3 pt-2">
                     <button onClick={() => setShowImport(false)} className="btn btn-secondary">Close</button>
-                    <button onClick={() => { setImportRows([]); setImportResult(null); setImportParseNote(''); setImportParseError(''); }} className="btn btn-primary">Import More</button>
+                    <button onClick={() => { setImportRows([]); setImportResult(null); setImportParseNote(''); setImportParseError(''); setIncludedPhases(new Set()); }} className="btn btn-primary">Import More</button>
                   </div>
                 </div>
               ) : importRows.length > 0 ? (
                 (() => {
-                  const byPhase = new Map<string, ImportRow[]>();
-                  for (const row of importRows) {
-                    const list = byPhase.get(row.phaseName) ?? [];
-                    list.push(row);
-                    byPhase.set(row.phaseName, list);
-                  }
-                  const groups = Array.from(byPhase.entries()).map(([name, rows]) => ({
-                    name,
-                    rows,
-                    matched: phases.find((p) => p.name.toLowerCase() === name.toLowerCase()),
-                    total: rows.reduce((s, r) => s + r.plannedQty * r.rate, 0),
-                  }));
+                  const groups = importGroups;
                   const unmatchedCount = groups.filter((g) => !g.matched).length;
+                  const selectedGroups = groups.filter((g) => includedPhases.has(g.name));
+                  const selectedItemCount = selectedGroups.reduce((s, g) => s + g.rows.length, 0);
+                  const allChecked = groups.length > 0 && groups.every((g) => includedPhases.has(g.name));
+                  const toggleAll = () => {
+                    setIncludedPhases(allChecked ? new Set() : new Set(groups.map((g) => g.name)));
+                  };
                   return (
                     <div className="space-y-4">
                       {importParseNote && (
@@ -1013,11 +1054,22 @@ export default function BOQPage() {
                       )}
                       <p className="text-sm text-[rgba(232,228,220,0.55)]">
                         <span className="text-[#e8e4dc] font-medium">{importRows.length} items</span> across <span className="text-[#e8e4dc] font-medium">{groups.length} phases</span>
+                        {' — '}
+                        <span className="text-[var(--ax-accent)] font-medium">{selectedItemCount} items in {selectedGroups.length} phase{selectedGroups.length === 1 ? '' : 's'}</span> selected
                       </p>
                       <div className="rounded-lg border border-[rgba(255,255,255,0.07)] overflow-hidden">
                         <table className="w-full text-sm">
                           <thead>
                             <tr className="bg-[rgba(255,255,255,0.03)] border-b border-[rgba(255,255,255,0.06)]">
+                              <th className="text-center px-3 py-2.5 w-10">
+                                <input
+                                  type="checkbox"
+                                  checked={allChecked}
+                                  onChange={toggleAll}
+                                  className="w-4 h-4 accent-[var(--ax-accent)] cursor-pointer"
+                                  aria-label="Include all phases"
+                                />
+                              </th>
                               <th className="text-left px-4 py-2.5 text-xs text-[rgba(232,228,220,0.45)] font-medium">Phase (from Excel)</th>
                               <th className="text-center px-3 py-2.5 text-xs text-[rgba(232,228,220,0.45)] font-medium">Status</th>
                               <th className="text-right px-3 py-2.5 text-xs text-[rgba(232,228,220,0.45)] font-medium">Items</th>
@@ -1025,26 +1077,45 @@ export default function BOQPage() {
                             </tr>
                           </thead>
                           <tbody>
-                            {groups.map((g, i) => (
-                              <tr key={i} className="border-b border-[rgba(255,255,255,0.04)] last:border-0">
-                                <td className="px-4 py-2.5 text-[#e8e4dc]">{g.name}</td>
-                                <td className="px-3 py-2.5 text-center">
-                                  {g.matched
-                                    ? <span className="text-xs text-[#5cba80]">✓ Matched</span>
-                                    : <span className="text-xs text-[#e06050]">✗ Not found</span>}
-                                </td>
-                                <td className="px-3 py-2.5 text-right text-[rgba(232,228,220,0.65)]">{g.rows.length}</td>
-                                <td className="px-4 py-2.5 text-right text-[var(--ax-accent)] font-medium">
-                                  ₹{g.total.toLocaleString('en-IN', { maximumFractionDigits: 0 })}
-                                </td>
-                              </tr>
-                            ))}
+                            {groups.map((g, i) => {
+                              const included = includedPhases.has(g.name);
+                              return (
+                                <tr
+                                  key={i}
+                                  className={`border-b border-[rgba(255,255,255,0.04)] last:border-0 ${included ? '' : 'opacity-45'}`}
+                                >
+                                  <td className="px-3 py-2.5 text-center">
+                                    <input
+                                      type="checkbox"
+                                      checked={included}
+                                      onChange={() => togglePhaseIncluded(g.name)}
+                                      className="w-4 h-4 accent-[var(--ax-accent)] cursor-pointer"
+                                      aria-label={`Include ${g.name}`}
+                                    />
+                                  </td>
+                                  <td className="px-4 py-2.5 text-[#e8e4dc]">{g.name}</td>
+                                  <td className="px-3 py-2.5 text-center">
+                                    {g.matched ? (
+                                      <span className="text-xs text-[#5cba80]">✓ Matched</span>
+                                    ) : included ? (
+                                      <span className="text-xs text-[var(--ax-accent)]">+ New phase</span>
+                                    ) : (
+                                      <span className="text-xs text-[rgba(232,228,220,0.4)]">Not found — excluded</span>
+                                    )}
+                                  </td>
+                                  <td className="px-3 py-2.5 text-right text-[rgba(232,228,220,0.65)]">{g.rows.length}</td>
+                                  <td className="px-4 py-2.5 text-right text-[var(--ax-accent)] font-medium">
+                                    ₹{g.total.toLocaleString('en-IN', { maximumFractionDigits: 0 })}
+                                  </td>
+                                </tr>
+                              );
+                            })}
                           </tbody>
                         </table>
                       </div>
                       {unmatchedCount > 0 && (
-                        <p className="text-xs text-[#e06050] bg-[rgba(224,96,80,0.07)] border border-[rgba(224,96,80,0.2)] rounded-lg px-3 py-2">
-                          {unmatchedCount} phase{unmatchedCount > 1 ? 's' : ''} not found in this project — those items will be skipped.
+                        <p className="text-xs text-[rgba(232,228,220,0.45)] bg-[rgba(255,255,255,0.03)] border border-[rgba(255,255,255,0.07)] rounded-lg px-3 py-2">
+                          {unmatchedCount} phase{unmatchedCount > 1 ? 's' : ''} not found in this project. Check the box to create {unmatchedCount > 1 ? 'them' : 'it'} automatically along with the BOQ — leave unchecked to skip.
                         </p>
                       )}
                       {importParseError && <p className="text-xs text-[#e06050]">{importParseError}</p>}
@@ -1052,10 +1123,10 @@ export default function BOQPage() {
                         <button onClick={() => setImportRows([])} className="btn btn-secondary">← Re-upload</button>
                         <button
                           onClick={() => void handleImport()}
-                          disabled={importing || groups.every((g) => !g.matched)}
+                          disabled={importing || selectedGroups.length === 0}
                           className="btn btn-primary disabled:opacity-50"
                         >
-                          {importing ? 'Importing…' : `Import ${importRows.length} Items`}
+                          {importing ? 'Importing…' : `Import ${selectedItemCount} Items`}
                         </button>
                       </div>
                     </div>

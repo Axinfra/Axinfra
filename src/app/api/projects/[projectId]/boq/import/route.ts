@@ -49,16 +49,32 @@ export async function POST(
       byPhase.set(key, list);
     }
 
-    const results: Array<{ phaseName: string; itemsAdded?: number; error?: string }> = [];
+    const results: Array<{ phaseName: string; itemsAdded?: number; error?: string; phaseCreated?: boolean }> = [];
     let totalCreated = 0;
     let totalSkipped = 0;
 
+    // Only phases the user explicitly kept in the payload get here. Any of those that don't
+    // match an existing phase are new phases the user chose to create as part of this import.
+    let nextSortOrder = (phases[phases.length - 1]?.sortOrder ?? -1) + 1;
+
     for (const [phaseName, phaseItems] of Array.from(byPhase.entries())) {
-      const phase = phaseByName.get(phaseName.toLowerCase().trim());
+      let phase = phaseByName.get(phaseName.toLowerCase().trim());
+      let phaseCreated = false;
+
       if (!phase) {
-        results.push({ phaseName, error: 'Phase not found in project' });
-        totalSkipped += phaseItems.length;
-        continue;
+        try {
+          phase = await prisma.phase.create({
+            data: { projectId, name: phaseName, sortOrder: nextSortOrder },
+            include: { boq: { select: { id: true, status: true } } },
+          });
+          nextSortOrder += 1;
+          phaseCreated = true;
+          phaseByName.set(phaseName.toLowerCase().trim(), phase);
+        } catch {
+          results.push({ phaseName, error: 'Failed to create phase' });
+          totalSkipped += phaseItems.length;
+          continue;
+        }
       }
 
       // Get existing BOQ or create a new one
@@ -95,7 +111,7 @@ export async function POST(
         if (r.success) added++;
       }
       totalCreated += added;
-      results.push({ phaseName, itemsAdded: added });
+      results.push({ phaseName, itemsAdded: added, phaseCreated });
     }
 
     await invalidateProjectAndMemberCaches(projectId);
