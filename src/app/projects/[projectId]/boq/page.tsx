@@ -50,7 +50,8 @@ interface ImportRow {
 interface ImportResult {
   created: number;
   skipped: number;
-  results: Array<{ phaseName: string; itemsAdded?: number; error?: string; phaseCreated?: boolean }>;
+  duplicates: number;
+  results: Array<{ phaseName: string; itemsAdded?: number; duplicatesSkipped?: number; error?: string; phaseCreated?: boolean }>;
 }
 
 export default function BOQPage() {
@@ -444,14 +445,23 @@ export default function BOQPage() {
       const rows: ImportRow[] = [];
       const skippedLines: number[] = [];
 
+      // Excel sheets commonly merge the Phase-name cell down across every row of that phase,
+      // so only the first row of each group actually has the name — the rest read as blank.
+      // Carry the last non-blank phase name forward onto those rows. Seeding it with the
+      // currently selected phase (if any) means a sheet with no Phase column at all — just
+      // Description/Unit/Qty/Rate — is treated as belonging entirely to that phase.
+      let lastPhaseName = selectedPhase?.name ?? '';
+
       for (let i = 1; i < raw.length; i++) {
         const r = raw[i];
-        const phaseName = String(r[0] ?? '').trim();
+        const rawPhaseName = String(r[0] ?? '').trim();
         const description = String(r[1] ?? '').trim();
         const unit = String(r[2] ?? '').trim();
         const qty = parseFloat(String(r[3] ?? ''));
         const rate = parseFloat(String(r[4] ?? ''));
-        if (!phaseName && !description) continue;
+        if (!rawPhaseName && !description) continue;
+        const phaseName = rawPhaseName || lastPhaseName;
+        if (rawPhaseName) lastPhaseName = rawPhaseName;
         if (!phaseName || !description || !unit || isNaN(qty) || isNaN(rate) || qty <= 0 || rate <= 0) {
           skippedLines.push(i + 1);
           continue;
@@ -537,7 +547,7 @@ export default function BOQPage() {
       <div className="space-y-6">
         <div className="flex justify-between items-center">
           <h1 className="text-2xl font-bold text-[#e8e4dc]">Bill of Quantities</h1>
-          {permissions.canEditBOQ && currentBOQ && (
+          {permissions.canEditBOQ && (
             <button onClick={openImport} className="btn btn-sm btn-secondary">
               ↑ Import Excel
             </button>
@@ -1006,37 +1016,60 @@ export default function BOQPage() {
               </div>
 
               {importResult ? (
-                <div className="space-y-4">
-                  <div className={`p-4 rounded-lg border ${importResult.created > 0 ? 'bg-[rgba(92,186,128,0.07)] border-[rgba(92,186,128,0.2)]' : 'bg-[rgba(224,96,80,0.07)] border-[rgba(224,96,80,0.2)]'}`}>
-                    <p className={`font-medium text-sm ${importResult.created > 0 ? 'text-[#5cba80]' : 'text-[#e06050]'}`}>
-                      {importResult.created > 0
-                        ? `✓ ${importResult.created} items imported successfully`
-                        : 'No items were imported'}
-                      {importResult.skipped > 0 && ` · ${importResult.skipped} skipped`}
-                    </p>
-                  </div>
-                  <div className="space-y-2">
-                    {importResult.results.map((r, i) => (
-                      <div key={i} className="flex items-center justify-between text-sm py-2 border-b border-[rgba(255,255,255,0.05)] last:border-0">
-                        <span className="text-[#e8e4dc] font-medium flex items-center gap-2">
-                          {r.phaseName}
-                          {r.phaseCreated && (
-                            <span className="text-[10px] px-1.5 py-0.5 rounded-full bg-[rgba(var(--ax-accent-rgb),0.15)] text-[var(--ax-accent)]">
-                              New Phase
-                            </span>
-                          )}
-                        </span>
-                        {r.error
-                          ? <span className="text-[#e06050] text-xs">{r.error}</span>
-                          : <span className="text-[#5cba80] text-xs">{r.itemsAdded} items added</span>}
+                (() => {
+                  // Nothing new but nothing wrong either (everything was already there) is a
+                  // neutral outcome, not a failure — only color the banner red on a real error.
+                  const allDuplicates = importResult.created === 0 && importResult.skipped === 0 && importResult.duplicates > 0;
+                  const tone = importResult.created > 0 ? 'success' : allDuplicates ? 'neutral' : 'error';
+                  const toneClasses = {
+                    success: { box: 'bg-[rgba(92,186,128,0.07)] border-[rgba(92,186,128,0.2)]', text: 'text-[#5cba80]' },
+                    neutral: { box: 'bg-[rgba(255,255,255,0.03)] border-[rgba(255,255,255,0.08)]', text: 'text-[rgba(232,228,220,0.65)]' },
+                    error: { box: 'bg-[rgba(224,96,80,0.07)] border-[rgba(224,96,80,0.2)]', text: 'text-[#e06050]' },
+                  }[tone];
+                  return (
+                    <div className="space-y-4">
+                      <div className={`p-4 rounded-lg border ${toneClasses.box}`}>
+                        <p className={`font-medium text-sm ${toneClasses.text}`}>
+                          {importResult.created > 0
+                            ? `✓ ${importResult.created} items imported successfully`
+                            : allDuplicates
+                            ? 'No new items — everything in this sheet was already in the BOQ'
+                            : 'No items were imported'}
+                          {importResult.skipped > 0 && ` · ${importResult.skipped} skipped`}
+                          {importResult.duplicates > 0 && !allDuplicates && ` · ${importResult.duplicates} duplicate${importResult.duplicates > 1 ? 's' : ''} left as-is`}
+                        </p>
                       </div>
-                    ))}
-                  </div>
-                  <div className="flex justify-end gap-3 pt-2">
-                    <button onClick={() => setShowImport(false)} className="btn btn-secondary">Close</button>
-                    <button onClick={() => { setImportRows([]); setImportResult(null); setImportParseNote(''); setImportParseError(''); setIncludedPhases(new Set()); }} className="btn btn-primary">Import More</button>
-                  </div>
-                </div>
+                      <div className="space-y-2">
+                        {importResult.results.map((r, i) => (
+                          <div key={i} className="flex items-center justify-between text-sm py-2 border-b border-[rgba(255,255,255,0.05)] last:border-0">
+                            <span className="text-[#e8e4dc] font-medium flex items-center gap-2">
+                              {r.phaseName}
+                              {r.phaseCreated && (
+                                <span className="text-[10px] px-1.5 py-0.5 rounded-full bg-[rgba(var(--ax-accent-rgb),0.15)] text-[var(--ax-accent)]">
+                                  New Phase
+                                </span>
+                              )}
+                            </span>
+                            {r.error ? (
+                              <span className="text-[#e06050] text-xs">{r.error}</span>
+                            ) : (
+                              <span className="text-[#5cba80] text-xs">
+                                {r.itemsAdded} items added
+                                {!!r.duplicatesSkipped && (
+                                  <span className="text-[rgba(232,228,220,0.4)]"> · {r.duplicatesSkipped} duplicate{r.duplicatesSkipped > 1 ? 's' : ''} skipped</span>
+                                )}
+                              </span>
+                            )}
+                          </div>
+                        ))}
+                      </div>
+                      <div className="flex justify-end gap-3 pt-2">
+                        <button onClick={() => setShowImport(false)} className="btn btn-secondary">Close</button>
+                        <button onClick={() => { setImportRows([]); setImportResult(null); setImportParseNote(''); setImportParseError(''); setIncludedPhases(new Set()); }} className="btn btn-primary">Import More</button>
+                      </div>
+                    </div>
+                  );
+                })()
               ) : importRows.length > 0 ? (
                 (() => {
                   const groups = importGroups;
