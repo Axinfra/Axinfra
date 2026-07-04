@@ -4,6 +4,8 @@ import { requireProjectAuth } from '@/lib/auth';
 import { RoleGuard } from '@/services/RoleGuard';
 import { invalidateProjectAndMemberCaches } from '@/lib/cache-invalidation';
 import { sendPhaseCreatedEmail } from '@/lib/email';
+import { AuditLogger } from '@/services/AuditLogger';
+import { AuditActionTypes } from '@/types';
 
 // GET /api/projects/[projectId]/phases - List all phases for project
 export async function GET(
@@ -104,6 +106,21 @@ export async function POST(
     ]);
 
     await invalidateProjectAndMemberCaches(projectId);
+
+    await AuditLogger.log({
+      projectId,
+      actorId: auth.userId,
+      role: auth.role,
+      actionType: AuditActionTypes.PHASE_CREATE,
+      entityType: 'Phase',
+      entityId: phase.id,
+      afterJson: {
+        name: phase.name,
+        sortOrder: phase.sortOrder,
+        plannedStart: phase.plannedStart,
+        plannedEnd: phase.plannedEnd,
+      },
+    });
 
     // Fire-and-forget notification to all project members except actor
     if (project && actor) {

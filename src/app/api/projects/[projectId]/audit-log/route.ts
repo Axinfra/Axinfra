@@ -4,6 +4,18 @@ import { AuditLogger } from '@/services/AuditLogger';
 import { RoleGuard } from '@/services/RoleGuard';
 import { AuditActionTypes } from '@/types';
 import { cached } from '@/lib/cache';
+import { resolveAuditContextLabels } from '@/lib/auditContext';
+import { formatAuditEntry } from '@/lib/activityFormatter';
+
+function safeParseJson(value: unknown): Record<string, unknown> | null {
+  if (typeof value !== 'string') return null;
+  try {
+    const parsed = JSON.parse(value);
+    return parsed && typeof parsed === 'object' ? parsed : null;
+  } catch {
+    return null;
+  }
+}
 
 function buildAuditCacheKey(
   projectId: string,
@@ -77,11 +89,48 @@ export async function GET(
         : undefined,
     };
 
-    // Audit logs are append-only — cache for 120s.
+    // Audit logs are append-only — cache for 120s. The human-readable description/detail
+    // are computed here too so a cache hit skips both the log fetch AND the resolution
+    // queries (milestone titles, phase names, etc.) that build them.
     const cacheKey = buildAuditCacheKey(projectId, auth.role, options);
-    const { logs, total } = await cached(cacheKey, 120_000, () =>
-      AuditLogger.getProjectLogs(projectId, options),
-    );
+    const { logs, total } = await cached(cacheKey, 120_000, async () => {
+      const { logs: rawLogs, total } = await AuditLogger.getProjectLogs(projectId, options);
+
+      const parsedLogs = rawLogs.map((log) => ({
+        ...log,
+        beforeJson: safeParseJson(log.beforeJson),
+        afterJson: safeParseJson(log.afterJson),
+      }));
+
+      const { labels: contextLabels, humanizeJson } = await resolveAuditContextLabels(parsedLogs);
+
+      const logs = parsedLogs.map((log) => {
+        const { sentence, detail } = formatAuditEntry({
+          id: log.id,
+          actionType: log.actionType,
+          entityType: log.entityType,
+          entityId: log.entityId,
+          role: log.role,
+          reason: log.reason,
+          createdAt: log.createdAt,
+          actorName: log.actor.name,
+          contextLabel: contextLabels.get(log.id),
+          beforeJson: log.beforeJson,
+          afterJson: log.afterJson,
+        });
+        // The formatter above reads the raw JSON; the client only ever sees the
+        // humanized version (IDs swapped for names, or dropped if unresolved).
+        return {
+          ...log,
+          description: sentence,
+          detail,
+          beforeJson: humanizeJson(log.beforeJson),
+          afterJson: humanizeJson(log.afterJson),
+        };
+      });
+
+      return { logs, total };
+    });
 
     return NextResponse.json(
       {

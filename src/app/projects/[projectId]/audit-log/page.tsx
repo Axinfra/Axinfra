@@ -23,17 +23,12 @@ interface AuditLogEntry {
     name: string;
     email: string;
   };
+  /** Human-readable one-line summary, e.g. "Pat PMC created a BOQ for phase 'Foundation'". */
+  description: string;
+  /** Secondary line with values/changes/reason — the readable stand-in for raw JSON. */
+  detail?: string;
   beforeJson?: any;
   afterJson?: any;
-}
-
-function safeJson(value: unknown): unknown {
-  if (typeof value !== 'string') return value;
-  try {
-    return JSON.parse(value);
-  } catch {
-    return value;
-  }
 }
 
 function prettyAction(actionType: string): string {
@@ -145,6 +140,7 @@ export default function AuditLogPage() {
   const entityTypes = ['Milestone', 'BOQ', 'Phase', 'Evidence', 'Project', 'Role', 'FollowUp', 'Payment', 'Cash'];
   const actionTypes = [
     'BOQ_CREATE', 'BOQ_APPROVE', 'BOQ_REVISE', 'BOQ_ITEM_ADD', 'BOQ_ITEM_UPDATE', 'BOQ_ITEM_REMOVE',
+    'PHASE_CREATE', 'PHASE_UPDATE', 'PHASE_DELETE',
     'MILESTONE_CREATE', 'MILESTONE_UPDATE', 'MILESTONE_DELETE', 'MILESTONE_STATE_TRANSITION', 'MILESTONE_BOQ_LINK',
     'EVIDENCE_SUBMIT', 'EVIDENCE_APPROVE', 'EVIDENCE_REJECT',
     'VERIFICATION_CREATE',
@@ -205,7 +201,7 @@ export default function AuditLogPage() {
                   <option value="">All</option>
                   {actionTypes.map((t) => (
                     <option key={t} value={t}>
-                      {t}
+                      {prettyAction(t)}
                     </option>
                   ))}
                 </select>
@@ -241,84 +237,88 @@ export default function AuditLogPage() {
             <table className="table">
               <thead>
                 <tr>
-                  <th>Timestamp</th>
-                  <th>Actor</th>
-                  <th>Role</th>
-                  <th>Action</th>
-                  <th>Entity</th>
-                  <th>Details</th>
+                  <th className="w-40">Timestamp</th>
+                  <th className="w-44">Actor</th>
+                  <th className="w-24">Role</th>
+                  <th>What happened</th>
+                  <th className="w-10" />
                 </tr>
               </thead>
               <tbody>
                 {logs.length === 0 && (
                   <tr>
-                    <td colSpan={6} className="text-center py-12 text-[rgba(232,228,220,0.45)]">
+                    <td colSpan={5} className="text-center py-12 text-[rgba(232,228,220,0.45)]">
                       No audit logs found for the selected filters.
                     </td>
                   </tr>
                 )}
-                {logs.map((log) => (
-                  <Fragment key={log.id}>
-                    <tr className="cursor-pointer hover:bg-[rgba(255,255,255,0.03)]" onClick={() => setExpandedId(expandedId === log.id ? null : log.id)}>
-                      <td className="text-sm">{formatDateTime(log.createdAt)}</td>
-                      <td>
-                        <div>
-                          <p className="font-medium">{log.actor.name}</p>
-                          <p className="text-xs text-[rgba(232,228,220,0.55)]">{log.actor.email}</p>
-                        </div>
-                      </td>
-                      <td>
-                        <span className={`inline-flex items-center px-2 py-0.5 rounded-full border text-xs font-medium ${roleBadgeClass(log.role)}`}>
-                          {log.role}
-                        </span>
-                      </td>
-                      <td className="font-medium" title={log.actionType}>{prettyAction(log.actionType)}</td>
-                      <td>
-                        <div className="text-sm">
-                          <p className="text-[rgba(232,228,220,0.8)]">{log.entityType}</p>
-                          <p className="text-xs text-[rgba(232,228,220,0.45)] truncate max-w-[220px]" title={log.entityId}>{log.entityId}</p>
-                        </div>
-                      </td>
-                      <td>
-                        <button className="text-[var(--ax-accent)] text-sm">
-                          {expandedId === log.id ? 'Hide' : 'View'}
-                        </button>
-                      </td>
-                    </tr>
-                    {expandedId === log.id && (
-                      <tr>
-                        <td colSpan={6} className="bg-[rgba(255,255,255,0.03)]">
-                          <div className="p-4 space-y-2">
-                            <p className="text-sm">
-                              <strong>Entity ID:</strong> {log.entityId}
-                            </p>
-                            {log.reason && (
-                              <p className="text-sm">
-                                <strong>Reason:</strong> {log.reason}
-                              </p>
-                            )}
-                            {log.beforeJson && (
-                              <div className="text-sm">
-                                <strong>Before:</strong>
-                                <pre className="mt-1 p-2 bg-[rgba(255,255,255,0.03)] rounded text-xs overflow-auto max-h-32">
-                                  {JSON.stringify(safeJson(log.beforeJson), null, 2)}
-                                </pre>
-                              </div>
-                            )}
-                            {log.afterJson && (
-                              <div className="text-sm">
-                                <strong>After:</strong>
-                                <pre className="mt-1 p-2 bg-[rgba(255,255,255,0.03)] rounded text-xs overflow-auto max-h-32">
-                                  {JSON.stringify(safeJson(log.afterJson), null, 2)}
-                                </pre>
-                              </div>
-                            )}
+                {logs.map((log) => {
+                  const isExpanded = expandedId === log.id;
+                  return (
+                    <Fragment key={log.id}>
+                      <tr className="hover:bg-[rgba(255,255,255,0.03)] align-top">
+                        <td className="text-sm text-[rgba(232,228,220,0.65)] whitespace-nowrap">{formatDateTime(log.createdAt)}</td>
+                        <td>
+                          <div>
+                            <p className="font-medium text-sm">{log.actor.name}</p>
+                            <p className="text-xs text-[rgba(232,228,220,0.5)]">{log.actor.email}</p>
                           </div>
                         </td>
+                        <td>
+                          <span className={`inline-flex items-center px-2 py-0.5 rounded-full border text-xs font-medium ${roleBadgeClass(log.role)}`}>
+                            {log.role}
+                          </span>
+                        </td>
+                        <td>
+                          <p className="text-sm text-[#e8e4dc]">{log.description}</p>
+                          {log.detail && (
+                            <p className="text-xs text-[rgba(232,228,220,0.5)] mt-0.5">{log.detail}</p>
+                          )}
+                        </td>
+                        <td>
+                          <button
+                            onClick={() => setExpandedId(isExpanded ? null : log.id)}
+                            className="text-[rgba(232,228,220,0.35)] hover:text-[var(--ax-accent)] transition-colors p-1"
+                            title="Show technical details"
+                            aria-label="Show technical details"
+                          >
+                            <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" className={`transition-transform ${isExpanded ? 'rotate-180' : ''}`}>
+                              <path d="M6 9l6 6 6-6" strokeLinecap="round" strokeLinejoin="round" />
+                            </svg>
+                          </button>
+                        </td>
                       </tr>
-                    )}
-                  </Fragment>
-                ))}
+                      {isExpanded && (
+                        <tr>
+                          <td colSpan={5} className="bg-[rgba(255,255,255,0.02)]">
+                            <div className="p-4 space-y-2 text-xs text-[rgba(232,228,220,0.55)]">
+                              <p className="uppercase tracking-wider text-[10px] text-[rgba(232,228,220,0.35)] font-medium">Technical details</p>
+                              <p><span className="text-[rgba(232,228,220,0.4)]">Action type:</span> {log.actionType}</p>
+                              <p><span className="text-[rgba(232,228,220,0.4)]">Entity:</span> {log.entityType}</p>
+                              {log.reason && <p><span className="text-[rgba(232,228,220,0.4)]">Reason:</span> {log.reason}</p>}
+                              {log.beforeJson && (
+                                <div>
+                                  <span className="text-[rgba(232,228,220,0.4)]">Before:</span>
+                                  <pre className="mt-1 p-2 bg-[rgba(255,255,255,0.03)] rounded overflow-auto max-h-32">
+                                    {JSON.stringify(log.beforeJson, null, 2)}
+                                  </pre>
+                                </div>
+                              )}
+                              {log.afterJson && (
+                                <div>
+                                  <span className="text-[rgba(232,228,220,0.4)]">After:</span>
+                                  <pre className="mt-1 p-2 bg-[rgba(255,255,255,0.03)] rounded overflow-auto max-h-32">
+                                    {JSON.stringify(log.afterJson, null, 2)}
+                                  </pre>
+                                </div>
+                              )}
+                            </div>
+                          </td>
+                        </tr>
+                      )}
+                    </Fragment>
+                  );
+                })}
               </tbody>
             </table>
           </div>

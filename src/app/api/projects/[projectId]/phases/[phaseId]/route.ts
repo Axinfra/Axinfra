@@ -3,6 +3,10 @@ import { prisma } from '@/lib/db';
 import { requireProjectAuth } from '@/lib/auth';
 import { RoleGuard } from '@/services/RoleGuard';
 import { invalidateProjectAndMemberCaches } from '@/lib/cache-invalidation';
+import { AuditLogger } from '@/services/AuditLogger';
+import { AuditActionTypes } from '@/types';
+
+const dateEq = (a: Date | null, b: Date | null) => (a?.getTime() ?? null) === (b?.getTime() ?? null);
 
 // PATCH /api/projects/[projectId]/phases/[phaseId] - Rename or reorder a phase
 export async function PATCH(
@@ -66,6 +70,39 @@ export async function PATCH(
     });
 
     await invalidateProjectAndMemberCaches(projectId);
+
+    // Only record fields that actually changed — keeps the audit trail meaningful
+    // instead of logging a no-op every time a reorder PATCH lands on an unmoved phase.
+    const before: Record<string, unknown> = {};
+    const after: Record<string, unknown> = {};
+    if (body.name !== undefined && updated.name !== phase.name) {
+      before.name = phase.name;
+      after.name = updated.name;
+    }
+    if (body.sortOrder !== undefined && updated.sortOrder !== phase.sortOrder) {
+      before.sortOrder = phase.sortOrder;
+      after.sortOrder = updated.sortOrder;
+    }
+    if (plannedStart !== undefined && !dateEq(updated.plannedStart, phase.plannedStart)) {
+      before.plannedStart = phase.plannedStart;
+      after.plannedStart = updated.plannedStart;
+    }
+    if (plannedEnd !== undefined && !dateEq(updated.plannedEnd, phase.plannedEnd)) {
+      before.plannedEnd = phase.plannedEnd;
+      after.plannedEnd = updated.plannedEnd;
+    }
+    if (Object.keys(after).length > 0) {
+      await AuditLogger.log({
+        projectId,
+        actorId: auth.userId,
+        role: auth.role,
+        actionType: AuditActionTypes.PHASE_UPDATE,
+        entityType: 'Phase',
+        entityId: phaseId,
+        beforeJson: before,
+        afterJson: after,
+      });
+    }
 
     return NextResponse.json({ success: true, data: updated });
   } catch (error) {
@@ -132,6 +169,16 @@ export async function DELETE(
     await prisma.phase.delete({ where: { id: phaseId } });
 
     await invalidateProjectAndMemberCaches(projectId);
+
+    await AuditLogger.log({
+      projectId,
+      actorId: auth.userId,
+      role: auth.role,
+      actionType: AuditActionTypes.PHASE_DELETE,
+      entityType: 'Phase',
+      entityId: phaseId,
+      beforeJson: { name: phase.name, sortOrder: phase.sortOrder },
+    });
 
     return NextResponse.json({ success: true, data: { deleted: true } });
   } catch (error) {
