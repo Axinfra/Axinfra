@@ -66,6 +66,13 @@ export async function GET(
             ),
           };
           break;
+        case 'variance':
+          data = {
+            variance: await cached(`analysis:${projectId}:variance`, ttlMs, () =>
+              AnalysisService.getVarianceAnalysis(projectId),
+            ),
+          };
+          break;
         case 'compliance':
           data = {
             compliance: await cached(`analysis:${projectId}:compliance`, ttlMs, () =>

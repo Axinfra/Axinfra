@@ -1,7 +1,7 @@
 'use client';
 
 import Link from 'next/link';
-import MilestoneStateBadge from './MilestoneStateBadge';
+import ActivityStateBadge from './ActivityStateBadge';
 import PaymentStatusBadge from './PaymentStatusBadge';
 import { formatCurrency, formatDate } from '@/lib/utils';
 
@@ -38,7 +38,7 @@ interface CustomViewCardProps {
 export default function CustomViewCard({ milestone, projectId }: CustomViewCardProps) {
   return (
     <Link
-      href={`/projects/${projectId}/milestones/${milestone.id}`}
+      href={`/projects/${projectId}/activities/${milestone.id}`}
       className="block"
     >
       <div className="bg-[#141414] border border-[rgba(255,255,255,0.08)] rounded-lg p-4 hover:bg-[#1f1f1f] hover:border-[rgba(255,255,255,0.14)] transition-all cursor-pointer">
@@ -56,7 +56,7 @@ export default function CustomViewCard({ milestone, projectId }: CustomViewCardP
 
         {/* State Badge */}
         <div className="mb-2">
-          <MilestoneStateBadge state={milestone.state as any} />
+          <ActivityStateBadge state={milestone.state as any} />
         </div>
 
         {/* Completion Progress */}

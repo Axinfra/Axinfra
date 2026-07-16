@@ -22,7 +22,10 @@ import { Redis } from '@upstash/redis';
 let redisClient: Redis | null = null;
 let redisInitAttempted = false;
 
-function getRedis(): Redis | null {
+/** Shared lazy-initialized Upstash client — also used by rate-limiter.ts so rate-limit
+ * counters live in the same distributed store as everything else, instead of each module
+ * opening its own connection. */
+export function getRedis(): Redis | null {
   if (redisInitAttempted) return redisClient;
   redisInitAttempted = true;
 

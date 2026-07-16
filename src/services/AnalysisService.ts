@@ -1,5 +1,6 @@
 import { prisma } from '@/lib/db';
-import { MilestoneState, EligibilityState, EvidenceStatus, Role } from '@/types';
+import { MilestoneState, EligibilityState, Role } from '@/types';
+import { computeScheduleVariance, type ActivityHealth } from '@/lib/scheduleVariance';
 
 /**
  * AnalysisService - READ-ONLY intelligence layer for Axinfra.
@@ -21,8 +22,6 @@ export interface ExecutionAnalysis {
     verifiedPercent: number;
     avgDaysInProgress: number;
     avgDaysInSubmitted: number;
-    avgEvidenceReviewDays: number;
-    evidenceRejectionRate: number;
     doneCount: number;
     inProgressCount: number;
     submittedCount: number;
@@ -48,6 +47,19 @@ export interface ExecutionAnalysis {
     verified: number;
     avgDaysToVerify: number;
   }>;
+  /** Physical progress from an imported MS Project schedule — a separate signal from
+   * `stateBreakdown` above. Schedule-imported tasks never enter the payment workflow state
+   * machine (they stay DRAFT forever, since there's no verify step for them), so % Complete
+   * from the source file is their real completion signal instead. Only present when the
+   * project has at least one schedule-imported milestone (wbsCode set). */
+  scheduleProgress: {
+    hasImportedTasks: boolean;
+    totalImported: number;
+    completed: number;
+    inProgress: number;
+    notStarted: number;
+    avgPercentComplete: number;
+  };
 }
 
 export interface FinancialAnalysis {
@@ -94,8 +106,6 @@ export interface VendorAnalysis {
     milestonesTotal: number;
     milestonesVerified: number;
     avgVerificationDays: number;
-    evidenceRejections: number;
-    rejectionRate: number;
     riskLevel: 'LOW' | 'MEDIUM' | 'HIGH';
   }>;
   totals: {
@@ -139,25 +149,64 @@ export interface DelayRiskAnalysis {
   overallRiskScore: number; // 0-100
 }
 
-export interface ComplianceAuditAnalysis {
-  evidenceSLA: {
-    totalSubmissions: number;
-    withinSLA: number;
-    breachedSLA: number;
-    avgReviewDays: number;
-    slaThresholdDays: number;
+export interface VarianceAnalysis {
+  schedule: {
+    overdueActivities: Array<{
+      id: string;
+      title: string;
+      state: MilestoneState;
+      dueDate: Date;
+      daysOverdue: number;
+      severity: 'MINOR' | 'MAJOR' | 'CRITICAL';
+    }>;
+    upcomingAtRisk: Array<{
+      id: string;
+      title: string;
+      dueDate: Date;
+      daysRemaining: number;
+    }>;
+    totalActivities: number;
+    overdueCount: number;
+    onTimePercent: number;
+    /** On Track / At Risk / Delayed / Completed Late / Completed On Time — counts across every
+     * activity in the project, from the same `computeScheduleVariance` function the Activities
+     * list, bucket tabs, and activity detail page use, so this never disagrees with them. */
+    healthBreakdown: Record<ActivityHealth, number>;
   };
-  rejectionsByVendor: Array<{
-    vendorName: string;
-    submissionCount: number;
-    rejectionCount: number;
-    rejectionRate: number;
+  bills: {
+    byOrder: Array<{
+      orderId: string;
+      orderName: string;
+      boqPlannedValue: number;
+      submittedValue: number;
+      approvedValue: number;
+      releasedValue: number;
+      variance: number; // boqPlannedValue - releasedValue (positive = money not yet billed/released)
+      variancePercent: number;
+      billCount: number;
+    }>;
+    totals: {
+      totalPlannedValue: number;
+      totalSubmittedValue: number;
+      totalApprovedValue: number;
+      totalReleasedValue: number;
+      totalVariance: number;
+      totalVariancePercent: number;
+    };
+  };
+  overdueBills: Array<{
+    raBillId: string;
+    billNumber: number;
+    orderId: string;
+    orderName: string;
+    stage: string;
+    daysInStage: number;
+    amount: number;
   }>;
-  lateApprovals: Array<{
-    role: Role;
-    lateCount: number;
-    avgDelayDays: number;
-  }>;
+  overallVarianceScore: number; // 0-100, higher = more time/money drift
+}
+
+export interface ComplianceAuditAnalysis {
   auditCompleteness: {
     score: number; // 0-100
     totalActions: number;
@@ -176,6 +225,7 @@ export interface FullAnalysis {
   financial: FinancialAnalysis;
   vendor: VendorAnalysis;
   delayRisk: DelayRiskAnalysis;
+  variance: VarianceAnalysis;
   compliance: ComplianceAuditAnalysis;
   generatedAt: Date;
 }
@@ -187,10 +237,15 @@ export interface FullAnalysis {
 const SLA_THRESHOLDS = {
   IN_PROGRESS_MAX_DAYS: 30,
   SUBMITTED_MAX_DAYS: 7,
-  EVIDENCE_REVIEW_MAX_DAYS: 3,
   BLOCKED_PAYMENT_MAX_DAYS: 14,
   EXPOSURE_HIGH_THRESHOLD: 0.2, // 20%
   BOQ_OVERRUN_THRESHOLD: 0.1, // 10%
+  UPCOMING_AT_RISK_DAYS: 7,
+  // RA Bill lifecycle — how long a bill may sit in a given stage before it counts as overdue.
+  AWAITING_CERTIFICATION_MAX_DAYS: 7, // PENDING_VENDOR_REVIEW
+  AWAITING_APPROVAL_MAX_DAYS: 7, // CERTIFIED
+  AWAITING_PAYMENT_MAX_DAYS: 14, // APPROVED
+  AWAITING_RESUBMISSION_MAX_DAYS: 7, // REVISION_REQUESTED
 };
 
 // ============================================
@@ -203,11 +258,12 @@ export class AnalysisService {
    * READ-ONLY - aggregates existing data only.
    */
   static async getFullAnalysis(projectId: string): Promise<FullAnalysis> {
-    const [execution, financial, vendor, delayRisk, compliance] = await Promise.all([
+    const [execution, financial, vendor, delayRisk, variance, compliance] = await Promise.all([
       this.getExecutionAnalysis(projectId),
       this.getFinancialAnalysis(projectId),
       this.getVendorAnalysis(projectId),
       this.getDelayRiskAnalysis(projectId),
+      this.getVarianceAnalysis(projectId),
       this.getComplianceAuditAnalysis(projectId),
     ]);
 
@@ -216,6 +272,7 @@ export class AnalysisService {
       financial,
       vendor,
       delayRisk,
+      variance,
       compliance,
       generatedAt: new Date(),
     };
@@ -230,7 +287,6 @@ export class AnalysisService {
       where: { projectId },
       include: {
         transitions: { orderBy: { createdAt: 'asc' } },
-        evidence: true,
         boqLinks: { include: { boqItem: true } },
       },
     });
@@ -241,6 +297,26 @@ export class AnalysisService {
     const verifiedCount = milestones.filter(m =>
       ([MilestoneState.VERIFIED, MilestoneState.CLOSED] as string[]).includes(m.state)
     ).length;
+
+    // Schedule progress — a separate signal from workflow state, see ExecutionAnalysis doc.
+    const imported = milestones.filter(m => m.wbsCode !== null);
+    const scheduleProgress = {
+      hasImportedTasks: imported.length > 0,
+      totalImported: imported.length,
+      completed: imported.filter(m =>
+        (m.percentComplete ?? 0) >= 100 || ([MilestoneState.VERIFIED, MilestoneState.CLOSED] as string[]).includes(m.state)
+      ).length,
+      inProgress: imported.filter(m => {
+        const pct = m.percentComplete ?? 0;
+        return pct > 0 && pct < 100 && !([MilestoneState.VERIFIED, MilestoneState.CLOSED] as string[]).includes(m.state);
+      }).length,
+      notStarted: imported.filter(m =>
+        (m.percentComplete ?? 0) <= 0 && !([MilestoneState.VERIFIED, MilestoneState.CLOSED] as string[]).includes(m.state)
+      ).length,
+      avgPercentComplete: imported.length > 0
+        ? Math.round((imported.reduce((s, m) => s + (m.percentComplete ?? 0), 0) / imported.length) * 10) / 10
+        : 0,
+    };
     const doneCount = verifiedCount;
     const inProgressCount = milestones.filter(m => m.state === MilestoneState.IN_PROGRESS).length;
     const submittedCount = milestones.filter(m => m.state === MilestoneState.SUBMITTED).length;
@@ -304,15 +380,6 @@ export class AnalysisService {
     // Calculate averages
     const avg = (arr: number[]) => arr.length > 0 ? arr.reduce((a, b) => a + b, 0) / arr.length : 0;
 
-    // Evidence metrics
-    const allEvidence = milestones.flatMap(m => m.evidence);
-    const reviewedEvidence = allEvidence.filter(e => e.reviewedAt);
-    const rejectedEvidence = allEvidence.filter(e => e.status === EvidenceStatus.REJECTED);
-
-    const evidenceReviewTimes = reviewedEvidence.map(e =>
-      (e.reviewedAt!.getTime() - e.submittedAt.getTime()) / (1000 * 60 * 60 * 24)
-    );
-
     // State breakdown
     const stateBreakdown = Object.entries(stateTimings).map(([state, times]) => ({
       state: state as MilestoneState,
@@ -350,10 +417,6 @@ export class AnalysisService {
         verifiedPercent: totalMilestones > 0 ? Math.round((verifiedCount / totalMilestones) * 100) : 0,
         avgDaysInProgress: Math.round(avg(stateTimings.IN_PROGRESS) * 10) / 10,
         avgDaysInSubmitted: Math.round(avg(stateTimings.SUBMITTED) * 10) / 10,
-        avgEvidenceReviewDays: Math.round(avg(evidenceReviewTimes) * 10) / 10,
-        evidenceRejectionRate: allEvidence.length > 0
-          ? Math.round((rejectedEvidence.length / allEvidence.length) * 100)
-          : 0,
         doneCount,
         inProgressCount,
         submittedCount,
@@ -363,6 +426,7 @@ export class AnalysisService {
       stateBreakdown,
       slaBreaches: slaBreaches.slice(0, 10), // Top 10
       byTrade,
+      scheduleProgress,
     };
   }
 
@@ -513,14 +577,14 @@ export class AnalysisService {
         include: {
           paymentEligibility: true,
           boqLinks: { include: { boqItem: true } },
-          evidence: { include: { submittedBy: true } },
           transitions: true,
         },
       }),
     ]);
 
-    // Since milestone doesn't have direct vendor assignment, we derive from evidence submission
-    // OR from state transitions (vendor starts work)
+    // Vendor attribution: milestone.vendorUserId is the primary source of truth
+    // for assignment, falling back to state transitions (vendor started work)
+    // for milestones without a direct assignment.
     const vendorData = new Map<string, {
       vendorId: string;
       vendorName: string;
@@ -529,8 +593,6 @@ export class AnalysisService {
       certifiedValue: number;
       paidValue: number;
       verificationDays: number[];
-      rejections: number;
-      submissions: number;
       milestones: Set<string>;
       verifiedMilestones: number;
       hasExtras: boolean; // Vendor has milestones outside BOQ
@@ -547,8 +609,6 @@ export class AnalysisService {
         certifiedValue: 0,
         paidValue: 0,
         verificationDays: [],
-        rejections: 0,
-        submissions: 0,
         milestones: new Set(),
         verifiedMilestones: 0,
         hasExtras: false,
@@ -568,18 +628,14 @@ export class AnalysisService {
         );
       }
 
-      // Find vendor - first check evidence submitter, then check state transitions
+      // Find vendor - primary path is the direct assignment; fall back to
+      // checking if a vendor started the work (transitioned to IN_PROGRESS)
       let vendorId: string | null = null;
 
-      // Check evidence submitter
-      const vendorEvidence = milestone.evidence.find(e =>
-        vendorData.has(e.submittedById)
-      );
-      if (vendorEvidence) {
-        vendorId = vendorEvidence.submittedById;
+      if (milestone.vendorUserId && vendorData.has(milestone.vendorUserId)) {
+        vendorId = milestone.vendorUserId;
       }
 
-      // If no evidence, check if vendor started the work (transitioned to IN_PROGRESS)
       if (!vendorId) {
         const vendorTransition = milestone.transitions.find(t =>
           t.toState === MilestoneState.IN_PROGRESS && vendorData.has(t.actorId)
@@ -612,11 +668,6 @@ export class AnalysisService {
           data.extrasCount++;
         }
 
-        // Count submissions and rejections from this vendor's evidence
-        const vendorSubmissions = milestone.evidence.filter(e => e.submittedById === vendorId);
-        data.submissions += vendorSubmissions.length;
-        data.rejections += vendorSubmissions.filter(e => e.status === EvidenceStatus.REJECTED).length;
-
         if (([MilestoneState.VERIFIED, MilestoneState.CLOSED] as string[]).includes(milestone.state)) {
           data.verifiedMilestones++;
           if (milestone.paymentEligibility) {
@@ -640,7 +691,6 @@ export class AnalysisService {
     const vendors = Array.from(vendorData.values()).map(v => {
       const exposureValue = v.certifiedValue - v.paidValue;
       const exposurePercent = v.contractValue > 0 ? (exposureValue / v.contractValue) * 100 : 0;
-      const rejectionRate = v.submissions > 0 ? (v.rejections / v.submissions) * 100 : 0;
       const avgVerificationDays = avg(v.verificationDays);
 
       // Calculate BOQ overrun (contract value vs original BOQ value)
@@ -651,9 +701,9 @@ export class AnalysisService {
       // Vendors with "Extras" (outside BOQ) are automatically HIGH risk
       // Also factor in overrun > 10%
       let riskLevel: 'LOW' | 'MEDIUM' | 'HIGH' = 'LOW';
-      if (v.hasExtras || exposurePercent > 30 || rejectionRate > 30 || avgVerificationDays > 14 || overrunPercent > 20) {
+      if (v.hasExtras || exposurePercent > 30 || avgVerificationDays > 14 || overrunPercent > 20) {
         riskLevel = 'HIGH';
-      } else if (exposurePercent > 15 || rejectionRate > 15 || avgVerificationDays > 7 || overrunPercent > 10) {
+      } else if (exposurePercent > 15 || avgVerificationDays > 7 || overrunPercent > 10) {
         riskLevel = 'MEDIUM';
       }
 
@@ -671,8 +721,6 @@ export class AnalysisService {
         milestonesTotal: v.milestones.size,
         milestonesVerified: v.verifiedMilestones,
         avgVerificationDays: Math.round(avgVerificationDays * 10) / 10,
-        evidenceRejections: v.rejections,
-        rejectionRate: Math.round(rejectionRate),
         riskLevel,
         hasExtras: v.hasExtras,
         extrasCount: v.extrasCount,
@@ -841,79 +889,207 @@ export class AnalysisService {
   }
 
   /**
+   * VARIANCE ANALYSIS
+   * Answer: "Is the schedule slipping, is the money moving on time, and is anything missing?"
+   *
+   * Deliberately BOQ / RA Bill based for money — not Milestone.paymentEligibility. Payment now
+   * lives only in BOQs, RA Bills, and Consultant (Architecture) fees; this tab tracks bill
+   * variance per Purchase Order plus how long each RA Bill has sat in its current lifecycle
+   * stage, alongside schedule (activity) delay — the two dimensions of "time and money."
+   */
+  static async getVarianceAnalysis(projectId: string): Promise<VarianceAnalysis> {
+    const now = new Date();
+
+    const [milestones, orders] = await Promise.all([
+      prisma.milestone.findMany({
+        where: { projectId },
+        select: {
+          id: true, title: true, state: true,
+          plannedStart: true, plannedEnd: true, actualStart: true, actualEnd: true, percentComplete: true,
+        },
+      }),
+      prisma.phase.findMany({
+        where: { projectId, parentPhaseId: null, scheduleImportId: null }, // Purchase Order phases only
+        select: {
+          id: true,
+          name: true,
+          boqs: { select: { items: { select: { plannedValue: true } } } },
+          raBills: {
+            select: {
+              id: true,
+              billNumber: true,
+              status: true,
+              submittedValue: true,
+              submittedAt: true,
+              approvedValue: true,
+              approvedAt: true,
+              releasedValue: true,
+              certifiedAt: true,
+              revisionRequestedAt: true,
+            },
+          },
+        },
+      }),
+    ]);
+
+    // ── Schedule variance ───────────────────────────────────────────────
+    const overdueActivities: VarianceAnalysis['schedule']['overdueActivities'] = [];
+    const upcomingAtRisk: VarianceAnalysis['schedule']['upcomingAtRisk'] = [];
+    const upcomingCutoff = new Date(now.getTime() + SLA_THRESHOLDS.UPCOMING_AT_RISK_DAYS * 24 * 60 * 60 * 1000);
+
+    for (const m of milestones) {
+      if (!m.plannedEnd || m.state === MilestoneState.CLOSED) continue;
+
+      const daysOverdue = (now.getTime() - m.plannedEnd.getTime()) / (1000 * 60 * 60 * 24);
+      if (daysOverdue > 0) {
+        let severity: 'MINOR' | 'MAJOR' | 'CRITICAL' = 'MINOR';
+        if (daysOverdue > 30) severity = 'CRITICAL';
+        else if (daysOverdue > 14) severity = 'MAJOR';
+        overdueActivities.push({
+          id: m.id,
+          title: m.title,
+          state: m.state as MilestoneState,
+          dueDate: m.plannedEnd,
+          daysOverdue: Math.round(daysOverdue),
+          severity,
+        });
+      } else if (m.plannedEnd <= upcomingCutoff && m.state !== MilestoneState.VERIFIED) {
+        upcomingAtRisk.push({
+          id: m.id,
+          title: m.title,
+          dueDate: m.plannedEnd,
+          daysRemaining: Math.round((m.plannedEnd.getTime() - now.getTime()) / (1000 * 60 * 60 * 24)),
+        });
+      }
+    }
+
+    const totalActivities = milestones.length;
+    const overdueCount = overdueActivities.length;
+    const onTimePercent = totalActivities > 0
+      ? Math.round(((totalActivities - overdueCount) / totalActivities) * 100)
+      : 100;
+
+    const healthBreakdown: Record<ActivityHealth, number> = {
+      ON_TRACK: 0, AT_RISK: 0, DELAYED: 0, COMPLETED_LATE: 0, COMPLETED_ON_TIME: 0,
+    };
+    for (const m of milestones) {
+      const { health } = computeScheduleVariance(m, now);
+      healthBreakdown[health]++;
+    }
+
+    // ── Bill variance, per Purchase Order ───────────────────────────────
+    const byOrder: VarianceAnalysis['bills']['byOrder'] = [];
+    const overdueBills: VarianceAnalysis['overdueBills'] = [];
+
+    for (const order of orders) {
+      const boqPlannedValue = order.boqs.reduce(
+        (sum, boq) => sum + boq.items.reduce((s, i) => s + i.plannedValue, 0),
+        0,
+      );
+      let submittedValue = 0, approvedValue = 0, releasedValue = 0;
+
+      for (const bill of order.raBills) {
+        submittedValue += bill.submittedValue ?? 0;
+        approvedValue += bill.approvedValue ?? 0;
+        releasedValue += bill.releasedValue ?? 0;
+
+        let stage: string | null = null;
+        let stageStart: Date | null = null;
+        let threshold = 0;
+        if (bill.status === 'PENDING_VENDOR_REVIEW') {
+          stage = 'Awaiting Certification'; stageStart = bill.submittedAt; threshold = SLA_THRESHOLDS.AWAITING_CERTIFICATION_MAX_DAYS;
+        } else if (bill.status === 'CERTIFIED') {
+          stage = 'Awaiting Approval'; stageStart = bill.certifiedAt; threshold = SLA_THRESHOLDS.AWAITING_APPROVAL_MAX_DAYS;
+        } else if (bill.status === 'APPROVED') {
+          stage = 'Awaiting Payment'; stageStart = bill.approvedAt; threshold = SLA_THRESHOLDS.AWAITING_PAYMENT_MAX_DAYS;
+        } else if (bill.status === 'REVISION_REQUESTED') {
+          stage = 'Awaiting Vendor Resubmission'; stageStart = bill.revisionRequestedAt; threshold = SLA_THRESHOLDS.AWAITING_RESUBMISSION_MAX_DAYS;
+        }
+
+        if (stage && stageStart) {
+          const daysInStage = (now.getTime() - stageStart.getTime()) / (1000 * 60 * 60 * 24);
+          if (daysInStage > threshold) {
+            overdueBills.push({
+              raBillId: bill.id,
+              billNumber: bill.billNumber,
+              orderId: order.id,
+              orderName: order.name,
+              stage,
+              daysInStage: Math.round(daysInStage),
+              amount: bill.approvedValue ?? bill.submittedValue ?? 0,
+            });
+          }
+        }
+      }
+
+      if (boqPlannedValue > 0 || order.raBills.length > 0) {
+        const variance = boqPlannedValue - releasedValue;
+        byOrder.push({
+          orderId: order.id,
+          orderName: order.name,
+          boqPlannedValue: Math.round(boqPlannedValue),
+          submittedValue: Math.round(submittedValue),
+          approvedValue: Math.round(approvedValue),
+          releasedValue: Math.round(releasedValue),
+          variance: Math.round(variance),
+          variancePercent: boqPlannedValue > 0 ? Math.round((variance / boqPlannedValue) * 100) : 0,
+          billCount: order.raBills.length,
+        });
+      }
+    }
+
+    const totals = byOrder.reduce(
+      (acc, o) => ({
+        totalPlannedValue: acc.totalPlannedValue + o.boqPlannedValue,
+        totalSubmittedValue: acc.totalSubmittedValue + o.submittedValue,
+        totalApprovedValue: acc.totalApprovedValue + o.approvedValue,
+        totalReleasedValue: acc.totalReleasedValue + o.releasedValue,
+      }),
+      { totalPlannedValue: 0, totalSubmittedValue: 0, totalApprovedValue: 0, totalReleasedValue: 0 },
+    );
+    const totalVariance = totals.totalPlannedValue - totals.totalReleasedValue;
+    const totalVariancePercent = totals.totalPlannedValue > 0
+      ? Math.round((totalVariance / totals.totalPlannedValue) * 100)
+      : 0;
+
+    // ── Overall variance score (0-100, higher = more time/money drift) ──
+    const overduePercent = totalActivities > 0 ? (overdueCount / totalActivities) * 100 : 0;
+    const overallVarianceScore = Math.min(
+      100,
+      Math.round(overduePercent + Math.abs(totalVariancePercent) / 2 + overdueBills.length * 5),
+    );
+
+    return {
+      schedule: {
+        overdueActivities: overdueActivities.sort((a, b) => b.daysOverdue - a.daysOverdue),
+        upcomingAtRisk: upcomingAtRisk.sort((a, b) => a.daysRemaining - b.daysRemaining),
+        totalActivities,
+        overdueCount,
+        onTimePercent,
+        healthBreakdown,
+      },
+      bills: {
+        byOrder: byOrder.sort((a, b) => Math.abs(b.variance) - Math.abs(a.variance)),
+        totals: {
+          ...totals,
+          totalVariance: Math.round(totalVariance),
+          totalVariancePercent,
+        },
+      },
+      overdueBills: overdueBills.sort((a, b) => b.daysInStage - a.daysInStage),
+      overallVarianceScore,
+    };
+  }
+
+  /**
    * COMPLIANCE & AUDIT ANALYSIS
    * Answer: "Are procedures being followed, and by whom?"
    */
   static async getComplianceAuditAnalysis(projectId: string): Promise<ComplianceAuditAnalysis> {
-    // Independent reads — fan out in parallel.
-    const [evidence, auditLogs] = await Promise.all([
-      prisma.evidence.findMany({
-        where: { milestone: { projectId } },
-        include: { submittedBy: true },
-      }),
-      prisma.auditLog.findMany({
-        where: { projectId },
-        orderBy: { createdAt: 'desc' },
-      }),
-    ]);
-
-    // Evidence SLA
-    const reviewedEvidence = evidence.filter(e => e.reviewedAt);
-    const reviewTimes = reviewedEvidence.map(e =>
-      (e.reviewedAt!.getTime() - e.submittedAt.getTime()) / (1000 * 60 * 60 * 24)
-    );
-    const withinSLA = reviewTimes.filter(t => t <= SLA_THRESHOLDS.EVIDENCE_REVIEW_MAX_DAYS).length;
-    const avgReviewDays = reviewTimes.length > 0
-      ? reviewTimes.reduce((a, b) => a + b, 0) / reviewTimes.length
-      : 0;
-
-    // Rejections by vendor
-    const vendorRejections = new Map<string, { name: string; submissions: number; rejections: number }>();
-    for (const e of evidence) {
-      const existing = vendorRejections.get(e.submittedById) || {
-        name: e.submittedBy.name,
-        submissions: 0,
-        rejections: 0,
-      };
-      existing.submissions++;
-      if (e.status === EvidenceStatus.REJECTED) {
-        existing.rejections++;
-      }
-      vendorRejections.set(e.submittedById, existing);
-    }
-
-    const rejectionsByVendor = Array.from(vendorRejections.values())
-      .map(v => ({
-        vendorName: v.name,
-        submissionCount: v.submissions,
-        rejectionCount: v.rejections,
-        rejectionRate: v.submissions > 0 ? Math.round((v.rejections / v.submissions) * 100) : 0,
-      }))
-      .filter(v => v.rejectionCount > 0)
-      .sort((a, b) => b.rejectionRate - a.rejectionRate);
-
-    // Late approvals by role
-    const roleDelays = new Map<string, number[]>();
-    for (const e of reviewedEvidence) {
-      const reviewDays = (e.reviewedAt!.getTime() - e.submittedAt.getTime()) / (1000 * 60 * 60 * 24);
-      if (reviewDays > SLA_THRESHOLDS.EVIDENCE_REVIEW_MAX_DAYS) {
-        // Find who reviewed (from audit log)
-        const reviewLog = auditLogs.find(
-          l => l.entityId === e.id && l.actionType.includes('EVIDENCE')
-        );
-        if (reviewLog) {
-          const existing = roleDelays.get(reviewLog.role) || [];
-          existing.push(reviewDays);
-          roleDelays.set(reviewLog.role, existing);
-        }
-      }
-    }
-
-    const lateApprovals = Array.from(roleDelays.entries()).map(([role, delays]) => ({
-      role: role as Role,
-      lateCount: delays.length,
-      avgDelayDays: Math.round((delays.reduce((a, b) => a + b, 0) / delays.length) * 10) / 10,
-    }));
+    const auditLogs = await prisma.auditLog.findMany({
+      where: { projectId },
+      orderBy: { createdAt: 'desc' },
+    });
 
     // Audit completeness
     const missingReasons = auditLogs.filter(
@@ -953,15 +1129,6 @@ export class AnalysisService {
       .sort((a, b) => b.date.localeCompare(a.date));
 
     return {
-      evidenceSLA: {
-        totalSubmissions: evidence.length,
-        withinSLA,
-        breachedSLA: reviewedEvidence.length - withinSLA,
-        avgReviewDays: Math.round(avgReviewDays * 10) / 10,
-        slaThresholdDays: SLA_THRESHOLDS.EVIDENCE_REVIEW_MAX_DAYS,
-      },
-      rejectionsByVendor,
-      lateApprovals,
       auditCompleteness,
       recentAuditActivity,
     };

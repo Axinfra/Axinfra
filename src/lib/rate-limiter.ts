@@ -1,12 +1,14 @@
 /**
- * rate-limiter.ts — Simple in-memory rate limiter for MVP.
+ * rate-limiter.ts
  *
- * Tracks attempts by a composite key (e.g., IP+email) and enforces
- * a maximum number of attempts within a time window.
- *
- * NOTE: In-memory = resets on server restart; not shared across instances.
- * For production multi-instance: replace with Redis-backed implementation.
+ * Primary store: Upstash Redis (shared across all serverless instances — an in-memory-only
+ * limiter is trivially bypassed on a multi-instance/serverless deployment since each instance
+ * would keep its own separate counter).
+ * Fallback store: in-process Map — used when Upstash env vars are absent (local dev). Not
+ * distributed; resets on server restart. Matches the fallback pattern in lib/cache.ts.
  */
+
+import { getRedis } from './cache';
 
 interface RateLimitEntry {
     count: number;
@@ -14,20 +16,41 @@ interface RateLimitEntry {
 }
 
 export class RateLimiter {
+    private name: string;
     private store = new Map<string, RateLimitEntry>();
     private maxAttempts: number;
     private windowMs: number;
 
-    constructor(maxAttempts: number, windowMs: number) {
+    constructor(name: string, maxAttempts: number, windowMs: number) {
+        this.name = name;
         this.maxAttempts = maxAttempts;
         this.windowMs = windowMs;
     }
 
     /**
-     * Check if a key is rate limited.
+     * Check if a key is rate limited, incrementing its counter as a side effect.
      * Returns { allowed: true } if under limit, or { allowed: false, retryAfterMs } if over.
      */
-    check(key: string): { allowed: boolean; retryAfterMs?: number } {
+    async check(key: string): Promise<{ allowed: boolean; retryAfterMs?: number }> {
+        const redis = getRedis();
+        if (redis) {
+            try {
+                const redisKey = `ratelimit:${this.name}:${key}`;
+                const count = await redis.incr(redisKey);
+                if (count === 1) {
+                    await redis.pexpire(redisKey, this.windowMs);
+                }
+                if (count > this.maxAttempts) {
+                    const ttl = await redis.pttl(redisKey);
+                    return { allowed: false, retryAfterMs: ttl > 0 ? ttl : this.windowMs };
+                }
+                return { allowed: true };
+            } catch (err) {
+                console.error(`[rate-limiter] Redis check failed for ${key}, falling back to in-memory:`, err);
+                // fall through to in-memory below
+            }
+        }
+
         const now = Date.now();
         const entry = this.store.get(key);
 
@@ -53,13 +76,22 @@ export class RateLimiter {
     /**
      * Reset the counter for a key (e.g., after successful login).
      */
-    reset(key: string): void {
+    async reset(key: string): Promise<void> {
+        const redis = getRedis();
+        if (redis) {
+            try {
+                await redis.del(`ratelimit:${this.name}:${key}`);
+            } catch (err) {
+                console.error(`[rate-limiter] Redis reset failed for ${key}:`, err);
+            }
+        }
         this.store.delete(key);
     }
 
     /**
-     * Periodic cleanup of expired entries to prevent memory leak.
-     * Call this on a timer or at some cadence.
+     * Periodic cleanup of expired in-memory entries to prevent unbounded growth on
+     * long-running processes without Redis configured. Redis entries expire on their own
+     * via PEXPIRE and never need this.
      */
     cleanup(): void {
         const now = Date.now();
@@ -78,6 +110,30 @@ export class RateLimiter {
  *   5 attempts per 10 minutes per IP+email
  */
 export const loginRateLimiter = new RateLimiter(
+    'login',
     5,                   // max attempts
     10 * 60 * 1000       // 10 minute window
+);
+
+/**
+ * Pre-configured registration rate limiter:
+ *   5 accounts per 15 minutes per IP+email — registration is more expensive to abuse than a
+ *   login attempt (bcrypt hash at cost 12 + a welcome email send per request), so this exists
+ *   even though registration has no prior failed-attempt concept to protect against.
+ */
+export const registerRateLimiter = new RateLimiter(
+    'register',
+    5,
+    15 * 60 * 1000
+);
+
+/**
+ * Pre-configured public-form rate limiter (contact / demo-request):
+ *   5 submissions per 10 minutes per IP — these routes are unauthenticated by design and each
+ *   submission triggers an outbound email, so an unbounded endpoint is an easy spam/cost vector.
+ */
+export const publicFormRateLimiter = new RateLimiter(
+    'public-form',
+    5,
+    10 * 60 * 1000
 );

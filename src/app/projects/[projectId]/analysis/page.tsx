@@ -1,14 +1,23 @@
 'use client';
 
 import { AnalysisSkeleton } from '@/components/ui/SkeletonPage';
+import { Skeleton } from '@/components/ui/Skeleton';
 import { useState } from 'react';
-import { useParams } from 'next/navigation';
+import dynamic from 'next/dynamic';
+import { useParams, useRouter } from 'next/navigation';
 import useSWR from 'swr';
 import Layout from '@/components/Layout';
 import Navbar from '@/components/Navbar';
 import { formatCurrency, formatDate } from '@/lib/utils';
 import { useProject } from '@/lib/contexts/ProjectContext';
 import { jsonFetcher } from '@/lib/fetcher';
+import { HEALTH_LABEL, HEALTH_COLOR } from '@/lib/scheduleVariance';
+
+// recharts is a heavy dependency — only load it when a schedule-imported project actually
+// renders this chart, not on every visit to the Analysis tab.
+const ScheduleProgressChart = dynamic(() => import('@/components/analysis/ScheduleProgressChart'), {
+  loading: () => <Skeleton className="h-64 w-full rounded-lg" />,
+});
 
 /**
  * Project Analysis Panel - READ-ONLY intelligence dashboard.
@@ -21,11 +30,11 @@ import { jsonFetcher } from '@/lib/fetcher';
  * - Accessible to OWNER and PMC only
  */
 
-type TabId = 'execution' | 'financial' | 'vendor' | 'delay-risk' | 'compliance';
+type TabId = 'execution' | 'variance' | 'vendor' | 'delay-risk' | 'compliance';
 
 const TABS: Array<{ id: TabId; label: string }> = [
   { id: 'execution', label: 'Execution Analysis' },
-  { id: 'financial', label: 'Financial Analysis' },
+  { id: 'variance', label: 'Time & Money Variance' },
   { id: 'vendor', label: 'Vendor Analysis' },
   { id: 'delay-risk', label: 'Delay & Risk' },
   { id: 'compliance', label: 'Compliance & Audit' },
@@ -130,7 +139,7 @@ export default function AnalysisPage() {
           ) : (
             <>
               {activeTab === 'execution' && <ExecutionTab data={tabData.execution} />}
-              {activeTab === 'financial' && <FinancialTab data={tabData.financial} />}
+              {activeTab === 'variance' && <VarianceTab data={tabData.variance} projectId={projectId} />}
               {activeTab === 'vendor' && <VendorTab data={tabData.vendor} />}
               {activeTab === 'delay-risk' && <DelayRiskTab data={tabData.delayRisk} />}
               {activeTab === 'compliance' && <ComplianceTab data={tabData.compliance} />}
@@ -149,7 +158,7 @@ export default function AnalysisPage() {
 function ExecutionTab({ data }: { data: any }) {
   if (!data) return <div className="text-center py-8 text-[rgba(232,228,220,0.6)]">No data available</div>;
 
-  const { overview, stateBreakdown, slaBreaches, byTrade } = data;
+  const { overview, stateBreakdown, slaBreaches, byTrade, scheduleProgress } = data;
   const total = overview.totalMilestones || 1;
   const doneCount     = overview.doneCount ?? 0;
   const submittedCount = overview.submittedCount ?? 0;
@@ -258,18 +267,6 @@ function ExecutionTab({ data }: { data: any }) {
           color={overview.avgDaysInSubmitted > 7 ? 'red' : 'gray'}
         />
         <MetricCard
-          label="Evidence Review Time"
-          value={overview.avgEvidenceReviewDays}
-          subtext="days avg"
-          color={overview.avgEvidenceReviewDays > 3 ? 'yellow' : 'green'}
-        />
-        <MetricCard
-          label="Rejection Rate"
-          value={`${overview.evidenceRejectionRate}%`}
-          subtext="of submissions"
-          color={overview.evidenceRejectionRate > 20 ? 'red' : 'gray'}
-        />
-        <MetricCard
           label="SLA Breaches"
           value={slaBreaches.length}
           subtext="active"
@@ -308,6 +305,10 @@ function ExecutionTab({ data }: { data: any }) {
         </div>
       </div>
 
+      {/* Schedule Progress — separate signal from workflow state above, only shown when the
+          project has schedule-imported milestones */}
+      {scheduleProgress?.hasImportedTasks && <ScheduleProgressChart data={scheduleProgress} />}
+
       {/* SLA Breaches */}
       {slaBreaches.length > 0 && (
         <div className="card" style={{ borderColor: 'rgba(239,68,68,0.25)' }}>
@@ -315,6 +316,7 @@ function ExecutionTab({ data }: { data: any }) {
             <h3 className="font-semibold text-red-300">SLA Breaches ({slaBreaches.length})</h3>
           </div>
           <div className="card-body">
+            <div className="overflow-x-auto">
             <table className="table text-sm">
               <thead>
                 <tr>
@@ -335,6 +337,7 @@ function ExecutionTab({ data }: { data: any }) {
                 ))}
               </tbody>
             </table>
+            </div>
           </div>
         </div>
       )}
@@ -346,6 +349,7 @@ function ExecutionTab({ data }: { data: any }) {
             <h3 className="font-semibold">Performance by Trade</h3>
           </div>
           <div className="card-body">
+            <div className="overflow-x-auto">
             <table className="table text-sm">
               <thead>
                 <tr>
@@ -366,6 +370,7 @@ function ExecutionTab({ data }: { data: any }) {
                 ))}
               </tbody>
             </table>
+            </div>
           </div>
         </div>
       )}
@@ -378,165 +383,233 @@ function ExecutionTab({ data }: { data: any }) {
   );
 }
 
-function FinancialTab({ data }: { data: any }) {
+function VarianceTab({ data, projectId }: { data: any; projectId: string }) {
   if (!data) return <div className="text-center py-8 text-[rgba(232,228,220,0.6)]">No data available</div>;
 
-  const { summary, byStatus = [], byPaymentModel = [], cashFlowRisk } = data;
+  const router = useRouter();
+  const { schedule, bills, overdueBills, overallVarianceScore } = data;
+  const rowLinkClass = 'cursor-pointer hover:bg-[rgba(var(--ax-accent-rgb),0.05)] transition-colors';
 
   return (
     <div className="space-y-6">
       {/* Key Question */}
       <div className="bg-[rgba(59,130,246,0.1)] border-l-4 border-blue-500 p-4">
         <p className="text-blue-300 font-medium">
-          "What money is safe, blocked, or exposed right now?"
+          "Is the schedule slipping, is the money moving on time, and is anything missing?"
         </p>
+      </div>
+
+      {/* Overall Variance Score */}
+      <div className="card">
+        <div className="card-body flex items-center justify-between">
+          <div>
+            <h3 className="text-lg font-semibold">Overall Variance Score</h3>
+            <p className="text-sm text-[rgba(232,228,220,0.6)]">Combines schedule delay, bill variance, and stuck-bill count</p>
+          </div>
+          <div className={`text-5xl font-bold ${
+            overallVarianceScore > 50 ? 'text-red-400' :
+            overallVarianceScore > 25 ? 'text-yellow-300' :
+            'text-green-300'
+          }`}>
+            {overallVarianceScore}
+          </div>
+        </div>
+        <div className="card-body pt-0 flex flex-wrap gap-2">
+          {(Object.keys(HEALTH_LABEL) as Array<keyof typeof HEALTH_LABEL>).map((h) => {
+            const c = HEALTH_COLOR[h];
+            const count = schedule.healthBreakdown?.[h] ?? 0;
+            return (
+              <span key={h} className="text-xs font-semibold px-2.5 py-1 rounded-full whitespace-nowrap" style={{ color: c.color, background: c.bg }}>
+                {HEALTH_LABEL[h]}: {count}
+              </span>
+            );
+          })}
+        </div>
       </div>
 
       {/* Summary Cards */}
       <div className="grid grid-cols-2 md:grid-cols-4 gap-4">
         <MetricCard
-          label="Total Project Value"
-          value={formatCurrency(summary.totalProjectValue)}
+          label="Activities On-Time"
+          value={`${schedule.onTimePercent}%`}
+          subtext={`${schedule.overdueCount} of ${schedule.totalActivities} overdue`}
+          color={schedule.overdueCount > 0 ? 'orange' : 'green'}
+        />
+        <MetricCard
+          label="BOQ Planned Value"
+          value={formatCurrency(bills.totals.totalPlannedValue)}
           color="gray"
         />
         <MetricCard
-          label="Certified Value"
-          value={formatCurrency(summary.certifiedValue)}
-          subtext={`${Math.round((summary.certifiedValue / summary.totalProjectValue) * 100)}% of total`}
-          color="green"
-        />
-        <MetricCard
-          label="Paid Value"
-          value={formatCurrency(summary.paidValue)}
-          subtext={`${Math.round((summary.paidValue / summary.totalProjectValue) * 100)}% of total`}
+          label="Released (Paid) Value"
+          value={formatCurrency(bills.totals.totalReleasedValue)}
           color="emerald"
         />
         <MetricCard
-          label="Blocked Value"
-          value={formatCurrency(summary.blockedValue)}
-          color={summary.blockedValue > 0 ? 'red' : 'gray'}
+          label="Bill Variance"
+          value={formatCurrency(bills.totals.totalVariance)}
+          subtext={`${bills.totals.totalVariancePercent > 0 ? '+' : ''}${bills.totals.totalVariancePercent}% of planned`}
+          color={Math.abs(bills.totals.totalVariancePercent) > 20 ? 'red' : Math.abs(bills.totals.totalVariancePercent) > 10 ? 'yellow' : 'green'}
         />
       </div>
 
-      {/* Stacked Bar Visualization */}
+      {/* ── Schedule (Time) Variance ── */}
       <div className="card">
         <div className="card-header">
-          <h3 className="font-semibold">Financial Position</h3>
+          <h3 className="font-semibold">Schedule Variance — Overdue Activities ({schedule.overdueActivities.length})</h3>
         </div>
         <div className="card-body">
-          <div className="h-12 flex rounded-lg overflow-hidden bg-[rgba(255,255,255,0.06)]">
-            <div
-              className="bg-emerald-500"
-              style={{ width: `${(summary.paidValue / summary.totalProjectValue) * 100}%` }}
-              title={`Paid: ${formatCurrency(summary.paidValue)}`}
-            />
-            <div
-              className="bg-green-400"
-              style={{ width: `${(summary.eligibleUnpaid / summary.totalProjectValue) * 100}%` }}
-              title={`Eligible Unpaid: ${formatCurrency(summary.eligibleUnpaid)}`}
-            />
-            <div
-              className="bg-red-400"
-              style={{ width: `${(summary.blockedValue / summary.totalProjectValue) * 100}%` }}
-              title={`Blocked: ${formatCurrency(summary.blockedValue)}`}
-            />
-            <div
-              className="bg-yellow-400"
-              style={{ width: `${(summary.exposedValue / summary.totalProjectValue) * 100}%` }}
-              title={`Exposed: ${formatCurrency(summary.exposedValue)}`}
-            />
-          </div>
-          <div className="flex justify-between mt-2 text-xs">
-            <div className="flex items-center"><span className="w-3 h-3 bg-emerald-500 rounded mr-1"></span>Paid</div>
-            <div className="flex items-center"><span className="w-3 h-3 bg-green-400 rounded mr-1"></span>Eligible</div>
-            <div className="flex items-center"><span className="w-3 h-3 bg-red-400 rounded mr-1"></span>Blocked</div>
-            <div className="flex items-center"><span className="w-3 h-3 bg-yellow-400 rounded mr-1"></span>Exposed</div>
-          </div>
-        </div>
-      </div>
-
-      {/* Key Financial Metrics */}
-      <div className="grid grid-cols-1 md:grid-cols-3 gap-4">
-        <div className="card border-[rgba(234,179,8,0.25)]" style={{ backgroundColor: 'rgba(234,179,8,0.06)' }}>
-          <div className="card-body">
-            <p className="text-sm text-yellow-300">Exposed Value</p>
-            <p className="text-2xl font-bold text-yellow-200">{formatCurrency(summary.exposedValue)}</p>
-            <p className="text-xs text-[rgba(232,228,220,0.55)] mt-1">Certified but not yet paid</p>
-          </div>
-        </div>
-        <div className="card border-[rgba(168,85,247,0.25)]" style={{ backgroundColor: 'rgba(168,85,247,0.06)' }}>
-          <div className="card-body">
-            <p className="text-sm text-purple-300">Retention Held</p>
-            <p className="text-2xl font-bold text-purple-200">{formatCurrency(summary.retentionHeld)}</p>
-            <p className="text-xs text-[rgba(232,228,220,0.55)] mt-1">Held per contract terms</p>
-          </div>
-        </div>
-        <div className="card border-[rgba(249,115,22,0.25)]" style={{ backgroundColor: 'rgba(249,115,22,0.06)' }}>
-          <div className="card-body">
-            <p className="text-sm text-orange-300">Cash Flow at Risk</p>
-            <p className="text-2xl font-bold text-orange-200">{formatCurrency(cashFlowRisk.blockedTooLong)}</p>
-            <p className="text-xs text-[rgba(232,228,220,0.55)] mt-1">Blocked &gt;14 days</p>
-          </div>
-        </div>
-      </div>
-
-      {/* By Payment Status */}
-      <div className="card">
-        <div className="card-header">
-          <h3 className="font-semibold">Breakdown by Payment Status</h3>
-        </div>
-        <div className="card-body">
-          <table className="table text-sm">
-            <thead>
-              <tr>
-                <th>Status</th>
-                <th className="text-right">Count</th>
-                <th className="text-right">Value</th>
-                <th className="text-right">% of Total</th>
-              </tr>
-            </thead>
-            <tbody>
-              {byStatus.filter((s: any) => s.count > 0).map((status: any) => (
-                <tr key={status.status}>
-                  <td><span className={`badge ${getPaymentStatusBadgeClass(status.status)}`}>{status.status.replace('_', ' ')}</span></td>
-                  <td className="text-right">{status.count}</td>
-                  <td className="text-right font-medium">{formatCurrency(status.value)}</td>
-                  <td className="text-right text-[rgba(232,228,220,0.6)]">{status.percent}%</td>
+          {schedule.overdueActivities.length === 0 ? (
+            <p className="text-sm text-[rgba(232,228,220,0.5)] text-center py-4">Nothing overdue — schedule is on track.</p>
+          ) : (
+            <div className="overflow-x-auto">
+            <table className="table text-sm">
+              <thead>
+                <tr>
+                  <th>Activity</th>
+                  <th>State</th>
+                  <th>Due Date</th>
+                  <th className="text-right">Days Overdue</th>
+                  <th>Severity</th>
                 </tr>
-              ))}
-            </tbody>
-          </table>
+              </thead>
+              <tbody>
+                {schedule.overdueActivities.slice(0, 10).map((a: any) => (
+                  <tr key={a.id} className={rowLinkClass} onClick={() => router.push(`/projects/${projectId}/activities/${a.id}`)}>
+                    <td className="font-medium">{a.title}</td>
+                    <td><span className="badge badge-draft">{a.state}</span></td>
+                    <td>{formatDate(a.dueDate)}</td>
+                    <td className="text-right text-red-400 font-medium">{a.daysOverdue}</td>
+                    <td>
+                      <span className={`px-2 py-0.5 text-xs rounded ${
+                        a.severity === 'CRITICAL' ? 'bg-[rgba(239,68,68,0.15)] text-red-300' :
+                        a.severity === 'MAJOR' ? 'bg-[rgba(249,115,22,0.15)] text-orange-300' :
+                        'bg-[rgba(234,179,8,0.15)] text-yellow-300'
+                      }`}>
+                        {a.severity}
+                      </span>
+                    </td>
+                  </tr>
+                ))}
+              </tbody>
+            </table>
+            </div>
+          )}
         </div>
       </div>
 
-      {/* By Payment Model */}
+      {schedule.upcomingAtRisk.length > 0 && (
+        <div className="card" style={{ borderColor: 'rgba(234,179,8,0.25)' }}>
+          <div className="card-header" style={{ backgroundColor: 'rgba(234,179,8,0.08)' }}>
+            <h3 className="font-semibold text-yellow-300">Due Soon — Not Yet Overdue ({schedule.upcomingAtRisk.length})</h3>
+          </div>
+          <div className="card-body">
+            <div className="overflow-x-auto">
+            <table className="table text-sm">
+              <thead>
+                <tr>
+                  <th>Activity</th>
+                  <th>Due Date</th>
+                  <th className="text-right">Days Remaining</th>
+                </tr>
+              </thead>
+              <tbody>
+                {schedule.upcomingAtRisk.slice(0, 10).map((a: any) => (
+                  <tr key={a.id} className={rowLinkClass} onClick={() => router.push(`/projects/${projectId}/activities/${a.id}`)}>
+                    <td className="font-medium">{a.title}</td>
+                    <td>{formatDate(a.dueDate)}</td>
+                    <td className="text-right text-yellow-300 font-medium">{a.daysRemaining}d</td>
+                  </tr>
+                ))}
+              </tbody>
+            </table>
+            </div>
+          </div>
+        </div>
+      )}
+
+      {/* ── Bill (Money) Variance, per Purchase Order ── */}
       <div className="card">
         <div className="card-header">
-          <h3 className="font-semibold">Breakdown by Payment Model</h3>
+          <h3 className="font-semibold">Bill Variance by Purchase Order</h3>
+          <p className="text-xs mt-0.5" style={{ color: 'rgba(232,228,220,0.4)' }}>
+            BOQ planned value vs submitted / approved / released RA Bill amounts
+          </p>
         </div>
         <div className="card-body">
-          <table className="table text-sm">
-            <thead>
-              <tr>
-                <th>Model</th>
-                <th className="text-right">Total Value</th>
-                <th className="text-right">Certified</th>
-                <th className="text-right">Paid</th>
-              </tr>
-            </thead>
-            <tbody>
-              {byPaymentModel.map((model: any) => (
-                <tr key={model.model}>
-                  <td className="font-medium">{model.model.replace('_', ' ')}</td>
-                  <td className="text-right">{formatCurrency(model.totalValue)}</td>
-                  <td className="text-right">{formatCurrency(model.certifiedValue)}</td>
-                  <td className="text-right">{formatCurrency(model.paidValue)}</td>
-                </tr>
-              ))}
-            </tbody>
-          </table>
+          {bills.byOrder.length === 0 ? (
+            <p className="text-sm text-[rgba(232,228,220,0.5)] text-center py-4">No Purchase Orders with BOQ or RA Bill data yet.</p>
+          ) : (
+            <div className="overflow-x-auto">
+              <table className="table text-sm min-w-[800px]">
+                <thead>
+                  <tr>
+                    <th>Purchase Order</th>
+                    <th className="text-right">BOQ Planned</th>
+                    <th className="text-right">Submitted</th>
+                    <th className="text-right">Approved</th>
+                    <th className="text-right">Released</th>
+                    <th className="text-right">Variance</th>
+                    <th className="text-right">Bills</th>
+                  </tr>
+                </thead>
+                <tbody>
+                  {bills.byOrder.map((o: any) => (
+                    <tr key={o.orderId} className={rowLinkClass} onClick={() => router.push(`/projects/${projectId}/orders/${o.orderId}`)}>
+                      <td className="font-medium">{o.orderName}</td>
+                      <td className="text-right">{formatCurrency(o.boqPlannedValue)}</td>
+                      <td className="text-right text-[rgba(232,228,220,0.6)]">{formatCurrency(o.submittedValue)}</td>
+                      <td className="text-right">{formatCurrency(o.approvedValue)}</td>
+                      <td className="text-right text-green-400">{formatCurrency(o.releasedValue)}</td>
+                      <td className={`text-right font-medium ${Math.abs(o.variancePercent) > 20 ? 'text-red-400' : Math.abs(o.variancePercent) > 10 ? 'text-orange-300' : 'text-[rgba(232,228,220,0.6)]'}`}>
+                        {formatCurrency(o.variance)}
+                        <span className="text-xs ml-1">({o.variancePercent > 0 ? '+' : ''}{o.variancePercent}%)</span>
+                      </td>
+                      <td className="text-right">{o.billCount}</td>
+                    </tr>
+                  ))}
+                </tbody>
+              </table>
+            </div>
+          )}
         </div>
       </div>
+
+      {/* Overdue Bills — stuck in a lifecycle stage too long */}
+      {overdueBills.length > 0 && (
+        <div className="card" style={{ borderColor: 'rgba(239,68,68,0.25)' }}>
+          <div className="card-header" style={{ backgroundColor: 'rgba(239,68,68,0.08)' }}>
+            <h3 className="font-semibold text-red-300">Overdue Bills ({overdueBills.length})</h3>
+            <p className="text-xs mt-0.5 text-[rgba(232,228,220,0.5)]">RA Bills sitting in the same stage longer than expected</p>
+          </div>
+          <div className="card-body">
+            <div className="overflow-x-auto">
+            <table className="table text-sm">
+              <thead>
+                <tr>
+                  <th>Bill</th>
+                  <th>Purchase Order</th>
+                  <th>Stuck At</th>
+                  <th className="text-right">Days</th>
+                  <th className="text-right">Amount</th>
+                </tr>
+              </thead>
+              <tbody>
+                {overdueBills.map((b: any) => (
+                  <tr key={b.raBillId} className={rowLinkClass} onClick={() => router.push(`/projects/${projectId}/orders/${b.orderId}/ra-bills/${b.raBillId}`)}>
+                    <td className="font-medium">RA-{b.billNumber}</td>
+                    <td>{b.orderName}</td>
+                    <td>{b.stage}</td>
+                    <td className="text-right text-red-400 font-medium">{b.daysInStage}</td>
+                    <td className="text-right">{formatCurrency(b.amount)}</td>
+                  </tr>
+                ))}
+              </tbody>
+            </table>
+            </div>
+          </div>
+        </div>
+      )}
     </div>
   );
 }
@@ -544,17 +617,9 @@ function FinancialTab({ data }: { data: any }) {
 function VendorTab({ data }: { data: any }) {
   if (!data) return <div className="text-center py-8 text-[rgba(232,228,220,0.6)]">No data available</div>;
 
-  const [sortBy, setSortBy] = useState<'exposure' | 'delay' | 'rejection'>('exposure');
   const { vendors, totals } = data;
 
-  const sortedVendors = [...vendors].sort((a, b) => {
-    switch (sortBy) {
-      case 'exposure': return b.exposurePercent - a.exposurePercent;
-      case 'delay': return b.avgVerificationDays - a.avgVerificationDays;
-      case 'rejection': return b.rejectionRate - a.rejectionRate;
-      default: return 0;
-    }
-  });
+  const sortedVendors = [...vendors].sort((a, b) => b.avgVerificationDays - a.avgVerificationDays);
 
   return (
     <div className="space-y-6">
@@ -566,7 +631,7 @@ function VendorTab({ data }: { data: any }) {
       </div>
 
       {/* Summary */}
-      <div className="grid grid-cols-2 md:grid-cols-3 lg:grid-cols-6 gap-4">
+      <div className="grid grid-cols-2 md:grid-cols-3 lg:grid-cols-5 gap-4">
         <MetricCard
           label="Total Vendors"
           value={totals.totalVendors}
@@ -576,11 +641,6 @@ function VendorTab({ data }: { data: any }) {
           label="High Risk Vendors"
           value={totals.highRiskCount}
           color={totals.highRiskCount > 0 ? 'red' : 'green'}
-        />
-        <MetricCard
-          label="Total Exposure"
-          value={formatCurrency(totals.totalExposure)}
-          color={totals.totalExposure > 0 ? 'yellow' : 'gray'}
         />
         <MetricCard
           label="Original BOQ Value"
@@ -601,41 +661,6 @@ function VendorTab({ data }: { data: any }) {
         />
       </div>
 
-      {/* Sort Controls */}
-      <div className="flex items-center flex-wrap gap-2">
-        <span className="text-sm text-[rgba(232,228,220,0.6)]">Sort by:</span>
-        <button
-          onClick={() => setSortBy('exposure')}
-          className={`px-3 py-1.5 text-sm rounded-md border transition-colors ${
-            sortBy === 'exposure'
-              ? 'bg-[rgba(var(--ax-accent-rgb),0.12)] text-[var(--ax-accent)] border-[rgba(var(--ax-accent-rgb),0.3)]'
-              : 'bg-[rgba(255,255,255,0.04)] text-[rgba(232,228,220,0.7)] border-[rgba(255,255,255,0.08)] hover:bg-[rgba(255,255,255,0.06)]'
-          }`}
-        >
-          Exposure %
-        </button>
-        <button
-          onClick={() => setSortBy('delay')}
-          className={`px-3 py-1.5 text-sm rounded-md border transition-colors ${
-            sortBy === 'delay'
-              ? 'bg-[rgba(var(--ax-accent-rgb),0.12)] text-[var(--ax-accent)] border-[rgba(var(--ax-accent-rgb),0.3)]'
-              : 'bg-[rgba(255,255,255,0.04)] text-[rgba(232,228,220,0.7)] border-[rgba(255,255,255,0.08)] hover:bg-[rgba(255,255,255,0.06)]'
-          }`}
-        >
-          Delay
-        </button>
-        <button
-          onClick={() => setSortBy('rejection')}
-          className={`px-3 py-1.5 text-sm rounded-md border transition-colors ${
-            sortBy === 'rejection'
-              ? 'bg-[rgba(var(--ax-accent-rgb),0.12)] text-[var(--ax-accent)] border-[rgba(var(--ax-accent-rgb),0.3)]'
-              : 'bg-[rgba(255,255,255,0.04)] text-[rgba(232,228,220,0.7)] border-[rgba(255,255,255,0.08)] hover:bg-[rgba(255,255,255,0.06)]'
-          }`}
-        >
-          Rejection Rate
-        </button>
-      </div>
-
       {/* Vendor Table */}
       <div className="card">
         <div className="overflow-x-auto card-body p-0">
@@ -647,11 +672,7 @@ function VendorTab({ data }: { data: any }) {
                 <th className="text-right">BOQ Value</th>
                 <th className="text-right">Contract</th>
                 <th className="text-right">Overrun</th>
-                <th className="text-right">Certified</th>
-                <th className="text-right">Paid</th>
-                <th className="text-right">Exposure</th>
                 <th className="text-right">Milestones</th>
-                <th className="text-right">Rejections</th>
               </tr>
             </thead>
             <tbody>
@@ -692,19 +713,7 @@ function VendorTab({ data }: { data: any }) {
                       <span className="text-[rgba(232,228,220,0.4)]">-</span>
                     )}
                   </td>
-                  <td className="text-right">{formatCurrency(vendor.certifiedValue)}</td>
-                  <td className="text-right">{formatCurrency(vendor.paidValue)}</td>
-                  <td className="text-right">
-                    <span className={vendor.exposurePercent > 20 ? 'text-red-400 font-medium' : ''}>
-                      {vendor.exposurePercent}%
-                    </span>
-                  </td>
                   <td className="text-right">{vendor.milestonesVerified}/{vendor.milestonesTotal}</td>
-                  <td className="text-right">
-                    <span className={vendor.rejectionRate > 20 ? 'text-red-400' : ''}>
-                      {vendor.evidenceRejections} ({vendor.rejectionRate}%)
-                    </span>
-                  </td>
                 </tr>
               ))}
             </tbody>
@@ -734,7 +743,7 @@ function VendorTab({ data }: { data: any }) {
 function DelayRiskTab({ data }: { data: any }) {
   if (!data) return <div className="text-center py-8 text-[rgba(232,228,220,0.6)]">No data available</div>;
 
-  const { delayedMilestones, riskBuckets, blockedPayments, boqOverruns, overallRiskScore } = data;
+  const { delayedMilestones, riskBuckets, boqOverruns, overallRiskScore } = data;
 
   return (
     <div className="space-y-6">
@@ -803,6 +812,7 @@ function DelayRiskTab({ data }: { data: any }) {
             <h3 className="font-semibold text-orange-300">Delayed Milestones ({delayedMilestones.length})</h3>
           </div>
           <div className="card-body">
+            <div className="overflow-x-auto">
             <table className="table text-sm">
               <thead>
                 <tr>
@@ -810,7 +820,6 @@ function DelayRiskTab({ data }: { data: any }) {
                   <th>State</th>
                   <th>Due Date</th>
                   <th className="text-right">Days Overdue</th>
-                  <th className="text-right">Value</th>
                   <th>Severity</th>
                 </tr>
               </thead>
@@ -821,7 +830,6 @@ function DelayRiskTab({ data }: { data: any }) {
                     <td><span className="badge badge-draft">{m.state}</span></td>
                     <td>{formatDate(m.dueDate)}</td>
                     <td className="text-right text-red-400 font-medium">{m.daysOverdue}</td>
-                    <td className="text-right">{formatCurrency(m.value)}</td>
                     <td>
                       <span className={`px-2 py-0.5 text-xs rounded ${
                         m.severity === 'CRITICAL' ? 'bg-[rgba(239,68,68,0.15)] text-red-300' :
@@ -835,37 +843,7 @@ function DelayRiskTab({ data }: { data: any }) {
                 ))}
               </tbody>
             </table>
-          </div>
-        </div>
-      )}
-
-      {/* Blocked Payments */}
-      {blockedPayments.length > 0 && (
-        <div className="card" style={{ borderColor: 'rgba(239,68,68,0.25)' }}>
-          <div className="card-header" style={{ backgroundColor: 'rgba(239,68,68,0.08)' }}>
-            <h3 className="font-semibold text-red-300">Blocked Payments ({blockedPayments.length})</h3>
-          </div>
-          <div className="card-body">
-            <table className="table text-sm">
-              <thead>
-                <tr>
-                  <th>Milestone</th>
-                  <th className="text-right">Value</th>
-                  <th className="text-right">Days Blocked</th>
-                  <th>Reason</th>
-                </tr>
-              </thead>
-              <tbody>
-                {blockedPayments.map((p: any) => (
-                  <tr key={p.milestoneId}>
-                    <td className="font-medium">{p.title}</td>
-                    <td className="text-right">{formatCurrency(p.value)}</td>
-                    <td className="text-right text-red-400">{p.daysBlocked}</td>
-                    <td>{p.reason}</td>
-                  </tr>
-                ))}
-              </tbody>
-            </table>
+            </div>
           </div>
         </div>
       )}
@@ -877,6 +855,7 @@ function DelayRiskTab({ data }: { data: any }) {
             <h3 className="font-semibold text-purple-300">BOQ Overruns ({boqOverruns.length})</h3>
           </div>
           <div className="card-body">
+            <div className="overflow-x-auto">
             <table className="table text-sm">
               <thead>
                 <tr>
@@ -897,6 +876,7 @@ function DelayRiskTab({ data }: { data: any }) {
                 ))}
               </tbody>
             </table>
+            </div>
           </div>
         </div>
       )}
@@ -907,7 +887,7 @@ function DelayRiskTab({ data }: { data: any }) {
 function ComplianceTab({ data }: { data: any }) {
   if (!data) return <div className="text-center py-8 text-[rgba(232,228,220,0.6)]">No data available</div>;
 
-  const { evidenceSLA, rejectionsByVendor, lateApprovals, auditCompleteness, recentAuditActivity } = data;
+  const { auditCompleteness, recentAuditActivity } = data;
 
   return (
     <div className="space-y-6">
@@ -916,38 +896,6 @@ function ComplianceTab({ data }: { data: any }) {
         <p className="text-blue-300 font-medium">
           "Are procedures being followed, and by whom?"
         </p>
-      </div>
-
-      {/* Evidence SLA */}
-      <div className="card">
-        <div className="card-header">
-          <h3 className="font-semibold">Evidence Review SLA Performance</h3>
-        </div>
-        <div className="card-body">
-          <div className="grid grid-cols-4 gap-4">
-            <MetricCard
-              label="Total Submissions"
-              value={evidenceSLA.totalSubmissions}
-              color="gray"
-            />
-            <MetricCard
-              label="Within SLA"
-              value={evidenceSLA.withinSLA}
-              subtext={`≤${evidenceSLA.slaThresholdDays} days`}
-              color="green"
-            />
-            <MetricCard
-              label="Breached SLA"
-              value={evidenceSLA.breachedSLA}
-              color={evidenceSLA.breachedSLA > 0 ? 'red' : 'gray'}
-            />
-            <MetricCard
-              label="Avg Review Time"
-              value={`${evidenceSLA.avgReviewDays}d`}
-              color={evidenceSLA.avgReviewDays > evidenceSLA.slaThresholdDays ? 'yellow' : 'green'}
-            />
-          </div>
-        </div>
       </div>
 
       {/* Audit Completeness */}
@@ -984,70 +932,6 @@ function ComplianceTab({ data }: { data: any }) {
         </div>
       </div>
 
-      {/* Rejections by Vendor */}
-      {rejectionsByVendor.length > 0 && (
-        <div className="card">
-          <div className="card-header">
-            <h3 className="font-semibold">Repeated Rejections by Vendor</h3>
-          </div>
-          <div className="card-body">
-            <table className="table text-sm">
-              <thead>
-                <tr>
-                  <th>Vendor</th>
-                  <th className="text-right">Submissions</th>
-                  <th className="text-right">Rejections</th>
-                  <th className="text-right">Rate</th>
-                </tr>
-              </thead>
-              <tbody>
-                {rejectionsByVendor.map((v: any, i: number) => (
-                  <tr key={i}>
-                    <td className="font-medium">{v.vendorName}</td>
-                    <td className="text-right">{v.submissionCount}</td>
-                    <td className="text-right text-red-400">{v.rejectionCount}</td>
-                    <td className="text-right">
-                      <span className={v.rejectionRate > 20 ? 'text-red-400 font-medium' : ''}>
-                        {v.rejectionRate}%
-                      </span>
-                    </td>
-                  </tr>
-                ))}
-              </tbody>
-            </table>
-          </div>
-        </div>
-      )}
-
-      {/* Late Approvals by Role */}
-      {lateApprovals.length > 0 && (
-        <div className="card">
-          <div className="card-header">
-            <h3 className="font-semibold">Late Approvals by Role</h3>
-          </div>
-          <div className="card-body">
-            <table className="table text-sm">
-              <thead>
-                <tr>
-                  <th>Role</th>
-                  <th className="text-right">Late Count</th>
-                  <th className="text-right">Avg Delay</th>
-                </tr>
-              </thead>
-              <tbody>
-                {lateApprovals.map((r: any, i: number) => (
-                  <tr key={i}>
-                    <td><span className="badge badge-draft">{r.role}</span></td>
-                    <td className="text-right">{r.lateCount}</td>
-                    <td className="text-right">{r.avgDelayDays}d</td>
-                  </tr>
-                ))}
-              </tbody>
-            </table>
-          </div>
-        </div>
-      )}
-
       {/* Recent Activity */}
       {recentAuditActivity.length > 0 && (
         <div className="card">
@@ -1055,6 +939,7 @@ function ComplianceTab({ data }: { data: any }) {
             <h3 className="font-semibold">Recent Audit Activity (7 days)</h3>
           </div>
           <div className="card-body">
+            <div className="overflow-x-auto">
             <table className="table text-sm">
               <thead>
                 <tr>
@@ -1079,6 +964,7 @@ function ComplianceTab({ data }: { data: any }) {
                 ))}
               </tbody>
             </table>
+            </div>
           </div>
         </div>
       )}
@@ -1152,23 +1038,9 @@ function getStateColor(state: string): string {
   return colors[state] || 'bg-gray-400';
 }
 
-function getPaymentStatusBadgeClass(status: string): string {
-  const classes: Record<string, string> = {
-    NOT_ELIGIBLE: 'badge-draft',
-    ELIGIBLE: 'badge-eligible',
-    DUE_SOON: 'badge-submitted',
-    BLOCKED: 'badge-blocked',
-    PAID_MARKED: 'badge-paid',
-  };
-  return classes[status] || 'badge-draft';
-}
-
 function generateExecutionInsight(overview: any, byTrade: any[]): string {
   if (overview.avgDaysInSubmitted > 7) {
-    return `Evidence is spending ${overview.avgDaysInSubmitted} days in review on average. Consider expediting the review process.`;
-  }
-  if (overview.evidenceRejectionRate > 20) {
-    return `High rejection rate (${overview.evidenceRejectionRate}%) suggests quality issues with submissions. Consider vendor guidance.`;
+    return `Milestones are spending ${overview.avgDaysInSubmitted} days awaiting review on average. Consider expediting the review process.`;
   }
   if (byTrade.length >= 2) {
     const sorted = [...byTrade].sort((a, b) => b.avgDaysToVerify - a.avgDaysToVerify);

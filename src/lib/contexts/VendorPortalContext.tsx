@@ -17,7 +17,7 @@ export interface VendorKPIs {
 export interface OverviewMilestone {
   id: string; title: string; state: string;
   plannedStart: string | null; plannedEnd: string | null;
-  actualEnd: string | null; value: number;
+  actualEnd: string | null; value: number; percentComplete: number | null;
 }
 
 export interface GanttMilestone {

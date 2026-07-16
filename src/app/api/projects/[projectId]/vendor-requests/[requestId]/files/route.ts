@@ -3,6 +3,7 @@ import { prisma } from '@/lib/db';
 import { requireProjectAuth } from '@/lib/auth';
 import { fileStorage } from '@/lib/file-storage';
 import { randomUUID } from 'crypto';
+import { sanitizeFileExt } from '@/lib/utils';
 
 export const dynamic = 'force-dynamic';
 
@@ -65,7 +66,7 @@ export async function POST(
     }
 
     const buffer = Buffer.from(await file.arrayBuffer());
-    const ext = fileExt || 'bin';
+    const ext = sanitizeFileExt(file.name);
     // Normalise MIME: browsers report '' for DWG/DXF and other unknown types.
     // An empty Content-Type header is invalid and will throw in Next.js's WHATWG Headers.
     const mimeType = file.type || 'application/octet-stream';

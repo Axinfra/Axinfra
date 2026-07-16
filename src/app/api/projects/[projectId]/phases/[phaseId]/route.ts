@@ -8,6 +8,53 @@ import { AuditActionTypes } from '@/types';
 
 const dateEq = (a: Date | null, b: Date | null) => (a?.getTime() ?? null) === (b?.getTime() ?? null);
 
+// GET /api/projects/[projectId]/phases/[phaseId] - Purchase Order detail (vendor + BOQ/Work Order summary)
+export async function GET(
+  request: NextRequest,
+  { params }: { params: Promise<{ projectId: string; phaseId: string }> }
+) {
+  try {
+    const { projectId, phaseId } = await params;
+    await requireProjectAuth(projectId);
+
+    const phase = await prisma.phase.findFirst({
+      where: { id: phaseId, projectId },
+      include: {
+        vendorUser: {
+          select: { id: true, name: true, email: true, companyName: true, contactPerson: true, mobile: true, gstNumber: true, address: true },
+        },
+        boqs: { select: { id: true, status: true, _count: { select: { items: true } } } },
+        workOrder: { select: { id: true, number: true, status: true, currentRevisionNumber: true } },
+      },
+    });
+
+    if (!phase) {
+      return NextResponse.json({ success: false, error: 'Phase not found' }, { status: 404 });
+    }
+
+    return NextResponse.json({
+      success: true,
+      data: {
+        id: phase.id,
+        name: phase.name,
+        description: phase.description,
+        plannedStart: phase.plannedStart,
+        plannedEnd: phase.plannedEnd,
+        vendorUserId: phase.vendorUserId,
+        vendor: phase.vendorUser,
+        boqs: phase.boqs.map((b) => ({ id: b.id, status: b.status, itemsCount: b._count.items })),
+        workOrder: phase.workOrder,
+      },
+    });
+  } catch (error) {
+    if (error instanceof Error && error.message === 'UNAUTHORIZED') {
+      return NextResponse.json({ success: false, error: 'Unauthorized' }, { status: 401 });
+    }
+    console.error('Phase get error:', error);
+    return NextResponse.json({ success: false, error: 'Internal server error' }, { status: 500 });
+  }
+}
+
 // PATCH /api/projects/[projectId]/phases/[phaseId] - Rename or reorder a phase
 export async function PATCH(
   request: NextRequest,
@@ -59,13 +106,24 @@ export async function PATCH(
       return NextResponse.json({ success: false, error: 'Start date must be before end date' }, { status: 400 });
     }
 
+    if (body.vendorUserId) {
+      const vendorRole = await prisma.projectRole.findUnique({
+        where: { projectId_userId: { projectId, userId: body.vendorUserId as string } },
+      });
+      if (!vendorRole || vendorRole.role !== 'VENDOR') {
+        return NextResponse.json({ success: false, error: 'Assigned vendor must be a VENDOR on this project' }, { status: 400 });
+      }
+    }
+
     const updated = await prisma.phase.update({
       where: { id: phaseId },
       data: {
         ...(body.name !== undefined && { name: (body.name as string).trim() }),
+        ...(body.description !== undefined && { description: (body.description as string)?.trim() || null }),
         ...(body.sortOrder !== undefined && { sortOrder: body.sortOrder as number }),
         ...(plannedStart !== undefined && { plannedStart }),
         ...(plannedEnd   !== undefined && { plannedEnd }),
+        ...(body.vendorUserId !== undefined && { vendorUserId: (body.vendorUserId as string) || null }),
       },
     });
 
@@ -90,6 +148,14 @@ export async function PATCH(
     if (plannedEnd !== undefined && !dateEq(updated.plannedEnd, phase.plannedEnd)) {
       before.plannedEnd = phase.plannedEnd;
       after.plannedEnd = updated.plannedEnd;
+    }
+    if (body.description !== undefined && updated.description !== phase.description) {
+      before.description = phase.description;
+      after.description = updated.description;
+    }
+    if (body.vendorUserId !== undefined && updated.vendorUserId !== phase.vendorUserId) {
+      before.vendorUserId = phase.vendorUserId;
+      after.vendorUserId = updated.vendorUserId;
     }
     if (Object.keys(after).length > 0) {
       await AuditLogger.log({
@@ -139,7 +205,7 @@ export async function DELETE(
 
     const phase = await prisma.phase.findFirst({
       where: { id: phaseId, projectId },
-      include: { boq: { select: { id: true } } },
+      include: { boqs: { select: { id: true } } },
     });
 
     if (!phase) {
@@ -149,7 +215,11 @@ export async function DELETE(
       );
     }
 
-    const msCount = await prisma.milestone.count({ where: { phaseId } });
+    const [msCount, workOrder, raBillCount] = await Promise.all([
+      prisma.milestone.count({ where: { phaseId } }),
+      prisma.workOrder.findUnique({ where: { orderId: phaseId }, select: { id: true } }),
+      prisma.rABill.count({ where: { orderId: phaseId } }),
+    ]);
 
     if (msCount > 0) {
       return NextResponse.json(
@@ -161,9 +231,32 @@ export async function DELETE(
       );
     }
 
-    // BOQ.phaseId is onDelete: SetNull, so we must delete it explicitly
-    if (phase.boq) {
-      await prisma.bOQ.delete({ where: { id: phase.boq.id } });
+    // WorkOrder.orderId and RABill.orderId are both onDelete: Cascade — without this guard,
+    // deleting a Purchase Order would silently destroy the Work Order (including vendor
+    // acceptance history) and every RA Bill under it, including PAID bills with real payment
+    // references. Neither is recoverable, so block deletion outright rather than warning.
+    if (workOrder) {
+      return NextResponse.json(
+        {
+          success: false,
+          error: 'Cannot delete this purchase order — it has a Work Order. A Work Order cannot be removed once issued.',
+        },
+        { status: 400 }
+      );
+    }
+    if (raBillCount > 0) {
+      return NextResponse.json(
+        {
+          success: false,
+          error: `Cannot delete this purchase order — it has ${raBillCount} RA Bill(s). RA Bills cannot be removed once created.`,
+        },
+        { status: 400 }
+      );
+    }
+
+    // BOQ.orderId is onDelete: SetNull, so we must delete every BOQ under this order explicitly.
+    if (phase.boqs.length > 0) {
+      await prisma.bOQ.deleteMany({ where: { id: { in: phase.boqs.map((b) => b.id) } } });
     }
 
     await prisma.phase.delete({ where: { id: phaseId } });

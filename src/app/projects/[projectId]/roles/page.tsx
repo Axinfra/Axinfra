@@ -176,6 +176,9 @@ export default function RolesPage() {
                 </tr>
               </thead>
               <tbody>
+                {roles.length === 0 && (
+                  <tr><td colSpan={5} className="text-center py-8 text-[rgba(232,228,220,0.4)]">No team members yet</td></tr>
+                )}
                 {roles.map((entry) => (
                   <tr key={entry.isPendingInvite ? `invite-${entry.inviteId}` : entry.userId!}>
                     <td className="font-medium">
@@ -260,7 +263,6 @@ export default function RolesPage() {
                 <h3 className="font-medium text-[#e8e4dc] mb-2">PMC</h3>
                 <ul className="text-sm text-[rgba(232,228,220,0.55)] space-y-1">
                   <li>Create &amp; edit BOQ (cannot approve)</li>
-                  <li>Review &amp; manage evidence</li>
                   <li>Verify milestones</li>
                   <li>Block payments</li>
                   <li>Manage project architect deliverables</li>
@@ -270,7 +272,6 @@ export default function RolesPage() {
                 <h3 className="font-medium text-[#e8e4dc] mb-2">CONSULTANTS</h3>
                 <ul className="text-sm text-[rgba(232,228,220,0.55)] space-y-1">
                   <li>Upload &amp; manage project documents</li>
-                  <li>Review submitted evidence (read)</li>
                   <li>Export audit log</li>
                   <li>View milestones &amp; phases (read-only)</li>
                   <li>No payment or BOQ control</li>
@@ -279,7 +280,7 @@ export default function RolesPage() {
               <div>
                 <h3 className="font-medium text-[#e8e4dc] mb-2">VENDOR</h3>
                 <ul className="text-sm text-[rgba(232,228,220,0.55)] space-y-1">
-                  <li>Submit evidence</li>
+                  <li>Submit milestones for verification</li>
                   <li>View payment status (read-only)</li>
                   <li>Cannot approve own work</li>
                 </ul>

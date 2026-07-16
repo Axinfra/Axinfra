@@ -254,7 +254,7 @@ export default function ProjectsPage() {
         <div className="grid gap-4 md:grid-cols-2 lg:grid-cols-3">
           {projects.map((project) => (
             <div key={project.id} className="card hover:shadow-none transition-shadow relative group">
-              <Link href={`/projects/${project.id}`} className="card-body block">
+              <Link href={`/projects/${project.id}/activities`} className="card-body block">
                 <div className="flex items-start justify-between">
                   <div className="flex items-center gap-2 flex-wrap">
                     <h3 className="text-lg font-semibold" style={{ color: 'var(--ax-text)' }}>
@@ -324,6 +324,7 @@ export default function ProjectsPage() {
       ) : (
         /* ── Table view ── */
         <div className="card overflow-hidden">
+          <div className="overflow-x-auto">
           <table className="table">
             <thead>
               <tr>
@@ -340,7 +341,7 @@ export default function ProjectsPage() {
                 <tr key={project.id}>
                   <td>
                     <Link
-                      href={`/projects/${project.id}`}
+                      href={`/projects/${project.id}/activities`}
                       className="font-medium hover:underline transition-colors"
                       style={{ color: 'var(--ax-text)' }}
                     >
@@ -401,6 +402,7 @@ export default function ProjectsPage() {
               ))}
             </tbody>
           </table>
+          </div>
         </div>
       )}
 

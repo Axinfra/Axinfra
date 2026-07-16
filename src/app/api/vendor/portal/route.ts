@@ -125,6 +125,7 @@ export async function GET(request: NextRequest) {
         baselinePlannedEnd: m.baselinePlannedEnd,
         sortOrder: m.sortOrder,
         value: m.value || 1,
+        percentComplete: m.percentComplete,
         vendorId,
         vendorName,
         approvalCycleDays,
@@ -202,6 +203,7 @@ export async function GET(request: NextRequest) {
             plannedEnd: m.plannedEnd,
             actualEnd: m.actualEnd,
             value: m.value,
+            percentComplete: m.percentComplete,
           })),
         },
       };

@@ -43,9 +43,13 @@ export async function GET(
             orderBy: [{ sortOrder: 'asc' }, { plannedStart: 'asc' }, { createdAt: 'asc' }],
           }),
           prisma.phase.findMany({
-            where: { projectId: params.projectId },
+            // scheduleImportId is set on every Execution/WBS phase the importer creates and
+            // only ever null for a Purchase Order (manually created, never imported) —
+            // excluding those keeps Purchase Orders out of the Gantt, a schedule-execution
+            // view, not a procurement one.
+            where: { projectId: params.projectId, scheduleImportId: { not: null } },
             orderBy: { sortOrder: 'asc' },
-            select: { id: true, name: true, sortOrder: true },
+            select: { id: true, name: true, sortOrder: true, parentPhaseId: true },
           }),
           prisma.projectScheduleConfig.findUnique({ where: { projectId: params.projectId } }),
         ]);
@@ -111,6 +115,9 @@ export async function GET(
             phaseId: m.phase?.id ?? null,
             phaseName: m.phase?.name ?? null,
             phaseOrder: m.phase?.sortOrder ?? 9999,
+            // Schedule-imported tasks never enter the payment workflow state machine (always
+            // DRAFT) — % Complete from the source file is their real completion signal.
+            percentComplete: m.percentComplete,
           };
         });
 

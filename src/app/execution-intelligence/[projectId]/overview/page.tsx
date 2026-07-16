@@ -1,8 +1,10 @@
 'use client';
 
+import { useState } from 'react';
 import { useParams } from 'next/navigation';
 import useSWR from 'swr';
 import Link from 'next/link';
+import { Maximize2, X } from 'lucide-react';
 import Layout from '@/components/Layout';
 import EINav from '@/components/execution-intelligence/EINav';
 import DependencyGraph, { type DepMilestone } from '@/components/execution-intelligence/DependencyGraph';
@@ -41,6 +43,7 @@ interface GanttData {
 export default function EIOverviewPage() {
   const params = useParams();
   const projectId = params.projectId as string;
+  const [showFullDependencyView, setShowFullDependencyView] = useState(false);
 
   const { project, isLoading: projectLoading } = useProject();
   const projectName = project?.name ?? '...';
@@ -98,7 +101,7 @@ export default function EIOverviewPage() {
             <KpiCard
               label="Avg Approval"
               value={`${kpis.avgApprovalCycleDays}d`}
-              sub="Evidence → verified"
+              sub="Submitted → verified"
               accent="purple"
             />
             <KpiCard
@@ -202,15 +205,27 @@ export default function EIOverviewPage() {
                   Arrows show what must finish before the next milestone can start
                 </p>
               </div>
-              <Link
-                href={`/execution-intelligence/${projectId}/gantt`}
-                className="text-[12.5px] font-semibold text-[var(--ax-accent)] hover:text-[var(--ax-accent)] transition-colors flex items-center gap-1.5"
-              >
-                Open Gantt
-                <svg className="w-3.5 h-3.5" fill="none" viewBox="0 0 24 24" strokeWidth={2} stroke="currentColor">
-                  <path strokeLinecap="round" strokeLinejoin="round" d="M13.5 4.5L21 12m0 0l-7.5 7.5M21 12H3" />
-                </svg>
-              </Link>
+              <div className="flex items-center gap-3 shrink-0">
+                {!!ganttData?.milestones?.length && (
+                  <button
+                    onClick={() => setShowFullDependencyView(true)}
+                    title="View full dependency flow in a larger view"
+                    className="text-[12.5px] font-semibold text-[rgba(232,228,220,0.55)] hover:text-[#e8e4dc] transition-colors flex items-center gap-1.5"
+                  >
+                    <Maximize2 className="w-3.5 h-3.5" />
+                    Full View
+                  </button>
+                )}
+                <Link
+                  href={`/execution-intelligence/${projectId}/gantt`}
+                  className="text-[12.5px] font-semibold text-[var(--ax-accent)] hover:text-[var(--ax-accent)] transition-colors flex items-center gap-1.5"
+                >
+                  Open Gantt
+                  <svg className="w-3.5 h-3.5" fill="none" viewBox="0 0 24 24" strokeWidth={2} stroke="currentColor">
+                    <path strokeLinecap="round" strokeLinejoin="round" d="M13.5 4.5L21 12m0 0l-7.5 7.5M21 12H3" />
+                  </svg>
+                </Link>
+              </div>
             </div>
 
             {ganttData?.cpm.hasCycle && (
@@ -262,13 +277,38 @@ export default function EIOverviewPage() {
             Add milestones with <strong className="text-[rgba(232,228,220,0.7)]">Planned Start</strong> and <strong className="text-[rgba(232,228,220,0.7)]">Planned End</strong> dates to generate the critical path, KPIs, and dependency graph.
           </p>
           <Link
-            href={`/projects/${projectId}/milestones/new`}
+            href={`/projects/${projectId}/activities/new`}
             className="mt-5 px-4 py-2 rounded-lg text-sm font-semibold text-[#0a0c10] bg-[var(--ax-accent)] hover:bg-[var(--ax-accent-hover)] transition-colors"
           >
-            Add a milestone
+            Add an activity
           </Link>
         </div>
       )}
+
+      {/* Full-view dependency flow — same graph, larger canvas for dense projects */}
+      {showFullDependencyView && ganttData?.milestones?.length ? (
+        <div className="fixed inset-0 bg-black/80 flex items-center justify-center z-50 p-6">
+          <div className="bg-[#13151a] border border-[rgba(255,255,255,0.1)] rounded-xl w-full h-full max-w-[95vw] max-h-[90vh] flex flex-col overflow-hidden">
+            <div className="flex items-center justify-between px-5 py-4 border-b border-[rgba(255,255,255,0.07)] shrink-0">
+              <div>
+                <h3 className="text-[15px] font-semibold text-[#e8e4dc]">Simple Dependency Flow — Full View</h3>
+                <p className="text-[12px] text-[rgba(232,228,220,0.4)] mt-0.5">
+                  Arrows show what must finish before the next milestone can start
+                </p>
+              </div>
+              <button
+                onClick={() => setShowFullDependencyView(false)}
+                className="text-[rgba(232,228,220,0.4)] hover:text-[#e8e4dc] transition-colors"
+              >
+                <X className="w-5 h-5" />
+              </button>
+            </div>
+            <div className="flex-1 overflow-auto p-5">
+              <DependencyGraph milestones={ganttData.milestones} />
+            </div>
+          </div>
+        </div>
+      ) : null}
     </Layout>
   );
 }

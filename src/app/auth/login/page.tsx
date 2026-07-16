@@ -105,7 +105,7 @@ function LoginContent() {
             Infrastructure <br />for execution.
           </h1>
           <p className="text-[rgba(var(--ax-text-rgb),0.55)] text-xl leading-relaxed max-w-md font-light">
-            Financial visibility and evidence-based payments for enterprise construction projects.
+            Financial visibility and verification-based payments for enterprise construction projects.
           </p>
         </div>
 

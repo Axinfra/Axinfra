@@ -182,7 +182,7 @@ export class ViseronRiskEngine {
             riskFactors.push({
               severity: 'HIGH',
               category: 'Vendor',
-              description: `${v.vendorName} flagged high-risk (${v.rejectionRate}% rejection rate, ${v.exposurePercent}% exposure)`,
+              description: `${v.vendorName} flagged high-risk (${v.exposurePercent}% exposure)`,
               value: v.exposureValue,
             });
           }

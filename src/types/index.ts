@@ -67,6 +67,41 @@ export const BOQStatus = {
 } as const;
 export type BOQStatus = (typeof BOQStatus)[keyof typeof BOQStatus];
 
+/** Mirrors onto BOQ.workOrderStatus for every BOQ under the same Purchase Order. */
+export const BOQWorkOrderStatus = {
+  PENDING: 'PENDING',
+  ACCEPTED: 'ACCEPTED',
+} as const;
+export type BOQWorkOrderStatus = (typeof BOQWorkOrderStatus)[keyof typeof BOQWorkOrderStatus];
+
+export const WorkOrderStatus = {
+  DRAFT: 'DRAFT',
+  ISSUED: 'ISSUED',
+  PENDING_VENDOR_ACCEPTANCE: 'PENDING_VENDOR_ACCEPTANCE',
+  ACCEPTED: 'ACCEPTED',
+  /// Vendor sent the current revision back with remarks — PMC must issue a new revision.
+  CHANGES_REQUESTED: 'CHANGES_REQUESTED',
+} as const;
+export type WorkOrderStatus = (typeof WorkOrderStatus)[keyof typeof WorkOrderStatus];
+
+export const WorkOrderRevisionAcceptanceStatus = {
+  PENDING: 'PENDING',
+  ACCEPTED: 'ACCEPTED',
+  REJECTED: 'REJECTED',
+} as const;
+export type WorkOrderRevisionAcceptanceStatus =
+  (typeof WorkOrderRevisionAcceptanceStatus)[keyof typeof WorkOrderRevisionAcceptanceStatus];
+
+export const RABillStatus = {
+  DRAFT: 'DRAFT',
+  PENDING_VENDOR_REVIEW: 'PENDING_VENDOR_REVIEW',
+  REVISION_REQUESTED: 'REVISION_REQUESTED',
+  CERTIFIED: 'CERTIFIED',
+  APPROVED: 'APPROVED',
+  PAID: 'PAID',
+} as const;
+export type RABillStatus = (typeof RABillStatus)[keyof typeof RABillStatus];
+
 export const FollowUpType = {
   PENDING_EVIDENCE_REVIEW: 'PENDING_EVIDENCE_REVIEW',
   PENDING_VERIFICATION: 'PENDING_VERIFICATION',
@@ -437,6 +472,19 @@ export const AuditActionTypes = {
   BOQ_ITEM_ADD: 'BOQ_ITEM_ADD',
   BOQ_ITEM_UPDATE: 'BOQ_ITEM_UPDATE',
   BOQ_ITEM_REMOVE: 'BOQ_ITEM_REMOVE',
+  BOQ_HEADER_UPDATE: 'BOQ_HEADER_UPDATE',
+  WORK_ORDER_ISSUE: 'WORK_ORDER_ISSUE',
+  WORK_ORDER_REVISION_CREATE: 'WORK_ORDER_REVISION_CREATE',
+  WORK_ORDER_ACCEPT: 'WORK_ORDER_ACCEPT',
+  WORK_ORDER_REJECT: 'WORK_ORDER_REJECT',
+  VENDOR_PROFILE_UPDATE: 'VENDOR_PROFILE_UPDATE',
+  RA_BILL_CREATE: 'RA_BILL_CREATE',
+  RA_BILL_UPDATE: 'RA_BILL_UPDATE',
+  RA_BILL_SUBMIT: 'RA_BILL_SUBMIT',
+  RA_BILL_REVISION_REQUEST: 'RA_BILL_REVISION_REQUEST',
+  RA_BILL_CERTIFY: 'RA_BILL_CERTIFY',
+  RA_BILL_APPROVE: 'RA_BILL_APPROVE',
+  RA_BILL_PAYMENT_RELEASE: 'RA_BILL_PAYMENT_RELEASE',
   MILESTONE_CREATE: 'MILESTONE_CREATE',
   MILESTONE_UPDATE: 'MILESTONE_UPDATE',
   MILESTONE_DELETE: 'MILESTONE_DELETE',
@@ -461,6 +509,7 @@ export const AuditActionTypes = {
   PRIVATE_COST_CREATE: 'PRIVATE_COST_CREATE',
   VENDOR_REQUEST_SUBMIT: 'VENDOR_REQUEST_SUBMIT',
   VENDOR_REQUEST_RESPOND: 'VENDOR_REQUEST_RESPOND',
+  SCHEDULE_IMPORT_CONFIRM: 'SCHEDULE_IMPORT_CONFIRM',
 } as const;
 
 export type AuditActionType = (typeof AuditActionTypes)[keyof typeof AuditActionTypes];

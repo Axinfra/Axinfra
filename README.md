@@ -127,15 +127,20 @@ If you also changed app code, include those files in the same commit only when t
 
    ```bash
    npx prisma migrate deploy
-   npx prisma db seed
    ```
 
    If you use `db push` instead of migrations for the current project state, run:
 
    ```bash
    npx prisma db push
-   npx prisma db seed
    ```
+
+   **Never run `npx prisma db seed` (or `npm run db:seed` / `npm run db:reset`) against your
+   production `DATABASE_URL`.** That script deletes every row in every table before inserting
+   demo data — it exists only to reset a local/demo database. It requires
+   `SEED_I_UNDERSTAND_THIS_DELETES_ALL_DATA=yes` to run at all, specifically so it can never be
+   triggered by accident, but the safest rule is simpler: only ever point that command at a
+   database you're fine losing entirely.
 
 7. Create Vercel Blob storage and connect it to the project so `BLOB_READ_WRITE_TOKEN` is available in production.
 

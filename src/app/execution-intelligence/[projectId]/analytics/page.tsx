@@ -299,7 +299,7 @@ function DelayTab({ data }: { data: AnalyticsData }) {
       </ChartCard>
 
       {/* Approval time histogram */}
-      <ChartCard title="Approval Time Distribution" subtitle="Days from evidence submission to PMC verification">
+      <ChartCard title="Approval Time Distribution" subtitle="Days from milestone submission to PMC verification">
         <ResponsiveContainer width="100%" height={260}>
           <BarChart data={data.approvalHistogram} margin={{ top: 4, right: 12, left: -20, bottom: 0 }}>
             <CartesianGrid strokeDasharray="3 3" stroke="rgba(255,255,255,0.05)" />
@@ -321,7 +321,7 @@ function PaymentTab({ data }: { data: AnalyticsData }) {
     <div className="space-y-4">
       <div className="bg-[rgba(255,255,255,0.03)] border border-[rgba(255,255,255,0.07)] rounded-xl p-5">
         <h3 className="text-[14px] font-semibold text-[#e8e4dc] mb-1">Average Days to Payment Eligibility</h3>
-        <p className="text-[12px] text-[rgba(232,228,220,0.35)] mb-4">From evidence submitted to payment fully eligible</p>
+        <p className="text-[12px] text-[rgba(232,228,220,0.35)] mb-4">From milestone submission to payment fully eligible</p>
         <div className="flex items-baseline gap-2 mb-6">
           <span className="text-4xl font-bold text-[#e8e4dc]">{paymentCycleDays.avg}</span>
           <span className="text-[14px] text-[rgba(232,228,220,0.35)]">days avg</span>

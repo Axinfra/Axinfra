@@ -59,7 +59,11 @@ export default function AdminDashboard() {
     </div>
   );
   if (error) return <div className="p-6 text-[#e06050] text-sm">{error}</div>;
-  if (!stats) return null;
+  if (!stats) return (
+    <div className="flex items-center justify-center h-screen text-[rgba(var(--ax-text-rgb),0.4)] text-sm">
+      Loading platform data…
+    </div>
+  );
 
   const roleData = Object.entries(stats.roleDistribution).map(([name, value]) => ({ name, value, fill: ROLE_COLORS[name] || '#555' }));
   const statusData = Object.entries(stats.projects.byStatus).map(([name, value]) => ({ name, value, fill: STATUS_COLORS[name] || '#555' }));
@@ -173,7 +177,9 @@ export default function AdminDashboard() {
                 </tr>
               </thead>
               <tbody>
-                {stats.recentUsers.map(u => (
+                {stats.recentUsers.length === 0 ? (
+                  <tr><td colSpan={3} className="px-4 py-8 text-center text-[12px] text-[rgba(var(--ax-text-rgb),0.35)]">No users yet</td></tr>
+                ) : stats.recentUsers.map(u => (
                   <tr key={u.id} className="border-t border-[var(--ax-border-subtle)] hover:bg-[var(--ax-overlay)]">
                     <td className="px-4 py-3">
                       <div className="flex items-center gap-2.5">
@@ -208,6 +214,9 @@ export default function AdminDashboard() {
                 </tr>
               </thead>
               <tbody>
+                {stats.recentProjects.length === 0 && (
+                  <tr><td colSpan={4} className="px-4 py-8 text-center text-[12px] text-[rgba(var(--ax-text-rgb),0.35)]">No projects yet</td></tr>
+                )}
                 {stats.recentProjects.map(p => {
                   const sc = { ONGOING: '#5cba80', COMPLETED: 'var(--ax-accent)', PAUSED: '#fb923c', CANCELLED: '#e06050' }[p.status] ?? '#888';
                   return (

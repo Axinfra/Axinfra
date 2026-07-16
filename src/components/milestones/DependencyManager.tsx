@@ -34,6 +34,12 @@ const STATE_COLOR: Record<string, string> = {
   SUBMITTED: '#f59e0b', IN_PROGRESS: '#3b82f6',
   DRAFT: 'rgba(var(--ax-text-rgb),0.35)',
 };
+const DEP_TYPE_EXPLAIN: Record<string, string> = {
+  FS: 'The selected activity will be linked as: finish first → then this activity can start.',
+  SS: 'Both activities start together — this activity can start once the selected one starts.',
+  FF: 'Both activities finish together — this activity can finish once the selected one finishes.',
+  SF: 'The selected activity starts → then this activity can finish (rare — reverse of a normal FS link).',
+};
 const STATE_LABEL: Record<string, string> = {
   VERIFIED: 'Verified', CLOSED: 'Closed',
   SUBMITTED: 'Submitted', IN_PROGRESS: 'In Progress', DRAFT: 'Draft',
@@ -55,22 +61,24 @@ export default function DependencyManager({
 
   const [adding, setAdding]           = useState(false);
   const [predId, setPredId]           = useState('');
+  const [depType, setDepType]         = useState<'FS' | 'SS' | 'FF' | 'SF'>('FS');
+  const [lagDays, setLagDays]         = useState('0');
   const [saving, setSaving]           = useState(false);
   const [removing, setRemoving]       = useState<string | null>(null);
   const [formError, setFormError]     = useState('');
 
   async function addDep() {
-    if (!predId) { setFormError('Please select a milestone'); return; }
+    if (!predId) { setFormError('Please select an activity'); return; }
     setSaving(true); setFormError('');
     const res = await fetch(url, {
       method: 'POST',
       headers: { 'Content-Type': 'application/json' },
-      body: JSON.stringify({ predecessorId: predId, dependencyType: 'FS', lagDays: 0 }),
+      body: JSON.stringify({ predecessorId: predId, dependencyType: depType, lagDays: Number(lagDays) || 0 }),
     });
     const d = await res.json();
     setSaving(false);
     if (d.success) {
-      setAdding(false); setPredId('');
+      setAdding(false); setPredId(''); setDepType('FS'); setLagDays('0');
       void mutate();
     } else {
       setFormError(d.error ?? 'Failed to add dependency');
@@ -128,19 +136,19 @@ export default function DependencyManager({
       {adding && (
         <div className="bg-[rgba(var(--ax-accent-rgb),0.06)] border border-[rgba(var(--ax-accent-rgb),0.18)] rounded-xl p-4 mb-4">
           <div className="text-[12.5px] font-semibold text-[var(--ax-accent)] mb-3">
-            Choose the milestone that must finish before this one starts
+            Choose the activity that must finish before this one starts
           </div>
 
-          {/* Milestone select */}
+          {/* Activity select */}
           <div className="mb-3">
             <label className="block text-[11.5px] text-[rgba(232,228,220,0.55)] mb-1 font-medium">
-              Predecessor Milestone
+              Predecessor Activity
             </label>
             <select
               value={predId}
               onChange={e => setPredId(e.target.value)}
               className="w-full bg-[#0d0d11] border border-[rgba(255,255,255,0.1)] rounded-lg px-3 py-2 text-[13px] text-[#e8e4dc] outline-none focus:border-[rgba(var(--ax-accent-rgb),0.4)]">
-              <option value="">— Select milestone —</option>
+              <option value="">— Select activity —</option>
               {available.map(m => (
                 <option key={m.id} value={m.id}>
                   {m.phaseName ? `[${m.phaseName}] ` : ''}{m.title} · {STATE_LABEL[m.state] ?? m.state}
@@ -149,13 +157,35 @@ export default function DependencyManager({
             </select>
             {available.length === 0 && (
               <p className="text-[11px] text-[rgba(232,228,220,0.35)] mt-1">
-                All milestones are already linked.
+                All activities are already linked.
               </p>
             )}
           </div>
 
+          <div className="grid grid-cols-2 gap-3 mb-3">
+            <div>
+              <label className="block text-[11.5px] text-[rgba(232,228,220,0.55)] mb-1 font-medium">Link Type</label>
+              <select
+                value={depType}
+                onChange={e => setDepType(e.target.value as typeof depType)}
+                className="w-full bg-[#0d0d11] border border-[rgba(255,255,255,0.1)] rounded-lg px-3 py-2 text-[13px] text-[#e8e4dc] outline-none focus:border-[rgba(var(--ax-accent-rgb),0.4)]">
+                <option value="FS">Finish-to-Start (FS)</option>
+                <option value="SS">Start-to-Start (SS)</option>
+                <option value="FF">Finish-to-Finish (FF)</option>
+                <option value="SF">Start-to-Finish (SF)</option>
+              </select>
+            </div>
+            <div>
+              <label className="block text-[11.5px] text-[rgba(232,228,220,0.55)] mb-1 font-medium">Lag (days)</label>
+              <input
+                type="number" value={lagDays} onChange={e => setLagDays(e.target.value)}
+                className="w-full bg-[#0d0d11] border border-[rgba(255,255,255,0.1)] rounded-lg px-3 py-2 text-[13px] text-[#e8e4dc] outline-none focus:border-[rgba(var(--ax-accent-rgb),0.4)]"
+              />
+            </div>
+          </div>
+
           <div className="text-[11.5px] text-[rgba(232,228,220,0.45)] bg-[rgba(255,255,255,0.03)] rounded-lg px-3 py-2 mb-3">
-            The selected milestone will be linked as: finish first → then this milestone can start.
+            {DEP_TYPE_EXPLAIN[depType]}
           </div>
 
           {formError && (
@@ -190,7 +220,7 @@ export default function DependencyManager({
             </div>
             {data?.predecessors.length === 0 ? (
               <p className="text-[12.5px] text-[rgba(232,228,220,0.3)] py-2 italic">
-                No predecessors — this milestone can start independently.
+                No predecessors — this activity can start independently.
               </p>
             ) : (
               <div className="space-y-2">
@@ -215,7 +245,7 @@ export default function DependencyManager({
             </div>
             {data?.successors.length === 0 ? (
               <p className="text-[12.5px] text-[rgba(232,228,220,0.3)] py-2 italic">
-                No successors — nothing is waiting on this milestone.
+                No successors — nothing is waiting on this activity.
               </p>
             ) : (
               <div className="space-y-2">
@@ -236,11 +266,11 @@ export default function DependencyManager({
           {total === 0 && !adding && (
             <div className="text-center py-4">
               <p className="text-[12.5px] text-[rgba(232,228,220,0.35)]">
-                No dependencies set. This milestone is independent.
+                No dependencies set. This activity is independent.
               </p>
               {canEdit && (
                 <p className="text-[11.5px] text-[rgba(232,228,220,0.25)] mt-1">
-                  Add one predecessor when this milestone must wait for another one to finish.
+                  Add one predecessor when this activity must wait for another one to finish.
                 </p>
               )}
             </div>
@@ -272,7 +302,7 @@ function DepRow({
         {direction === 'predecessor' ? '←' : '→'}
       </span>
 
-      {/* Milestone info */}
+      {/* Activity info */}
       <div className="flex-1 min-w-0">
         <div className="text-[13px] font-semibold text-[#e8e4dc] truncate">{dep.title}</div>
         <div className="flex items-center gap-2 mt-0.5 flex-wrap">

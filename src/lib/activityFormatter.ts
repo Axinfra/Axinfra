@@ -169,6 +169,8 @@ function describeAction(e: AuditEntryInput): { fragment: string; standalone: boo
       const label = ctx || str(e.beforeJson?.description);
       return { fragment: `removed ${label ? `"${label}"` : 'an item'} from the BOQ`, standalone: false };
     }
+    case 'BOQ_HEADER_UPDATE':
+      return { fragment: `updated BOQ details${ctx ? ` for "${ctx}"` : ''}`, standalone: false };
 
     // ── Phases ──────────────────────────────────────────
     // Falls back to the name captured in before/afterJson at the time of the action —
@@ -180,12 +182,68 @@ function describeAction(e: AuditEntryInput): { fragment: string; standalone: boo
     }
     case 'PHASE_UPDATE': {
       const label = ctx || str(e.afterJson?.name);
+      // A vendor assignment/change is logged with `vendorUserId` as the only changed field —
+      // give it its own sentence instead of the generic "updated phase".
+      if (e.afterJson && Object.keys(e.afterJson).length === 1 && 'vendorUserId' in e.afterJson) {
+        const isAssign = !e.beforeJson?.vendorUserId;
+        return {
+          fragment: `${isAssign ? 'assigned a vendor to' : 'changed the vendor on'} Purchase Order${label ? ` "${label}"` : ''}`,
+          standalone: false,
+        };
+      }
       return { fragment: `updated phase${label ? ` "${label}"` : ''}`, standalone: false };
     }
     case 'PHASE_DELETE': {
       const label = ctx || str(e.beforeJson?.name);
       return { fragment: `deleted phase${label ? ` "${label}"` : ''}`, standalone: false };
     }
+
+    // ── Work Orders ─────────────────────────────────────
+    case 'WORK_ORDER_ISSUE':
+      return { fragment: `issued the Work Order${ctx ? ` for Purchase Order "${ctx}"` : ''}`, standalone: false };
+    case 'WORK_ORDER_REVISION_CREATE': {
+      const rev = e.afterJson?.revisionNumber;
+      return {
+        fragment: `created revision R${rev ?? '?'} of the Work Order${ctx ? ` for "${ctx}"` : ''}`,
+        standalone: false,
+      };
+    }
+    case 'WORK_ORDER_ACCEPT': {
+      const rev = e.afterJson?.revisionNumber;
+      return {
+        fragment: `accepted Work Order revision R${rev ?? '?'}${ctx ? ` for "${ctx}"` : ''}`,
+        standalone: false,
+      };
+    }
+    case 'WORK_ORDER_REJECT': {
+      const rev = e.afterJson?.revisionNumber;
+      return {
+        fragment: `sent Work Order revision R${rev ?? '?'} back for changes${ctx ? ` on "${ctx}"` : ''}`,
+        standalone: false,
+      };
+    }
+
+    // ── Vendor profile ──────────────────────────────────
+    case 'VENDOR_PROFILE_UPDATE':
+      return { fragment: `updated vendor profile details${ctx ? ` for ${ctx}` : ''}`, standalone: false };
+
+    // ── RA Bills ──────────────────────────────────────────
+    case 'RA_BILL_CREATE': {
+      const num = e.afterJson?.billNumber;
+      return { fragment: `drafted RA Bill${num ? ` RA-${num}` : ''}${ctx ? ` for "${ctx}"` : ''}`, standalone: false };
+    }
+    case 'RA_BILL_UPDATE':
+      return { fragment: `updated ${ctx ? `RA Bill ${ctx}` : 'an RA Bill'}`, standalone: false };
+    case 'RA_BILL_SUBMIT':
+      return { fragment: `submitted ${ctx ? `RA Bill ${ctx}` : 'an RA Bill'} for review`, standalone: false };
+    case 'RA_BILL_REVISION_REQUEST':
+      return { fragment: `requested a revision on ${ctx ? `RA Bill ${ctx}` : 'an RA Bill'}`, standalone: false };
+    case 'RA_BILL_CERTIFY':
+      return { fragment: `certified the measured quantities on ${ctx ? `RA Bill ${ctx}` : 'an RA Bill'}`, standalone: false };
+    case 'RA_BILL_APPROVE':
+      return { fragment: `approved ${ctx ? `RA Bill ${ctx}` : 'an RA Bill'} for payment`, standalone: false };
+    case 'RA_BILL_PAYMENT_RELEASE':
+      return { fragment: `released payment for ${ctx ? `RA Bill ${ctx}` : 'an RA Bill'}`, standalone: false };
 
     // ── Milestones ──────────────────────────────────────
     case 'MILESTONE_CREATE':
@@ -358,6 +416,36 @@ function describeDetail(e: AuditEntryInput): string | undefined {
       if (!after) return undefined;
       const changed = Object.keys(after);
       return changed.length ? `Updated: ${changed.join(', ')}` : undefined;
+    }
+    case 'BOQ_HEADER_UPDATE': {
+      if (!after) return undefined;
+      const changed = Object.keys(after);
+      return changed.length ? `Updated: ${changed.join(', ')}` : undefined;
+    }
+    case 'WORK_ORDER_REVISION_CREATE':
+      return reason || undefined;
+    case 'WORK_ORDER_REJECT':
+      return reason || undefined;
+    case 'VENDOR_PROFILE_UPDATE': {
+      if (!after) return undefined;
+      const changed = Object.keys(after);
+      return changed.length ? `Updated: ${changed.join(', ')}` : undefined;
+    }
+    case 'RA_BILL_SUBMIT': {
+      const value = money(after?.submittedValue);
+      return value ? `Submitted value: ${value}` : undefined;
+    }
+    case 'RA_BILL_REVISION_REQUEST':
+      return reason || undefined;
+    case 'RA_BILL_APPROVE': {
+      const value = money(after?.approvedValue);
+      const deductions = money(after?.deductions);
+      return [value ? `Approved value: ${value}` : undefined, deductions ? `Deductions: ${deductions}` : undefined].filter(Boolean).join(' · ') || undefined;
+    }
+    case 'RA_BILL_PAYMENT_RELEASE': {
+      const value = money(after?.releasedValue);
+      const ref = str(after?.paymentReference);
+      return [value ? `Released: ${value}` : undefined, ref].filter(Boolean).join(' · ') || undefined;
     }
     case 'MILESTONE_CREATE': {
       const value = money(after?.value);

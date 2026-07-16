@@ -7,12 +7,14 @@ import { MilestoneState, Role } from '@/types';
 
 /**
  * Valid state transitions for milestones.
- * SPEC: Draft -> In Progress -> Submitted -> Verified -> Closed
- * No skipping. No backdating. Invalid transitions must fail.
+ * SPEC: Draft -> In Progress -> Verified -> Closed. PMC can verify directly
+ * from IN_PROGRESS — no formal Submitted step is required. SUBMITTED is kept
+ * as a legacy state so any milestone already sitting in it can still be
+ * verified or sent back. No backdating. Invalid transitions must fail.
  */
 const VALID_TRANSITIONS: Record<MilestoneState, MilestoneState[]> = {
   [MilestoneState.DRAFT]: [MilestoneState.IN_PROGRESS],
-  [MilestoneState.IN_PROGRESS]: [MilestoneState.SUBMITTED],
+  [MilestoneState.IN_PROGRESS]: [MilestoneState.VERIFIED, MilestoneState.SUBMITTED],
   [MilestoneState.SUBMITTED]: [MilestoneState.VERIFIED, MilestoneState.IN_PROGRESS],
   [MilestoneState.VERIFIED]: [MilestoneState.CLOSED],
   [MilestoneState.CLOSED]: [],
@@ -23,8 +25,9 @@ const VALID_TRANSITIONS: Record<MilestoneState, MilestoneState[]> = {
  */
 const TRANSITION_PERMISSIONS: Record<string, Role[]> = {
   [`${MilestoneState.DRAFT}->${MilestoneState.IN_PROGRESS}`]: [Role.CLIENT, Role.PMC, Role.VENDOR],
+  [`${MilestoneState.IN_PROGRESS}->${MilestoneState.VERIFIED}`]: [Role.PMC],
   [`${MilestoneState.IN_PROGRESS}->${MilestoneState.SUBMITTED}`]: [Role.VENDOR],
-  [`${MilestoneState.SUBMITTED}->${MilestoneState.VERIFIED}`]: [Role.CLIENT, Role.PMC],
+  [`${MilestoneState.SUBMITTED}->${MilestoneState.VERIFIED}`]: [Role.PMC],
   [`${MilestoneState.SUBMITTED}->${MilestoneState.IN_PROGRESS}`]: [Role.CLIENT, Role.PMC],
   [`${MilestoneState.VERIFIED}->${MilestoneState.CLOSED}`]: [Role.CLIENT, Role.PMC],
 };
@@ -79,8 +82,8 @@ describe('MilestoneStateMachine', () => {
       expect(isValidTransition(MilestoneState.DRAFT, MilestoneState.VERIFIED)).toBe(false);
     });
 
-    it('should NOT allow skipping states (IN_PROGRESS -> VERIFIED)', () => {
-      expect(isValidTransition(MilestoneState.IN_PROGRESS, MilestoneState.VERIFIED)).toBe(false);
+    it('should allow PMC to verify directly (IN_PROGRESS -> VERIFIED)', () => {
+      expect(isValidTransition(MilestoneState.IN_PROGRESS, MilestoneState.VERIFIED)).toBe(true);
     });
 
     it('should NOT allow backward transitions (IN_PROGRESS -> DRAFT)', () => {
@@ -118,7 +121,21 @@ describe('MilestoneStateMachine', () => {
       });
     });
 
-    describe('IN_PROGRESS -> SUBMITTED', () => {
+    describe('IN_PROGRESS -> VERIFIED (direct — no Submitted step required)', () => {
+      it('should allow PMC', () => {
+        expect(canPerformTransition(MilestoneState.IN_PROGRESS, MilestoneState.VERIFIED, Role.PMC)).toBe(true);
+      });
+
+      it('should NOT allow OWNER (PMC certifies the work, not Owner)', () => {
+        expect(canPerformTransition(MilestoneState.IN_PROGRESS, MilestoneState.VERIFIED, Role.CLIENT)).toBe(false);
+      });
+
+      it('should NOT allow VENDOR (cannot verify own work)', () => {
+        expect(canPerformTransition(MilestoneState.IN_PROGRESS, MilestoneState.VERIFIED, Role.VENDOR)).toBe(false);
+      });
+    });
+
+    describe('IN_PROGRESS -> SUBMITTED (legacy)', () => {
       it('should allow VENDOR', () => {
         expect(canPerformTransition(MilestoneState.IN_PROGRESS, MilestoneState.SUBMITTED, Role.VENDOR)).toBe(true);
       });
@@ -132,13 +149,13 @@ describe('MilestoneStateMachine', () => {
       });
     });
 
-    describe('SUBMITTED -> VERIFIED', () => {
-      it('should allow OWNER', () => {
-        expect(canPerformTransition(MilestoneState.SUBMITTED, MilestoneState.VERIFIED, Role.CLIENT)).toBe(true);
-      });
-
+    describe('SUBMITTED -> VERIFIED (legacy)', () => {
       it('should allow PMC', () => {
         expect(canPerformTransition(MilestoneState.SUBMITTED, MilestoneState.VERIFIED, Role.PMC)).toBe(true);
+      });
+
+      it('should NOT allow OWNER (PMC certifies the work, not Owner)', () => {
+        expect(canPerformTransition(MilestoneState.SUBMITTED, MilestoneState.VERIFIED, Role.CLIENT)).toBe(false);
       });
 
       it('should NOT allow VENDOR (cannot verify own work)', () => {
@@ -180,8 +197,10 @@ describe('MilestoneStateMachine', () => {
       expect(getValidNextStates(MilestoneState.DRAFT)).toEqual([MilestoneState.IN_PROGRESS]);
     });
 
-    it('should return [SUBMITTED] for IN_PROGRESS', () => {
-      expect(getValidNextStates(MilestoneState.IN_PROGRESS)).toEqual([MilestoneState.SUBMITTED]);
+    it('should return [VERIFIED, SUBMITTED] for IN_PROGRESS', () => {
+      const result = getValidNextStates(MilestoneState.IN_PROGRESS);
+      expect(result).toContain(MilestoneState.VERIFIED);
+      expect(result).toContain(MilestoneState.SUBMITTED);
     });
 
     it('should return [VERIFIED, IN_PROGRESS] for SUBMITTED', () => {
@@ -204,8 +223,12 @@ describe('MilestoneStateMachine', () => {
       expect(getValidNextStatesForRole(MilestoneState.DRAFT, Role.VENDOR)).toEqual([MilestoneState.IN_PROGRESS]);
     });
 
-    it('should return [SUBMITTED] for IN_PROGRESS as VENDOR', () => {
+    it('should return [SUBMITTED] for IN_PROGRESS as VENDOR (cannot verify own work)', () => {
       expect(getValidNextStatesForRole(MilestoneState.IN_PROGRESS, Role.VENDOR)).toEqual([MilestoneState.SUBMITTED]);
+    });
+
+    it('should return [VERIFIED] for IN_PROGRESS as PMC', () => {
+      expect(getValidNextStatesForRole(MilestoneState.IN_PROGRESS, Role.PMC)).toEqual([MilestoneState.VERIFIED]);
     });
 
     it('should return empty array for SUBMITTED as VENDOR (cannot verify own work)', () => {

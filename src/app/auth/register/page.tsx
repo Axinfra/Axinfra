@@ -117,7 +117,7 @@ function RegisterContent() {
             Built for <br />builders.
           </h1>
           <p className="text-[rgba(var(--ax-text-rgb),0.55)] text-xl leading-relaxed max-w-md font-light">
-            Join construction teams that use evidence-based payments and real-time project intelligence.
+            Join construction teams that use verification-based payments and real-time project intelligence.
           </p>
         </div>
 

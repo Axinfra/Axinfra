@@ -4,7 +4,7 @@ import { useMemo, useRef, useState } from 'react';
 import Layout from '@/components/Layout';
 import VendorNav from '@/components/vendor/VendorNav';
 import { useVendorPortal } from '@/lib/contexts/VendorPortalContext';
-import { Loader2, AlertTriangle, ChevronDown } from 'lucide-react';
+import { Loader2, AlertTriangle } from 'lucide-react';
 
 const STATE_LABEL: Record<string, string> = {
   DRAFT: 'Draft', IN_PROGRESS: 'In Progress',
@@ -79,21 +79,15 @@ export default function VendorGanttPage() {
 
   return (
     <Layout>
-      <VendorNav projectName={projectName} />
+      <VendorNav
+        title="Schedule"
+        backHref="/vendor/reports"
+        projectName={projectName}
+        allProjects={allProjects}
+        currentProjectId={data.projectId}
+        onProjectChange={reload}
+      />
       <div className="space-y-4">
-
-        {allProjects.length > 1 && (
-          <div className="flex items-center gap-3">
-            <span className="text-xs font-medium text-[rgba(var(--ax-text-rgb),0.45)] uppercase tracking-wider shrink-0">Project</span>
-            <div className="relative">
-              <select value={data.projectId} onChange={e => reload(e.target.value)}
-                className="appearance-none bg-[var(--ax-input)] border border-[var(--ax-border)] rounded-lg pl-3 pr-8 py-2 text-sm text-[var(--ax-text)] outline-none focus:border-[rgba(var(--ax-accent-rgb),0.4)] cursor-pointer">
-                {allProjects.map(p => <option key={p.id} value={p.id}>{p.name}</option>)}
-              </select>
-              <ChevronDown className="absolute right-2.5 top-1/2 -translate-y-1/2 w-3.5 h-3.5 text-[rgba(var(--ax-text-rgb),0.35)] pointer-events-none" />
-            </div>
-          </div>
-        )}
 
         {/* Legend */}
         <div className="flex items-center gap-4 flex-wrap">

@@ -108,7 +108,7 @@ export function TablePageSkeleton({ title = true }: { title?: boolean }) {
   );
 }
 
-// List of cards (follow-ups, payments, evidence review)
+// List of cards (follow-ups, payments)
 export function ListPageSkeleton({ cards = 5 }: { cards?: number }) {
   return (
     <div className="space-y-6">
@@ -149,7 +149,7 @@ export function AnalysisSkeleton() {
   );
 }
 
-// Detail page skeleton (milestone detail, evidence)
+// Detail page skeleton (milestone detail)
 export function DetailPageSkeleton() {
   return (
     <div className="space-y-6">

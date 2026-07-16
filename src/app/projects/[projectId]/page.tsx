@@ -4,13 +4,12 @@ import { useState, useRef } from 'react';
 import { TablePageSkeleton } from '@/components/ui/SkeletonPage';
 import Layout from '@/components/Layout';
 import Navbar from '@/components/Navbar';
-import MilestoneStateBadge from '@/components/MilestoneStateBadge';
-import PaymentStatusBadge from '@/components/PaymentStatusBadge';
+import ActivityStateBadge from '@/components/ActivityStateBadge';
 import { formatCurrency, formatDate } from '@/lib/utils';
 import Link from 'next/link';
 import { useParams } from 'next/navigation';
 import { useProject } from '@/lib/contexts/ProjectContext';
-import PhaseList from '@/components/phases/PhaseList';
+import OrderList from '@/components/phases/OrderList';
 import useSWR from 'swr';
 import { jsonFetcher } from '@/lib/fetcher';
 import {
@@ -31,9 +30,8 @@ interface ProjectData {
   permissions: Record<string, boolean>;
   boqs: Array<{ id: string; status: string; items: Array<{ id: string; plannedValue: number }> }>;
   milestones: Array<{
-    id: string; title: string; state: string; paymentModel: string;
+    id: string; title: string; state: string;
     plannedEnd: string | null;
-    paymentEligibility?: { state: string; eligibleAmount: number };
   }>;
 }
 
@@ -297,13 +295,11 @@ function VendorOverviewTab({ project, projectId }: { project: ProjectData; proje
     closed: milestones.filter((m) => m.state === 'CLOSED').length,
   };
 
-  const totalEligible = milestones.reduce((sum, m) => sum + (m.paymentEligibility?.eligibleAmount ?? 0), 0);
-
   return (
     <div className="space-y-6">
       <div className="grid gap-4 grid-cols-2 md:grid-cols-4">
         <div className="card"><div className="card-body">
-          <p className="text-sm font-medium" style={{ color: 'rgba(var(--ax-text-rgb),0.6)' }}>My Milestones</p>
+          <p className="text-sm font-medium" style={{ color: 'rgba(var(--ax-text-rgb),0.6)' }}>My Activities</p>
           <p className="text-2xl font-bold" style={{ color: 'var(--ax-text)' }}>{ms.total}</p>
         </div></div>
         <div className="card"><div className="card-body">
@@ -320,19 +316,10 @@ function VendorOverviewTab({ project, projectId }: { project: ProjectData; proje
         </div></div>
       </div>
 
-      {totalEligible > 0 && (
-        <div className="card border border-[rgba(var(--ax-accent-rgb),0.2)]">
-          <div className="card-body">
-            <p className="text-sm font-medium" style={{ color: 'rgba(var(--ax-text-rgb),0.6)' }}>Total Eligible Amount</p>
-            <p className="text-3xl font-bold" style={{ color: 'var(--ax-accent)' }}>{formatCurrency(totalEligible)}</p>
-          </div>
-        </div>
-      )}
-
       <div className="card">
         <div className="card-header"><h2 className="text-lg font-semibold">Quick Actions</h2></div>
         <div className="card-body flex flex-wrap gap-3">
-          <Link href={`/projects/${projectId}/milestones`} className="btn btn-secondary">My Milestones</Link>
+          <Link href={`/projects/${projectId}/activities`} className="btn btn-secondary">My Activities</Link>
           <Link href={`/projects/${projectId}/payments`} className="btn btn-secondary">My Invoices</Link>
           <Link href={`/projects/${projectId}/dashboard`} className="btn btn-primary">View Dashboard</Link>
         </div>
@@ -341,28 +328,20 @@ function VendorOverviewTab({ project, projectId }: { project: ProjectData; proje
       {milestones.length > 0 ? (
         <div className="card">
           <div className="card-header flex justify-between items-center">
-            <h2 className="text-lg font-semibold">My Milestones</h2>
-            <Link href={`/projects/${projectId}/milestones`} className="text-sm hover:underline" style={{ color: 'var(--ax-accent)' }}>View all</Link>
+            <h2 className="text-lg font-semibold">My Activities</h2>
+            <Link href={`/projects/${projectId}/activities`} className="text-sm hover:underline" style={{ color: 'var(--ax-accent)' }}>View all</Link>
           </div>
           <div className="overflow-x-auto">
             <table className="table">
-              <thead><tr><th>Title</th><th>State</th><th>Due Date</th><th>Payment Status</th></tr></thead>
+              <thead><tr><th>Title</th><th>State</th><th>Due Date</th></tr></thead>
               <tbody>
                 {milestones.slice(0, 5).map((m) => (
                   <tr key={m.id}>
                     <td>
-                      <Link href={`/projects/${projectId}/milestones/${m.id}`} className="hover:underline" style={{ color: 'var(--ax-accent)' }}>{m.title}</Link>
+                      <Link href={`/projects/${projectId}/activities/${m.id}`} className="hover:underline" style={{ color: 'var(--ax-accent)' }}>{m.title}</Link>
                     </td>
-                    <td><MilestoneStateBadge state={m.state as any} /></td>
+                    <td><ActivityStateBadge state={m.state as any} /></td>
                     <td style={{ color: 'rgba(var(--ax-text-rgb),0.7)' }}>{formatDate(m.plannedEnd)}</td>
-                    <td>
-                      {m.paymentEligibility
-                        ? <div className="flex items-center space-x-2">
-                            <PaymentStatusBadge state={m.paymentEligibility.state as any} />
-                            <span className="text-sm" style={{ color: 'rgba(var(--ax-text-rgb),0.7)' }}>{formatCurrency(m.paymentEligibility.eligibleAmount)}</span>
-                          </div>
-                        : <span style={{ color: 'rgba(var(--ax-text-rgb),0.4)' }}>—</span>}
-                    </td>
                   </tr>
                 ))}
               </tbody>
@@ -371,7 +350,7 @@ function VendorOverviewTab({ project, projectId }: { project: ProjectData; proje
         </div>
       ) : (
         <div className="card p-10 text-center">
-          <p className="text-sm text-[rgba(232,228,220,0.4)]">No milestones assigned to you yet</p>
+          <p className="text-sm text-[rgba(232,228,220,0.4)]">No activities assigned to you yet</p>
         </div>
       )}
     </div>
@@ -401,7 +380,7 @@ function OverviewTab({ project, projectId }: { project: ProjectData; projectId: 
           <p className="text-2xl font-bold" style={{ color: 'var(--ax-text)' }}>{formatCurrency(totalBOQValue)}</p>
         </div></div>
         <div className="card"><div className="card-body">
-          <p className="text-sm font-medium" style={{ color: 'rgba(var(--ax-text-rgb),0.6)' }}>Total Milestones</p>
+          <p className="text-sm font-medium" style={{ color: 'rgba(var(--ax-text-rgb),0.6)' }}>Total Activities</p>
           <p className="text-2xl font-bold" style={{ color: 'var(--ax-text)' }}>{ms.total}</p>
         </div></div>
         <div className="card"><div className="card-body">
@@ -417,34 +396,30 @@ function OverviewTab({ project, projectId }: { project: ProjectData; projectId: 
       <div className="card">
         <div className="card-header"><h2 className="text-lg font-semibold">Quick Actions</h2></div>
         <div className="card-body flex flex-wrap gap-3">
-          {project.permissions?.canEditBOQ && <Link href={`/projects/${projectId}/boq`} className="btn btn-secondary">Manage BOQ</Link>}
-          {project.permissions?.canEditMilestones && <Link href={`/projects/${projectId}/milestones`} className="btn btn-secondary">Manage Milestones</Link>}
-          {project.permissions?.canReviewEvidence && <Link href={`/projects/${projectId}/evidence-review`} className="btn btn-secondary">Review Evidence</Link>}
+          {project.permissions?.canEditBOQ && <Link href={`/projects/${projectId}/boqs`} className="btn btn-secondary">Manage BOQ</Link>}
+          {project.permissions?.canEditMilestones && <Link href={`/projects/${projectId}/activities`} className="btn btn-secondary">Manage Activities</Link>}
           <Link href={`/projects/${projectId}/dashboard`} className="btn btn-primary">View Dashboard</Link>
         </div>
       </div>
 
-      <PhaseList projectId={projectId} userRole={project.myRole} />
+      <div id="purchase-orders">
+        <OrderList projectId={projectId} userRole={project.myRole} />
+      </div>
 
       <div className="card">
         <div className="card-header flex justify-between items-center">
-          <h2 className="text-lg font-semibold">Recent Milestones</h2>
-          <Link href={`/projects/${projectId}/milestones`} className="text-sm hover:underline" style={{ color: 'var(--ax-accent)' }}>View all</Link>
+          <h2 className="text-lg font-semibold">Recent Activities</h2>
+          <Link href={`/projects/${projectId}/activities`} className="text-sm hover:underline" style={{ color: 'var(--ax-accent)' }}>View all</Link>
         </div>
         <div className="overflow-x-auto">
           <table className="table">
-            <thead><tr><th>Title</th><th>State</th><th>Payment Model</th><th>Due Date</th><th>Payment Status</th></tr></thead>
+            <thead><tr><th>Title</th><th>State</th><th>Due Date</th></tr></thead>
             <tbody>
               {milestones.slice(0, 5).map((m) => (
                 <tr key={m.id}>
-                  <td><Link href={`/projects/${projectId}/milestones/${m.id}`} className="hover:underline" style={{ color: 'var(--ax-accent)' }}>{m.title}</Link></td>
-                  <td><MilestoneStateBadge state={m.state as any} /></td>
-                  <td style={{ color: 'rgba(var(--ax-text-rgb),0.7)' }}>{m.paymentModel}</td>
+                  <td><Link href={`/projects/${projectId}/activities/${m.id}`} className="hover:underline" style={{ color: 'var(--ax-accent)' }}>{m.title}</Link></td>
+                  <td><ActivityStateBadge state={m.state as any} /></td>
                   <td style={{ color: 'rgba(var(--ax-text-rgb),0.7)' }}>{formatDate(m.plannedEnd)}</td>
-                  <td>{m.paymentEligibility
-                    ? <div className="flex items-center space-x-2"><PaymentStatusBadge state={m.paymentEligibility.state as any} /><span className="text-sm" style={{ color: 'rgba(var(--ax-text-rgb),0.7)' }}>{formatCurrency(m.paymentEligibility.eligibleAmount)}</span></div>
-                    : <span style={{ color: 'rgba(var(--ax-text-rgb),0.4)' }}>-</span>}
-                  </td>
                 </tr>
               ))}
             </tbody>
@@ -453,7 +428,7 @@ function OverviewTab({ project, projectId }: { project: ProjectData; projectId: 
       </div>
 
       <div className="card">
-        <div className="card-header"><h2 className="text-lg font-semibold">Milestone Progress</h2></div>
+        <div className="card-header"><h2 className="text-lg font-semibold">Activity Progress</h2></div>
         <div className="card-body">
           <div className="flex items-center space-x-4">
             <div className="flex-1 rounded-full h-4 overflow-hidden flex" style={{ backgroundColor: 'rgba(255,255,255,0.06)' }}>

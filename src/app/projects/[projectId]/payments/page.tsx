@@ -5,12 +5,10 @@ import { useParams } from 'next/navigation';
 import useSWR from 'swr';
 import Layout from '@/components/Layout';
 import Navbar from '@/components/Navbar';
-import MilestoneStateBadge from '@/components/MilestoneStateBadge';
 import { formatCurrency, formatDate } from '@/lib/utils';
-import { BlockingReasonLabels } from '@/types';
 import { useProject } from '@/lib/contexts/ProjectContext';
 import { jsonFetcher } from '@/lib/fetcher';
-import { ChevronDown, ChevronRight, Layers, CheckCircle2, Clock, AlertCircle, FileText, Ban, Hourglass, TrendingUp } from 'lucide-react';
+import { ChevronDown, ChevronRight, Layers, CheckCircle2, Clock, AlertCircle, FileText, Ban, Hourglass, TrendingUp, Receipt, Download } from 'lucide-react';
 import { ListPageSkeleton } from '@/components/ui/SkeletonPage';
 
 // ── Types ─────────────────────────────────────────────────────────────────────
@@ -39,10 +37,24 @@ interface Milestone {
   paymentEligibility: PaymentEligibility | null;
 }
 
-interface Phase {
+interface RABillLineItem {
+  thisBillAmount: number;
+}
+
+interface RABill {
   id: string;
-  name: string;
-  sortOrder: number;
+  billNumber: number;
+  status: string;
+  periodStart: string;
+  periodEnd: string;
+  submittedValue: number | null;
+  certifiedAt: string | null;
+  approvedValue: number | null;
+  deductions: number;
+  releasedValue: number | null;
+  paymentReference: string | null;
+  order: { id: string; name: string; vendorUserId: string | null };
+  lineItems: RABillLineItem[];
 }
 
 interface DrawingRow {
@@ -69,20 +81,16 @@ interface DrawingSet {
   rows: DrawingRow[];
 }
 
-type ModalType = 'confirmPaid' | 'notDone' | 'block' | 'unblock' | null;
-type PayStatus = 'due' | 'soon' | 'released' | 'blocked' | 'none';
 type DrawingPayStatus = 'due' | 'approaching' | 'paid' | 'none';
 
 // ── Helpers ───────────────────────────────────────────────────────────────────
 
-function getPayStatus(m: Milestone): PayStatus {
-  const e = m.paymentEligibility;
-  if (!e) return 'none';
-  if (e.state === 'MARKED_PAID') return 'released';
-  if (e.state === 'BLOCKED') return 'blocked';
-  if (e.state === 'FULLY_ELIGIBLE' || e.state === 'PARTIALLY_ELIGIBLE') return 'due';
-  if (['VERIFIED', 'CLOSED', 'SUBMITTED'].includes(m.state)) return 'soon';
-  return 'none';
+function raBillGross(bill: RABill): number {
+  return bill.lineItems.reduce((sum, l) => sum + l.thisBillAmount, 0);
+}
+
+function raBillNetPayable(bill: RABill): number {
+  return bill.releasedValue ?? bill.approvedValue ?? raBillGross(bill);
 }
 
 function getDrawingPayStatus(row: DrawingRow): DrawingPayStatus {
@@ -90,30 +98,6 @@ function getDrawingPayStatus(row: DrawingRow): DrawingPayStatus {
   if (row.status === 'APPROVED') return 'due';
   if (row.status === 'SUBMITTED') return 'approaching';
   return 'none';
-}
-
-function PayBadge({ status }: { status: PayStatus }) {
-  if (status === 'due') return (
-    <span className="inline-flex items-center gap-1 text-[11px] font-semibold px-2 py-0.5 rounded-full bg-[rgba(251,146,60,0.15)] text-[#fb923c] border border-[rgba(251,146,60,0.3)]">
-      <span className="w-1.5 h-1.5 rounded-full bg-[#fb923c] animate-pulse" />Payment Due
-    </span>
-  );
-  if (status === 'soon') return (
-    <span className="inline-flex items-center gap-1 text-[11px] font-medium px-2 py-0.5 rounded-full bg-[rgba(var(--ax-accent-rgb),0.12)] text-[var(--ax-accent)] border border-[rgba(var(--ax-accent-rgb),0.25)]">
-      Payment Soon
-    </span>
-  );
-  if (status === 'released') return (
-    <span className="inline-flex items-center gap-1 text-[11px] font-medium px-2 py-0.5 rounded-full bg-[rgba(92,186,128,0.12)] text-[#5cba80] border border-[rgba(92,186,128,0.2)]">
-      ✓ Released
-    </span>
-  );
-  if (status === 'blocked') return (
-    <span className="inline-flex items-center gap-1 text-[11px] font-medium px-2 py-0.5 rounded-full bg-[rgba(224,96,80,0.12)] text-[#e06050] border border-[rgba(224,96,80,0.2)]">
-      Blocked
-    </span>
-  );
-  return null;
 }
 
 function DrawingPayBadge({ status }: { status: DrawingPayStatus }) {
@@ -149,6 +133,20 @@ function SetStatusBadge({ status }: { status: string }) {
   return <span className={`text-[11px] font-medium px-2 py-0.5 rounded-full ${c.color} ${c.bg}`}>{c.label}</span>;
 }
 
+function RABillStatusPill({ status }: { status: string }) {
+  const cfg: Record<string, { label: string; color: string; bg: string }> = {
+    CERTIFIED: { label: 'Certified', color: '#38bdf8', bg: 'rgba(56,189,248,0.12)' },
+    APPROVED:  { label: 'Approved',  color: '#fb923c', bg: 'rgba(251,146,60,0.12)' },
+    PAID:      { label: 'Paid',      color: '#5cba80', bg: 'rgba(92,186,128,0.12)' },
+  };
+  const c = cfg[status] ?? { label: status, color: 'rgba(232,228,220,0.5)', bg: 'rgba(255,255,255,0.05)' };
+  return (
+    <span className="text-[11px] font-medium px-2 py-0.5 rounded-full" style={{ color: c.color, background: c.bg }}>
+      {c.label}
+    </span>
+  );
+}
+
 // ── Main Component ────────────────────────────────────────────────────────────
 
 export default function PaymentsPage() {
@@ -158,36 +156,39 @@ export default function PaymentsPage() {
   const { project, isLoading: projectLoading } = useProject();
   const myRole = project?.myRole ?? '';
   const projectName = project?.name ?? '';
-  const permissions = (project?.permissions ?? {}) as Record<string, boolean>;
   const isOwner = myRole === 'CLIENT';
+  const canApproveRABill = isOwner;
+  const canReleaseRABillPayment = isOwner || myRole === 'PMC';
 
   // ── Tab state ───────────────────────────────────────────────────────────────
-  const [activeTab, setActiveTab] = useState<'milestones' | 'architecture'>('milestones');
+  const [activeTab, setActiveTab] = useState<'rabills' | 'architecture'>('rabills');
 
   // ── Fetch data ──────────────────────────────────────────────────────────────
-  const { data: milestonesResp, mutate: refetchMilestones } = useSWR(
+  // Milestones are still needed here even though the "Phases & Milestones" tab is gone —
+  // the Vendor's separate "My Invoices" view (below) is milestone-based and unaffected by
+  // this change.
+  const { data: milestonesResp } = useSWR(
     projectId ? `/api/projects/${projectId}/milestones?all=true` : null, jsonFetcher
   );
-  const { data: phasesResp } = useSWR(
-    projectId ? `/api/projects/${projectId}/phases` : null, jsonFetcher
+  const {
+    data: raBillsResp,
+    error: raBillsError,
+    mutate: refetchRABills,
+  } = useSWR<{ raBills: RABill[]; total: number }>(
+    projectId ? `/api/projects/${projectId}/ra-bills` : null, jsonFetcher
   );
   const { data: setsResp, error: setsError, mutate: refetchSets } = useSWR(
     projectId ? `/api/projects/${projectId}/architecture/sets` : null, jsonFetcher
   );
 
   const milestones: Milestone[] = (milestonesResp as Milestone[]) ?? [];
-  const phases: Phase[] = (phasesResp as Phase[]) ?? [];
+  const raBills: RABill[] = raBillsResp?.raBills ?? [];
   const sets: DrawingSet[] = (setsResp as DrawingSet[]) ?? [];
 
-  // ── Modal state (milestone payment actions) ────────────────────────────────
-  const [activeMs, setActiveMs] = useState<Milestone | null>(null);
-  const [modalType, setModalType] = useState<ModalType>(null);
-  const [reasonCode, setReasonCode] = useState('QUALITY_ISSUE');
-  const [explanation, setExplanation] = useState('');
-  const [processing, setProcessing] = useState(false);
-  const [modalError, setModalError] = useState('');
+  // ── Pay Now modal state (RA Bill payment actions) ──────────────────────────
+  const [payingBill, setPayingBill] = useState<RABill | null>(null);
 
-  // ── Collapsed phase / set state ────────────────────────────────────────────
+  // ── Collapsed set state (architecture tab) ─────────────────────────────────
   const [collapsed, setCollapsed] = useState<Set<string>>(new Set());
   const toggleSection = (id: string) =>
     setCollapsed((p) => { const n = new Set(p); n.has(id) ? n.delete(id) : n.add(id); return n; });
@@ -206,34 +207,6 @@ export default function PaymentsPage() {
     finally { setRowActionLoading(null); }
   };
 
-  // ── Milestone modal actions ────────────────────────────────────────────────
-  const openModal = (m: Milestone, type: ModalType) => {
-    setActiveMs(m); setModalType(type); setExplanation(''); setModalError('');
-  };
-  const closeModal = () => { setActiveMs(null); setModalType(null); setExplanation(''); setModalError(''); };
-
-  const handleMsAction = async () => {
-    if (!activeMs || !modalType) return;
-    if (modalType !== 'confirmPaid' && !explanation.trim()) { setModalError('Please provide a reason'); return; }
-    setProcessing(true); setModalError('');
-    try {
-      const body: Record<string, unknown> = { explanation: explanation.trim() || 'Payment confirmed' };
-      if (modalType === 'confirmPaid') body.action = 'markPaid';
-      else if (modalType === 'notDone') { body.action = 'block'; body.reasonCode = reasonCode; }
-      else if (modalType === 'block')   { body.action = 'block'; body.reasonCode = reasonCode; }
-      else if (modalType === 'unblock') { body.action = 'unblock'; body.reason = explanation; }
-
-      const res = await fetch(
-        `/api/projects/${projectId}/milestones/${activeMs.id}/payment/mark`,
-        { method: 'POST', headers: { 'Content-Type': 'application/json' }, body: JSON.stringify(body) }
-      );
-      const data = await res.json();
-      if (data.success) { closeModal(); void refetchMilestones(); }
-      else setModalError(data.error);
-    } catch { setModalError('Failed to process action'); }
-    finally { setProcessing(false); }
-  };
-
   if (projectLoading) return <Layout><ListPageSkeleton /></Layout>;
 
   // ── Vendor: completely separate invoice view ────────────────────────────────
@@ -248,21 +221,10 @@ export default function PaymentsPage() {
 
   // ── Derived data ───────────────────────────────────────────────────────────
 
-  const phaseMap = new Map<string, Milestone[]>();
-  const unphased: Milestone[] = [];
-  for (const m of milestones) {
-    if (m.phaseId) {
-      if (!phaseMap.has(m.phaseId)) phaseMap.set(m.phaseId, []);
-      phaseMap.get(m.phaseId)!.push(m);
-    } else {
-      unphased.push(m);
-    }
-  }
-
-  const dueMs    = milestones.filter((m) => getPayStatus(m) === 'due');
-  const paidMs   = milestones.filter((m) => getPayStatus(m) === 'released');
-  const totalDue = dueMs.reduce((s, m) => s + (m.paymentEligibility?.eligibleAmount ?? 0), 0);
-  const totalPaid = paidMs.reduce((s, m) => s + (m.paymentEligibility?.eligibleAmount ?? 0), 0);
+  const readyToPay = raBills.filter((b) => b.status === 'CERTIFIED' || b.status === 'APPROVED');
+  const paidRABills = raBills.filter((b) => b.status === 'PAID');
+  const totalReadyToPay = readyToPay.reduce((s, b) => s + raBillNetPayable(b), 0);
+  const totalPaidRABills = paidRABills.reduce((s, b) => s + raBillNetPayable(b), 0);
 
   // Architecture summary
   const totalArchFees = sets.reduce((s, set) => s + set.cost, 0);
@@ -279,8 +241,8 @@ export default function PaymentsPage() {
   }, 0);
 
   const TABS = [
-    { id: 'milestones' as const,    label: 'Phases & Milestones', badge: dueMs.length > 0 ? dueMs.length : null },
-    { id: 'architecture' as const,  label: 'Consultant Fees',   badge: null },
+    { id: 'rabills' as const,      label: 'RA Bill Payments', badge: readyToPay.length > 0 ? readyToPay.length : null },
+    { id: 'architecture' as const, label: 'Consultant Fees',  badge: null },
   ];
 
   return (
@@ -292,23 +254,23 @@ export default function PaymentsPage() {
         {/* ── Header ── */}
         <div>
           <h1 className="text-2xl font-bold text-[#e8e4dc]">Payments</h1>
-          <p className="text-sm text-[rgba(232,228,220,0.45)] mt-1">Milestone payments by phase and architectural drawing fees</p>
+          <p className="text-sm text-[rgba(232,228,220,0.45)] mt-1">RA Bill payments and architectural drawing fees</p>
         </div>
 
         {/* ── Summary row ── */}
         <div className="grid gap-3 sm:grid-cols-4">
           <div className="card">
             <div className="card-body py-3">
-              <p className="text-[10px] text-[rgba(232,228,220,0.45)] uppercase tracking-wider">Milestones Pending</p>
-              <p className="text-xl font-bold text-[#fb923c] mt-0.5">{formatCurrency(totalDue)}</p>
-              <p className="text-[10px] text-[rgba(232,228,220,0.35)]">{dueMs.length} due now</p>
+              <p className="text-[10px] text-[rgba(232,228,220,0.45)] uppercase tracking-wider">RA Bills Ready to Pay</p>
+              <p className="text-xl font-bold text-[#fb923c] mt-0.5">{formatCurrency(totalReadyToPay)}</p>
+              <p className="text-[10px] text-[rgba(232,228,220,0.35)]">{readyToPay.length} awaiting payment</p>
             </div>
           </div>
           <div className="card">
             <div className="card-body py-3">
-              <p className="text-[10px] text-[rgba(232,228,220,0.45)] uppercase tracking-wider">Milestones Released</p>
-              <p className="text-xl font-bold text-[#5cba80] mt-0.5">{formatCurrency(totalPaid)}</p>
-              <p className="text-[10px] text-[rgba(232,228,220,0.35)]">{paidMs.length} paid</p>
+              <p className="text-[10px] text-[rgba(232,228,220,0.45)] uppercase tracking-wider">RA Bills Paid</p>
+              <p className="text-xl font-bold text-[#5cba80] mt-0.5">{formatCurrency(totalPaidRABills)}</p>
+              <p className="text-[10px] text-[rgba(232,228,220,0.35)]">{paidRABills.length} paid</p>
             </div>
           </div>
           <div className="card">
@@ -352,91 +314,73 @@ export default function PaymentsPage() {
         </div>
 
         {/* ═══════════════════════════════════════════════════════════════════
-            TAB 1 — PHASES & MILESTONES
+            TAB 1 — RA BILL PAYMENTS
             ═══════════════════════════════════════════════════════════════════ */}
-        {activeTab === 'milestones' && (
-          <div className="space-y-3">
-            {phases.length === 0 && milestones.length === 0 && (
-              <div className="card p-8 text-center text-[rgba(232,228,220,0.35)] text-sm">
-                No milestones yet.
+        {activeTab === 'rabills' && (
+          <div className="space-y-4">
+            {raBillsError ? (
+              <div className="card p-8 text-center space-y-3">
+                <AlertCircle className="w-7 h-7 text-[#e06050] mx-auto" />
+                <p className="text-sm font-medium text-[#e06050]">Could not load RA Bills</p>
+                <p className="text-xs text-[rgba(232,228,220,0.4)]">{String((raBillsError as Error)?.message ?? 'Server error')}</p>
+                <button onClick={() => void refetchRABills()} className="btn btn-secondary btn-sm mx-auto">Retry</button>
               </div>
-            )}
-
-            {phases.map((phase) => {
-              const phaseMilestones = phaseMap.get(phase.id) ?? [];
-              if (phaseMilestones.length === 0) return null;
-              const isOpen = !collapsed.has(phase.id);
-              const dueCnt = phaseMilestones.filter((m) => getPayStatus(m) === 'due').length;
-
-              return (
-                <div key={phase.id} className="card overflow-hidden">
-                  <button
-                    onClick={() => toggleSection(phase.id)}
-                    className="w-full flex items-center justify-between px-5 py-4 hover:bg-[rgba(255,255,255,0.02)] transition-colors"
-                  >
-                    <div className="flex items-center gap-3">
-                      {isOpen
-                        ? <ChevronDown className="w-4 h-4 text-[rgba(232,228,220,0.4)]" />
-                        : <ChevronRight className="w-4 h-4 text-[rgba(232,228,220,0.4)]" />}
-                      <span className="font-semibold text-[#e8e4dc] text-sm">{phase.name}</span>
-                      <span className="text-xs text-[rgba(232,228,220,0.35)]">{phaseMilestones.length} milestone{phaseMilestones.length !== 1 ? 's' : ''}</span>
+            ) : !raBillsResp ? (
+              <div className="card p-8 text-center text-sm text-[rgba(232,228,220,0.35)]">Loading…</div>
+            ) : (
+              <>
+                <div className="card overflow-hidden">
+                  <div className="card-header flex items-center gap-2">
+                    <Receipt className="w-4 h-4" style={{ color: 'var(--ax-accent)' }} />
+                    <h2 className="text-base font-semibold">Ready to Pay ({readyToPay.length})</h2>
+                  </div>
+                  {readyToPay.length === 0 ? (
+                    <div className="card-body text-center text-sm text-[rgba(232,228,220,0.35)] py-8">
+                      No RA Bills certified and ready for payment right now.
                     </div>
-                    {dueCnt > 0 && (
-                      <span className="text-[11px] font-bold px-2 py-0.5 rounded-full bg-[rgba(251,146,60,0.15)] text-[#fb923c] border border-[rgba(251,146,60,0.3)]">
-                        {dueCnt} due
-                      </span>
-                    )}
-                  </button>
-
-                  {isOpen && (
-                    <div className="divide-y divide-[rgba(255,255,255,0.04)] border-t border-[rgba(255,255,255,0.06)]">
-                      {phaseMilestones.map((m) => (
-                        <MilestonePayRow
-                          key={m.id}
-                          milestone={m}
-                          isOwner={isOwner}
-                          permissions={permissions}
-                          onConfirm={() => openModal(m, 'confirmPaid')}
-                          onNotDone={() => openModal(m, 'notDone')}
-                          onUnblock={() => openModal(m, 'unblock')}
+                  ) : (
+                    <div className="divide-y divide-[rgba(255,255,255,0.04)]">
+                      {readyToPay.map((bill) => (
+                        <RABillPayRow
+                          key={bill.id}
+                          bill={bill}
+                          projectId={projectId}
+                          canApprove={canApproveRABill}
+                          canRelease={canReleaseRABillPayment}
+                          onPayNow={() => setPayingBill(bill)}
                         />
                       ))}
                     </div>
                   )}
                 </div>
-              );
-            })}
 
-            {unphased.length > 0 && (
-              <div className="card overflow-hidden">
-                <button
-                  onClick={() => toggleSection('__unphased__')}
-                  className="w-full flex items-center justify-between px-5 py-4 hover:bg-[rgba(255,255,255,0.02)] transition-colors"
-                >
-                  <div className="flex items-center gap-3">
-                    {!collapsed.has('__unphased__')
-                      ? <ChevronDown className="w-4 h-4 text-[rgba(232,228,220,0.4)]" />
-                      : <ChevronRight className="w-4 h-4 text-[rgba(232,228,220,0.4)]" />}
-                    <span className="font-semibold text-[rgba(232,228,220,0.6)] text-sm">Other Milestones</span>
-                    <span className="text-xs text-[rgba(232,228,220,0.3)]">{unphased.length}</span>
-                  </div>
-                </button>
-                {!collapsed.has('__unphased__') && (
-                  <div className="divide-y divide-[rgba(255,255,255,0.04)] border-t border-[rgba(255,255,255,0.06)]">
-                    {unphased.map((m) => (
-                      <MilestonePayRow
-                        key={m.id}
-                        milestone={m}
-                        isOwner={isOwner}
-                        permissions={permissions}
-                        onConfirm={() => openModal(m, 'confirmPaid')}
-                        onNotDone={() => openModal(m, 'notDone')}
-                        onUnblock={() => openModal(m, 'unblock')}
-                      />
-                    ))}
+                {paidRABills.length > 0 && (
+                  <div className="card overflow-hidden">
+                    <div className="card-header">
+                      <h2 className="text-base font-semibold">Paid ({paidRABills.length})</h2>
+                    </div>
+                    <div className="divide-y divide-[rgba(255,255,255,0.04)]">
+                      {paidRABills.map((bill) => (
+                        <RABillPayRow
+                          key={bill.id}
+                          bill={bill}
+                          projectId={projectId}
+                          canApprove={canApproveRABill}
+                          canRelease={canReleaseRABillPayment}
+                          onPayNow={() => {}}
+                        />
+                      ))}
+                    </div>
                   </div>
                 )}
-              </div>
+
+                {readyToPay.length === 0 && paidRABills.length === 0 && (
+                  <div className="card p-12 text-center">
+                    <Receipt className="w-8 h-8 text-[rgba(232,228,220,0.15)] mx-auto mb-3" />
+                    <p className="text-sm text-[rgba(232,228,220,0.35)]">No RA Bills have reached certification yet.</p>
+                  </div>
+                )}
+              </>
             )}
           </div>
         )}
@@ -630,85 +574,202 @@ export default function PaymentsPage() {
       </div>
 
       {/* ═══════════════════════════════════════════════════════════════════
-          MILESTONE PAYMENT MODAL
+          RA BILL "PAY NOW" MODAL
           ═══════════════════════════════════════════════════════════════════ */}
-      {activeMs && modalType && (
-        <div className="fixed inset-0 bg-black/70 flex items-center justify-center z-50 p-4">
-          <div className="bg-[#13151a] border border-[rgba(255,255,255,0.1)] rounded-xl max-w-md w-full shadow-2xl">
-            <div className="p-6 space-y-5">
-              <div>
-                <h2 className="text-lg font-semibold text-[#e8e4dc]">
-                  {modalType === 'confirmPaid' && 'Confirm Payment Release'}
-                  {modalType === 'notDone'     && 'Mark Payment as Not Done'}
-                  {modalType === 'block'       && 'Block Payment'}
-                  {modalType === 'unblock'     && 'Resume Payment'}
-                </h2>
-                <p className="text-sm text-[rgba(232,228,220,0.5)] mt-1">
-                  {activeMs.title} · {formatCurrency(activeMs.paymentEligibility?.eligibleAmount ?? activeMs.value)}
-                </p>
-              </div>
-
-              {modalError && <div className="alert alert-error text-sm">{modalError}</div>}
-
-              {(modalType === 'block' || modalType === 'notDone') && (
-                <div>
-                  <label className="label text-xs">Reason</label>
-                  <select className="input text-sm" value={reasonCode} onChange={(e) => setReasonCode(e.target.value)}>
-                    {Object.entries(BlockingReasonLabels).map(([code, label]) => (
-                      <option key={code} value={code}>{label}</option>
-                    ))}
-                  </select>
-                </div>
-              )}
-
-              {modalType !== 'confirmPaid' && (
-                <div>
-                  <label className="label text-xs">Explanation <span className="text-[#e06050]">*</span></label>
-                  <textarea className="input resize-none text-sm" rows={3} value={explanation}
-                    onChange={(e) => setExplanation(e.target.value)}
-                    placeholder={
-                      modalType === 'notDone'  ? 'Explain why payment is deferred…' :
-                      modalType === 'unblock'  ? 'Reason for resuming payment…'     :
-                                                 'Reason for blocking…'
-                    }
-                  />
-                </div>
-              )}
-
-              {modalType === 'notDone' && (
-                <div className="flex items-start gap-2 p-3 rounded-lg bg-[rgba(224,96,80,0.06)] border border-[rgba(224,96,80,0.15)]">
-                  <span className="text-[#e06050] shrink-0">⚠</span>
-                  <p className="text-xs text-[rgba(232,228,220,0.6)]">PMC and Vendor will be notified. You can resume payment later.</p>
-                </div>
-              )}
-              {modalType === 'confirmPaid' && (
-                <div className="flex items-start gap-2 p-3 rounded-lg bg-[rgba(92,186,128,0.06)] border border-[rgba(92,186,128,0.15)]">
-                  <span className="text-[#5cba80] shrink-0">✓</span>
-                  <p className="text-xs text-[rgba(232,228,220,0.6)]">Payment will be marked released and milestone closed.</p>
-                </div>
-              )}
-
-              <div className="flex justify-end gap-3 pt-2">
-                <button onClick={closeModal} className="btn btn-secondary">Cancel</button>
-                <button onClick={handleMsAction} disabled={processing}
-                  className={`btn disabled:opacity-50 ${
-                    modalType === 'confirmPaid' ? 'btn-success' :
-                    modalType === 'notDone' || modalType === 'block'
-                      ? 'bg-[rgba(224,96,80,0.15)] text-[#e06050] border border-[rgba(224,96,80,0.3)] hover:bg-[rgba(224,96,80,0.25)]'
-                      : 'btn-primary'
-                  }`}>
-                  {processing ? 'Processing…' :
-                    modalType === 'confirmPaid' ? 'Confirm & Release' :
-                    modalType === 'notDone'     ? 'Mark Not Done'     :
-                    modalType === 'unblock'     ? 'Resume Payment'    :
-                                                  'Block Payment'}
-                </button>
-              </div>
-            </div>
-          </div>
-        </div>
+      {payingBill && (
+        <PayRABillModal
+          projectId={projectId}
+          bill={payingBill}
+          onClose={() => setPayingBill(null)}
+          onPaid={() => void refetchRABills()}
+        />
       )}
     </Layout>
+  );
+}
+
+// ── RA Bill row + Pay Now modal ────────────────────────────────────────────────
+
+function RABillPayRow({
+  bill,
+  projectId,
+  canApprove,
+  canRelease,
+  onPayNow,
+}: {
+  bill: RABill;
+  projectId: string;
+  canApprove: boolean;
+  canRelease: boolean;
+  onPayNow: () => void;
+}) {
+  const netPayable = raBillNetPayable(bill);
+  const canPayNow =
+    (bill.status === 'CERTIFIED' && canApprove) ||
+    (bill.status === 'APPROVED' && canRelease);
+
+  return (
+    <div className="px-5 py-3.5 flex flex-col sm:flex-row sm:items-center gap-3">
+      <div className="flex-1 min-w-0">
+        <div className="flex items-center gap-2 flex-wrap">
+          <span className="text-sm font-medium text-[#e8e4dc]">RA-{bill.billNumber}</span>
+          <span className="text-xs text-[rgba(232,228,220,0.45)]">{bill.order.name}</span>
+          <RABillStatusPill status={bill.status} />
+        </div>
+        <div className="flex items-center gap-3 mt-1 text-xs text-[rgba(232,228,220,0.4)] flex-wrap">
+          <span>{formatDate(bill.periodStart)} – {formatDate(bill.periodEnd)}</span>
+          {bill.certifiedAt && <span>Certified {formatDate(bill.certifiedAt)}</span>}
+          <span className="font-medium text-[rgba(232,228,220,0.65)]">{formatCurrency(netPayable)}</span>
+        </div>
+      </div>
+
+      <div className="flex items-center gap-2 shrink-0">
+        <a
+          href={`/api/projects/${projectId}/orders/${bill.order.id}/ra-bills/${bill.id}/pdf`}
+          className="text-xs font-medium px-3 py-1.5 rounded-lg border border-[rgba(255,255,255,0.1)] text-[rgba(232,228,220,0.6)] hover:text-[#e8e4dc] transition-colors inline-flex items-center gap-1.5"
+        >
+          <Download className="w-3.5 h-3.5" /> Download
+        </a>
+        {canPayNow ? (
+          <button
+            onClick={onPayNow}
+            className="text-xs font-semibold px-3 py-1.5 rounded-lg border border-[rgba(92,186,128,0.35)] bg-[rgba(92,186,128,0.08)] text-[#5cba80] hover:bg-[rgba(92,186,128,0.15)] transition-colors"
+          >
+            Pay Now
+          </button>
+        ) : bill.status === 'CERTIFIED' ? (
+          <span className="text-xs text-[rgba(232,228,220,0.35)] px-1 whitespace-nowrap">Awaiting Client Approval</span>
+        ) : bill.status === 'APPROVED' ? (
+          <span className="text-xs text-[rgba(232,228,220,0.35)] px-1 whitespace-nowrap">Approved — Awaiting Release</span>
+        ) : bill.status === 'PAID' ? (
+          <span className="text-xs text-[#5cba80] px-1 flex items-center gap-1 whitespace-nowrap"><CheckCircle2 className="w-3.5 h-3.5" /> Paid</span>
+        ) : null}
+      </div>
+    </div>
+  );
+}
+
+/** One-click "Pay Now" — collapses whatever step(s) remain (Approve, then Release Payment)
+ * into a single action so a 300-bill-a-year project doesn't require the Client to separately
+ * approve and then release every RA Bill. A CERTIFIED bill gets approved (with the entered
+ * deductions) and released in the same click; an already-APPROVED bill just gets released. */
+function PayRABillModal({
+  projectId,
+  bill,
+  onClose,
+  onPaid,
+}: {
+  projectId: string;
+  bill: RABill;
+  onClose: () => void;
+  onPaid: () => void;
+}) {
+  const gross = raBillGross(bill);
+  const [deductions, setDeductions] = useState(String(bill.deductions ?? 0));
+  const [paymentReference, setPaymentReference] = useState('');
+  const [processing, setProcessing] = useState(false);
+  const [error, setError] = useState('');
+
+  const deductionsNum = parseFloat(deductions) || 0;
+  const netPayable = bill.status === 'CERTIFIED' ? gross - deductionsNum : (bill.approvedValue ?? gross);
+
+  const handlePay = async () => {
+    setProcessing(true);
+    setError('');
+    try {
+      const orderId = bill.order.id;
+
+      if (bill.status === 'CERTIFIED') {
+        const approveRes = await fetch(`/api/projects/${projectId}/orders/${orderId}/ra-bills/${bill.id}/approve`, {
+          method: 'POST',
+          headers: { 'Content-Type': 'application/json' },
+          body: JSON.stringify({ deductions: deductionsNum }),
+        });
+        const approveData = await approveRes.json();
+        if (!approveData.success) {
+          setError(approveData.error ?? 'Failed to approve RA Bill');
+          setProcessing(false);
+          return;
+        }
+      }
+
+      const releaseRes = await fetch(`/api/projects/${projectId}/orders/${orderId}/ra-bills/${bill.id}/release-payment`, {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({ releasedValue: netPayable, paymentReference: paymentReference.trim() || undefined }),
+      });
+      const releaseData = await releaseRes.json();
+      if (releaseData.success) {
+        onPaid();
+        onClose();
+      } else {
+        setError(releaseData.error ?? 'Failed to release payment');
+      }
+    } catch {
+      setError('Failed to process payment. Please try again.');
+    } finally {
+      setProcessing(false);
+    }
+  };
+
+  return (
+    <div className="fixed inset-0 bg-black/70 flex items-center justify-center z-50 p-4">
+      <div className="bg-[#13151a] border border-[rgba(255,255,255,0.1)] rounded-xl max-w-md w-full shadow-2xl">
+        <div className="p-6 space-y-5">
+          <div>
+            <h2 className="text-lg font-semibold text-[#e8e4dc]">Pay RA-{bill.billNumber}</h2>
+            <p className="text-sm text-[rgba(232,228,220,0.5)] mt-1">{bill.order.name}</p>
+          </div>
+
+          {error && <div className="alert alert-error text-sm">{error}</div>}
+
+          <div className="rounded-lg bg-[rgba(255,255,255,0.03)] p-3 space-y-1.5 text-sm">
+            <div className="flex justify-between">
+              <span className="text-[rgba(232,228,220,0.5)]">Certified Value</span>
+              <span className="text-[#e8e4dc] font-medium">{formatCurrency(gross)}</span>
+            </div>
+            {bill.status === 'CERTIFIED' ? (
+              <div className="flex justify-between items-center">
+                <span className="text-[rgba(232,228,220,0.5)]">Deductions</span>
+                <input
+                  type="number"
+                  className="input text-sm w-28 text-right py-1"
+                  value={deductions}
+                  onChange={(e) => setDeductions(e.target.value)}
+                />
+              </div>
+            ) : (
+              <div className="flex justify-between">
+                <span className="text-[rgba(232,228,220,0.5)]">Deductions</span>
+                <span className="text-[#e8e4dc]">{formatCurrency(bill.deductions ?? 0)}</span>
+              </div>
+            )}
+            <div className="flex justify-between pt-1.5 border-t border-[rgba(255,255,255,0.06)]">
+              <span className="text-[#e8e4dc] font-semibold">Net Payable</span>
+              <span className="text-[#5cba80] font-bold">{formatCurrency(netPayable)}</span>
+            </div>
+          </div>
+
+          <div>
+            <label className="label text-xs">Payment Reference (optional)</label>
+            <input
+              type="text"
+              className="input text-sm"
+              placeholder="UTR / cheque number"
+              value={paymentReference}
+              onChange={(e) => setPaymentReference(e.target.value)}
+            />
+          </div>
+
+          <div className="flex justify-end gap-3 pt-2">
+            <button onClick={onClose} className="btn btn-secondary">Cancel</button>
+            <button onClick={() => void handlePay()} disabled={processing} className="btn btn-success disabled:opacity-50">
+              {processing ? 'Processing…' : `Pay ${formatCurrency(netPayable)}`}
+            </button>
+          </div>
+        </div>
+      </div>
+    </div>
   );
 }
 
@@ -956,75 +1017,6 @@ function VendorInvoiceView({ milestones, projectName }: { milestones: Milestone[
       <InvoiceSection title="Blocked" items={blocked} />
       <InvoiceSection title="Upcoming" items={upcoming} />
       <InvoiceSection title="Received" items={received} />
-    </div>
-  );
-}
-
-// ── Milestone row sub-component ───────────────────────────────────────────────
-
-function MilestonePayRow({
-  milestone: m,
-  isOwner,
-  permissions,
-  onConfirm,
-  onNotDone,
-  onUnblock,
-}: {
-  milestone: Milestone;
-  isOwner: boolean;
-  permissions: Record<string, boolean>;
-  onConfirm: () => void;
-  onNotDone: () => void;
-  onUnblock: () => void;
-}) {
-  const status = getPayStatus(m);
-  const e = m.paymentEligibility;
-
-  return (
-    <div className="px-5 py-3.5 flex flex-col sm:flex-row sm:items-center gap-2 sm:gap-4">
-      <div className="flex-1 min-w-0">
-        <div className="flex items-center gap-2 flex-wrap">
-          <span className="text-sm font-medium text-[#e8e4dc] truncate">{m.title}</span>
-          <MilestoneStateBadge state={m.state as any} />
-          <PayBadge status={status} />
-        </div>
-        <div className="flex items-center gap-3 mt-1 text-xs text-[rgba(232,228,220,0.4)] flex-wrap">
-          {e?.eligibleAmount != null && e.eligibleAmount > 0 && (
-            <span className="font-medium text-[rgba(232,228,220,0.65)]">{formatCurrency(e.eligibleAmount)}</span>
-          )}
-          {m.plannedEnd && <span>Due {formatDate(m.plannedEnd)}</span>}
-          {e?.state === 'BLOCKED' && e.blockExplanation && (
-            <span className="text-[#e06050] italic">"{e.blockExplanation}"</span>
-          )}
-        </div>
-      </div>
-
-      <div className="flex items-center gap-2 shrink-0">
-        {isOwner && status === 'due' && (
-          <>
-            <button onClick={onConfirm}
-              className="text-xs font-semibold px-3 py-1.5 rounded-lg border border-[rgba(92,186,128,0.35)] bg-[rgba(92,186,128,0.08)] text-[#5cba80] hover:bg-[rgba(92,186,128,0.15)] transition-colors">
-              Confirm
-            </button>
-            <button onClick={onNotDone}
-              className="text-xs font-semibold px-3 py-1.5 rounded-lg border border-[rgba(224,96,80,0.25)] bg-[rgba(224,96,80,0.06)] text-[#e06050] hover:bg-[rgba(224,96,80,0.12)] transition-colors">
-              Defer
-            </button>
-          </>
-        )}
-        {isOwner && status === 'blocked' && permissions.canUnblockPayment && (
-          <button onClick={onUnblock}
-            className="text-xs font-semibold px-3 py-1.5 rounded-lg border border-[rgba(var(--ax-accent-rgb),0.3)] bg-[rgba(var(--ax-accent-rgb),0.08)] text-[var(--ax-accent)] hover:bg-[rgba(var(--ax-accent-rgb),0.15)] transition-colors">
-            Resume
-          </button>
-        )}
-        {!isOwner && status === 'due' && permissions.canMarkPaid && (
-          <button onClick={onNotDone}
-            className="text-xs px-3 py-1.5 rounded-lg border border-[rgba(255,255,255,0.1)] text-[rgba(232,228,220,0.55)] hover:text-[#e8e4dc] transition-colors">
-            Block
-          </button>
-        )}
-      </div>
     </div>
   );
 }

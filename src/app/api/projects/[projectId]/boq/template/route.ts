@@ -4,7 +4,7 @@ import { prisma } from '@/lib/db';
 import * as XLSX from 'xlsx';
 
 // GET /api/projects/[projectId]/boq/template
-// Returns a pre-filled .xlsx template with project phase names + sample rows.
+// Returns a pre-filled .xlsx template with project purchase order names + sample rows.
 export async function GET(
   _req: NextRequest,
   { params }: { params: Promise<{ projectId: string }> }
@@ -13,8 +13,10 @@ export async function GET(
     const { projectId } = await params;
     await requireProjectAuth(projectId);
 
-    const phases = await prisma.phase.findMany({
-      where: { projectId },
+    const orders = await prisma.phase.findMany({
+      // Execution/WBS phases aren't Purchase Orders — excludes schedule-imported phases too,
+      // since a promoted top-level WBS phase would otherwise satisfy parentPhaseId: null.
+      where: { projectId, parentPhaseId: null, scheduleImportId: null },
       orderBy: { sortOrder: 'asc' },
       select: { name: true },
     });
@@ -22,11 +24,11 @@ export async function GET(
     const wb = XLSX.utils.book_new();
 
     // ── Sheet 1: BOQ Import ──────────────────────────────────────────────────
-    const headers = ['Phase', 'Description', 'Unit', 'Quantity', 'Rate (₹)'];
+    const headers = ['Purchase Order', 'Description', 'Unit', 'Quantity', 'Rate (₹)'];
 
-    const p0 = phases[0]?.name ?? 'Phase 0 - Foundation';
-    const p1 = phases[1]?.name ?? 'Phase 1 - Structure';
-    const p2 = phases[2]?.name ?? 'Phase 2 - Finishing';
+    const p0 = orders[0]?.name ?? 'Purchase Order 0 - Foundation';
+    const p1 = orders[1]?.name ?? 'Purchase Order 1 - Structure';
+    const p2 = orders[2]?.name ?? 'Purchase Order 2 - Finishing';
 
     const sampleRows: (string | number)[][] = [
       [p0, 'Excavation for isolated columns', 'cum', 50, 850],
@@ -43,7 +45,7 @@ export async function GET(
 
     const ws = XLSX.utils.aoa_to_sheet([headers, ...sampleRows]);
     ws['!cols'] = [
-      { wch: 30 }, // Phase
+      { wch: 30 }, // Purchase Order
       { wch: 45 }, // Description
       { wch: 10 }, // Unit
       { wch: 12 }, // Quantity
@@ -51,25 +53,25 @@ export async function GET(
     ];
     XLSX.utils.book_append_sheet(wb, ws, 'BOQ Import');
 
-    // ── Sheet 2: Phase Reference ─────────────────────────────────────────────
+    // ── Sheet 2: Purchase Order Reference ──────────────────────────────────────
     const refRows: string[][] = [
-      ['Available Phases — copy exact name into the Phase column above'],
+      ['Available Purchase Orders — copy exact name into the Purchase Order column above'],
       [''],
-      ...phases.map((p) => [p.name]),
+      ...orders.map((o) => [o.name]),
     ];
-    if (phases.length === 0) {
-      refRows.push(['No phases created yet — add phases first, then re-download this template']);
+    if (orders.length === 0) {
+      refRows.push(['No purchase orders created yet — add purchase orders first, then re-download this template']);
     }
     const refWs = XLSX.utils.aoa_to_sheet(refRows);
     refWs['!cols'] = [{ wch: 55 }];
-    XLSX.utils.book_append_sheet(wb, refWs, 'Phase Reference');
+    XLSX.utils.book_append_sheet(wb, refWs, 'Purchase Order Reference');
 
     // ── Sheet 3: Instructions ────────────────────────────────────────────────
     const instrRows: string[][] = [
       ['HOW TO USE THIS TEMPLATE'],
       [''],
       ['1. Fill in the "BOQ Import" sheet — one row per BOQ line item'],
-      ['2. Phase: must match exactly one of the names in the "Phase Reference" sheet'],
+      ['2. Purchase Order: must match exactly one of the names in the "Purchase Order Reference" sheet'],
       ['3. Description: describe the work item clearly'],
       ['4. Unit: e.g. sqm, cum, rmt, kg, nos, ls'],
       ['5. Quantity: numeric value (must be > 0)'],
@@ -77,7 +79,7 @@ export async function GET(
       ['7. Value column is auto-calculated — do not add it'],
       ['8. Delete these sample rows before uploading your real data'],
       ['9. Items with blank or invalid rows are automatically skipped'],
-      ['10. You can create BOQs for multiple phases in one upload'],
+      ['10. You can create BOQs for multiple purchase orders in one upload'],
     ];
     const instrWs = XLSX.utils.aoa_to_sheet(instrRows);
     instrWs['!cols'] = [{ wch: 65 }];

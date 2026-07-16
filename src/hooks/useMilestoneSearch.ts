@@ -23,7 +23,6 @@ export interface SearchMilestone {
   contractValue: number;
   assignedVendor: { id: string; name: string; email: string } | null;
   project: { id: string; name: string };
-  _count: { evidence: number };
 }
 
 export interface UseMilestoneSearchResult {

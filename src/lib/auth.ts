@@ -15,6 +15,11 @@ const JWT_SECRET = new TextEncoder().encode(process.env.JWT_SECRET);
 
 const SESSION_EXPIRY_HOURS = parseInt(process.env.SESSION_EXPIRY_HOURS || '24', 10);
 
+// Single source of truth for the session cookie's maxAge — every route that sets the
+// `session` cookie must use this instead of hardcoding a value, or the cookie can silently
+// outlive/underlive the JWT itself when SESSION_EXPIRY_HOURS is changed from its default.
+export const SESSION_COOKIE_MAX_AGE_SECONDS = SESSION_EXPIRY_HOURS * 60 * 60;
+
 export interface SessionPayload {
   userId: string;
   email: string;

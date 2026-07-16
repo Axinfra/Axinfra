@@ -263,9 +263,9 @@ function FlowDiagram() {
       <Connector d="M610 232 L660 232" stroke={GREEN} dur={1.7} />
       <Node x={660} y={208} w={160} h={48} stroke={GREEN} roleColor={GREEN} role="VENDOR" label="Starts work" pulse />
 
-      {/* ── row 3: Vendor submits evidence → PMC verifies ── */}
+      {/* ── row 3: Vendor submits for verification → PMC verifies ── */}
       <Connector d="M740 256 L740 360" stroke={GREEN} dur={1.8} />
-      <Node x={655} y={360} w={170} h={48} stroke={GREEN} roleColor={GREEN} role="VENDOR" label="Submits evidence" />
+      <Node x={655} y={360} w={170} h={48} stroke={GREEN} roleColor={GREEN} role="VENDOR" label="Submits milestone" />
       <Connector d="M655 384 L574 384" stroke={GOLD} dur={1.6} />
       <Diamond cx={530} cy={384} size={44} stroke={GOLD} roleColor={GOLD} role="PMC" label="Verifies?" pulse />
       <text x={398} y={380} fill={GREEN} fontSize="10" fontFamily="Instrument Sans,sans-serif" fontWeight="600">✓ Verified</text>
@@ -291,20 +291,20 @@ const GANTT_TASKS = [
   { name: 'BOQ Approval', role: 'CLIENT', color: 'gold', start: 2, len: 0.5 },
   { name: 'Foundation milestones', role: 'PMC', color: 'green', start: 2.4, len: 1.2 },
   { name: 'Foundation work', role: 'VENDOR', color: 'green', start: 2.8, len: 1.8 },
-  { name: 'Evidence review — Phase 0', role: 'PMC', color: 'gold', start: 4.6, len: 0.5 },
+  { name: 'Milestone review — Phase 0', role: 'PMC', color: 'gold', start: 4.6, len: 0.5 },
   { name: 'Payment release — Phase 0', role: 'CLIENT', color: 'green', start: 5.1, len: 0.5 },
   { name: 'BOQ — Structural Works', role: 'PMC', color: 'gold', start: 2, len: 1.2 },
   { name: 'Structural milestones', role: 'PMC', color: 'green', start: 3, len: 0.6 },
   { name: 'Structural work', role: 'VENDOR', color: 'green', start: 3.4, len: 2.8 },
-  { name: 'Evidence — Structural', role: 'VENDOR', color: 'gold', start: 6.2, len: 0.5 },
+  { name: 'Submission — Structural', role: 'VENDOR', color: 'gold', start: 6.2, len: 0.5 },
   { name: 'Phase 3 BOQ (Draft)', role: 'PMC', color: 'gray', start: 5, len: 2 },
   { name: 'Facade & MEP (at risk)', role: 'VENDOR', color: 'red', start: 5.8, len: 2.2 },
 ];
 const MONTHS = ['Jan', 'Feb', 'Mar', 'Apr', 'May', 'Jun', 'Jul', 'Aug'];
 
 const FEATURES = [
-  { icon: '🏗️', title: 'Milestone-gated workflows', desc: 'Every phase is broken into milestones. Work can only progress when evidence is submitted and verified — no shortcuts, no exceptions.' },
-  { icon: '💸', title: 'Evidence-based payment release', desc: 'Owners release payment only after PMC verifies vendor evidence. No approval, no disbursement. Advance exposure becomes a thing of the past.' },
+  { icon: '🏗️', title: 'Milestone-gated workflows', desc: 'Every phase is broken into milestones. Work can only progress once it is submitted and verified — no shortcuts, no exceptions.' },
+  { icon: '💸', title: 'Verification-based payment release', desc: 'Owners release payment only after the PMC verifies the vendor’s work. No approval, no disbursement. Advance exposure becomes a thing of the past.' },
   { icon: '👥', title: 'Role-based access — Owner, PMC, Vendor', desc: 'Each stakeholder sees exactly what they need. Owners see financials. PMC sees execution. Vendors see their milestones. Zero information leakage.' },
   { icon: '📋', title: 'Immutable audit trail', desc: 'Every action is timestamped and attributed. Disputes are resolved in minutes with data, not weeks with screenshots. 100% traceable from day one.' },
   { icon: '⚡', title: 'Viseron AI risk detection', desc: 'Predictive intelligence flags delays, budget overruns, and compliance gaps before they escalate. Built into the intelligence tier — no extra setup.' },
@@ -319,9 +319,9 @@ const PROJECTS = [
 
 const AUDIT_LOG = [
   { time: '2026-05-25 22:41', actor: 'Ravi Kumar (Owner)', action: 'released payment for Milestone 3 — Structural Works', badge: 'badge-green', label: 'Payment Released' },
-  { time: '2026-05-25 19:12', actor: 'Priya Mehta (PMC)', action: 'verified evidence for Milestone 3 — Marina Tower Phase 2', badge: 'badge-green', label: 'Verified' },
-  { time: '2026-05-25 14:03', actor: 'BuildCo Vendors', action: 'submitted 7 photos + site report for Milestone 3', badge: 'badge-gold', label: 'Evidence Submitted' },
-  { time: '2026-05-24 11:30', actor: 'Priya Mehta (PMC)', action: 'rejected evidence for Phase 3 — insufficient rebar photo coverage', badge: 'badge-red', label: 'Not Satisfied' },
+  { time: '2026-05-25 19:12', actor: 'Priya Mehta (PMC)', action: 'verified Milestone 3 — Marina Tower Phase 2', badge: 'badge-green', label: 'Verified' },
+  { time: '2026-05-25 14:03', actor: 'BuildCo Vendors', action: 'submitted Milestone 3 for verification', badge: 'badge-gold', label: 'Submitted' },
+  { time: '2026-05-24 11:30', actor: 'Priya Mehta (PMC)', action: 'requested revision for Phase 3 — incomplete rebar work', badge: 'badge-red', label: 'Not Satisfied' },
   { time: '2026-05-23 09:15', actor: 'Ravi Kumar (Owner)', action: 'approved BOQ for Phase 2 — Facade & MEP (₹28.4L)', badge: 'badge-green', label: 'BOQ Approved' },
   { time: '2026-05-22 16:44', actor: 'Priya Mehta (PMC)', action: 'created 4 milestones for Phase 2 — Marina Tower', badge: 'badge-gray', label: 'Milestones Created' },
   { time: '2026-05-21 10:00', actor: 'Ravi Kumar (Owner)', action: 'created project — Downtown Office Building', badge: 'badge-gold', label: 'Project Created' },
@@ -515,7 +515,7 @@ export default function HomePage() {
           animate={{ opacity: 1, y: 0 }}
           transition={{ duration: 0.65, delay: 0.36 }}
         >
-          Milestone governance, evidence-based payment release, and AI-driven risk
+          Milestone governance, verification-based payment release, and AI-driven risk
           detection — built for PMC firms executing at scale across India and GCC.
         </motion.p>
 
@@ -563,7 +563,7 @@ export default function HomePage() {
             <div className="sec-tag">How it works</div>
             <h2 className="sec-title">Four roles.<br /><em>One governed flow.</em></h2>
           </div>
-          <p className="sec-sub">Owner creates the project. Consultant designs the plans. PMC writes the BOQ, governs milestones, and verifies evidence. Vendor executes and submits proof. Every approval on record — nothing moves without a paper trail.</p>
+          <p className="sec-sub">Owner creates the project. Consultant designs the plans. PMC writes the BOQ, governs milestones, and verifies completed work. Vendor executes and submits for verification. Every approval on record — nothing moves without a paper trail.</p>
         </Section>
         <Section className="flow-wrap">
           <FlowDiagram />
@@ -607,7 +607,7 @@ export default function HomePage() {
             <div className="sec-tag">Live project view</div>
             <h2 className="sec-title">Real status. Real time.<br /><em>Zero WhatsApp.</em></h2>
           </div>
-          <p className="sec-sub">Every project your PMC manages, updated the moment evidence is submitted or a milestone changes state. No follow-up calls. No status meetings.</p>
+          <p className="sec-sub">Every project your PMC manages, updated the moment a milestone is submitted or changes state. No follow-up calls. No status meetings.</p>
         </Section>
 
         <div className="proj-list">
@@ -731,7 +731,7 @@ export default function HomePage() {
             <div className="sec-tag">Execution intelligence · Gantt</div>
             <h2 className="sec-title">Planned vs actual.<br /><em>Always honest.</em></h2>
           </div>
-          <p className="sec-sub">Visual timeline with milestone status, vendor ownership, and delay flags — updated in real time as evidence is submitted and milestones change state.</p>
+          <p className="sec-sub">Visual timeline with milestone status, vendor ownership, and delay flags — updated in real time as milestones are submitted and change state.</p>
         </Section>
 
         <Section className="gantt-wrap">
@@ -796,7 +796,7 @@ export default function HomePage() {
       {/* ── QUOTE 2 ── */}
       <Section className="quote-section">
         <div className="quote-mark">"</div>
-        <p className="quote-text">Our payment cycles dropped from 18 days to under 4. The evidence-first model means vendors show up with proof, not excuses.</p>
+        <p className="quote-text">Our payment cycles dropped from 18 days to under 4. The verification-first model means vendors show up with completed work, not excuses.</p>
         <p className="quote-attr">Owner · Commercial development, Dubai GCC</p>
       </Section>
 
@@ -986,7 +986,7 @@ export default function HomePage() {
         <div className="footer-grid">
           <div className="footer-brand">
             <AxinfraLogo size="md" href="/" />
-            <p>The operating layer for construction command. Milestone governance, evidence-based payment release, and AI-driven risk detection — built for PMCs at scale.</p>
+            <p>The operating layer for construction command. Milestone governance, verification-based payment release, and AI-driven risk detection — built for PMCs at scale.</p>
           </div>
           <div className="footer-col">
             <h4>Platform</h4>

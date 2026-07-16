@@ -24,9 +24,18 @@ export interface RawMilestone {
   actualEnd: Date | null; // actualVerification for VERIFIED/CLOSED; else null
   value: number;
   vendorId: string | null;
+  /** Schedule-imported tasks (from an MS Project file) never go through the payment workflow
+   * state machine — they stay DRAFT forever, since there's no verify/approve step for them.
+   * % Complete from the source file is their real completion signal instead; optional so
+   * payment-workflow-only callers (no schedule import involved) can omit it. */
+  percentComplete?: number | null;
 }
 
 const COMPLETE_STATES = new Set(['VERIFIED', 'CLOSED']);
+
+function isMilestoneComplete(m: Pick<RawMilestone, 'state' | 'percentComplete'>): boolean {
+  return COMPLETE_STATES.has(m.state) || (m.percentComplete ?? 0) >= 100;
+}
 
 /**
  * Compute schedule metrics for a single milestone.
@@ -36,7 +45,7 @@ export function computeMilestoneScheduleMetrics(
   today: Date = new Date(),
 ): MilestoneScheduleMetrics {
   const todayStart = startOfDay(today);
-  const isComplete = COMPLETE_STATES.has(m.state);
+  const isComplete = isMilestoneComplete(m);
 
   let timeSavedDays = 0;
   let overrunDays = 0;
@@ -84,7 +93,7 @@ export function computeMilestoneScheduleMetrics(
 
 export interface ProjectKpiInput {
   milestones: RawMilestone[];
-  /** Average approval cycle days (evidenceSubmittedAt → pmcReviewedAt) */
+  /** Average approval cycle days (submittedAt → verifiedAt) */
   avgApprovalCycleDays: number;
   criticalMilestoneCount: number;
   escalationsLast30Days: number;
@@ -147,7 +156,7 @@ export function computeVendorScorecards(
   const scorecards: VendorScorecard[] = [];
   for (const [vendorId, entry] of Array.from(byVendor)) {
     const { name, rows } = entry;
-    const completed = rows.filter((r: VendorMilestone) => COMPLETE_STATES.has(r.state));
+    const completed = rows.filter((r: VendorMilestone) => isMilestoneComplete(r));
     const onTime = completed.filter((r: VendorMilestone) => {
       if (!r.plannedEnd || !r.actualEnd) return false;
       return !isAfter(startOfDay(r.actualEnd), startOfDay(r.plannedEnd));
@@ -181,7 +190,7 @@ export function computeVendorScorecards(
       totalMilestones: rows.length,
       completedOnTime: onTime.length,
       completedLate: lateMilestones.length,
-      inProgress: rows.filter((r: VendorMilestone) => !COMPLETE_STATES.has(r.state)).length,
+      inProgress: rows.filter((r: VendorMilestone) => !isMilestoneComplete(r)).length,
       onTimePct: Math.round(onTimePct * 10) / 10,
       avgDelayDays: Math.round(avgDelayDays * 10) / 10,
       avgApprovalCycleDays: Math.round(avgApprovalCycleDays * 10) / 10,

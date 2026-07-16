@@ -23,6 +23,8 @@ function buildIdFieldSets() {
     boqIds: new Set<string>(),
     boqItemIds: new Set<string>(),
     phaseIds: new Set<string>(),
+    workOrderIds: new Set<string>(),
+    raBillIds: new Set<string>(),
     projectIds: new Set<string>(),
     vendorRequestIds: new Set<string>(),
     drawingSetIds: new Set<string>(),
@@ -39,8 +41,9 @@ type IdSets = ReturnType<typeof buildIdFieldSets>;
 function idFieldRouting(sets: IdSets): Record<string, { set: Set<string>; humanKey: string }> {
   return {
     phaseId: { set: sets.phaseIds, humanKey: 'phase' },
+    orderId: { set: sets.phaseIds, humanKey: 'order' }, // BOQ's FK to Phase, labeled "order" in the BOQ module
     milestoneId: { set: sets.milestoneIds, humanKey: 'milestone' },
-    boqId: { set: sets.boqIds, humanKey: 'phase' }, // a BOQ's only human identity is its phase
+    boqId: { set: sets.boqIds, humanKey: 'order' }, // a BOQ's only human identity is its order
     boqItemId: { set: sets.boqItemIds, humanKey: 'item' },
     userId: { set: sets.userIds, humanKey: 'user' },
     vendorUserId: { set: sets.userIds, humanKey: 'vendor' },
@@ -101,6 +104,11 @@ export async function resolveAuditContextLabels(logs: AuditLogLike[]): Promise<{
       case 'BOQ': sets.boqIds.add(log.entityId); break;
       case 'BOQItem': sets.boqItemIds.add(log.entityId); break;
       case 'Phase': sets.phaseIds.add(log.entityId); break;
+      // WorkOrderRevision logs its own entityId as the parent WorkOrder's id (see
+      // WorkOrderService) — same resolution as WorkOrder itself.
+      case 'WorkOrder':
+      case 'WorkOrderRevision': sets.workOrderIds.add(log.entityId); break;
+      case 'RABill': sets.raBillIds.add(log.entityId); break;
       case 'Project': sets.projectIds.add(log.entityId); break;
       case 'VendorRequest': sets.vendorRequestIds.add(log.entityId); break;
       case 'DrawingSet': sets.drawingSetIds.add(log.entityId); break;
@@ -110,7 +118,7 @@ export async function resolveAuditContextLabels(logs: AuditLogLike[]): Promise<{
     }
 
     // Also collect any ID fields embedded inside the before/after JSON itself —
-    // e.g. BOQ_CREATE's afterJson.phaseId — so they get resolved the same way.
+    // e.g. BOQ_CREATE's afterJson.orderId — so they get resolved the same way.
     for (const json of [log.beforeJson, log.afterJson]) {
       if (!json || typeof json !== 'object' || Array.isArray(json)) continue;
       for (const [key, value] of Object.entries(json as Record<string, unknown>)) {
@@ -123,7 +131,7 @@ export async function resolveAuditContextLabels(logs: AuditLogLike[]): Promise<{
 
   const [
     milestones, evidenceRows, eligibilities, verifications, users,
-    boqs, boqItems, phases, projects, vendorRequests,
+    boqs, boqItems, phases, workOrders, raBills, projects, vendorRequests,
     drawingSets, drawingRows, drawingVersions, followUps,
   ] = await Promise.all([
     sets.milestoneIds.size ? prisma.milestone.findMany({ where: { id: { in: arr(sets.milestoneIds) } }, select: { id: true, title: true } }) : Promise.resolve([]),
@@ -131,9 +139,11 @@ export async function resolveAuditContextLabels(logs: AuditLogLike[]): Promise<{
     sets.eligibilityIds.size ? prisma.paymentEligibility.findMany({ where: { id: { in: arr(sets.eligibilityIds) } }, select: { id: true, milestone: { select: { title: true } } } }) : Promise.resolve([]),
     sets.verificationIds.size ? prisma.verification.findMany({ where: { id: { in: arr(sets.verificationIds) } }, select: { id: true, milestone: { select: { title: true } } } }) : Promise.resolve([]),
     sets.userIds.size ? prisma.user.findMany({ where: { id: { in: arr(sets.userIds) } }, select: { id: true, name: true } }) : Promise.resolve([]),
-    sets.boqIds.size ? prisma.bOQ.findMany({ where: { id: { in: arr(sets.boqIds) } }, select: { id: true, phase: { select: { name: true } } } }) : Promise.resolve([]),
+    sets.boqIds.size ? prisma.bOQ.findMany({ where: { id: { in: arr(sets.boqIds) } }, select: { id: true, order: { select: { name: true } } } }) : Promise.resolve([]),
     sets.boqItemIds.size ? prisma.bOQItem.findMany({ where: { id: { in: arr(sets.boqItemIds) } }, select: { id: true, description: true } }) : Promise.resolve([]),
     sets.phaseIds.size ? prisma.phase.findMany({ where: { id: { in: arr(sets.phaseIds) } }, select: { id: true, name: true } }) : Promise.resolve([]),
+    sets.workOrderIds.size ? prisma.workOrder.findMany({ where: { id: { in: arr(sets.workOrderIds) } }, select: { id: true, order: { select: { name: true } } } }) : Promise.resolve([]),
+    sets.raBillIds.size ? prisma.rABill.findMany({ where: { id: { in: arr(sets.raBillIds) } }, select: { id: true, billNumber: true } }) : Promise.resolve([]),
     sets.projectIds.size ? prisma.project.findMany({ where: { id: { in: arr(sets.projectIds) } }, select: { id: true, name: true } }) : Promise.resolve([]),
     sets.vendorRequestIds.size ? prisma.vendorRequest.findMany({ where: { id: { in: arr(sets.vendorRequestIds) } }, select: { id: true, title: true } }) : Promise.resolve([]),
     sets.drawingSetIds.size ? prisma.drawingSet.findMany({ where: { id: { in: arr(sets.drawingSetIds) } }, select: { id: true, name: true } }) : Promise.resolve([]),
@@ -147,9 +157,11 @@ export async function resolveAuditContextLabels(logs: AuditLogLike[]): Promise<{
   const eligibilityTitle = new Map(eligibilities.map((p) => [p.id, p.milestone?.title ?? '']));
   const verificationTitle = new Map(verifications.map((v) => [v.id, v.milestone?.title ?? '']));
   const userName = new Map(users.map((u) => [u.id, u.name]));
-  const boqPhase = new Map(boqs.map((b) => [b.id, b.phase?.name ?? '']));
+  const boqOrder = new Map(boqs.map((b) => [b.id, b.order?.name ?? '']));
   const boqItemDesc = new Map(boqItems.map((i) => [i.id, i.description]));
   const phaseName = new Map(phases.map((p) => [p.id, p.name]));
+  const workOrderOrderName = new Map(workOrders.map((w) => [w.id, w.order?.name ?? '']));
+  const raBillLabel = new Map(raBills.map((b) => [b.id, `RA-${b.billNumber}`]));
   const projectName = new Map(projects.map((p) => [p.id, p.name]));
   const vendorRequestTitle = new Map(vendorRequests.map((v) => [v.id, v.title]));
   const drawingSetName = new Map(drawingSets.map((d) => [d.id, d.name]));
@@ -171,9 +183,12 @@ export async function resolveAuditContextLabels(logs: AuditLogLike[]): Promise<{
         label = uid ? userName.get(uid) : undefined;
         break;
       }
-      case 'BOQ': label = boqPhase.get(log.entityId); break;
+      case 'BOQ': label = boqOrder.get(log.entityId); break;
       case 'BOQItem': label = boqItemDesc.get(log.entityId); break;
       case 'Phase': label = phaseName.get(log.entityId); break;
+      case 'WorkOrder':
+      case 'WorkOrderRevision': label = workOrderOrderName.get(log.entityId); break;
+      case 'RABill': label = raBillLabel.get(log.entityId); break;
       case 'Project': label = projectName.get(log.entityId); break;
       case 'VendorRequest': label = vendorRequestTitle.get(log.entityId); break;
       case 'DrawingSet': label = drawingSetName.get(log.entityId); break;
@@ -186,8 +201,9 @@ export async function resolveAuditContextLabels(logs: AuditLogLike[]): Promise<{
 
   const idFieldLabelMaps: Record<string, Map<string, string>> = {
     phaseId: phaseName,
+    orderId: phaseName,
     milestoneId: milestoneTitle,
-    boqId: boqPhase,
+    boqId: boqOrder,
     boqItemId: boqItemDesc,
     userId: userName,
     vendorUserId: userName,

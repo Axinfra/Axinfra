@@ -1,8 +1,9 @@
 import { NextRequest, NextResponse } from 'next/server';
 import { prisma } from '@/lib/db';
-import { createSession } from '@/lib/auth';
+import { createSession, SESSION_COOKIE_MAX_AGE_SECONDS } from '@/lib/auth';
 import { sendSignupWelcomeEmail } from '@/lib/email';
 import { autoAcceptPendingInvites, isDemoEmail } from '@/lib/invite-utils';
+import { registerRateLimiter } from '@/lib/rate-limiter';
 import bcrypt from 'bcryptjs';
 import { z } from 'zod';
 
@@ -26,6 +27,18 @@ export async function POST(request: NextRequest) {
       return NextResponse.json(
         { success: false, error: 'Please select your role to create an account.' },
         { status: 400 },
+      );
+    }
+
+    const clientIp = request.headers.get('x-forwarded-for')?.split(',')[0]?.trim()
+      || request.headers.get('x-real-ip')
+      || 'unknown';
+    const rateCheck = await registerRateLimiter.check(`${clientIp}:${email}`);
+    if (!rateCheck.allowed) {
+      const retryAfterSeconds = Math.ceil((rateCheck.retryAfterMs || 0) / 1000);
+      return NextResponse.json(
+        { success: false, error: 'Too many signup attempts. Please try again later.', retryAfterSeconds },
+        { status: 429, headers: { 'Retry-After': String(retryAfterSeconds) } },
       );
     }
 
@@ -65,7 +78,7 @@ export async function POST(request: NextRequest) {
       httpOnly: true,
       secure: process.env.NODE_ENV === 'production',
       sameSite: 'lax',
-      maxAge: 60 * 60 * 24,
+      maxAge: SESSION_COOKIE_MAX_AGE_SECONDS,
       path: '/',
     });
 

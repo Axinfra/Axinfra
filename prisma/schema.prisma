@@ -33,19 +33,31 @@ model AuditLog {
 }
 
 model BOQ {
-  id          String        @id @default(uuid())
-  projectId   String
-  phaseId     String?       @unique
-  status      String        @default("DRAFT")
-  createdAt   DateTime      @default(now())
-  updatedAt   DateTime      @updatedAt
-  project     Project       @relation(fields: [projectId], references: [id], onDelete: Cascade)
-  phase       Phase?        @relation(fields: [phaseId], references: [id], onDelete: SetNull)
-  items       BOQItem[]
-  revisions   BOQRevision[]
+  id              String           @id @default(uuid())
+  projectId       String
+  orderId         String?
+  boqNumber       String?
+  name            String?
+  description     String?
+  category        String?
+  scope           String?
+  plannedStart    DateTime?
+  plannedEnd      DateTime?
+  /// Mirrors the parent Purchase Order's Work Order acceptance state (PENDING | ACCEPTED).
+  /// Deliberately separate from `status`, which tracks the PMC/Owner BOQ-approval lifecycle.
+  workOrderStatus String?
+  status          String           @default("DRAFT")
+  createdAt       DateTime         @default(now())
+  updatedAt       DateTime         @updatedAt
+  project         Project          @relation(fields: [projectId], references: [id], onDelete: Cascade)
+  order           Phase?           @relation(fields: [orderId], references: [id], onDelete: SetNull)
+  items           BOQItem[]
+  revisions       BOQRevision[]
+  raBillLineItems RABillLineItem[]
 
   @@index([projectId])
   @@index([projectId, createdAt])
+  @@index([orderId])
 }
 
 model BOQItem {
@@ -78,6 +90,176 @@ model BOQRevision {
 
   @@index([boqId])
   @@index([boqId, revisionNumber])
+}
+
+/// A Work Order is issued once per Purchase Order (Phase) and shared by every BOQ under it.
+model WorkOrder {
+  id                    String              @id @default(uuid())
+  projectId             String
+  orderId               String              @unique
+  number                String
+  currentRevisionNumber Int                 @default(0)
+  /// DRAFT | ISSUED | PENDING_VENDOR_ACCEPTANCE | ACCEPTED
+  status                String              @default("DRAFT")
+  createdAt             DateTime            @default(now())
+  updatedAt             DateTime            @updatedAt
+  project               Project             @relation(fields: [projectId], references: [id], onDelete: Cascade)
+  order                 Phase               @relation(fields: [orderId], references: [id], onDelete: Cascade)
+  revisions             WorkOrderRevision[]
+
+  @@index([projectId])
+}
+
+/// Append-only: revisions are never edited after creation (except the vendor-acceptance stamp
+/// on the current revision). Each revision snapshots its full field state so any two revisions
+/// can be diffed later, not just against the immediately-prior one.
+model WorkOrderRevision {
+  id                     String    @id @default(uuid())
+  workOrderId            String
+  revisionNumber         Int
+  issueDate              DateTime
+  plannedStart           DateTime?
+  plannedEnd             DateTime?
+  storageKey             String
+  fileName               String
+  mimeType               String
+  fileSize               Int
+  remarks                String?
+  /// Required when revisionNumber > 0 (why this revision was created).
+  reason                 String?
+  /// JSON string: { before, after } full field snapshot — mirrors BOQRevision.changesJson.
+  changesJson            String
+  /// PENDING | ACCEPTED | REJECTED
+  vendorAcceptanceStatus String    @default("PENDING")
+  acceptedAt             DateTime?
+  acceptedById           String?
+  /// Why the vendor pushed back — set together with rejectedAt/rejectedById.
+  vendorRemarks          String?
+  rejectedAt             DateTime?
+  rejectedById           String?
+  /// JSON string: narrative/terms/signatory fields captured for the "Generate Work Order PDF"
+  /// feature — workDescription, scopeOfWork, completionTimeline, paymentTerms, deliveryTerms,
+  /// generalNotes, specialInstructions, termsAndConditions{payment,quality,safety,delayPenalty,
+  /// warranty,other}, signatories{preparedBy,vendor,consultant,pmc,client}{name,designation}.
+  /// Null until the first PDF is generated for this revision.
+  pdfDetailsJson         String?
+  createdById            String
+  createdAt              DateTime  @default(now())
+  workOrder              WorkOrder @relation(fields: [workOrderId], references: [id], onDelete: Cascade)
+  createdBy              User      @relation("WorkOrderRevisionCreator", fields: [createdById], references: [id])
+  acceptedBy             User?     @relation("WorkOrderRevisionAcceptor", fields: [acceptedById], references: [id])
+  rejectedBy             User?     @relation("WorkOrderRevisionRejector", fields: [rejectedById], references: [id])
+
+  @@unique([workOrderId, revisionNumber])
+  @@index([workOrderId])
+}
+
+/// A Running Account (RA) Bill — a periodic, cumulative contractor bill against a Purchase
+/// Order's approved BOQs. Many RA Bills exist per Purchase Order (RA-1, RA-2, RA-3...),
+/// sequentially numbered. PMC drafts it (fills this-period quantities against each BOQ), the
+/// assigned vendor submits it, PMC/Consultant certifies the measured quantities (certifiedAt
+/// = the date work is confirmed executed), CLIENT approves it for payment, then PMC/CLIENT
+/// releases payment. Deliberately a single flat `deductions` field (not an itemized
+/// retention/TDS/advance breakdown) — mirrors PaymentEligibility.deductions' simplicity.
+model RABill {
+  id          String   @id @default(uuid())
+  projectId   String
+  orderId     String
+  /// Sequential per-order bill number: 1, 2, 3... (shown in UI as "RA-{billNumber}")
+  billNumber  Int
+  periodStart DateTime
+  periodEnd   DateTime
+  /// DRAFT | PENDING_VENDOR_REVIEW | REVISION_REQUESTED | CERTIFIED | APPROVED | PAID
+  status      String   @default("DRAFT")
+
+  /// Sum of lineItems.thisBillAmount at the moment of vendor submission — headline #1.
+  submittedValue Float?
+  submittedAt    DateTime?
+  submittedById  String?
+
+  /// PMC/Consultant sends the bill back for correction instead of certifying it.
+  revisionRequestedAt   DateTime?
+  revisionRequestedById String?
+  revisionReason        String?
+
+  /// The date PMC/Consultant certifies measured quantities as executed — the "Finished when"
+  /// date shown across the app — headline #2.
+  certifiedAt      DateTime?
+  certifiedById    String?
+  certifiedRemarks String?
+
+  /// Sum of lineItems.thisBillAmount at certification, net of `deductions` — headline #3.
+  approvedValue Float?
+  approvedAt    DateTime?
+  approvedById  String?
+  deductions    Float     @default(0)
+
+  /// Amount actually paid out — headline #4.
+  releasedValue    Float?
+  releasedAt       DateTime?
+  releasedById     String?
+  paymentReference String?
+
+  /// Optional signed measurement-sheet/certificate attachment, mirrors WorkOrderRevision's
+  /// file fields.
+  storageKey String?
+  fileName   String?
+  mimeType   String?
+  fileSize   Int?
+
+  remarks     String?
+  createdById String
+  createdAt   DateTime @default(now())
+  updatedAt   DateTime @updatedAt
+
+  project             Project          @relation(fields: [projectId], references: [id], onDelete: Cascade)
+  order               Phase            @relation(fields: [orderId], references: [id], onDelete: Cascade)
+  lineItems           RABillLineItem[]
+  createdBy           User             @relation("RABillCreator", fields: [createdById], references: [id])
+  submittedBy         User?            @relation("RABillSubmitter", fields: [submittedById], references: [id])
+  revisionRequestedBy User?            @relation("RABillRevisionRequester", fields: [revisionRequestedById], references: [id])
+  certifiedBy         User?            @relation("RABillCertifier", fields: [certifiedById], references: [id])
+  approvedBy          User?            @relation("RABillApprover", fields: [approvedById], references: [id])
+  releasedBy          User?            @relation("RABillPaymentReleaser", fields: [releasedById], references: [id])
+
+  @@unique([orderId, billNumber])
+  @@index([projectId])
+  @@index([projectId, status])
+  @@index([orderId])
+  @@index([orderId, billNumber])
+}
+
+/// One BOQ line's progress within an RA Bill — snapshotted at creation so each bill is
+/// self-contained and never needs to re-walk prior bills to compute cumulative figures, and
+/// so later edits to the BOQ don't retroactively change a historical bill.
+model RABillLineItem {
+  id       String @id @default(uuid())
+  raBillId String
+  boqId    String
+
+  /// Snapshot of BOQItem fields at time of drafting.
+  description   String
+  unit          String
+  contractedQty Float
+  rate          Float
+
+  /// Cumulative qty billed as of the previous certified bill (0 for RA-1).
+  previousCumulativeQty Float @default(0)
+  /// Qty being billed in this period.
+  thisBillQty           Float @default(0)
+  /// = thisBillQty * rate
+  thisBillAmount        Float @default(0)
+  /// = (previousCumulativeQty + thisBillQty) * rate
+  cumulativeAmount      Float @default(0)
+
+  createdAt DateTime @default(now())
+  updatedAt DateTime @updatedAt
+
+  raBill RABill @relation(fields: [raBillId], references: [id], onDelete: Cascade)
+  boq    BOQ    @relation(fields: [boqId], references: [id])
+
+  @@index([raBillId])
+  @@index([boqId])
 }
 
 model CustomView {
@@ -131,6 +313,12 @@ model Evidence {
   status        String         @default("SUBMITTED")
   reviewedAt    DateTime?
   reviewNote    String?
+  /// 'PMC' | 'VENDOR' — who this entry came from. PMC rows are progress updates (qtyOrPercent
+  /// holds the activity's percentComplete at the time); Vendor rows are supporting
+  /// photos/documents only (qtyOrPercent unused, always 0). Null on legacy rows predating this
+  /// distinction. Reuses this table + EvidenceFile as the single append-only Activity History
+  /// log instead of a parallel model, so the existing file-serving route needs no changes.
+  authorRole    String?
   updatedAt     DateTime       @updatedAt
   milestone     Milestone      @relation(fields: [milestoneId], references: [id], onDelete: Cascade)
   submittedBy   User           @relation(fields: [submittedById], references: [id])
@@ -157,6 +345,20 @@ model EvidenceFile {
   @@index([evidenceId])
 }
 
+model MilestoneComment {
+  id          String    @id @default(uuid())
+  milestoneId String
+  authorId    String
+  role        String
+  body        String
+  createdAt   DateTime  @default(now())
+  milestone   Milestone @relation(fields: [milestoneId], references: [id], onDelete: Cascade)
+  author      User      @relation(fields: [authorId], references: [id])
+
+  @@index([milestoneId])
+  @@index([milestoneId, createdAt])
+}
+
 model FollowUp {
   id             String    @id @default(uuid())
   projectId      String
@@ -181,43 +383,60 @@ model FollowUp {
 }
 
 model Milestone {
-  id                      String                     @id @default(uuid())
+  id                      String                        @id @default(uuid())
   projectId               String
   title                   String
   description             String?
-  paymentModel            String                     @default("PROGRESS_BASED")
+  paymentModel            String                        @default("PROGRESS_BASED")
   plannedStart            DateTime?
   plannedEnd              DateTime?
   actualStart             DateTime?
   actualSubmission        DateTime?
   actualVerification      DateTime?
   // Schedule intelligence fields (Phase 1 additions)
-  baselinePlannedEnd      DateTime?                  // Snapshot of original plannedEnd for baseline comparison
-  baselinePlannedStart    DateTime?                  // Snapshot of original plannedStart
-  sortOrder               Int                        @default(0) // Display order in Gantt
-  plannedQtyOrPercent     Float                      @default(100)
-  retentionPercent        Float                      @default(0)
-  advancePercent          Float                      @default(0)
-  value                   Float                      @default(0)
-  isExtra                 Boolean                    @default(false)
+  baselinePlannedEnd      DateTime? // Snapshot of original plannedEnd for baseline comparison
+  baselinePlannedStart    DateTime? // Snapshot of original plannedStart
+  sortOrder               Int                           @default(0) // Display order in Gantt
+  plannedQtyOrPercent     Float                         @default(100)
+  retentionPercent        Float                         @default(0)
+  advancePercent          Float                         @default(0)
+  value                   Float                         @default(0)
+  isExtra                 Boolean                       @default(false)
   extraApprovedAt         DateTime?
   extraApprovedById       String?
-  state                   String                     @default("DRAFT")
-  vendorUserId            String?                    // Optional: assigned vendor user
+  state                   String                        @default("DRAFT")
+  vendorUserId            String? // Optional: assigned vendor user
   phaseId                 String?
-  createdAt               DateTime                   @default(now())
-  updatedAt               DateTime                   @updatedAt
+  readyForReview          Boolean                       @default(false) // Vendor-flagged "ready for PMC review" — non-blocking, no state change
+  readyForReviewAt        DateTime?
+  // Schedule import fields (from MS Project XML/.mpp) — informational, never drive `state`
+  wbsCode                 String?
+  outlineLevel            Int?
+  isMsProjectMilestone    Boolean?
+  durationDays            Float?
+  percentComplete         Float? // 0-100
+  actualEnd               DateTime? // MSPDI ActualFinish (actualStart above is reused for ActualStart)
+  actualWorkHours         Float?
+  remainingWorkHours      Float?
+  scheduleImportId        String?
+  /// LOW | NORMAL | HIGH | URGENT — same vocabulary as VendorRequest.priority.
+  priority                String                        @default("NORMAL")
+  remarks                 String?
+  createdAt               DateTime                      @default(now())
+  updatedAt               DateTime                      @updatedAt
   evidence                Evidence[]
-  project                 Project                    @relation(fields: [projectId], references: [id], onDelete: Cascade)
-  vendorUser              User?                      @relation("MilestoneVendor", fields: [vendorUserId], references: [id])
-  phase                   Phase?                     @relation(fields: [phaseId], references: [id], onDelete: SetNull)
+  comments                MilestoneComment[]
+  project                 Project                       @relation(fields: [projectId], references: [id], onDelete: Cascade)
+  vendorUser              User?                         @relation("MilestoneVendor", fields: [vendorUserId], references: [id])
+  phase                   Phase?                        @relation(fields: [phaseId], references: [id], onDelete: SetNull)
+  scheduleImport          ScheduleImport?               @relation(fields: [scheduleImportId], references: [id], onDelete: SetNull)
   boqLinks                MilestoneBOQLink[]
   transitions             MilestoneStateTransition[]
   paymentEligibility      PaymentEligibility?
   verifications           Verification[]
-  successorDependencies   MilestoneDependency[]      @relation("DependencySuccessor")
-  predecessorDependencies MilestoneDependency[]      @relation("DependencyPredecessor")
-  customScheduleLinks     CustomScheduleMilestoneLink[]
+  successorDependencies   MilestoneDependency[]         @relation("DependencySuccessor")
+  predecessorDependencies MilestoneDependency[]         @relation("DependencyPredecessor")
+  resourceAssignments     MilestoneResourceAssignment[]
 
   @@index([projectId])
   @@index([state])
@@ -229,6 +448,7 @@ model Milestone {
   @@index([projectId, state])
   @@index([projectId, createdAt])
   @@index([vendorUserId, state])
+  @@index([projectId, readyForReview])
 }
 
 model MilestoneBOQLink {
@@ -292,17 +512,19 @@ model PaymentEligibility {
 }
 
 model Project {
-  id               String                  @id @default(uuid())
+  id               String                 @id @default(uuid())
   name             String
   description      String?
-  status           String                  @default("ONGOING")
+  status           String                 @default("ONGOING")
   metadata         String?
-  createdAt        DateTime                @default(now())
-  updatedAt        DateTime                @updatedAt
-  isExampleProject Boolean                 @default(false)
+  createdAt        DateTime               @default(now())
+  updatedAt        DateTime               @updatedAt
+  isExampleProject Boolean                @default(false)
   deletedAt        DateTime?
   auditLogs        AuditLog[]
   boqs             BOQ[]
+  workOrders       WorkOrder[]
+  raBills          RABill[]
   followUps        FollowUp[]
   milestones       Milestone[]
   phases           Phase[]
@@ -320,20 +542,21 @@ model Project {
   setRequests      SetRequest[]
   vendorRequests   VendorRequest[]
   projectInvites   ProjectInvite[]
-  customSchedule   CustomSchedule?
+  scheduleImports  ScheduleImport[]
+  resources        Resource[]
 }
 
 /// Dependency link between two milestones (CPM / Gantt edges)
 model MilestoneDependency {
-  id                 String    @id @default(uuid())
-  predecessorId      String
-  successorId        String
+  id             String    @id @default(uuid())
+  predecessorId  String
+  successorId    String
   /// Dependency type: FS=Finish-to-Start, SS=Start-to-Start, FF=Finish-to-Finish, SF=Start-to-Finish
-  dependencyType     String    @default("FS")
-  lagDays            Float     @default(0)
-  createdAt          DateTime  @default(now())
-  predecessor        Milestone @relation("DependencyPredecessor", fields: [predecessorId], references: [id], onDelete: Cascade)
-  successor          Milestone @relation("DependencySuccessor", fields: [successorId], references: [id], onDelete: Cascade)
+  dependencyType String    @default("FS")
+  lagDays        Float     @default(0)
+  createdAt      DateTime  @default(now())
+  predecessor    Milestone @relation("DependencyPredecessor", fields: [predecessorId], references: [id], onDelete: Cascade)
+  successor      Milestone @relation("DependencySuccessor", fields: [successorId], references: [id], onDelete: Cascade)
 
   @@unique([predecessorId, successorId])
   @@index([predecessorId])
@@ -342,19 +565,19 @@ model MilestoneDependency {
 
 /// Per-project schedule configuration for delay cost estimation and display preferences
 model ProjectScheduleConfig {
-  id                    String   @id @default(uuid())
-  projectId             String   @unique
+  id                    String    @id @default(uuid())
+  projectId             String    @unique
   /// Project start date used as Gantt origin
   projectStartDate      DateTime?
   /// Estimated daily overhead cost in project currency (for delay cost estimation)
-  dailyOverheadCost     Float    @default(0)
+  dailyOverheadCost     Float     @default(0)
   /// Contractual penalty rate per day of delay (fraction, e.g. 0.001 = 0.1%)
-  penaltyRatePerDay     Float    @default(0)
+  penaltyRatePerDay     Float     @default(0)
   /// Opportunity cost multiplier (optional)
-  opportunityCostFactor Float    @default(1.0)
-  createdAt             DateTime @default(now())
-  updatedAt             DateTime @updatedAt
-  project               Project  @relation(fields: [projectId], references: [id], onDelete: Cascade)
+  opportunityCostFactor Float     @default(1.0)
+  createdAt             DateTime  @default(now())
+  updatedAt             DateTime  @updatedAt
+  project               Project   @relation(fields: [projectId], references: [id], onDelete: Cascade)
 }
 
 model ProjectRole {
@@ -373,41 +596,59 @@ model ProjectRole {
 }
 
 model User {
-  id                      String                     @id @default(uuid())
-  name                    String
-  email                   String                     @unique
-  hashedPassword          String?
-  googleId                String?                    @unique
-  avatarUrl               String?
-  preferredRole           String?
-  createdAt               DateTime                   @default(now())
-  updatedAt               DateTime                   @updatedAt
-  auditLogs               AuditLog[]
-  eligibilityEvents       EligibilityEvent[]
-  evidence                Evidence[]
-  followUps               FollowUp[]
-  transitions             MilestoneStateTransition[]
-  projectRoles            ProjectRole[]
-  verifications           Verification[]
-  assignedMilestones      Milestone[]                @relation("MilestoneVendor")
-  vendorMetrics           VendorMetrics[]
-  systemEventsActor       SystemEvent[]              @relation("SystemEventActor")
-  cashAdjustments         CashAdjustment[]           @relation("CashAdjustmentCreator")
-  privateCosts            PrivateCostEntry[]         @relation("PrivateCostCreator")
+  id                         String                     @id @default(uuid())
+  name                       String
+  email                      String                     @unique
+  hashedPassword             String?
+  googleId                   String?                    @unique
+  avatarUrl                  String?
+  preferredRole              String?
+  // Vendor profile fields — generic on User (a vendor is just a User with a VENDOR
+  // ProjectRole); null for CLIENT/PMC/other users.
+  companyName                String?
+  contactPerson              String?
+  mobile                     String?
+  gstNumber                  String?
+  address                    String?
+  createdAt                  DateTime                   @default(now())
+  updatedAt                  DateTime                   @updatedAt
+  auditLogs                  AuditLog[]
+  eligibilityEvents          EligibilityEvent[]
+  evidence                   Evidence[]
+  milestoneComments          MilestoneComment[]
+  followUps                  FollowUp[]
+  transitions                MilestoneStateTransition[]
+  projectRoles               ProjectRole[]
+  verifications              Verification[]
+  assignedMilestones         Milestone[]                @relation("MilestoneVendor")
+  assignedPhases             Phase[]                    @relation("PhaseVendor")
+  vendorMetrics              VendorMetrics[]
+  systemEventsActor          SystemEvent[]              @relation("SystemEventActor")
+  cashAdjustments            CashAdjustment[]           @relation("CashAdjustmentCreator")
+  privateCosts               PrivateCostEntry[]         @relation("PrivateCostCreator")
   // Architecture module
-  drawingSetsCreated      DrawingSet[]               @relation("DrawingSetCreator")
-  drawingSetsRequested    DrawingSet[]               @relation("DrawingSetRequester")
-  drawingSetsPaid         DrawingSet[]               @relation("DrawingSetPaymentReleaser")
-  drawingRows             DrawingRow[]               @relation("DrawingRowCreator")
-  drawingRowsPaid         DrawingRow[]               @relation("DrawingRowPaymentReleaser")
-  drawingVersionsUploaded DrawingVersion[]           @relation("DrawingVersionUploader")
-  drawingVersionsReviewed DrawingVersion[]           @relation("DrawingVersionReviewer")
-  setRequests             SetRequest[]               @relation("SetRequestCreator")
-  vendorRequestsSubmitted  VendorRequest[]     @relation("VendorRequestSubmitter")
-  vendorRequestsResponded  VendorRequest[]     @relation("VendorRequestResponder")
-  vendorRequestFiles       VendorRequestFile[] @relation("VendorRequestFileUploader")
-  projectInvitesSent       ProjectInvite[]     @relation("ProjectInviteInviter")
-  customSchedules          CustomSchedule[]    @relation("CustomScheduleCreator")
+  drawingSetsCreated         DrawingSet[]               @relation("DrawingSetCreator")
+  drawingSetsRequested       DrawingSet[]               @relation("DrawingSetRequester")
+  drawingSetsPaid            DrawingSet[]               @relation("DrawingSetPaymentReleaser")
+  drawingRows                DrawingRow[]               @relation("DrawingRowCreator")
+  drawingRowsPaid            DrawingRow[]               @relation("DrawingRowPaymentReleaser")
+  drawingVersionsUploaded    DrawingVersion[]           @relation("DrawingVersionUploader")
+  drawingVersionsReviewed    DrawingVersion[]           @relation("DrawingVersionReviewer")
+  setRequests                SetRequest[]               @relation("SetRequestCreator")
+  vendorRequestsSubmitted    VendorRequest[]            @relation("VendorRequestSubmitter")
+  vendorRequestsResponded    VendorRequest[]            @relation("VendorRequestResponder")
+  vendorRequestFiles         VendorRequestFile[]        @relation("VendorRequestFileUploader")
+  projectInvitesSent         ProjectInvite[]            @relation("ProjectInviteInviter")
+  scheduleImportsUploaded    ScheduleImport[]
+  workOrderRevisionsCreated  WorkOrderRevision[]        @relation("WorkOrderRevisionCreator")
+  workOrderRevisionsAccepted WorkOrderRevision[]        @relation("WorkOrderRevisionAcceptor")
+  workOrderRevisionsRejected WorkOrderRevision[]        @relation("WorkOrderRevisionRejector")
+  raBillsCreated             RABill[]                   @relation("RABillCreator")
+  raBillsSubmitted           RABill[]                   @relation("RABillSubmitter")
+  raBillsRevisionRequested   RABill[]                   @relation("RABillRevisionRequester")
+  raBillsCertified           RABill[]                   @relation("RABillCertifier")
+  raBillsApproved            RABill[]                   @relation("RABillApprover")
+  raBillsPaymentReleased     RABill[]                   @relation("RABillPaymentReleaser")
 }
 
 model Verification {
@@ -428,22 +669,22 @@ model Verification {
 
 /// Vendor-level metrics snapshot for a project (computed periodically)
 model VendorMetrics {
-  id                    String   @id @default(uuid())
-  projectId             String
-  vendorUserId          String
-  period                String
-  totalMilestones       Int      @default(0)
-  completedOnTime       Int      @default(0)
-  completedLate         Int      @default(0)
-  avgDelayDays          Float    @default(0)
-  qualityScore          Float    @default(0)
-  escalationCount       Int      @default(0)
-  totalValueDelivered   Float    @default(0)
-  totalValuePaid        Float    @default(0)
-  createdAt             DateTime @default(now())
-  updatedAt             DateTime @updatedAt
-  project               Project  @relation(fields: [projectId], references: [id], onDelete: Cascade)
-  vendor                User     @relation(fields: [vendorUserId], references: [id])
+  id                  String   @id @default(uuid())
+  projectId           String
+  vendorUserId        String
+  period              String
+  totalMilestones     Int      @default(0)
+  completedOnTime     Int      @default(0)
+  completedLate       Int      @default(0)
+  avgDelayDays        Float    @default(0)
+  qualityScore        Float    @default(0)
+  escalationCount     Int      @default(0)
+  totalValueDelivered Float    @default(0)
+  totalValuePaid      Float    @default(0)
+  createdAt           DateTime @default(now())
+  updatedAt           DateTime @updatedAt
+  project             Project  @relation(fields: [projectId], references: [id], onDelete: Cascade)
+  vendor              User     @relation(fields: [vendorUserId], references: [id])
 
   @@unique([projectId, vendorUserId, period])
   @@index([projectId])
@@ -452,24 +693,24 @@ model VendorMetrics {
 
 /// Project-level aggregated metrics snapshot (computed periodically)
 model ProjectMetrics {
-  id                    String   @id @default(uuid())
-  projectId             String
-  period                String
-  totalBudget           Float    @default(0)
-  spentToDate           Float    @default(0)
-  earnedValue           Float    @default(0)
-  plannedValue          Float    @default(0)
-  costVariance          Float    @default(0)
-  scheduleVariance      Float    @default(0)
-  cpi                   Float    @default(0)
-  spi                   Float    @default(0)
-  milestonesTotal       Int      @default(0)
-  milestonesComplete    Int      @default(0)
-  milestonesOverdue     Int      @default(0)
-  healthStatus          String   @default("GREEN")
-  createdAt             DateTime @default(now())
-  updatedAt             DateTime @updatedAt
-  project               Project  @relation(fields: [projectId], references: [id], onDelete: Cascade)
+  id                 String   @id @default(uuid())
+  projectId          String
+  period             String
+  totalBudget        Float    @default(0)
+  spentToDate        Float    @default(0)
+  earnedValue        Float    @default(0)
+  plannedValue       Float    @default(0)
+  costVariance       Float    @default(0)
+  scheduleVariance   Float    @default(0)
+  cpi                Float    @default(0)
+  spi                Float    @default(0)
+  milestonesTotal    Int      @default(0)
+  milestonesComplete Int      @default(0)
+  milestonesOverdue  Int      @default(0)
+  healthStatus       String   @default("GREEN")
+  createdAt          DateTime @default(now())
+  updatedAt          DateTime @updatedAt
+  project            Project  @relation(fields: [projectId], references: [id], onDelete: Cascade)
 
   @@unique([projectId, period])
   @@index([projectId])
@@ -477,18 +718,18 @@ model ProjectMetrics {
 
 /// System-wide event log for infrastructure-level events
 model SystemEvent {
-  id          String   @id @default(uuid())
-  eventType   String
-  severity    String   @default("INFO")
-  actorId     String?
-  projectId   String?
-  entityType  String?
-  entityId    String?
-  message     String
-  metadata    String?
-  createdAt   DateTime @default(now())
-  actor       User?    @relation("SystemEventActor", fields: [actorId], references: [id])
-  project     Project? @relation(fields: [projectId], references: [id], onDelete: Cascade)
+  id         String   @id @default(uuid())
+  eventType  String
+  severity   String   @default("INFO")
+  actorId    String?
+  projectId  String?
+  entityType String?
+  entityId   String?
+  message    String
+  metadata   String?
+  createdAt  DateTime @default(now())
+  actor      User?    @relation("SystemEventActor", fields: [actorId], references: [id])
+  project    Project? @relation(fields: [projectId], references: [id], onDelete: Cascade)
 
   @@index([eventType])
   @@index([severity])
@@ -537,66 +778,33 @@ model PrivateCostEntry {
 }
 
 model Phase {
-  id           String      @id @default(uuid())
-  projectId    String
-  name         String
-  sortOrder    Int         @default(0)
-  plannedStart DateTime?
-  plannedEnd   DateTime?
-  createdAt    DateTime    @default(now())
-  updatedAt    DateTime    @updatedAt
-  project      Project     @relation(fields: [projectId], references: [id], onDelete: Cascade)
-  boq          BOQ?
-  milestones   Milestone[]
+  id               String          @id @default(uuid())
+  projectId        String
+  parentPhaseId    String? // self-relation for WBS subphases (Schedule import only — BOQ/Order phases never set this)
+  name             String
+  description      String?
+  outlineLevel     Int? // WBS depth of this phase/subphase, mirrors Milestone.outlineLevel
+  sortOrder        Int             @default(0)
+  plannedStart     DateTime?
+  plannedEnd       DateTime?
+  vendorUserId     String? // Optional: assigned vendor user
+  scheduleImportId String?
+  createdAt        DateTime        @default(now())
+  updatedAt        DateTime        @updatedAt
+  project          Project         @relation(fields: [projectId], references: [id], onDelete: Cascade)
+  scheduleImport   ScheduleImport? @relation(fields: [scheduleImportId], references: [id], onDelete: SetNull)
+  parentPhase      Phase?          @relation("PhaseHierarchy", fields: [parentPhaseId], references: [id], onDelete: Cascade)
+  subphases        Phase[]         @relation("PhaseHierarchy")
+  vendorUser       User?           @relation("PhaseVendor", fields: [vendorUserId], references: [id])
+  boqs             BOQ[]
+  workOrder        WorkOrder?
+  raBills          RABill[]
+  milestones       Milestone[]
 
   @@index([projectId])
   @@index([projectId, sortOrder])
-}
-
-// ── Custom Schedule Module ────────────────────────────────────────────────────
-
-/// PMC-created custom schedule for a project — shows preferred view to all roles
-model CustomSchedule {
-  id          String               @id @default(uuid())
-  projectId   String               @unique
-  isPreferred Boolean              @default(false)
-  createdById String
-  createdAt   DateTime             @default(now())
-  updatedAt   DateTime             @updatedAt
-  project     Project              @relation(fields: [projectId], references: [id], onDelete: Cascade)
-  createdBy   User                 @relation("CustomScheduleCreator", fields: [createdById], references: [id])
-  phases      CustomSchedulePhase[]
-
-  @@index([projectId])
-}
-
-model CustomSchedulePhase {
-  id               String                       @id @default(uuid())
-  customScheduleId String
-  name             String
-  plannedStart     DateTime
-  plannedEnd       DateTime
-  sortOrder        Int                          @default(0)
-  createdAt        DateTime                     @default(now())
-  updatedAt        DateTime                     @updatedAt
-  customSchedule   CustomSchedule               @relation(fields: [customScheduleId], references: [id], onDelete: Cascade)
-  milestoneLinks   CustomScheduleMilestoneLink[]
-
-  @@index([customScheduleId])
-  @@index([customScheduleId, sortOrder])
-}
-
-model CustomScheduleMilestoneLink {
-  id                    String              @id @default(uuid())
-  customSchedulePhaseId String
-  milestoneId           String
-  createdAt             DateTime            @default(now())
-  customSchedulePhase   CustomSchedulePhase @relation(fields: [customSchedulePhaseId], references: [id], onDelete: Cascade)
-  milestone             Milestone           @relation(fields: [milestoneId], references: [id], onDelete: Cascade)
-
-  @@unique([customSchedulePhaseId, milestoneId])
-  @@index([customSchedulePhaseId])
-  @@index([milestoneId])
+  @@index([parentPhaseId])
+  @@index([vendorUserId])
 }
 
 // ── Architecture Module ───────────────────────────────────────────────────────
@@ -622,12 +830,12 @@ model DrawingSet {
   createdAt         DateTime  @default(now())
   updatedAt         DateTime  @updatedAt
 
-  project          Project     @relation(fields: [projectId], references: [id], onDelete: Cascade)
-  createdBy        User        @relation("DrawingSetCreator", fields: [createdById], references: [id])
-  requestedBy      User?       @relation("DrawingSetRequester", fields: [requestedById], references: [id])
-  paymentReleaser  User?       @relation("DrawingSetPaymentReleaser", fields: [paymentReleasedBy], references: [id])
-  rows             DrawingRow[]
-  requests         SetRequest[]
+  project         Project      @relation(fields: [projectId], references: [id], onDelete: Cascade)
+  createdBy       User         @relation("DrawingSetCreator", fields: [createdById], references: [id])
+  requestedBy     User?        @relation("DrawingSetRequester", fields: [requestedById], references: [id])
+  paymentReleaser User?        @relation("DrawingSetPaymentReleaser", fields: [paymentReleasedBy], references: [id])
+  rows            DrawingRow[]
+  requests        SetRequest[]
 
   @@index([projectId])
   @@index([createdById])
@@ -655,11 +863,11 @@ model DrawingRow {
   createdAt   DateTime  @default(now())
   updatedAt   DateTime  @updatedAt
 
-  project    Project      @relation(fields: [projectId], references: [id], onDelete: Cascade)
-  set        DrawingSet?  @relation(fields: [setId], references: [id], onDelete: SetNull)
-  createdBy  User         @relation("DrawingRowCreator", fields: [createdById], references: [id])
-  paidBy     User?        @relation("DrawingRowPaymentReleaser", fields: [paidById], references: [id])
-  versions   DrawingVersion[]
+  project   Project          @relation(fields: [projectId], references: [id], onDelete: Cascade)
+  set       DrawingSet?      @relation(fields: [setId], references: [id], onDelete: SetNull)
+  createdBy User             @relation("DrawingRowCreator", fields: [createdById], references: [id])
+  paidBy    User?            @relation("DrawingRowPaymentReleaser", fields: [paidById], references: [id])
+  versions  DrawingVersion[]
 
   @@index([projectId])
   @@index([setId])
@@ -708,9 +916,9 @@ model SetRequest {
   /// PENDING | ACCEPTED | DECLINED
   status        String    @default("PENDING")
 
-  set          DrawingSet @relation(fields: [setId], references: [id], onDelete: Cascade)
-  project      Project    @relation(fields: [projectId], references: [id], onDelete: Cascade)
-  requestedBy  User       @relation("SetRequestCreator", fields: [requestedById], references: [id])
+  set         DrawingSet @relation(fields: [setId], references: [id], onDelete: Cascade)
+  project     Project    @relation(fields: [projectId], references: [id], onDelete: Cascade)
+  requestedBy User       @relation("SetRequestCreator", fields: [requestedById], references: [id])
 
   @@index([setId])
   @@index([projectId])
@@ -721,14 +929,14 @@ model VendorRequest {
   id            String    @id @default(uuid())
   projectId     String
   submittedById String
-  senderRole    String    @default("VENDOR")   // VENDOR | PMC | CONSULTANT | OWNER
-  category      String    @default("REQUEST")  // REQUEST | SUBMISSION
+  senderRole    String    @default("VENDOR") // VENDOR | PMC | CONSULTANT | OWNER
+  category      String    @default("REQUEST") // REQUEST | SUBMISSION
   title         String
   description   String
   type          String    @default("RFI")
   priority      String    @default("NORMAL")
   dueDate       DateTime?
-  sendTo        String    @default("PMC")      // PMC | CONSULTANT | OWNER | VENDOR | BOTH | ALL
+  sendTo        String    @default("PMC") // PMC | CONSULTANT | OWNER | VENDOR | BOTH | ALL
   refNumber     String?
   status        String    @default("PENDING")
   responseNote  String?
@@ -779,17 +987,81 @@ model ProjectInvite {
 
 /// File attachment for a vendor request
 model VendorRequestFile {
-  id           String        @id @default(uuid())
+  id           String   @id @default(uuid())
   requestId    String
   storageKey   String
   fileName     String
   mimeType     String
   fileSize     Int
   uploadedById String
-  createdAt    DateTime      @default(now())
+  createdAt    DateTime @default(now())
 
   request    VendorRequest @relation(fields: [requestId], references: [id], onDelete: Cascade)
   uploadedBy User          @relation("VendorRequestFileUploader", fields: [uploadedById], references: [id])
 
   @@index([requestId])
+}
+
+// ── Schedule Import (MS Project XML / .mpp) ───────────────────────────────────
+
+/// One uploaded schedule file (MSPDI XML export or raw .mpp) and its extraction run.
+model ScheduleImport {
+  id                String    @id @default(uuid())
+  projectId         String
+  uploadedById      String
+  fileName          String
+  mimeType          String
+  fileSize          Int
+  storageKey        String // raw uploaded file bytes, via the fileStorage adapter
+  sourceFormat      String // "XML" | "MPP"
+  status            String    @default("PENDING") // PENDING|PARSING|PARSED|FAILED|CONFIRMED
+  errorMessage      String?   @db.Text
+  extractedDataJson String?   @db.Text // cached parse result, consumed by the confirm step
+  phasesFound       Int       @default(0)
+  milestonesFound   Int       @default(0)
+  dependenciesFound Int       @default(0)
+  resourcesFound    Int       @default(0)
+  parsedAt          DateTime?
+  confirmedAt       DateTime?
+  createdAt         DateTime  @default(now())
+
+  project    Project     @relation(fields: [projectId], references: [id], onDelete: Cascade)
+  uploadedBy User        @relation(fields: [uploadedById], references: [id])
+  phases     Phase[]
+  milestones Milestone[]
+  resources  Resource[]
+
+  @@index([projectId, createdAt])
+}
+
+/// Lightweight resource capture from an imported schedule (Civil Engineer, Excavator, Crane, ...).
+/// Display-only for now — deliberately not a full resource-management module.
+model Resource {
+  id               String   @id @default(uuid())
+  projectId        String
+  scheduleImportId String?
+  name             String
+  type             String? // free text, e.g. "Labor" | "Equipment" | "Material"
+  createdAt        DateTime @default(now())
+
+  project        Project                       @relation(fields: [projectId], references: [id], onDelete: Cascade)
+  scheduleImport ScheduleImport?               @relation(fields: [scheduleImportId], references: [id], onDelete: SetNull)
+  assignments    MilestoneResourceAssignment[]
+
+  @@index([projectId])
+}
+
+/// Join table: which resources are assigned to which milestone/task, and how much.
+model MilestoneResourceAssignment {
+  id          String   @id @default(uuid())
+  milestoneId String
+  resourceId  String
+  units       Float    @default(100) // % allocation, 100 = 1 FTE
+  workHours   Float?
+  createdAt   DateTime @default(now())
+
+  milestone Milestone @relation(fields: [milestoneId], references: [id], onDelete: Cascade)
+  resource  Resource  @relation(fields: [resourceId], references: [id], onDelete: Cascade)
+
+  @@unique([milestoneId, resourceId])
 }

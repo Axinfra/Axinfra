@@ -8,6 +8,9 @@ export type GanttMode = 'L1' | 'L2' | 'L3' | 'L4';
 
 export interface GanttPhase {
   id: string; name: string; sortOrder: number;
+  /** Optional — enables nested Phase > Subphase rendering (WBS-style). Omit/null for a flat
+   * phase list; other pages that don't pass this keep their existing flat behavior unchanged. */
+  parentPhaseId?: string | null;
 }
 export interface GanttMilestone {
   id: string; title: string; state: string; sortOrder: number;
@@ -18,6 +21,17 @@ export interface GanttMilestone {
   isCritical: boolean; totalFloat: number | null;
   phaseId: string | null; phaseName: string | null; phaseOrder: number;
   predecessors: Array<{ predecessorId: string; dependencyType: string; lagDays: number }>;
+  /** Schedule-imported tasks never enter the payment workflow state machine (always DRAFT) —
+   * % Complete from the source file is their real completion signal instead. */
+  percentComplete?: number | null;
+}
+
+/** True if VERIFIED/CLOSED (payment-workflow milestones) OR 100% complete per the imported
+ * schedule (schedule-imported milestones, which never transition workflow state). Keeps the
+ * Gantt's "done" bar color / progress counters consistent with the same rule used in
+ * scheduleMetrics.ts for EI Analytics and the Milestones tab's Completed/Upcoming/Overdue count. */
+function isMilestoneDone(m: Pick<GanttMilestone, 'state' | 'percentComplete'>): boolean {
+  return m.state === 'VERIFIED' || m.state === 'CLOSED' || (m.percentComplete ?? 0) >= 100;
 }
 interface GanttChartProps {
   milestones: GanttMilestone[]; phases: GanttPhase[];
@@ -37,11 +51,18 @@ const MS_INDENT   = 28;
 
 const PHASE_COLORS = ['var(--ax-accent)','#60a5fa','#a78bfa','#34d399','#fb923c','#f472b6','#22d3ee','#84cc16'];
 
-/* Appends a 2-digit hex alpha to a color — handles CSS variable references too */
+/* Appends a 2-digit hex alpha to a color — handles CSS variable references and rgba(...)
+ * strings too (naively appending a hex suffix to those produces invalid, invisible CSS —
+ * this was silently dropping DRAFT-state milestone date labels since STATE_COLORS.DRAFT
+ * is an rgba() string, not a hex color). */
 function hexA(color: string, hexAlpha: string): string {
   if (color === 'var(--ax-accent)') {
     const a = (parseInt(hexAlpha, 16) / 255).toFixed(2);
     return `rgba(var(--ax-accent-rgb),${a})`;
+  }
+  if (color.startsWith('rgba(')) {
+    const a = (parseInt(hexAlpha, 16) / 255).toFixed(2);
+    return color.replace(/,\s*[\d.]+\)$/, `,${a})`);
   }
   return `${color}${hexAlpha}`;
 }
@@ -62,15 +83,30 @@ function toDate(s: string | null | undefined): Date | null {
 }
 function barColor(m: GanttMilestone, mode: GanttMode, phaseColor: string): string {
   if (m.isCritical && (mode === 'L3' || mode === 'L4')) return '#ef4444';
+  // A schedule-imported task at 100% never transitions its workflow state (stays DRAFT — there's
+  // no verify step for it), so without this it would render as an unfinished-looking gray/blue/
+  // amber bar despite being physically complete per the imported schedule.
+  if (isMilestoneDone(m) && m.state !== 'VERIFIED' && m.state !== 'CLOSED') return STATE_COLORS.VERIFIED;
   return STATE_COLORS[m.state] ?? phaseColor;
+}
+/** All milestones directly or indirectly under phaseId (own + every descendant subphase's). */
+function collectDescendantMilestones(phaseId: string, childrenByParent: Map<string, GanttPhase[]>, byPhase: Map<string, GanttMilestone[]>): GanttMilestone[] {
+  const own = byPhase.get(phaseId) ?? [];
+  const children = childrenByParent.get(phaseId) ?? [];
+  return [...own, ...children.flatMap((c) => collectDescendantMilestones(c.id, childrenByParent, byPhase))];
+}
+/** Is targetId somewhere within ancestorId's subtree (including being ancestorId's direct child)? */
+function isDescendantOf(ancestorId: string, targetId: string, childrenByParent: Map<string, GanttPhase[]>): boolean {
+  const children = childrenByParent.get(ancestorId) ?? [];
+  return children.some((c) => c.id === targetId || isDescendantOf(c.id, targetId, childrenByParent));
 }
 
 interface PhaseRow {
-  kind: 'phase'; phaseId: string; phaseName: string; color: string;
+  kind: 'phase'; phaseId: string; phaseName: string; color: string; depth: number;
   milestones: GanttMilestone[]; phaseStart: Date | null; phaseEnd: Date | null;
   doneCount: number; totalCount: number; expanded: boolean;
 }
-interface MsRow { kind: 'ms'; ms: GanttMilestone; phaseColor: string; msIndex: number; }
+interface MsRow { kind: 'ms'; ms: GanttMilestone; phaseColor: string; msIndex: number; depth: number; }
 type DisplayRow = PhaseRow | MsRow;
 
 /* ─── Tooltip state ─────────────────────────────────────────────────── */
@@ -108,24 +144,54 @@ function GanttChart({ milestones, phases, mode, hasCycle, projectStartDate, view
     if (viewMode === 'flat') {
       const sorted = [...milestones].sort((a, b) => (a.phaseOrder - b.phaseOrder) || (a.sortOrder - b.sortOrder));
       return sorted.map(ms => ({
-        kind: 'ms', ms, msIndex: msIndex++,
+        kind: 'ms' as const, ms, msIndex: msIndex++, depth: 1,
         phaseColor: PHASE_COLORS[phases.findIndex(p => p.id === ms.phaseId) % PHASE_COLORS.length] ?? PHASE_COLORS[0],
       }));
     }
     const rows: DisplayRow[] = [];
-    const addPhase = (phaseId: string, phaseName: string, pms: GanttMilestone[], colorIdx: number) => {
-      if (focusPhase && focusPhase !== phaseId) return;
-      const color = PHASE_COLORS[colorIdx % PHASE_COLORS.length];
-      const dates = pms.flatMap(m => [toDate(m.plannedStart), toDate(m.plannedEnd)]).filter(Boolean) as Date[];
+
+    // Nested Phase > Subphase > Milestone hierarchy (WBS-style) — subphases are just Phase
+    // rows with a parentPhaseId, so build the tree from that; a plain flat phase list (no
+    // parentPhaseId anywhere) degenerates to exactly the old top-level-only behavior.
+    const childrenByParent = new Map<string, GanttPhase[]>();
+    const topLevel: GanttPhase[] = [];
+    phases.forEach((p) => {
+      if (p.parentPhaseId) {
+        const list = childrenByParent.get(p.parentPhaseId) ?? [];
+        list.push(p);
+        childrenByParent.set(p.parentPhaseId, list);
+      } else {
+        topLevel.push(p);
+      }
+    });
+    const bySortOrder = (a: GanttPhase, b: GanttPhase) => a.sortOrder - b.sortOrder;
+    topLevel.sort(bySortOrder);
+    Array.from(childrenByParent.values()).forEach((list) => list.sort(bySortOrder));
+
+    const addPhase = (phase: GanttPhase, colorIdx: number, depth: number, inheritedColor: string | null) => {
+      if (focusPhase && focusPhase !== phase.id && !isDescendantOf(phase.id, focusPhase, childrenByParent)) return;
+      const color = inheritedColor ?? PHASE_COLORS[colorIdx % PHASE_COLORS.length];
+      const ownMs = byPhase.get(phase.id) ?? [];
+      const children = childrenByParent.get(phase.id) ?? [];
+      const allMs = [...ownMs, ...children.flatMap((c) => collectDescendantMilestones(c.id, childrenByParent, byPhase))];
+      const dates = allMs.flatMap(m => [toDate(m.plannedStart), toDate(m.plannedEnd)]).filter(Boolean) as Date[];
       const phaseStart = dates.length ? new Date(Math.min(...dates.map(d => d.getTime()))) : null;
       const phaseEnd   = dates.length ? new Date(Math.max(...dates.map(d => d.getTime()))) : null;
-      const doneCount  = pms.filter(m => m.state === 'VERIFIED' || m.state === 'CLOSED').length;
-      const isExp = expanded.has(phaseId);
-      rows.push({ kind: 'phase', phaseId, phaseName, color, milestones: pms, phaseStart, phaseEnd, doneCount, totalCount: pms.length, expanded: isExp });
-      if (isExp) pms.forEach(ms => rows.push({ kind: 'ms', ms, phaseColor: color, msIndex: msIndex++ }));
+      const doneCount  = allMs.filter(isMilestoneDone).length;
+      const isExp = expanded.has(phase.id);
+      rows.push({ kind: 'phase', phaseId: phase.id, phaseName: phase.name, color, depth, milestones: allMs, phaseStart, phaseEnd, doneCount, totalCount: allMs.length, expanded: isExp });
+      if (isExp) {
+        children.forEach((c, i) => addPhase(c, i, depth + 1, color));
+        ownMs.forEach(ms => rows.push({ kind: 'ms', ms, phaseColor: color, msIndex: msIndex++, depth: depth + 1 }));
+      }
     };
-    phases.forEach((p, i) => addPhase(p.id, p.name, byPhase.get(p.id) ?? [], i));
-    if (unphased.length > 0) addPhase('_unphased', 'Extra Milestones', unphased, phases.length);
+    topLevel.forEach((p, i) => addPhase(p, i, 0, null));
+    if (unphased.length > 0) {
+      const color = PHASE_COLORS[topLevel.length % PHASE_COLORS.length];
+      const isExp = expanded.has('_unphased');
+      rows.push({ kind: 'phase', phaseId: '_unphased', phaseName: 'Extra Milestones', color, depth: 0, milestones: unphased, phaseStart: null, phaseEnd: null, doneCount: unphased.filter(isMilestoneDone).length, totalCount: unphased.length, expanded: isExp });
+      if (isExp) unphased.forEach(ms => rows.push({ kind: 'ms', ms, phaseColor: color, msIndex: msIndex++, depth: 1 }));
+    }
     return rows;
   }, [viewMode, milestones, phases, byPhase, unphased, expanded, focusPhase]);
 
@@ -198,7 +264,7 @@ function GanttChart({ milestones, phases, mode, hasCycle, projectStartDate, view
     const dur = differenceInDays(parseISO(m.plannedEnd), parseISO(m.plannedStart));
     if (dur <= 0) return null;
     const elapsed = differenceInDays(new Date(), parseISO(m.plannedStart));
-    const bcwp = ['VERIFIED', 'CLOSED'].includes(m.state) ? dur : Math.min(elapsed, dur);
+    const bcwp = isMilestoneDone(m) ? dur : Math.min(elapsed, dur);
     const bcws = Math.min(elapsed, dur);
     if (bcws <= 0) return null;
     return Math.round((bcwp / bcws) * 100) / 100;
@@ -308,7 +374,7 @@ function GanttChart({ milestones, phases, mode, hasCycle, projectStartDate, view
               const pct = row.totalCount > 0 ? Math.round((row.doneCount / row.totalCount) * 100) : 0;
               return (
                 <div key={row.phaseId}
-                  style={{ height: PHASE_ROW_H, borderLeft: `3px solid ${row.color}`, background: hexA(row.color,'0d') }}
+                  style={{ height: PHASE_ROW_H, borderLeft: `3px solid ${row.color}`, background: hexA(row.color,'0d'), paddingLeft: 12 + row.depth * 16 }}
                   className="flex items-center gap-2 px-3 border-b border-[rgba(255,255,255,0.07)] cursor-pointer select-none group shrink-0"
                   onClick={() => toggle(row.phaseId)}>
                   <span style={{ color: row.color }} className="text-[11px] font-bold w-3 shrink-0">
@@ -346,7 +412,7 @@ function GanttChart({ milestones, phases, mode, hasCycle, projectStartDate, view
 
             return (
               <div key={m.id}
-                style={{ height: MS_ROW_H, paddingLeft: MS_INDENT, background: isHov ? 'var(--ax-chart-row-hover)' : 'var(--ax-chart-row-alt)' }}
+                style={{ height: MS_ROW_H, paddingLeft: MS_INDENT + (row.depth - 1) * 16, background: isHov ? 'var(--ax-chart-row-hover)' : 'var(--ax-chart-row-alt)' }}
                 className="flex items-center gap-2 pr-3 border-b border-[rgba(255,255,255,0.05)] shrink-0 transition-colors cursor-default"
                 onMouseEnter={() => setHovered(m.id)}
                 onMouseLeave={() => setHovered(null)}>
@@ -417,10 +483,13 @@ function GanttChart({ milestones, phases, mode, hasCycle, projectStartDate, view
             </svg>
           </div>
 
-          {/* Scrollable chart body */}
+          {/* Scrollable chart body — `relative` anchors the hover tooltip below to this
+              container's own coordinate space (tip.x/tip.y are computed from this SVG's
+              bounding rect); without it the tooltip positions against a far ancestor and
+              renders nowhere near the milestone the user is actually hovering. */}
           <div
             ref={chartRef}
-            className="flex-1 overflow-x-auto overflow-y-visible"
+            className="relative flex-1 overflow-x-auto overflow-y-visible"
             onScroll={onBodyScroll}
             onMouseLeave={() => { setTip(null); }}
           >
@@ -443,7 +512,7 @@ function GanttChart({ milestones, phases, mode, hasCycle, projectStartDate, view
                   stroke="#3b82f6" strokeWidth={1.5} strokeDasharray="6 4" opacity={0.7} />
               )}
 
-              {/* Arrow marker defs */}
+              {/* Arrow marker + gradient defs */}
               <defs>
                 <marker id="arr-std" viewBox="0 0 10 10" refX={8} refY={5} markerWidth={5} markerHeight={5} orient="auto">
                   <path d="M 0 0 L 10 5 L 0 10 z" fill="var(--ax-chart-text-faint)" />
@@ -451,6 +520,12 @@ function GanttChart({ milestones, phases, mode, hasCycle, projectStartDate, view
                 <marker id="arr-crit" viewBox="0 0 10 10" refX={8} refY={5} markerWidth={5} markerHeight={5} orient="auto">
                   <path d="M 0 0 L 10 5 L 0 10 z" fill="rgba(239,68,68,0.6)" />
                 </marker>
+                {displayRows.filter((r): r is PhaseRow => r.kind === 'phase').map(row => (
+                  <linearGradient key={row.phaseId} id={`phase-grad-${row.phaseId}`} x1="0" y1="0" x2="0" y2="1">
+                    <stop offset="0%" stopColor={row.color} stopOpacity={0.55} />
+                    <stop offset="100%" stopColor={row.color} stopOpacity={0.22} />
+                  </linearGradient>
+                ))}
               </defs>
 
               {/* ── Rows ──────────────────────────────────────────────── */}
@@ -473,11 +548,11 @@ function GanttChart({ milestones, phases, mode, hasCycle, projectStartDate, view
                       {phaseX !== null && phaseW !== null && (
                         <>
                           <rect x={phaseX} y={barMidY - barH2 / 2} width={phaseW} height={barH2}
-                            rx={6} fill={hexA(color,'18')} stroke={color} strokeWidth={1.5} />
+                            rx={6} fill={`url(#phase-grad-${row.phaseId})`} stroke={color} strokeWidth={1.5} />
                           {pct > 0 && (
                             <rect x={phaseX} y={barMidY - barH2 / 2}
                               width={Math.max(phaseW * pct, barH2 / 2)} height={barH2}
-                              rx={6} fill={hexA(color,'45')} />
+                              rx={6} fill={hexA(color,'60')} />
                           )}
                           {phaseW > 80 && (
                             <text x={phaseX + 10} y={barMidY + 5} fontSize={11.5} fontWeight="bold" fill={color} style={{ pointerEvents: 'none' }}>
@@ -486,13 +561,19 @@ function GanttChart({ milestones, phases, mode, hasCycle, projectStartDate, view
                           )}
                           {ps && (
                             <text x={phaseX + 2} y={barMidY - barH2 / 2 - 4} fontSize={9} fill={hexA(color,'bb')}>
-                              {format(ps, 'MMM d')}
+                              {format(ps, 'MMM d, yyyy')}
                             </text>
                           )}
                           {pe && (
                             <text x={phaseX + phaseW - 2} y={barMidY - barH2 / 2 - 4} fontSize={9}
                               fill={hexA(color,'bb')} textAnchor="end">
-                              {format(pe, 'MMM d')}
+                              {format(pe, 'MMM d, yyyy')}
+                            </text>
+                          )}
+                          {ps && pe && phaseW > 60 && (
+                            <text x={phaseX + phaseW / 2} y={barMidY + barH2 / 2 + 12} fontSize={9} fontWeight="600"
+                              fill={hexA(color,'99')} textAnchor="middle">
+                              {differenceInDays(pe, ps)}d
                             </text>
                           )}
                           {row.milestones.map(m => {
@@ -500,7 +581,7 @@ function GanttChart({ milestones, phases, mode, hasCycle, projectStartDate, view
                             if (!mEnd) return null;
                             const mx = xFrom(mEnd);
                             if (mx < phaseX || mx > phaseX + phaseW) return null;
-                            const done = m.state === 'VERIFIED' || m.state === 'CLOSED';
+                            const done = isMilestoneDone(m);
                             return (
                               <polygon key={m.id}
                                 points={`${mx},${barMidY - 6} ${mx + 5},${barMidY} ${mx},${barMidY + 6} ${mx - 5},${barMidY}`}
@@ -599,18 +680,24 @@ function GanttChart({ milestones, phases, mode, hasCycle, projectStartDate, view
                     {plannedX !== null && plannedW !== null && (
                       <g>
                         <rect x={plannedX} y={planY} width={plannedW} height={BAR_H}
-                          rx={4} fill={color} fillOpacity={isHov ? 0.35 : 0.2} stroke={color} strokeWidth={1.5}
+                          rx={4} fill={color} fillOpacity={isHov ? 0.55 : 0.38} stroke={color} strokeWidth={1.5}
                           style={mode === 'L2' ? { cursor: 'pointer' } : {}}
                           onClick={() => mode === 'L2' && onDateEdit && (() => {
                             setEditing({ id: m.id, field: 'plannedEnd' });
                             setEditVal(m.plannedEnd ? m.plannedEnd.slice(0, 10) : '');
                           })()} />
-                        {/* Date labels on bar */}
+                        {/* Date labels on bar — full date, plus duration when there's room */}
                         {ps && (
-                          <text x={plannedX + 3} y={planY - 3} fontSize={8.5} fill={`${color}99`}>{format(ps, 'MMM d')}</text>
+                          <text x={plannedX + 3} y={planY - 3} fontSize={8.5} fontWeight="600" fill={hexA(color,'dd')}>{format(ps, 'MMM d, yyyy')}</text>
                         )}
-                        {pe && plannedW > 50 && (
-                          <text x={plannedX + plannedW - 3} y={planY - 3} fontSize={8.5} fill={`${color}99`} textAnchor="end">{format(pe, 'MMM d')}</text>
+                        {pe && plannedW > 30 && (
+                          <text x={plannedX + plannedW - 3} y={planY - 3} fontSize={8.5} fontWeight="600" fill={hexA(color,'dd')} textAnchor="end">{format(pe, 'MMM d, yyyy')}</text>
+                        )}
+                        {ps && pe && plannedW > 45 && (
+                          <text x={plannedX + plannedW / 2} y={planY + BAR_H / 2 + 3.5} fontSize={8.5} fontWeight="700"
+                            fill="var(--ax-text)" textAnchor="middle" style={{ pointerEvents: 'none' }}>
+                            {differenceInDays(pe, ps)}d
+                          </text>
                         )}
                       </g>
                     )}
@@ -656,12 +743,16 @@ function GanttChart({ milestones, phases, mode, hasCycle, projectStartDate, view
               })}
             </svg>
 
-            {/* Tooltip */}
+            {/* Tooltip — flips to the cursor's left when it would overflow the chart's right
+                edge, and never renders above the top of the scrollable area, so it always
+                stays visibly anchored next to the milestone being hovered. */}
             {tip && hovered && (
               <div
                 className="absolute pointer-events-none z-50 rounded-xl shadow-2xl p-3"
                 style={{
-                  left: tip.x + 18, top: tip.y - 10, minWidth: 220, maxWidth: 300,
+                  left: tip.x + 300 + 18 > chartWidth ? Math.max(0, tip.x - 300 - 18) : tip.x + 18,
+                  top: Math.max(0, tip.y - 10),
+                  minWidth: 220, maxWidth: 300,
                   backgroundColor: 'var(--ax-modal)',
                   border: '1px solid var(--ax-border)',
                   boxShadow: '0 8px 32px rgba(0,0,0,0.25)',

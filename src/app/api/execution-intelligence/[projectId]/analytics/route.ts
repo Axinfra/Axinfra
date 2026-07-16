@@ -144,6 +144,9 @@ async function computeAnalytics(projectId: string, auth: { role: string; userId:
         isCritical: criticalSet.has(m.id),
         evidenceSubmittedAt: firstEvidence?.submittedAt ?? null,
         pmcReviewedAt: firstVerification?.verifiedAt ?? null,
+        // Schedule-imported tasks never enter the payment workflow state machine (always
+        // DRAFT) — % Complete from the source file is their real completion signal.
+        percentComplete: m.percentComplete,
       };
     });
 

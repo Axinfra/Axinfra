@@ -52,3 +52,15 @@ export function generateStorageKey(fileName: string): string {
   const cleanName = fileName.replace(/[^a-zA-Z0-9.-]/g, '_');
   return `${uuidv4()}-${cleanName}`;
 }
+
+/**
+ * Extracts a storage-key-safe extension from a user-supplied filename. Callers that build a
+ * storage key like `${prefix}/${uuid}.${ext}` must use this instead of a raw
+ * `fileName.split('.').pop()` — a filename with no dot (e.g. "x/../../etc/passwd") makes
+ * `.pop()` return the entire filename verbatim, embedding path separators straight into the
+ * storage key. This only ever returns a short alphanumeric token or 'bin'.
+ */
+export function sanitizeFileExt(fileName: string): string {
+  const raw = (fileName.split('.').pop() ?? '').toLowerCase();
+  return /^[a-z0-9]{1,10}$/.test(raw) ? raw : 'bin';
+}

@@ -14,13 +14,30 @@ export async function GET(
 ) {
   try {
     const { projectId } = await params;
-    await requireProjectAuth(projectId);
+    const auth = await requireProjectAuth(projectId);
+
+    // PMC still drafting some of these — Owner shouldn't see a Purchase Order until something
+    // in it has been submitted, Vendor/Consultant only once something's actually approved. A PO
+    // with zero visible-status BOQs is hidden entirely for those roles, not just its BOQs.
+    const visibleStatuses = RoleGuard.visibleBOQStatuses(auth);
 
     const phases = await prisma.phase.findMany({
-      where: { projectId },
+      // Top-level AND never touched by a schedule import — Execution/WBS phases (and their
+      // subphases, promoted to top-level when a redundant wrapper phase gets skipped during
+      // import — see mspdiParser's echo-phase detection) are a Schedule-tab concept, not
+      // "Purchase Orders". Without the scheduleImportId filter, a promoted top-level WBS
+      // phase would otherwise satisfy parentPhaseId: null and leak into the BOQ/Order pickers.
+      where: {
+        projectId,
+        parentPhaseId: null,
+        scheduleImportId: null,
+        ...(visibleStatuses && { boqs: { some: { status: { in: visibleStatuses } } } }),
+      },
       include: {
-        boq: { select: { id: true, status: true, _count: { select: { items: true } } } },
-        _count: { select: { milestones: true } },
+        boqs: {
+          where: visibleStatuses ? { status: { in: visibleStatuses } } : undefined,
+          select: { id: true, status: true, _count: { select: { items: true } } },
+        },
       },
       orderBy: { sortOrder: 'asc' },
     });
@@ -32,8 +49,8 @@ export async function GET(
       plannedStart: p.plannedStart?.toISOString() ?? null,
       plannedEnd:   p.plannedEnd?.toISOString()   ?? null,
       createdAt: p.createdAt,
-      boq: p.boq ? { id: p.boq.id, status: p.boq.status, itemsCount: p.boq._count.items } : null,
-      milestonesCount: p._count.milestones,
+      vendorUserId: p.vendorUserId,
+      boqs: p.boqs.map((b) => ({ id: b.id, status: b.status, itemsCount: b._count.items })),
     }));
 
     return NextResponse.json({ success: true, data });

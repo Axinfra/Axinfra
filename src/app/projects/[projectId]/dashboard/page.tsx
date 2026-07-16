@@ -1,19 +1,19 @@
 'use client';
 
 import dynamic from 'next/dynamic';
+import Link from 'next/link';
 import { DashboardSkeleton } from '@/components/ui/SkeletonPage';
 import { Skeleton } from '@/components/ui/Skeleton';
 import { useParams } from 'next/navigation';
 import useSWR from 'swr';
 import Layout from '@/components/Layout';
 import Navbar from '@/components/Navbar';
-import { formatCurrency, formatDate, formatDateTime } from '@/lib/utils';
+import { formatCurrency, formatDate } from '@/lib/utils';
 import { useProject } from '@/lib/contexts/ProjectContext';
 import { jsonFetcher } from '@/lib/fetcher';
 const ActivityFeed = dynamic(() => import('@/components/dashboard/ActivityFeed'), { loading: () => <Skeleton className='h-48 w-full rounded-lg' /> });
 const MilestoneCompletionChart = dynamic(() => import('@/components/dashboard/MilestoneCompletionChart'), { loading: () => <Skeleton className='h-48 w-full rounded-lg' /> });
-const BudgetVsActualChart = dynamic(() => import('@/components/dashboard/BudgetVsActualChart'), { loading: () => <Skeleton className='h-48 w-full rounded-lg' /> });
-const PaymentStatusChart = dynamic(() => import('@/components/dashboard/PaymentStatusChart'), { loading: () => <Skeleton className='h-48 w-full rounded-lg' /> });
+const ProjectTimelineSection = dynamic(() => import('@/components/dashboard/ProjectTimelineSection'), { loading: () => <Skeleton className='h-48 w-full rounded-lg' /> });
 
 export default function DashboardPage() {
   const params = useParams();
@@ -63,9 +63,13 @@ export default function DashboardPage() {
           {roleLabel} Dashboard
         </h1>
 
+        {/* Combined milestone/phase (Execution) + purchase-order (Procurement) timeline — same
+            components as the EI Gantt page, visible here for every role. */}
+        <ProjectTimelineSection projectId={projectId} />
+
         {myRole === 'CLIENT' && <OwnerDashboard data={dashboard} projectId={projectId} />}
-        {myRole === 'PMC' && <PMCDashboard data={dashboard} />}
-        {myRole === 'VENDOR' && <VendorDashboard data={dashboard} />}
+        {myRole === 'PMC' && <PMCDashboard data={dashboard} projectId={projectId} />}
+        {myRole === 'VENDOR' && <VendorDashboard data={dashboard} projectId={projectId} />}
         {myRole === 'VIEWER' && <ViewerDashboard data={dashboard} />}
         {myRole === 'CONSULTANT' && <ArtifactsDashboard data={dashboard} />}
       </div>
@@ -73,60 +77,78 @@ export default function DashboardPage() {
   );
 }
 
-function OwnerDashboard({ data, projectId }: { data: any; projectId: string }) {
+/** RA Bills KPI row — Submitted/Approved/Released totals plus pending-action counts, shared
+ * across Owner/PMC dashboards. Links out to the project-wide RA Bills page for full detail. */
+function RABillsSection({
+  projectId,
+  submitted,
+  approved,
+  released,
+  pendingCertification,
+  pendingApproval,
+}: {
+  projectId: string;
+  submitted: number;
+  approved: number;
+  released: number;
+  pendingCertification: number;
+  pendingApproval: number;
+}) {
   return (
-    <div className="space-y-6">
-      {/* Summary Cards */}
-      <div className="grid gap-4 md:grid-cols-3 lg:grid-cols-6">
+    <section className="space-y-3">
+      <div className="flex items-baseline justify-between">
+        <h2 className="text-lg font-semibold text-[#f5f1e8]">RA Bills</h2>
+        <Link href={`/projects/${projectId}/ra-bills`} className="text-xs text-[var(--ax-accent)] hover:underline">
+          View all →
+        </Link>
+      </div>
+      <div className="grid gap-4 grid-cols-2 md:grid-cols-5">
         <div className="card">
           <div className="card-body">
-            <p className="text-sm" style={{ color: 'rgba(var(--ax-text-rgb), 0.6)' }}>Verified Value</p>
-            <p className="text-xl font-bold" style={{ color: 'var(--ax-text)' }}>
-              {formatCurrency(data.summary.totalVerifiedValue)}
-            </p>
+            <p className="text-sm" style={{ color: 'rgba(var(--ax-text-rgb), 0.6)' }}>Submitted Value</p>
+            <p className="text-xl font-bold" style={{ color: 'var(--ax-text)' }}>{formatCurrency(submitted)}</p>
           </div>
         </div>
         <div className="card">
           <div className="card-body">
-            <p className="text-sm" style={{ color: 'rgba(var(--ax-text-rgb), 0.6)' }}>Paid Value</p>
-            <p className="text-xl font-bold text-green-400">
-              {formatCurrency(data.summary.totalPaidValue)}
-            </p>
+            <p className="text-sm" style={{ color: 'rgba(var(--ax-text-rgb), 0.6)' }}>Approved Value</p>
+            <p className="text-xl font-bold text-green-400">{formatCurrency(approved)}</p>
           </div>
         </div>
         <div className="card">
           <div className="card-body">
-            <p className="text-sm" style={{ color: 'rgba(var(--ax-text-rgb), 0.6)' }}>Unpaid Value</p>
-            <p className="text-xl font-bold text-orange-400">
-              {formatCurrency(data.summary.totalUnpaidValue)}
-            </p>
+            <p className="text-sm" style={{ color: 'rgba(var(--ax-text-rgb), 0.6)' }}>Released Value</p>
+            <p className="text-xl font-bold text-blue-400">{formatCurrency(released)}</p>
           </div>
         </div>
         <div className="card">
           <div className="card-body">
-            <p className="text-sm" style={{ color: 'rgba(var(--ax-text-rgb), 0.6)' }}>Blocked Value</p>
-            <p className="text-xl font-bold text-red-400">
-              {formatCurrency(data.summary.totalBlockedValue)}
-            </p>
+            <p className="text-sm" style={{ color: 'rgba(var(--ax-text-rgb), 0.6)' }}>Pending Certification</p>
+            <p className="text-xl font-bold text-orange-400">{pendingCertification}</p>
           </div>
         </div>
         <div className="card">
           <div className="card-body">
-            <p className="text-sm" style={{ color: 'rgba(var(--ax-text-rgb), 0.6)' }}>Advance Exposure</p>
-            <p className="text-xl font-bold text-purple-400">
-              {formatCurrency(data.summary.advanceExposure)}
-            </p>
-          </div>
-        </div>
-        <div className="card">
-          <div className="card-body">
-            <p className="text-sm" style={{ color: 'rgba(var(--ax-text-rgb), 0.6)' }}>BOQ Overruns</p>
-            <p className="text-xl font-bold text-pink-400">
-              {data.summary.boqOverrunCount}
-            </p>
+            <p className="text-sm" style={{ color: 'rgba(var(--ax-text-rgb), 0.6)' }}>Pending Approval</p>
+            <p className="text-xl font-bold text-purple-400">{pendingApproval}</p>
           </div>
         </div>
       </div>
+    </section>
+  );
+}
+
+function OwnerDashboard({ data, projectId }: { data: any; projectId: string }) {
+  return (
+    <div className="space-y-6">
+      <RABillsSection
+        projectId={projectId}
+        submitted={data.summary.totalRABillSubmittedValue ?? 0}
+        approved={data.summary.totalRABillApprovedValue ?? 0}
+        released={data.summary.totalRABillReleasedValue ?? 0}
+        pendingCertification={data.summary.raBillsPendingCertification ?? 0}
+        pendingApproval={data.summary.raBillsPendingApproval ?? 0}
+      />
 
       {/* ── Project Overview Charts ── */}
       <section className="space-y-3">
@@ -138,8 +160,6 @@ function OwnerDashboard({ data, projectId }: { data: any; projectId: string }) {
         </div>
         <div className="grid gap-4 grid-cols-1 lg:grid-cols-2 xl:grid-cols-3">
           <MilestoneCompletionChart />
-          <BudgetVsActualChart />
-          <PaymentStatusChart />
         </div>
       </section>
 
@@ -148,52 +168,6 @@ function OwnerDashboard({ data, projectId }: { data: any; projectId: string }) {
 
       {/* Architecture / Artifacts Snapshot */}
       <ArchitectureSection architecture={data.architecture} />
-
-      {/* Vendor Exposures */}
-      {data.vendorExposures?.length > 0 && (
-        <div className="card">
-          <div className="card-header">
-            <h2 className="text-lg font-semibold text-red-400">High Risk Vendors</h2>
-          </div>
-          <div className="card-body">
-            <div className="space-y-3">
-              {data.vendorExposures.map((v: any, i: number) => (
-                <div key={i} className="flex justify-between items-center p-3 bg-[rgba(239,68,68,0.1)] rounded-lg">
-                  <div>
-                    <p className="font-medium">{v.vendorName}</p>
-                    <p className="text-sm text-[rgba(232,228,220,0.7)]">
-                      Advance: {formatCurrency(v.advancePaid)} | Verified: {formatCurrency(v.verifiedWork)}
-                    </p>
-                  </div>
-                  <div className="text-right">
-                    <p className="text-red-400 font-bold">{formatCurrency(v.exposure)}</p>
-                    <p className="text-xs text-[rgba(232,228,220,0.6)]">Exposure</p>
-                  </div>
-                </div>
-              ))}
-            </div>
-          </div>
-        </div>
-      )}
-
-      {/* Blocked Payments */}
-      {data.blockedPayments?.length > 0 && (
-        <div className="card">
-          <div className="card-header">
-            <h2 className="text-lg font-semibold">Blocked Payments</h2>
-          </div>
-          <div className="card-body">
-            <div className="space-y-2">
-              {data.blockedPayments.map((b: any, i: number) => (
-                <div key={i} className="flex justify-between items-center">
-                  <span>{b.milestoneTitle}</span>
-                  <span className="font-medium">{formatCurrency(b.amount)}</span>
-                </div>
-              ))}
-            </div>
-          </div>
-        </div>
-      )}
 
       {/* Follow-ups */}
       {data.followUps?.length > 0 && (
@@ -316,63 +290,19 @@ function ArtifactsDashboard({ data }: { data: any }) {
   );
 }
 
-function PMCDashboard({ data }: { data: any }) {
+function PMCDashboard({ data, projectId }: { data: any; projectId: string }) {
   return (
     <div className="space-y-6">
+      <RABillsSection
+        projectId={projectId}
+        submitted={data.raBills?.totalRABillSubmittedValue ?? 0}
+        approved={data.raBills?.totalRABillApprovedValue ?? 0}
+        released={data.raBills?.totalRABillReleasedValue ?? 0}
+        pendingCertification={data.raBills?.raBillsPendingCertification ?? 0}
+        pendingApproval={data.raBills?.raBillsPendingApproval ?? 0}
+      />
+
       <ArchitectureSection architecture={data.architecture} />
-
-      {/* Pending Reviews */}
-      <div className="card">
-        <div className="card-header">
-          <h2 className="text-lg font-semibold">
-            Pending Evidence Reviews ({data.pendingReviews?.length || 0})
-          </h2>
-        </div>
-        <div className="card-body">
-          {data.pendingReviews?.length > 0 ? (
-            <div className="space-y-3">
-              {data.pendingReviews.map((r: any) => (
-                <div key={r.evidenceId} className="flex justify-between items-center p-3 bg-[rgba(234,179,8,0.1)] rounded-lg">
-                  <div>
-                    <p className="font-medium">{r.milestoneTitle}</p>
-                    <p className="text-sm text-[rgba(232,228,220,0.7)]">
-                      By {r.vendorName} - {r.daysPending} days pending
-                    </p>
-                  </div>
-                </div>
-              ))}
-            </div>
-          ) : (
-            <p className="text-[rgba(232,228,220,0.6)] text-center py-4">No pending reviews</p>
-          )}
-        </div>
-      </div>
-
-      {/* Due Payments */}
-      <div className="card">
-        <div className="card-header">
-          <h2 className="text-lg font-semibold">
-            Due Payments ({data.duePayments?.length || 0})
-          </h2>
-        </div>
-        <div className="card-body">
-          {data.duePayments?.length > 0 ? (
-            <div className="space-y-2">
-              {data.duePayments.map((p: any) => (
-                <div key={p.milestoneId} className="flex justify-between items-center">
-                  <div>
-                    <p className="font-medium">{p.milestoneTitle}</p>
-                    <p className="text-sm text-[rgba(232,228,220,0.6)]">Due: {formatDate(p.dueDate)}</p>
-                  </div>
-                  <span className="font-medium">{formatCurrency(p.amount)}</span>
-                </div>
-              ))}
-            </div>
-          ) : (
-            <p className="text-[rgba(232,228,220,0.6)] text-center py-4">No payments due</p>
-          )}
-        </div>
-      </div>
 
       {/* Upcoming Deadlines */}
       <div className="card">
@@ -400,9 +330,43 @@ function PMCDashboard({ data }: { data: any }) {
   );
 }
 
-function VendorDashboard({ data }: { data: any }) {
+function VendorDashboard({ data, projectId }: { data: any; projectId: string }) {
   return (
     <div className="space-y-6">
+      {/* RA Bills */}
+      <section className="space-y-3">
+        <div className="flex items-baseline justify-between">
+          <h2 className="text-lg font-semibold text-[#f5f1e8]">My RA Bills</h2>
+          <Link href="/vendor/ra-bills" className="text-xs text-[var(--ax-accent)] hover:underline">View all →</Link>
+        </div>
+        <div className="grid gap-4 grid-cols-2 md:grid-cols-4">
+          <div className="card">
+            <div className="card-body">
+              <p className="text-sm" style={{ color: 'rgba(var(--ax-text-rgb), 0.6)' }}>Awaiting Submission</p>
+              <p className="text-2xl font-bold text-orange-400">{data.raBills?.awaitingSubmission ?? 0}</p>
+            </div>
+          </div>
+          <div className="card">
+            <div className="card-body">
+              <p className="text-sm" style={{ color: 'rgba(var(--ax-text-rgb), 0.6)' }}>Submitted Value</p>
+              <p className="text-xl font-bold" style={{ color: 'var(--ax-text)' }}>{formatCurrency(data.raBills?.totalSubmittedValue ?? 0)}</p>
+            </div>
+          </div>
+          <div className="card">
+            <div className="card-body">
+              <p className="text-sm" style={{ color: 'rgba(var(--ax-text-rgb), 0.6)' }}>Approved Value</p>
+              <p className="text-xl font-bold text-green-400">{formatCurrency(data.raBills?.totalApprovedValue ?? 0)}</p>
+            </div>
+          </div>
+          <div className="card">
+            <div className="card-body">
+              <p className="text-sm" style={{ color: 'rgba(var(--ax-text-rgb), 0.6)' }}>Released Value</p>
+              <p className="text-xl font-bold text-blue-400">{formatCurrency(data.raBills?.totalReleasedValue ?? 0)}</p>
+            </div>
+          </div>
+        </div>
+      </section>
+
       {/* Milestone Summary */}
       <div className="grid gap-4 md:grid-cols-5">
         <div className="card">
@@ -434,76 +398,6 @@ function VendorDashboard({ data }: { data: any }) {
             <p className="text-2xl font-bold text-purple-400">{data.milestonesSummary?.closed || 0}</p>
             <p className="text-sm text-[rgba(232,228,220,0.6)]">Closed</p>
           </div>
-        </div>
-      </div>
-
-      {/* Pending Approvals */}
-      <div className="card">
-        <div className="card-header">
-          <h2 className="text-lg font-semibold">Pending Approvals</h2>
-        </div>
-        <div className="card-body">
-          {data.pendingApprovals?.length > 0 ? (
-            <div className="space-y-2">
-              {data.pendingApprovals.map((p: any) => (
-                <div key={p.milestoneId} className="flex justify-between items-center">
-                  <span>{p.milestoneTitle}</span>
-                  <span className="text-sm text-[rgba(232,228,220,0.6)]">{p.daysPending} days</span>
-                </div>
-              ))}
-            </div>
-          ) : (
-            <p className="text-[rgba(232,228,220,0.6)] text-center py-4">No pending approvals</p>
-          )}
-        </div>
-      </div>
-
-      {/* Rejections */}
-      {data.rejections?.length > 0 && (
-        <div className="card">
-          <div className="card-header">
-            <h2 className="text-lg font-semibold text-red-400">Recent Rejections</h2>
-          </div>
-          <div className="card-body">
-            <div className="space-y-3">
-              {data.rejections.map((r: any, i: number) => (
-                <div key={i} className="p-3 bg-[rgba(239,68,68,0.1)] rounded-lg">
-                  <p className="font-medium">{r.milestoneTitle}</p>
-                  <p className="text-sm text-red-400">{r.reason}</p>
-                  <p className="text-xs text-[rgba(232,228,220,0.6)]">{formatDateTime(r.rejectedAt)}</p>
-                </div>
-              ))}
-            </div>
-          </div>
-        </div>
-      )}
-
-      {/* Payment Status */}
-      <div className="card">
-        <div className="card-header">
-          <h2 className="text-lg font-semibold">Payment Status (Read-only)</h2>
-        </div>
-        <div className="card-body">
-          {data.paymentStatus?.length > 0 ? (
-            <div className="space-y-2">
-              {data.paymentStatus.map((p: any, i: number) => (
-                <div key={i} className="flex justify-between items-center">
-                  <div>
-                    <span>{p.milestoneTitle}</span>
-                    <span className={`ml-2 badge ${
-                      p.status === 'PAID_MARKED' ? 'badge-paid' :
-                      p.status === 'ELIGIBLE' ? 'badge-eligible' :
-                      p.status === 'BLOCKED' ? 'badge-blocked' :
-                      'badge-draft'
-                    }`}>{p.status}</span>
-                  </div>
-                  <span className="font-medium">{formatCurrency(p.amount)}</span>
-                </div>
-              ))}
-            </div>
-          ) : (
-            <p className="text-[rgba(232,228,220,0.6)] text-center py-4">No payment data</p>
-          )}
         </div>
       </div>
     </div>

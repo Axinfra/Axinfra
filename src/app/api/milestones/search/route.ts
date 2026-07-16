@@ -125,9 +125,6 @@ export async function GET(request: NextRequest) {
         project: {
           select: { id: true, name: true },
         },
-        _count: {
-          select: { evidence: true },
-        },
       },
       orderBy: [{ sortOrder: 'asc' }, { createdAt: 'asc' }],
       skip: (page - 1) * limit,
@@ -154,9 +151,6 @@ export async function GET(request: NextRequest) {
       project: {
         id: m.project.id,
         name: m.project.name,
-      },
-      _count: {
-        evidence: m._count.evidence,
       },
     }));
 

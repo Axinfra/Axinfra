@@ -13,13 +13,16 @@ class TransitionError extends Error {
 
 /**
  * Valid state transitions for milestones.
- * SPEC: Draft -> In Progress -> Submitted -> Verified -> Closed
- * No skipping. No backdating. Invalid transitions must fail.
+ * SPEC: Draft -> In Progress -> Verified -> Closed.
+ * PMC can verify directly from IN_PROGRESS — a formal "Submitted" step is no
+ * longer required. SUBMITTED is kept as a legacy state: existing milestones
+ * already sitting in SUBMITTED can still be verified or sent back, but new
+ * milestones no longer pass through it. No backdating. Invalid transitions fail.
  */
 const VALID_TRANSITIONS: Record<MilestoneState, MilestoneState[]> = {
   [MilestoneState.DRAFT]: [MilestoneState.IN_PROGRESS],
-  [MilestoneState.IN_PROGRESS]: [MilestoneState.SUBMITTED],
-  [MilestoneState.SUBMITTED]: [MilestoneState.VERIFIED, MilestoneState.IN_PROGRESS], // IN_PROGRESS only on rejection
+  [MilestoneState.IN_PROGRESS]: [MilestoneState.VERIFIED, MilestoneState.SUBMITTED], // SUBMITTED kept for legacy callers
+  [MilestoneState.SUBMITTED]: [MilestoneState.VERIFIED, MilestoneState.IN_PROGRESS], // legacy: IN_PROGRESS only on rejection
   [MilestoneState.VERIFIED]: [MilestoneState.CLOSED],
   [MilestoneState.CLOSED]: [], // Terminal state
 };
@@ -32,9 +35,10 @@ const TRANSITION_PERMISSIONS: Record<string, Role[]> = {
   [`${MilestoneState.DRAFT}->${MilestoneState.IN_PROGRESS}`]: [Role.CLIENT, Role.PMC, Role.VENDOR],
 
   // From IN_PROGRESS
-  [`${MilestoneState.IN_PROGRESS}->${MilestoneState.SUBMITTED}`]: [Role.VENDOR],
+  [`${MilestoneState.IN_PROGRESS}->${MilestoneState.VERIFIED}`]: [Role.PMC],
+  [`${MilestoneState.IN_PROGRESS}->${MilestoneState.SUBMITTED}`]: [Role.VENDOR], // legacy
 
-  // From SUBMITTED
+  // From SUBMITTED (legacy)
   [`${MilestoneState.SUBMITTED}->${MilestoneState.VERIFIED}`]: [Role.PMC],
   [`${MilestoneState.SUBMITTED}->${MilestoneState.IN_PROGRESS}`]: [Role.CLIENT, Role.PMC], // Rejection
 
@@ -133,34 +137,6 @@ export class MilestoneStateMachine {
           throw new TransitionError(
             `Role ${role} cannot perform transition: ${fromState} -> ${toState}`
           );
-        }
-
-        // Special validation for SUBMITTED state (requires evidence)
-        if (toState === MilestoneState.SUBMITTED) {
-          const hasEvidence = await tx.evidence.count({
-            where: { milestoneId, status: 'SUBMITTED' },
-          });
-          if (hasEvidence === 0) {
-            throw new TransitionError('Cannot submit milestone without evidence');
-          }
-        }
-
-        // Special validation for VERIFIED state (requires ALL evidence to be APPROVED)
-        if (toState === MilestoneState.VERIFIED) {
-          const totalEvidence = await tx.evidence.count({
-            where: { milestoneId },
-          });
-          const approvedEvidence = await tx.evidence.count({
-            where: { milestoneId, status: 'APPROVED' },
-          });
-          if (totalEvidence === 0) {
-            throw new TransitionError('Cannot verify milestone without evidence');
-          }
-          if (approvedEvidence < totalEvidence) {
-            throw new TransitionError(
-              `Cannot verify: ${totalEvidence - approvedEvidence} of ${totalEvidence} evidence items are not yet approved`
-            );
-          }
         }
 
         // Special validation for rejection (SUBMITTED -> IN_PROGRESS)
@@ -312,16 +288,11 @@ export class MilestoneStateMachine {
   }
 
   /**
-   * Validate that a milestone can be submitted (has required evidence).
+   * Validate that a milestone can be submitted.
    */
   static async canSubmit(milestoneId: string): Promise<{ canSubmit: boolean; reason?: string }> {
     const milestone = await prisma.milestone.findUnique({
       where: { id: milestoneId },
-      include: {
-        evidence: {
-          where: { status: 'SUBMITTED' },
-        },
-      },
     });
 
     if (!milestone) {
@@ -332,32 +303,25 @@ export class MilestoneStateMachine {
       return { canSubmit: false, reason: `Milestone is in ${milestone.state} state, not IN_PROGRESS` };
     }
 
-    if (milestone.evidence.length === 0) {
-      return { canSubmit: false, reason: 'Evidence is mandatory for submission' };
-    }
-
     return { canSubmit: true };
   }
 
   /**
    * Validate that a milestone can be verified.
+   * PMC can verify directly from IN_PROGRESS; SUBMITTED is accepted too for
+   * any legacy milestone still sitting in that state.
    */
   static async canVerify(milestoneId: string): Promise<{ canVerify: boolean; reason?: string }> {
     const milestone = await prisma.milestone.findUnique({
       where: { id: milestoneId },
-      include: { evidence: { select: { id: true } } },
     });
 
     if (!milestone) {
       return { canVerify: false, reason: 'Milestone not found' };
     }
 
-    if (milestone.state !== MilestoneState.SUBMITTED) {
-      return { canVerify: false, reason: `Milestone is in ${milestone.state} state, not SUBMITTED` };
-    }
-
-    if (milestone.evidence.length === 0) {
-      return { canVerify: false, reason: 'No evidence found' };
+    if (milestone.state !== MilestoneState.IN_PROGRESS && milestone.state !== MilestoneState.SUBMITTED) {
+      return { canVerify: false, reason: `Milestone is in ${milestone.state} state, not IN_PROGRESS` };
     }
 
     return { canVerify: true };

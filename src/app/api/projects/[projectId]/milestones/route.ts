@@ -16,25 +16,51 @@ const milestoneListSelect = {
   plannedStart: true,
   plannedEnd: true,
   actualStart: true,
+  actualEnd: true,
+  baselinePlannedStart: true,
+  baselinePlannedEnd: true,
+  durationDays: true,
+  actualWorkHours: true,
+  remainingWorkHours: true,
   value: true,
   advancePercent: true,
   isExtra: true,
   extraApprovedAt: true,
   vendorUserId: true,
   phaseId: true,
+  readyForReview: true,
+  readyForReviewAt: true,
   createdAt: true,
+  wbsCode: true,
+  isMsProjectMilestone: true,
+  percentComplete: true,
+  priority: true,
+  remarks: true,
   vendorUser: { select: { id: true, name: true, email: true } },
+  phase: { select: { id: true, name: true } },
+  // This milestone's predecessors (things that must happen before it) and successors (things
+  // that depend on it) — feeds the Milestones page's dependency filter (Has Dependencies /
+  // Blocked / etc.) without a separate round trip to the Gantt endpoint.
+  predecessorDependencies: {
+    select: {
+      dependencyType: true,
+      lagDays: true,
+      predecessor: { select: { id: true, title: true, state: true } },
+    },
+  },
+  successorDependencies: {
+    select: {
+      dependencyType: true,
+      lagDays: true,
+      successor: { select: { id: true, title: true, state: true } },
+    },
+  },
   boqLinks: {
     select: {
       id: true,
       plannedQty: true,
       boqItem: { select: { id: true, description: true, unit: true, rate: true } },
     },
-  },
-  evidence: {
-    orderBy: { submittedAt: 'desc' as const },
-    take: 1,
-    select: { id: true, status: true, submittedAt: true },
   },
   verifications: {
     orderBy: { verifiedAt: 'desc' as const },
@@ -64,6 +90,8 @@ const createMilestoneSchema = z.object({
   isExtra: z.boolean().default(false), // Outside BOQ - requires owner approval
   vendorUserId: z.string().uuid().optional().nullable(), // Optional vendor assignment
   phaseId: z.string().uuid().optional().nullable(),
+  priority: z.enum(['LOW', 'NORMAL', 'HIGH', 'URGENT']).default('NORMAL'),
+  remarks: z.string().trim().max(2000).optional().nullable(),
   boqLinks: z.array(z.object({
     boqItemId: z.string().uuid(),
     plannedQty: z.number().positive(),
@@ -152,6 +180,22 @@ export async function POST(
     const phaseId = isExtra ? null : data.phaseId ?? null;
     const boqLinks = isExtra ? undefined : data.boqLinks;
 
+    // A milestone may only link to BOQ items whose BOQ has been approved by the client —
+    // DRAFT/PENDING_APPROVAL/REVISED BOQs aren't verified yet.
+    if (boqLinks && boqLinks.length > 0) {
+      const linkedItems = await prisma.bOQItem.findMany({
+        where: { id: { in: boqLinks.map((l) => l.boqItemId) } },
+        select: { id: true, boq: { select: { projectId: true, status: true } } },
+      });
+      const invalid = linkedItems.find((i) => i.boq.projectId !== projectId || i.boq.status !== 'APPROVED');
+      if (invalid || linkedItems.length !== boqLinks.length) {
+        return NextResponse.json(
+          { success: false, error: 'BOQ items can only be linked once their BOQ is approved by the client' },
+          { status: 400 }
+        );
+      }
+    }
+
     // Calculate advance and remaining amounts
     const advanceAmount = data.value * (data.advancePercent / 100);
     const remainingAmount = data.value - advanceAmount;
@@ -171,6 +215,8 @@ export async function POST(
           isExtra,
           vendorUserId: data.vendorUserId ?? null,
           phaseId,
+          priority: data.priority,
+          remarks: data.remarks ?? null,
         },
       });
 

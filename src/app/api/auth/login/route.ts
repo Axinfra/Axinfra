@@ -1,6 +1,6 @@
 import { NextRequest, NextResponse } from 'next/server';
 import { prisma } from '@/lib/db';
-import { createSession } from '@/lib/auth';
+import { createSession, SESSION_COOKIE_MAX_AGE_SECONDS } from '@/lib/auth';
 import { loginRateLimiter } from '@/lib/rate-limiter';
 import bcrypt from 'bcryptjs';
 import { z } from 'zod';
@@ -26,7 +26,7 @@ export async function POST(request: NextRequest) {
       || 'unknown';
     const rateLimitKey = `${clientIp}:${email.toLowerCase()}`;
 
-    const rateCheck = loginRateLimiter.check(rateLimitKey);
+    const rateCheck = await loginRateLimiter.check(rateLimitKey);
     if (!rateCheck.allowed) {
       const retryAfterSeconds = Math.ceil((rateCheck.retryAfterMs || 0) / 1000);
       return NextResponse.json(
@@ -83,7 +83,7 @@ export async function POST(request: NextRequest) {
     }
 
     // Successful login — reset rate limiter counter
-    loginRateLimiter.reset(rateLimitKey);
+    await loginRateLimiter.reset(rateLimitKey);
 
     // Save preferred role if provided
     if (preferredRole) {
@@ -134,7 +134,7 @@ export async function POST(request: NextRequest) {
       httpOnly: true,
       secure: process.env.NODE_ENV === 'production',
       sameSite: 'lax',
-      maxAge: 60 * 60 * 24, // 24 hours
+      maxAge: SESSION_COOKIE_MAX_AGE_SECONDS,
       path: '/',
     });
 

@@ -41,8 +41,20 @@ export class LocalDiskStorage implements FileStorageAdapter {
     this.baseDir = baseDir || process.env.UPLOAD_DIR || "./uploads";
   }
 
+  /** Resolves a key to an absolute path and guarantees it stays inside baseDir — the last
+   * line of defense against a storage key containing `../` (from an unsanitized filename
+   * upstream) writing or reading outside the upload directory. */
+  private resolveSafe(key: string): string {
+    const base = path.resolve(this.baseDir);
+    const resolved = path.resolve(base, key);
+    if (resolved !== base && !resolved.startsWith(base + path.sep)) {
+      throw new Error(`Invalid storage key (path traversal): ${key}`);
+    }
+    return resolved;
+  }
+
   async save(key: string, data: Buffer, _mimeType: string): Promise<string> {
-    const filePath = path.join(this.baseDir, key);
+    const filePath = this.resolveSafe(key);
     const dir = path.dirname(filePath);
 
     await fs.mkdir(dir, { recursive: true });
@@ -53,7 +65,7 @@ export class LocalDiskStorage implements FileStorageAdapter {
 
   async read(filePath: string): Promise<Buffer | null> {
     try {
-      return await fs.readFile(filePath);
+      return await fs.readFile(this.resolveSafe(filePath));
     } catch {
       return null;
     }
@@ -61,13 +73,13 @@ export class LocalDiskStorage implements FileStorageAdapter {
 
   async delete(filePath: string): Promise<void> {
     try {
-      await fs.unlink(filePath);
+      await fs.unlink(this.resolveSafe(filePath));
     } catch {}
   }
 
   async exists(filePath: string): Promise<boolean> {
     try {
-      await fs.access(filePath);
+      await fs.access(this.resolveSafe(filePath));
       return true;
     } catch {
       return false;

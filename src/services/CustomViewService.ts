@@ -220,11 +220,6 @@ export class CustomViewService {
             boqItem: true,
           },
         },
-        evidence: {
-          where: { status: 'APPROVED' },
-          orderBy: { submittedAt: 'desc' },
-          take: 1,
-        },
       },
     });
 
@@ -237,8 +232,12 @@ export class CustomViewService {
         0
       );
 
-      // Get latest approved evidence completion
-      const completionPercent = m.evidence[0]?.qtyOrPercent ?? 0;
+      // Derive completion from milestone state
+      const completionPercent =
+        m.state === MilestoneState.CLOSED || m.state === MilestoneState.VERIFIED ? 100
+        : m.state === MilestoneState.SUBMITTED ? 80
+        : m.state === MilestoneState.IN_PROGRESS ? 40
+        : 0;
 
       // Check if delayed (past due date and not closed)
       const isDelayed = m.plannedEnd

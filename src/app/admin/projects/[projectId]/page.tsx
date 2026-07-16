@@ -121,7 +121,7 @@ export default function AdminProjectDetailPage() {
 
   if (loading) return <div className="flex items-center justify-center h-screen text-[rgba(var(--ax-text-rgb),0.35)] text-sm">Loading project…</div>;
   if (error) return <div className="p-6 text-[#e06050] text-sm">{error}</div>;
-  if (!data) return null;
+  if (!data) return <div className="flex items-center justify-center h-screen text-[rgba(var(--ax-text-rgb),0.35)] text-sm">Loading project…</div>;
 
   const { project, milestones, auditLogs, followUps } = data;
   const st = STATUS_STYLE[project.status] ?? { bg: 'var(--ax-overlay)', fg: 'var(--ax-text)' };

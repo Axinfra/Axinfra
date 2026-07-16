@@ -1,6 +1,16 @@
 import { NextRequest, NextResponse } from 'next/server';
+import { timingSafeEqual } from 'crypto';
 import { prisma } from '@/lib/db';
 import { FollowUpScheduler } from '@/services/FollowUpScheduler';
+
+/** Constant-time comparison — a plain `!==` on the raw secret leaks timing information an
+ * attacker could use to guess CRON_SECRET one byte at a time across many requests. */
+function safeEqual(a: string, b: string): boolean {
+  const bufA = Buffer.from(a);
+  const bufB = Buffer.from(b);
+  if (bufA.length !== bufB.length) return false;
+  return timingSafeEqual(bufA, bufB);
+}
 
 export const maxDuration = 60; // seconds — cron may process many projects
 
@@ -18,7 +28,7 @@ async function runFollowUps(request: NextRequest): Promise<NextResponse> {
       );
     }
 
-    if (authHeader !== `Bearer ${cronSecret}`) {
+    if (!authHeader || !safeEqual(authHeader, `Bearer ${cronSecret}`)) {
       return NextResponse.json(
         { success: false, error: 'Unauthorized' },
         { status: 401 }

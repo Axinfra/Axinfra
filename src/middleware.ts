@@ -21,7 +21,6 @@ const PUBLIC_PAGE_ROUTES = [
   '/',
   '/auth/login',
   '/auth/register',
-  '/auth/select-role',
   '/invite',           // invite acceptance page is public (shows sign-in prompt when needed)
 ];
 

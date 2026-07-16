@@ -1,70 +1,71 @@
 'use client';
 
 import Link from 'next/link';
-import { usePathname } from 'next/navigation';
+import { Home, ChevronLeft } from 'lucide-react';
+import { cardShadow } from './vendorTheme';
+import VendorProjectSwitcher from './VendorProjectSwitcher';
 
-interface VendorNavProps {
-  projectName: string;
+interface ProjectOption {
+  id: string;
+  name: string;
 }
 
-export default function VendorNav({ projectName }: VendorNavProps) {
-  const pathname = usePathname();
-
-  const tabs = [
-    { href: '/vendor/overview',   label: 'Overview' },
-    { href: '/vendor/gantt',      label: 'Gantt' },
-    { href: '/vendor/analytics',  label: 'Analytics' },
-  ];
-
+/** The simple top bar used on every vendor page instead of a tab strip: a Home button (always
+ * gets back to the big-tile screen), a big title, an optional back arrow for nested pages, and
+ * the project switcher only when the vendor actually has more than one project. */
+export default function VendorNav({
+  title,
+  backHref,
+  projectName,
+  allProjects,
+  currentProjectId,
+  onProjectChange,
+}: {
+  title?: string;
+  backHref?: string;
+  projectName?: string;
+  allProjects?: ProjectOption[];
+  currentProjectId?: string;
+  onProjectChange?: (projectId: string) => void;
+}) {
   return (
-    <div className="mb-6">
-      {/* Header */}
-      <div className="flex items-center gap-3 mb-4">
-        <span className="text-[12px] font-medium" style={{ color: 'rgba(var(--ax-text-rgb),0.55)' }}>
-          {projectName}
-        </span>
-        <span className="px-2 py-0.5 rounded-full text-[11px] font-medium"
-          style={{ background: 'rgba(var(--ax-accent-rgb),0.1)', color: 'var(--ax-accent)' }}>
-          Vendor Portal
-        </span>
+    <div className="mb-7 space-y-3.5">
+      <div className="flex items-center gap-2.5">
+        <Link
+          href="/vendor"
+          aria-label="Home"
+          className="flex items-center justify-center w-12 h-12 rounded-full shrink-0"
+          style={{ background: 'var(--ax-card)', color: 'var(--ax-accent)', ...cardShadow }}
+        >
+          <Home className="w-5 h-5" strokeWidth={2.5} />
+        </Link>
+        {backHref && (
+          <Link
+            href={backHref}
+            aria-label="Back"
+            className="flex items-center justify-center w-12 h-12 rounded-full shrink-0"
+            style={{ background: 'var(--ax-card)', color: 'var(--ax-text)', ...cardShadow }}
+          >
+            <ChevronLeft className="w-6 h-6" strokeWidth={2.5} />
+          </Link>
+        )}
+        {title && (
+          <h1 className="text-3xl font-bold truncate" style={{ color: 'var(--ax-text)' }}>{title}</h1>
+        )}
       </div>
 
-      {/* Tab bar */}
-      <div className="flex items-center gap-1 border-b" style={{ borderColor: 'var(--ax-border)' }}>
-        {tabs.map((tab) => {
-          const isActive = pathname.startsWith(tab.href);
-          return (
-            <Link
-              key={tab.href}
-              href={tab.href}
-              className="ax-tab-active ax-tab-inactive"
-              style={isActive ? {
-                borderBottom: '2px solid var(--ax-accent)',
-                color: 'var(--ax-accent)',
-                marginBottom: -1,
-                padding: '10px 16px',
-                fontSize: 13,
-                fontWeight: 500,
-                textDecoration: 'none',
-                display: 'inline-block',
-                transition: 'all 0.2s',
-              } : {
-                borderBottom: '2px solid transparent',
-                color: 'rgba(var(--ax-text-rgb),0.55)',
-                marginBottom: -1,
-                padding: '10px 16px',
-                fontSize: 13,
-                fontWeight: 500,
-                textDecoration: 'none',
-                display: 'inline-block',
-                transition: 'all 0.2s',
-              }}
-            >
-              {tab.label}
-            </Link>
-          );
-        })}
-      </div>
+      {projectName && (
+        allProjects && allProjects.length > 1 && onProjectChange && currentProjectId ? (
+          <VendorProjectSwitcher
+            projects={allProjects}
+            currentProjectId={currentProjectId}
+            currentProjectName={projectName}
+            onChange={onProjectChange}
+          />
+        ) : (
+          <span className="text-base font-semibold" style={{ color: 'rgba(var(--ax-text-rgb),0.55)' }}>{projectName}</span>
+        )
+      )}
     </div>
   );
 }

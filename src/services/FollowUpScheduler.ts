@@ -1,10 +1,9 @@
-import { FollowUpType, FollowUpStatus, EligibilityState, EvidenceStatus, MilestoneState, Role, AuditActionTypes } from '@/types';
+import { FollowUpType, FollowUpStatus, EligibilityState, MilestoneState, Role, AuditActionTypes } from '@/types';
 import { prisma } from '@/lib/db';
 import { AuditLogger } from './AuditLogger';
 import { getEnvNumber } from '@/lib/utils';
 import { PaymentEligibilityEngine } from './PaymentEligibilityEngine';
 
-const PENDING_REVIEW_THRESHOLD_DAYS = getEnvNumber('PENDING_REVIEW_THRESHOLD_DAYS', 3);
 const PENDING_VERIFICATION_THRESHOLD_DAYS = getEnvNumber('PENDING_VERIFICATION_THRESHOLD_DAYS', 5);
 const PAYMENT_DUE_SOON_THRESHOLD_DAYS = getEnvNumber('PAYMENT_DUE_SOON_THRESHOLD_DAYS', 7);
 const PAYMENT_BLOCKED_THRESHOLD_DAYS = getEnvNumber('PAYMENT_BLOCKED_THRESHOLD_DAYS', 14);
@@ -67,60 +66,11 @@ export class FollowUpScheduler {
   }
 
   /**
-   * Check for pending evidence reviews.
+   * Evidence review no longer exists as a distinct step — submission and
+   * verification are handled directly by checkPendingVerification.
    */
-  private static async checkPendingEvidenceReview(projectId: string): Promise<number> {
-    const threshold = new Date();
-    threshold.setDate(threshold.getDate() - PENDING_REVIEW_THRESHOLD_DAYS);
-
-    const pendingEvidence = await prisma.evidence.findMany({
-      where: {
-        status: EvidenceStatus.SUBMITTED,
-        submittedAt: { lte: threshold },
-        milestone: { projectId },
-      },
-      include: {
-        milestone: true,
-      },
-    });
-
-    if (pendingEvidence.length === 0) return 0;
-
-    const existing = await prisma.followUp.findMany({
-      where: {
-        projectId,
-        type: FollowUpType.PENDING_EVIDENCE_REVIEW,
-        status: FollowUpStatus.OPEN,
-        targetEntityId: { in: pendingEvidence.map(e => e.id) },
-      },
-      select: { targetEntityId: true },
-    });
-    const existingSet = new Set(existing.map(f => f.targetEntityId));
-
-    const toCreate = pendingEvidence
-      .filter(evidence => !existingSet.has(evidence.id))
-      .map(evidence => {
-        const daysPending = Math.ceil(
-          (Date.now() - evidence.submittedAt.getTime()) / (1000 * 60 * 60 * 24)
-        );
-        return {
-          projectId,
-          type: FollowUpType.PENDING_EVIDENCE_REVIEW,
-          targetEntity: 'Evidence',
-          targetEntityId: evidence.id,
-          description: `Evidence for milestone "${evidence.milestone.title}" pending review for ${daysPending} days`,
-          status: FollowUpStatus.OPEN,
-        };
-      });
-
-    if (toCreate.length === 0) return 0;
-
-    await prisma.followUp.createMany({
-      data: toCreate,
-      skipDuplicates: true,
-    });
-
-    return toCreate.length;
+  private static async checkPendingEvidenceReview(_projectId: string): Promise<number> {
+    return 0;
   }
 
   /**
@@ -130,17 +80,12 @@ export class FollowUpScheduler {
     const threshold = new Date();
     threshold.setDate(threshold.getDate() - PENDING_VERIFICATION_THRESHOLD_DAYS);
 
-    // Find milestones with approved evidence but not yet verified
+    // Find milestones submitted (awaiting PMC verification) longer than the threshold
     const pendingMilestones = await prisma.milestone.findMany({
       where: {
         projectId,
         state: MilestoneState.SUBMITTED,
-        evidence: {
-          some: {
-            status: EvidenceStatus.APPROVED,
-            reviewedAt: { lte: threshold },
-          },
-        },
+        actualSubmission: { lte: threshold },
       },
     });
 
@@ -164,7 +109,7 @@ export class FollowUpScheduler {
         type: FollowUpType.PENDING_VERIFICATION,
         targetEntity: 'Milestone',
         targetEntityId: milestone.id,
-        description: `Milestone "${milestone.title}" has approved evidence but pending verification`,
+        description: `Milestone "${milestone.title}" submitted and pending verification`,
         status: FollowUpStatus.OPEN,
       }));
 

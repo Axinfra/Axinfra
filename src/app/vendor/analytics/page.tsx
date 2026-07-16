@@ -5,7 +5,7 @@ import Layout from '@/components/Layout';
 import VendorNav from '@/components/vendor/VendorNav';
 import { useVendorPortal } from '@/lib/contexts/VendorPortalContext';
 import { DARK_TOOLTIP } from '@/lib/chartConfig';
-import { Loader2, AlertTriangle, TrendingUp, TrendingDown, Clock, CheckCircle2, ChevronDown } from 'lucide-react';
+import { Loader2, AlertTriangle, TrendingUp, TrendingDown, Clock, CheckCircle2 } from 'lucide-react';
 import {
   ResponsiveContainer, AreaChart, Area, BarChart, Bar,
   LineChart, Line, XAxis, YAxis, CartesianGrid, Tooltip, Legend,
@@ -45,21 +45,15 @@ export default function VendorAnalyticsPage() {
 
   return (
     <Layout>
-      <VendorNav projectName={projectName} />
+      <VendorNav
+        title="Performance"
+        backHref="/vendor/reports"
+        projectName={projectName}
+        allProjects={allProjects}
+        currentProjectId={data.projectId}
+        onProjectChange={reload}
+      />
       <div className="space-y-5">
-
-        {allProjects.length > 1 && (
-          <div className="flex items-center gap-3">
-            <span className="text-xs font-medium text-[rgba(var(--ax-text-rgb),0.45)] uppercase tracking-wider shrink-0">Project</span>
-            <div className="relative">
-              <select value={data.projectId} onChange={e => reload(e.target.value)}
-                className="appearance-none bg-[var(--ax-input)] border border-[var(--ax-border)] rounded-lg pl-3 pr-8 py-2 text-sm text-[var(--ax-text)] outline-none focus:border-[rgba(var(--ax-accent-rgb),0.4)] cursor-pointer">
-                {allProjects.map(p => <option key={p.id} value={p.id}>{p.name}</option>)}
-              </select>
-              <ChevronDown className="absolute right-2.5 top-1/2 -translate-y-1/2 w-3.5 h-3.5 text-[rgba(var(--ax-text-rgb),0.35)] pointer-events-none" />
-            </div>
-          </div>
-        )}
 
         {/* KPI cards */}
         <div className="grid grid-cols-2 sm:grid-cols-4 gap-3">
@@ -78,7 +72,7 @@ export default function VendorAnalyticsPage() {
           <div className="bg-[var(--ax-card)] border border-[var(--ax-border)] rounded-xl p-4">
             <div className="flex items-center gap-2 mb-2"><Clock className="w-4 h-4 text-[var(--ax-accent)]" /><span className="text-[10.5px] font-semibold text-[rgba(var(--ax-text-rgb),0.45)] uppercase tracking-wider">Approval</span></div>
             <p className="text-2xl font-bold text-[var(--ax-text)]">{kpis.avgApprovalCycleDays}d</p>
-            <p className="text-[10.5px] text-[rgba(var(--ax-text-rgb),0.35)] mt-0.5">Evidence → verified</p>
+            <p className="text-[10.5px] text-[rgba(var(--ax-text-rgb),0.35)] mt-0.5">Submitted → verified</p>
           </div>
           <div className="bg-[var(--ax-card)] border border-[var(--ax-border)] rounded-xl p-4">
             <div className="flex items-center gap-2 mb-2"><CheckCircle2 className="w-4 h-4 text-[rgba(var(--ax-text-rgb),0.35)]" /><span className="text-[10.5px] font-semibold text-[rgba(var(--ax-text-rgb),0.45)] uppercase tracking-wider">Progress</span></div>
@@ -149,18 +143,17 @@ export default function VendorAnalyticsPage() {
 
             {activeTab === 'payment' && (
               <div>
-                <div className="mb-4"><h3 className="text-sm font-semibold text-[var(--ax-text)]">Payment Cycle</h3><p className="text-xs text-[rgba(var(--ax-text-rgb),0.4)] mt-0.5">Average days from evidence submission to payment eligibility</p></div>
+                <div className="mb-4"><h3 className="text-sm font-semibold text-[var(--ax-text)]">Payment Cycle</h3><p className="text-xs text-[rgba(var(--ax-text-rgb),0.4)] mt-0.5">Average days from milestone submission to payment eligibility</p></div>
                 <div className="grid sm:grid-cols-3 gap-4">
                   <div className="sm:col-span-1 flex flex-col items-center justify-center bg-[var(--ax-overlay)] border border-[var(--ax-border-subtle)] rounded-xl py-10 px-4 text-center">
                     <p className="text-5xl font-bold text-[var(--ax-accent)]">{paymentCycleDays.avg}</p>
                     <p className="text-sm text-[rgba(var(--ax-text-rgb),0.55)] mt-2">days avg</p>
-                    <p className="text-xs text-[rgba(var(--ax-text-rgb),0.3)] mt-1">Evidence → payment eligible</p>
+                    <p className="text-xs text-[rgba(var(--ax-text-rgb),0.3)] mt-1">Submitted → payment eligible</p>
                   </div>
                   <div className="sm:col-span-2 space-y-3 flex flex-col justify-center">
                     {[
-                      {icon:'📄',label:'Evidence submitted',sub:'Vendor uploads photos/docs'},
-                      {icon:'🔍',label:'PMC review',sub:'Checked against BOQ'},
-                      {icon:'✅',label:'Owner verification',sub:'Final approval'},
+                      {icon:'📄',label:'Milestone submitted',sub:'Vendor marks work complete'},
+                      {icon:'✅',label:'PMC verification',sub:'Checked against BOQ'},
                       {icon:'💳',label:'Payment released',sub:'Eligible amount unlocked'},
                     ].map((s,i) => (
                       <div key={i} className="flex items-center gap-3">

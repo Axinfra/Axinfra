@@ -262,9 +262,9 @@ export async function sendProjectInviteEmail(
   };
   const roleDescriptions: Record<string, string> = {
     CLIENT: 'Full oversight of payments, BOQ approvals, and project financials.',
-    PMC: 'Create BOQ, govern milestones, verify evidence, and manage vendors.',
-    VENDOR: 'Execute work on-site, submit evidence for milestones and receive payments.',
-    CONSULTANT: 'Upload documents, review evidence, and export audit logs.',
+    PMC: 'Create BOQ, govern milestones, verify work, and manage vendors.',
+    VENDOR: 'Execute work on-site, submit milestones for verification and receive payments.',
+    CONSULTANT: 'Upload documents, review submissions, and export audit logs.',
     VIEWER: 'Read-only access to project status, milestones, and reports.',
   };
 
@@ -445,7 +445,7 @@ export async function sendProjectAssignedEmail(
     </table>
 
     <p style="font-size:12px;color:rgba(232,228,220,0.35);margin:10px 0 0;">
-      Log in to view milestones, evidence, and your tasks on this project.
+      Log in to view milestones and your tasks on this project.
     </p>
 
     ${btn('Open Project', projectUrl)}

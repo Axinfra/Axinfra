@@ -31,7 +31,6 @@ export interface ViseronMetrics {
     verifiedPercent: number;
     avgDaysInProgress: number;
     avgDaysInSubmitted: number;
-    evidenceRejectionRate: number;
   };
   financial: {
     totalProjectValue: number;
@@ -107,7 +106,7 @@ export class ViseronAnalyticsEngine {
     const kpis = computeProjectScheduleKPIs(
       {
         milestones: rawMilestones,
-        avgApprovalCycleDays: executionAnalysis.overview.avgEvidenceReviewDays,
+        avgApprovalCycleDays: executionAnalysis.overview.avgDaysInSubmitted,
         criticalMilestoneCount: 0,
         escalationsLast30Days: 0,
       },
@@ -175,7 +174,6 @@ export class ViseronAnalyticsEngine {
         verifiedPercent: executionAnalysis.overview.verifiedPercent,
         avgDaysInProgress: executionAnalysis.overview.avgDaysInProgress,
         avgDaysInSubmitted: executionAnalysis.overview.avgDaysInSubmitted,
-        evidenceRejectionRate: executionAnalysis.overview.evidenceRejectionRate,
       },
       financial: {
         totalProjectValue: financialAnalysis.summary.totalProjectValue,

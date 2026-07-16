@@ -24,19 +24,6 @@ export async function GET(
             boqItem: true,
           },
         },
-        evidence: {
-          include: {
-            files: true,
-            submittedBy: {
-              select: {
-                id: true,
-                name: true,
-                email: true,
-              },
-            },
-          },
-          orderBy: { submittedAt: 'desc' },
-        },
         verifications: {
           include: {
             verifiedBy: {
@@ -48,6 +35,19 @@ export async function GET(
             },
           },
           orderBy: { verifiedAt: 'desc' },
+        },
+        evidence: {
+          include: {
+            files: { select: { id: true, fileName: true, mimeType: true } },
+            submittedBy: { select: { id: true, name: true } },
+          },
+          orderBy: { submittedAt: 'desc' },
+        },
+        comments: {
+          include: {
+            author: { select: { id: true, name: true } },
+          },
+          orderBy: { createdAt: 'asc' },
         },
         transitions: {
           include: {
@@ -105,10 +105,13 @@ export async function GET(
       lagDays: dep.lagDays,
     }));
 
+    const { evidence, ...milestoneRest } = milestone;
+
     return NextResponse.json({
       success: true,
       data: {
-        ...milestone,
+        ...milestoneRest,
+        submissions: evidence,
         plannedValue,
         validNextStates,
         predecessors,
@@ -127,6 +130,178 @@ export async function GET(
       { success: false, error: 'Internal server error' },
       { status: 500 }
     );
+  }
+}
+
+const EDITABLE_DATE_FIELDS = [
+  'plannedStart', 'plannedEnd', 'baselinePlannedStart', 'baselinePlannedEnd', 'actualStart', 'actualEnd',
+] as const;
+const EDITABLE_NUMBER_FIELDS = ['durationDays', 'percentComplete', 'actualWorkHours', 'remainingWorkHours'] as const;
+
+// PATCH /api/projects/[projectId]/milestones/[milestoneId] - Edit milestone fields
+// (title, dates, duration/progress/work) — same workflow as the Gantt L2 date editor,
+// extended to the full field set so the Schedule WBS view can edit imported tasks too.
+export async function PATCH(
+  request: NextRequest,
+  { params }: { params: Promise<{ projectId: string; milestoneId: string }> }
+) {
+  try {
+    const { projectId, milestoneId } = await params;
+    const auth = await requireProjectAuth(projectId);
+    RoleGuard.requireRole(auth, ['CLIENT', 'PMC']);
+
+    const existing = await prisma.milestone.findFirst({ where: { id: milestoneId, projectId } });
+    if (!existing) {
+      return NextResponse.json({ success: false, error: 'Milestone not found' }, { status: 404 });
+    }
+
+    const body = await request.json();
+    const data: Record<string, unknown> = {};
+    const before: Record<string, unknown> = {};
+
+    if (typeof body.title === 'string' && body.title.trim()) {
+      data.title = body.title.trim();
+      before.title = existing.title;
+    }
+    for (const field of EDITABLE_DATE_FIELDS) {
+      if (field in body) {
+        const value = body[field];
+        const parsed = value ? new Date(value) : null;
+        if (value && Number.isNaN(parsed?.getTime())) {
+          return NextResponse.json({ success: false, error: `Invalid date for ${field}` }, { status: 400 });
+        }
+        data[field] = parsed;
+        before[field] = existing[field as keyof typeof existing];
+      }
+    }
+    for (const field of EDITABLE_NUMBER_FIELDS) {
+      if (field in body) {
+        const value = body[field];
+        const parsed = value === null || value === '' ? null : Number(value);
+        if (parsed !== null && !Number.isFinite(parsed)) {
+          return NextResponse.json({ success: false, error: `Invalid number for ${field}` }, { status: 400 });
+        }
+        data[field] = parsed;
+        before[field] = existing[field as keyof typeof existing];
+      }
+    }
+
+    if ('phaseId' in body) {
+      const phaseId = body.phaseId || null;
+      if (phaseId) {
+        const phase = await prisma.phase.findFirst({ where: { id: phaseId, projectId } });
+        if (!phase) {
+          return NextResponse.json({ success: false, error: 'Linked phase not found in this project' }, { status: 400 });
+        }
+      }
+      data.phaseId = phaseId;
+      before.phaseId = existing.phaseId;
+    }
+
+    if ('vendorUserId' in body) {
+      const vendorUserId = body.vendorUserId || null;
+      if (vendorUserId) {
+        const vendorRole = await prisma.projectRole.findUnique({
+          where: { projectId_userId: { projectId, userId: vendorUserId } },
+        });
+        if (!vendorRole || vendorRole.role !== 'VENDOR') {
+          return NextResponse.json({ success: false, error: 'Assigned vendor must be a VENDOR on this project' }, { status: 400 });
+        }
+      }
+      data.vendorUserId = vendorUserId;
+      before.vendorUserId = existing.vendorUserId;
+    }
+
+    if ('priority' in body) {
+      const priority = body.priority;
+      if (!['LOW', 'NORMAL', 'HIGH', 'URGENT'].includes(priority)) {
+        return NextResponse.json({ success: false, error: 'Invalid priority' }, { status: 400 });
+      }
+      data.priority = priority;
+      before.priority = existing.priority;
+    }
+
+    if ('remarks' in body) {
+      const remarks = typeof body.remarks === 'string' ? body.remarks.trim() || null : null;
+      data.remarks = remarks;
+      before.remarks = existing.remarks;
+    }
+
+    // Replace the milestone's linked BOQ item — only a client-approved BOQ's items are
+    // eligible (mirrors the same rule enforced on create, in POST /milestones).
+    let boqLinkUpdate: { boqItemId: string; plannedQty: number } | null | undefined;
+    if ('boqItemId' in body) {
+      const boqItemId = body.boqItemId || null;
+      if (boqItemId) {
+        const plannedQty = Number(body.boqQty);
+        if (!Number.isFinite(plannedQty) || plannedQty <= 0) {
+          return NextResponse.json({ success: false, error: 'A positive quantity is required to link a BOQ item' }, { status: 400 });
+        }
+        const item = await prisma.bOQItem.findFirst({
+          where: { id: boqItemId },
+          select: { id: true, boq: { select: { projectId: true, status: true } } },
+        });
+        if (!item || item.boq.projectId !== projectId || item.boq.status !== 'APPROVED') {
+          return NextResponse.json(
+            { success: false, error: 'BOQ items can only be linked once their BOQ is approved by the client' },
+            { status: 400 }
+          );
+        }
+        boqLinkUpdate = { boqItemId, plannedQty };
+      } else {
+        boqLinkUpdate = null;
+      }
+    }
+
+    if (Object.keys(data).length === 0 && boqLinkUpdate === undefined) {
+      return NextResponse.json({ success: false, error: 'No editable fields provided' }, { status: 400 });
+    }
+
+    const updated = await prisma.$transaction(async (tx) => {
+      const result = Object.keys(data).length > 0
+        ? await tx.milestone.update({ where: { id: milestoneId }, data })
+        : existing;
+
+      if (boqLinkUpdate !== undefined) {
+        await tx.milestoneBOQLink.deleteMany({ where: { milestoneId } });
+        if (boqLinkUpdate) {
+          await tx.milestoneBOQLink.create({
+            data: { milestoneId, boqItemId: boqLinkUpdate.boqItemId, plannedQty: boqLinkUpdate.plannedQty },
+          });
+        }
+      }
+
+      return result;
+    });
+
+    await Promise.all([
+      invalidatePrefix(`milestone:${projectId}:list:`),
+      invalidatePrefix(`project:${projectId}:detail:`),
+      invalidatePrefix(`gantt:${projectId}`),
+      invalidatePrefix(`analytics:${projectId}`),
+    ]);
+
+    await AuditLogger.log({
+      projectId,
+      actorId: auth.userId,
+      role: auth.role,
+      actionType: AuditActionTypes.MILESTONE_UPDATE,
+      entityType: 'Milestone',
+      entityId: milestoneId,
+      beforeJson: before,
+      afterJson: data,
+    });
+
+    return NextResponse.json({ success: true, data: updated });
+  } catch (error) {
+    if (error instanceof Error && error.message === 'UNAUTHORIZED') {
+      return NextResponse.json({ success: false, error: 'Unauthorized' }, { status: 401 });
+    }
+    if (error instanceof Error && error.message.startsWith('FORBIDDEN')) {
+      return NextResponse.json({ success: false, error: error.message }, { status: 403 });
+    }
+    console.error('Milestone update error:', error);
+    return NextResponse.json({ success: false, error: 'Internal server error' }, { status: 500 });
   }
 }
 

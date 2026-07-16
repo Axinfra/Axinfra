@@ -2,7 +2,7 @@
  * validate-ownership.ts — Centralized resource ownership validation.
  *
  * PURPOSE: Prevent IDOR (Insecure Direct Object Reference) attacks by verifying
- * that nested resources (milestones, evidence, BOQs, etc.) actually belong to
+ * that nested resources (milestones, BOQs, etc.) actually belong to
  * the project in the URL path. Without this, a user with access to Project A
  * could manipulate resources belonging to Project B by crafting URLs.
  *
@@ -41,20 +41,6 @@ export async function validateMilestoneOwnership(milestoneId: string, projectId:
 }
 
 /**
- * Validate that an evidence record belongs to a milestone in the specified project.
- * Returns the evidence if valid, null if not found or wrong project.
- */
-export async function validateEvidenceOwnership(evidenceId: string, projectId: string) {
-  return prisma.evidence.findFirst({
-    where: {
-      id: evidenceId,
-      milestone: { projectId },
-    },
-    include: { milestone: { select: { id: true, projectId: true } } },
-  });
-}
-
-/**
  * Validate that a BOQ belongs to the specified project.
  * Returns the BOQ if valid, null if not found or wrong project.
  */
@@ -75,21 +61,6 @@ export async function validateBOQItemOwnership(itemId: string, projectId: string
       boq: { projectId },
     },
     include: { boq: { select: { id: true, projectId: true, status: true } } },
-  });
-}
-
-/**
- * Validate that an evidence file belongs to the specified project.
- * Returns the file if valid, null if not found or wrong project.
- */
-export async function validateFileOwnership(fileId: string, projectId: string) {
-  return prisma.evidenceFile.findFirst({
-    where: {
-      id: fileId,
-      evidence: {
-        milestone: { projectId },
-      },
-    },
   });
 }
 

@@ -5,6 +5,9 @@ import { fileStorage } from '@/lib/file-storage';
 
 export const dynamic = 'force-dynamic';
 
+const MAX_FILE_SIZE_MB = parseInt(process.env.MAX_FILE_SIZE_MB || '10', 10);
+const MAX_FILE_SIZE_BYTES = MAX_FILE_SIZE_MB * 1024 * 1024;
+
 // GET /api/projects/[projectId]/architecture/rows/[rowId]/versions
 export async function GET(
   _req: NextRequest,
@@ -82,6 +85,9 @@ export async function POST(
       if (!file) return NextResponse.json({ success: false, error: 'No file provided' }, { status: 400 });
       if (file.type !== 'application/pdf') {
         return NextResponse.json({ success: false, error: 'Only PDF files are accepted' }, { status: 400 });
+      }
+      if (file.size > MAX_FILE_SIZE_BYTES) {
+        return NextResponse.json({ success: false, error: `File exceeds maximum size of ${MAX_FILE_SIZE_MB}MB` }, { status: 400 });
       }
       const buffer = Buffer.from(await file.arrayBuffer());
       const key = `drawings/${projectId}/${rowId}/v${nextVersionNumber}-${Date.now()}.pdf`;

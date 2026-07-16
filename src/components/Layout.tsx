@@ -42,6 +42,7 @@ export default function Layout({ children }: LayoutProps) {
   const [isAdminUser, setIsAdminUser] = useState(false);
   const [isVendorOnly, setIsVendorOnly] = useState(false);
   const [vendorProjects, setVendorProjects] = useState<ProjectRoleInfo[]>([]);
+  const [profileGateOpen, setProfileGateOpen] = useState(false);
 
   // Support modal
   const [supportOpen, setSupportOpen] = useState(false);
@@ -99,6 +100,22 @@ export default function Layout({ children }: LayoutProps) {
         }
       })
       .catch(console.error);
+  }, []);
+
+  // First-time-per-session nudge for vendors who haven't completed their business profile —
+  // GST is a hard requirement for RA Bill submission and Work Order issuance (enforced
+  // server-side), this is just the friendly heads-up so it isn't a surprise later.
+  useEffect(() => {
+    fetch('/api/profile')
+      .then((res) => res.json())
+      .then((data) => {
+        if (!data.success) return;
+        if (data.data.isVendor && !data.data.isProfileComplete) {
+          const dismissed = sessionStorage.getItem('axinfra_profile_gate_dismissed') === 'true';
+          if (!dismissed) setProfileGateOpen(true);
+        }
+      })
+      .catch(() => {});
   }, []);
 
   // Fetch notifications periodically
@@ -202,13 +219,13 @@ export default function Layout({ children }: LayoutProps) {
             })}
           </div>
 
-          {/* My Milestones – vendor projects grouped by name */}
+          {/* My Projects – vendor projects grouped by name, each linking to that project's activities */}
           {isVendorOnly && vendorProjects.length > 0 && (
             <>
-              <p className="px-3 mt-5 mb-2 text-[10px] font-medium uppercase tracking-wider" style={{ color: 'rgba(var(--ax-text-rgb), 0.35)' }}>My Milestones</p>
+              <p className="px-3 mt-5 mb-2 text-[10px] font-medium uppercase tracking-wider" style={{ color: 'rgba(var(--ax-text-rgb), 0.35)' }}>My Projects</p>
               <div className="space-y-0.5">
                 {vendorProjects.map((vp) => {
-                  const milestoneHref = `/projects/${vp.projectId}/milestones`;
+                  const milestoneHref = `/projects/${vp.projectId}/activities`;
                   const isActive = pathname === milestoneHref || pathname.startsWith(milestoneHref + '/');
                   return (
                     <Link
@@ -243,18 +260,25 @@ export default function Layout({ children }: LayoutProps) {
         {user && (
           <div className="border-t px-3 py-3 shrink-0" style={{ borderColor: 'var(--ax-border)' }}>
             <div className="flex items-center gap-2.5 px-2">
-              <div className="w-8 h-8 rounded-full flex items-center justify-center shrink-0" style={{ backgroundColor: 'var(--ax-accent-subtle)' }}>
-                <span className="text-[11px] font-semibold" style={{ color: 'var(--ax-accent)' }}>
-                  {user.name.split(' ').map(n => n[0]).join('').toUpperCase()}
-                </span>
-              </div>
-              <div className="flex-1 min-w-0">
-                <p className="text-[13px] font-medium truncate" style={{ color: 'var(--ax-text)' }}>{user.name}</p>
-                <p className="text-[11px] truncate" style={{ color: 'rgba(var(--ax-text-rgb), 0.35)' }}>{user.email}</p>
-              </div>
+              <Link
+                href="/profile"
+                onClick={() => setSidebarOpen(false)}
+                className="flex items-center gap-2.5 flex-1 min-w-0 rounded-lg -mx-2 px-2 py-1 ax-hover-overlay transition-colors"
+                title="My Profile"
+              >
+                <div className="w-8 h-8 rounded-full flex items-center justify-center shrink-0" style={{ backgroundColor: 'var(--ax-accent-subtle)' }}>
+                  <span className="text-[11px] font-semibold" style={{ color: 'var(--ax-accent)' }}>
+                    {user.name.split(' ').map(n => n[0]).join('').toUpperCase()}
+                  </span>
+                </div>
+                <div className="flex-1 min-w-0">
+                  <p className="text-[13px] font-medium truncate" style={{ color: 'var(--ax-text)' }}>{user.name}</p>
+                  <p className="text-[11px] truncate" style={{ color: 'rgba(var(--ax-text-rgb), 0.35)' }}>{user.email}</p>
+                </div>
+              </Link>
               <button
                 onClick={handleLogout}
-                className="p-1.5 rounded-md hover:text-[#e06050] hover:bg-[rgba(220,80,60,0.1)] transition-colors"
+                className="p-1.5 rounded-md hover:text-[#e06050] hover:bg-[rgba(220,80,60,0.1)] transition-colors shrink-0"
                 style={{ color: 'rgba(var(--ax-text-rgb), 0.35)' }}
                 title="Sign out"
                 aria-label="Sign out"
@@ -295,7 +319,7 @@ export default function Layout({ children }: LayoutProps) {
             <ThemeNavbarPicker />
 
             {user && (
-              <span className="text-[13px] hidden sm:block px-2" style={{ color: 'rgba(var(--ax-text-rgb), 0.55)' }}>{user.name}</span>
+              <Link href="/profile" className="text-[13px] hidden sm:block px-2 hover:underline" style={{ color: 'rgba(var(--ax-text-rgb), 0.55)' }}>{user.name}</Link>
             )}
 
             {/* Notification bell */}
@@ -337,7 +361,7 @@ export default function Layout({ children }: LayoutProps) {
                           onClick={() => {
                             setNotifOpen(false);
                             if (n.projectId && n.entityId && n.entityType === 'Milestone') {
-                              router.push(`/projects/${n.projectId}/milestones/${n.entityId}`);
+                              router.push(`/projects/${n.projectId}/activities/${n.entityId}`);
                             }
                           }}
                           className="px-4 py-3 border-b cursor-pointer transition-colors ax-hover-overlay"
@@ -371,6 +395,42 @@ export default function Layout({ children }: LayoutProps) {
           </div>
         </main>
       </div>
+
+      {/* Complete-your-profile gate — shown once per session to vendors missing GST/business info */}
+      {profileGateOpen && (
+        <div className="fixed inset-0 bg-black/70 flex items-center justify-center z-[60] p-4">
+          <div className="rounded-2xl w-full max-w-md border" style={{ backgroundColor: 'var(--ax-modal)', borderColor: 'var(--ax-border)' }}>
+            <div className="p-6 space-y-4">
+              <div className="w-11 h-11 rounded-full flex items-center justify-center" style={{ backgroundColor: 'rgba(224,160,48,0.12)' }}>
+                <svg className="w-5 h-5" fill="none" viewBox="0 0 24 24" strokeWidth={2} stroke="#e0a030">
+                  <path strokeLinecap="round" strokeLinejoin="round" d="M12 9v3.75m-9.303 3.376c-.866 1.5.217 3.374 1.948 3.374h14.71c1.73 0 2.813-1.874 1.948-3.374L13.949 3.378c-.866-1.5-3.032-1.5-3.898 0L2.697 16.126zM12 15.75h.007v.008H12v-.008z" />
+                </svg>
+              </div>
+              <div>
+                <h2 className="text-base font-semibold" style={{ color: 'var(--ax-text)' }}>Complete your business profile</h2>
+                <p className="text-sm mt-2" style={{ color: 'rgba(var(--ax-text-rgb), 0.6)' }}>
+                  Your account is missing a GST number. RA Bills can&apos;t be submitted and Work Orders can&apos;t be issued
+                  for your account until this is added — it only takes a minute.
+                </p>
+              </div>
+              <div className="flex justify-end gap-3 pt-1">
+                <button
+                  onClick={() => { sessionStorage.setItem('axinfra_profile_gate_dismissed', 'true'); setProfileGateOpen(false); }}
+                  className="btn btn-secondary text-sm"
+                >
+                  Remind Me Later
+                </button>
+                <button
+                  onClick={() => { setProfileGateOpen(false); router.push('/profile'); }}
+                  className="btn btn-primary text-sm"
+                >
+                  Complete Now
+                </button>
+              </div>
+            </div>
+          </div>
+        </div>
+      )}
 
       {/* Support Modal */}
       {supportOpen && (

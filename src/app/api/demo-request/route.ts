@@ -2,6 +2,7 @@ import { NextRequest, NextResponse } from 'next/server';
 import { z } from 'zod';
 import { sendDemoRequestEmail } from '@/lib/email';
 import { prisma } from '@/lib/db';
+import { publicFormRateLimiter } from '@/lib/rate-limiter';
 
 export const dynamic = 'force-dynamic';
 
@@ -15,6 +16,18 @@ const schema = z.object({
 
 export async function POST(request: NextRequest) {
   try {
+    const clientIp = request.headers.get('x-forwarded-for')?.split(',')[0]?.trim()
+      || request.headers.get('x-real-ip')
+      || 'unknown';
+    const rateCheck = await publicFormRateLimiter.check(clientIp);
+    if (!rateCheck.allowed) {
+      const retryAfterSeconds = Math.ceil((rateCheck.retryAfterMs || 0) / 1000);
+      return NextResponse.json(
+        { success: false, error: 'Too many requests. Please try again later.', retryAfterSeconds },
+        { status: 429, headers: { 'Retry-After': String(retryAfterSeconds) } },
+      );
+    }
+
     const body = await request.json();
     const parsed = schema.safeParse(body);
     if (!parsed.success) {

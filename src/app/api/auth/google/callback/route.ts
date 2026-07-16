@@ -1,6 +1,6 @@
 import { NextRequest, NextResponse } from 'next/server';
 import { prisma } from '@/lib/db';
-import { createSession } from '@/lib/auth';
+import { createSession, SESSION_COOKIE_MAX_AGE_SECONDS } from '@/lib/auth';
 import { sendSignupWelcomeEmail } from '@/lib/email';
 import { autoAcceptPendingInvites, isDemoEmail } from '@/lib/invite-utils';
 
@@ -155,7 +155,7 @@ export async function GET(request: NextRequest) {
       secure: process.env.NODE_ENV === 'production',
       sameSite: 'lax',
       path: '/',
-      maxAge: 60 * 60 * 24,
+      maxAge: SESSION_COOKIE_MAX_AGE_SECONDS,
     });
     return response;
   } catch (err) {

@@ -97,9 +97,6 @@ export class PaymentEligibilityEngine {
           verifications: {
             orderBy: { verifiedAt: 'desc' },
           },
-          evidence: {
-            where: { status: 'APPROVED' },
-          },
           paymentEligibility: true,
         },
       });

@@ -27,7 +27,7 @@ export async function GET() {
 
     // Map role → which event types to show
     const eventTypesByRole: Record<string, string[]> = {
-      VENDOR: ['MILESTONE_VERIFIED', 'REVISION_REQUESTED', 'PAYMENT_DONE', 'PAYMENT_NOT_DONE', 'SCHEDULE_UPDATED'],
+      VENDOR: ['MILESTONE_VERIFIED', 'REVISION_REQUESTED', 'MILESTONE_COMMENT', 'PAYMENT_DONE', 'PAYMENT_NOT_DONE', 'SCHEDULE_UPDATED'],
       PMC: [
         'EVIDENCE_SUBMITTED', 'WORK_STARTED', 'PAYMENT_DONE', 'PAYMENT_NOT_DONE',
         'BOQ_APPROVED', 'BOQ_REVISION_REQUESTED',

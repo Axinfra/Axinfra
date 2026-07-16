@@ -14,9 +14,13 @@ const globalForPrisma = globalThis as unknown as {
   prisma: PrismaClient | undefined;
 };
 
-export const prisma =
-  globalForPrisma.prisma ??
-  new PrismaClient({
+function isConnectionError(err: unknown): boolean {
+  const msg = err instanceof Error ? err.message : '';
+  return msg.includes("Can't reach database") || msg.includes('ECONNREFUSED') || msg.toLowerCase().includes('connection');
+}
+
+function createPrismaClient(): PrismaClient {
+  const client = new PrismaClient({
     // In dev, only log warn + slow queries via event. Suppress 'error' at the
     // Prisma log level because Neon's PgBouncer pooler emits `kind: Closed`
     // connection events through the error channel — these are informational
@@ -27,25 +31,27 @@ export const prisma =
         : [],
   });
 
-/**
- * Wraps any Prisma call with one automatic retry on connection errors.
- * Neon serverless suspends the DB after ~5 min inactivity; the first query
- * after a suspension gets a TCP error. Retrying once is sufficient because
- * Neon resumes within ~1-2 seconds of the first connection attempt.
- */
-export async function withRetry<T>(fn: () => Promise<T>, retries = 1): Promise<T> {
-  try {
-    return await fn();
-  } catch (err: unknown) {
-    const msg = err instanceof Error ? err.message : '';
-    const isConnErr = msg.includes("Can't reach database") || msg.includes('connection') || msg.includes('ECONNREFUSED');
-    if (retries > 0 && isConnErr) {
-      await new Promise(r => setTimeout(r, 1500)); // wait for Neon to wake
-      return withRetry(fn, retries - 1);
+  // Neon serverless suspends the DB after ~5 min inactivity; the first query after a
+  // suspension fails with a connection error even though a retry ~1-2s later succeeds once
+  // Neon has resumed. Without this, every request that happens to be first-after-idle would
+  // surface a raw 500 instead of just being ~1.5s slower. Only retries on the specific
+  // connection-refused signature, not on real query errors (constraint violations etc).
+  client.$use(async (params, next) => {
+    try {
+      return await next(params);
+    } catch (err) {
+      if (isConnectionError(err)) {
+        await new Promise((resolve) => setTimeout(resolve, 1500));
+        return next(params);
+      }
+      throw err;
     }
-    throw err;
-  }
+  });
+
+  return client;
 }
+
+export const prisma = globalForPrisma.prisma ?? createPrismaClient();
 
 // ── Dev-only: query duration instrumentation ────────────────────────────────
 // Logs slow queries (>200ms) to console without the overhead of logging ALL SQL

@@ -36,14 +36,19 @@ export async function GET(
     const { projectId } = await params;
     const auth = await requireProjectAuth(projectId);
 
-    // Role-based include: Owner/PMC see everything; Vendor/Viewer see only what's scoped to them.
-    const isOwnerOrPMC = auth.role === Role.CLIENT || auth.role === Role.PMC;
+    // Role-based include: Owner/PMC/Consultant see the whole project (they oversee everything,
+    // with no per-milestone assignment concept); Vendor/Viewer see only what's scoped to them.
+    // Consultant used to fall into the Vendor-scoped branch below, which filters on
+    // vendorUserId/evidence.submittedById — fields a consultant never matches — so they'd see
+    // ~0 milestones. That's a bug, not "scoped correctly": with no assignment field for
+    // consultants, full visibility is the only sensible behavior.
+    const hasFullMilestoneVisibility = auth.role === Role.CLIENT || auth.role === Role.PMC || auth.role === Role.CONSULTANT;
 
     // Cache key includes userId because Vendor/Viewer queries are scoped to auth.userId,
     // so two vendors on the same project must not share cache entries.
     const cacheKey = `project:${projectId}:detail:${auth.role}:${auth.userId}`;
     const project = await cached(cacheKey, 60_000, () =>
-      isOwnerOrPMC
+      hasFullMilestoneVisibility
         ? prisma.project.findUnique({
             where: { id: projectId, deletedAt: null },
             include: {
@@ -57,6 +62,8 @@ export async function GET(
                 include: {
                   boqLinks: { include: { boqItem: true } },
                   paymentEligibility: true,
+                  phase: { select: { id: true, name: true } },
+                  vendorUser: { select: { id: true, name: true } },
                 },
                 orderBy: { createdAt: 'asc' },
               },
@@ -81,6 +88,8 @@ export async function GET(
                 include: {
                   boqLinks: { include: { boqItem: true } },
                   paymentEligibility: true,
+                  phase: { select: { id: true, name: true } },
+                  vendorUser: { select: { id: true, name: true } },
                 },
                 orderBy: { createdAt: 'asc' },
               },
@@ -216,7 +225,9 @@ export async function PATCH(
 //   DrawingSets, DrawingRows, DrawingVersions, SetRequests,
 //   VendorRequests, VendorRequestFiles, ProjectRoles, ScheduleConfig,
 //   AuditLogs, FollowUps, VendorMetrics, ProjectMetrics, SystemEvents,
-//   CashAdjustments, PrivateCosts, CustomViews.
+//   CashAdjustments, PrivateCosts, CustomViews, WorkOrders, WorkOrderRevisions,
+//   RABills, RABillLineItems, ScheduleImports, Resources, MilestoneResourceAssignments,
+//   ProjectInvites.
 export async function DELETE(
   request: NextRequest,
   { params }: { params: Promise<{ projectId: string }> }

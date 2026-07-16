@@ -10,6 +10,26 @@ const nextConfig = {
       },
     ],
   },
+  experimental: {
+    // @byteink/mppjs resolves its native binary via a dynamic require based on
+    // process.platform/arch (optionalDependencies sidecar), which the default
+    // file tracer can't follow statically — without this the .mpp import route
+    // deploys without the binary and fails at runtime with "binary not found".
+    outputFileTracingIncludes: {
+      '**/schedule/import': [
+        './node_modules/@byteink/mppjs-linux-x64/**',
+      ],
+      // lib/pdf/logo.ts reads public/light.png via fs.readFileSync to embed it in generated
+      // PDFs (Work Order, RA Bill) — the default file tracer can't follow that dynamic read,
+      // so without this the route deploys without the logo and fails at runtime with ENOENT.
+      '**/work-orders/**': [
+        './public/light.png',
+      ],
+      '**/ra-bills/**': [
+        './public/light.png',
+      ],
+    },
+  },
 };
 
 module.exports = nextConfig;

@@ -4,7 +4,7 @@ export default function manifest(): MetadataRoute.Manifest {
   return {
     name: 'Axinfra',
     short_name: 'Axinfra',
-    description: 'Evidence-first construction execution control system',
+    description: 'Milestone-gated construction execution control system',
     start_url: '/',
     display: 'standalone',
     background_color: '#F7F8FA',

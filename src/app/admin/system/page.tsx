@@ -133,6 +133,9 @@ export default function AdminSystemPage() {
                         ))}
                       </tr></thead>
                       <tbody>
+                        {data.followUps.length === 0 && (
+                          <tr><td colSpan={5} className="px-4 py-8 text-center text-[12px] text-[rgba(var(--ax-text-rgb),0.35)]">No follow-ups</td></tr>
+                        )}
                         {data.followUps.map(f => {
                           const s = FU[f.status] ?? { bg: 'var(--ax-overlay)', fg: 'var(--ax-text)' };
                           return (
@@ -182,6 +185,9 @@ export default function AdminSystemPage() {
                         ))}
                       </tr></thead>
                       <tbody>
+                        {data.systemEvents.length === 0 && (
+                          <tr><td colSpan={6} className="px-4 py-8 text-center text-[12px] text-[rgba(var(--ax-text-rgb),0.35)]">No system events</td></tr>
+                        )}
                         {data.systemEvents.map(e => {
                           const sv = SEV[e.severity] ?? SEV['INFO'];
                           return (
@@ -235,6 +241,9 @@ export default function AdminSystemPage() {
                         ))}
                       </tr></thead>
                       <tbody>
+                        {data.auditLogs.length === 0 && (
+                          <tr><td colSpan={6} className="px-4 py-8 text-center text-[12px] text-[rgba(var(--ax-text-rgb),0.35)]">No audit logs</td></tr>
+                        )}
                         {data.auditLogs.map(a => (
                           <tr key={a.id} className="border-t border-[var(--ax-border-subtle)] hover:bg-[var(--ax-overlay)]">
                             <td className="px-4 py-3 text-[12.5px] text-[var(--ax-accent)] font-semibold whitespace-nowrap">{fmtType(a.actionType)}</td>

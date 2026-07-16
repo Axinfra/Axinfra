@@ -15,9 +15,9 @@ const ROLE_LABELS: Record<string, string> = {
 
 const ROLE_DESCRIPTIONS: Record<string, string> = {
   CLIENT: 'Full oversight of payments, BOQ approvals, and project financials.',
-  PMC: 'Create BOQ, govern milestones, verify evidence, and manage vendors.',
-  VENDOR: 'Execute work on-site, submit evidence for milestones and receive payments.',
-  CONSULTANT: 'Upload documents, review evidence, and export audit logs.',
+  PMC: 'Create BOQ, govern milestones, verify work, and manage vendors.',
+  VENDOR: 'Execute work on-site, submit milestones for verification and receive payments.',
+  CONSULTANT: 'Upload documents, review submissions, and export audit logs.',
   VIEWER: 'Read-only access to project status, milestones, and reports.',
 };
 

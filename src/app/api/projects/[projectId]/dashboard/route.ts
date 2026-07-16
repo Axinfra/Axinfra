@@ -1,10 +1,9 @@
 import { NextRequest, NextResponse } from 'next/server';
 import { prisma } from '@/lib/db';
 import { requireProjectAuth } from '@/lib/auth';
-import { EvidenceService } from '@/services/EvidenceService';
 import { PaymentEligibilityEngine } from '@/services/PaymentEligibilityEngine';
 import { FollowUpScheduler } from '@/services/FollowUpScheduler';
-import { Role, EligibilityState, EvidenceStatus, MilestoneState } from '@/types';
+import { Role, EligibilityState, MilestoneState } from '@/types';
 import { cached } from '@/lib/cache';
 import { buildArchitectureSnapshot } from '@/lib/architectureMetrics';
 
@@ -54,13 +53,28 @@ export async function GET(
   }
 }
 
+/** RA Bill totals for a project — reused by the Owner/PMC dashboards. */
+async function getRABillMetrics(projectId: string) {
+  const raBills = await prisma.rABill.findMany({
+    where: { projectId },
+    select: { status: true, submittedValue: true, approvedValue: true, releasedValue: true },
+  });
+  return {
+    totalRABillSubmittedValue: raBills.reduce((s, b) => s + (b.submittedValue ?? 0), 0),
+    totalRABillApprovedValue: raBills.reduce((s, b) => s + (b.approvedValue ?? 0), 0),
+    totalRABillReleasedValue: raBills.reduce((s, b) => s + (b.releasedValue ?? 0), 0),
+    raBillsPendingCertification: raBills.filter((b) => b.status === 'PENDING_VENDOR_REVIEW').length,
+    raBillsPendingApproval: raBills.filter((b) => b.status === 'CERTIFIED').length,
+  };
+}
+
 async function getOwnerDashboard(projectId: string) {
   // All four reads are independent — fan out in parallel.
   // An eligibility contributes to the owner summary if EITHER the milestone is
   // VERIFIED/CLOSED (feeds totalVerifiedValue) OR the eligibility is in one of
   // the tracked payment states (feeds totalPaidValue / totalBlockedValue / totalUnpaidValue).
   // The two gates are independent, so we OR them to preserve existing semantics.
-  const [eligibilities, overruns, vendorExposures, followUps, architecture] = await Promise.all([
+  const [eligibilities, overruns, vendorExposures, followUps, architecture, raBillMetrics] = await Promise.all([
     prisma.paymentEligibility.findMany({
       where: {
         milestone: { projectId },
@@ -99,6 +113,7 @@ async function getOwnerDashboard(projectId: string) {
     PaymentEligibilityEngine.detectVendorExposure(projectId),
     FollowUpScheduler.getOpenFollowUps(projectId),
     getArchitectureSnapshot(projectId),
+    getRABillMetrics(projectId),
   ]);
 
   // Calculate totals
@@ -146,6 +161,7 @@ async function getOwnerDashboard(projectId: string) {
       totalBlockedValue,
       advanceExposure,
       boqOverrunCount: overruns.length,
+      ...raBillMetrics,
     },
     vendorExposures,
     blockedPayments: blockedItems.map((item) => ({
@@ -239,9 +255,8 @@ async function getArchitectureSnapshot(projectId: string, createdById?: string) 
 }
 
 async function getPMCDashboard(projectId: string) {
-  // All five reads are independent — fan out in parallel.
-  const [pendingEvidence, duePayments, blockedItems, upcomingDeadlines, followUps, architecture] = await Promise.all([
-    EvidenceService.getPendingReviews(projectId),
+  // All four reads are independent — fan out in parallel.
+  const [duePayments, blockedItems, upcomingDeadlines, followUps, architecture, raBillMetrics] = await Promise.all([
     prisma.paymentEligibility.findMany({
       where: {
         milestone: { projectId },
@@ -280,16 +295,11 @@ async function getPMCDashboard(projectId: string) {
     }),
     FollowUpScheduler.getOpenFollowUps(projectId),
     getArchitectureSnapshot(projectId),
+    getRABillMetrics(projectId),
   ]);
 
   return {
-    pendingReviews: pendingEvidence.map((e) => ({
-      evidenceId: e.id,
-      milestoneTitle: e.milestone.title,
-      submittedAt: e.submittedAt,
-      vendorName: e.submittedBy.name,
-      daysPending: Math.ceil((Date.now() - e.submittedAt.getTime()) / (1000 * 60 * 60 * 24)),
-    })),
+    raBills: raBillMetrics,
     duePayments: duePayments.map((p) => ({
       milestoneId: p.milestone.id,
       milestoneTitle: p.milestone.title,
@@ -318,66 +328,47 @@ async function getPMCDashboard(projectId: string) {
   };
 }
 
+async function getVendorRABillMetrics(projectId: string, vendorId: string) {
+  const raBills = await prisma.rABill.findMany({
+    where: { projectId, order: { vendorUserId: vendorId } },
+    select: { status: true, submittedValue: true, approvedValue: true, releasedValue: true },
+  });
+  return {
+    awaitingSubmission: raBills.filter((b) => b.status === 'DRAFT' || b.status === 'REVISION_REQUESTED').length,
+    totalSubmittedValue: raBills.reduce((s, b) => s + (b.submittedValue ?? 0), 0),
+    totalApprovedValue: raBills.reduce((s, b) => s + (b.approvedValue ?? 0), 0),
+    totalReleasedValue: raBills.reduce((s, b) => s + (b.releasedValue ?? 0), 0),
+  };
+}
+
 async function getVendorDashboard(projectId: string, vendorId: string) {
-  // Milestones, rejected evidence, pending evidence are independent — fan out.
-  const [milestones, rejectedEvidence, pendingEvidence] = await Promise.all([
-    prisma.milestone.findMany({
-      where: {
-        projectId,
-        OR: [
-          { vendorUserId: vendorId },
-          { evidence: { some: { submittedById: vendorId } } },
-        ],
-      },
-      include: {
-        evidence: {
-          where: { submittedById: vendorId },
-          orderBy: { submittedAt: 'desc' },
-        },
-        paymentEligibility: true,
-      },
-      orderBy: { createdAt: 'asc' },
-    }),
-    prisma.evidence.findMany({
-      where: {
-        submittedById: vendorId,
-        status: EvidenceStatus.REJECTED,
-        milestone: { projectId },
-      },
-      include: {
-        milestone: { select: { title: true } },
-      },
-      orderBy: { reviewedAt: 'desc' },
-      take: 10,
-    }),
-    prisma.evidence.findMany({
-      where: {
-        submittedById: vendorId,
-        status: EvidenceStatus.SUBMITTED,
-        milestone: { projectId },
-      },
-      include: {
-        milestone: { select: { id: true, title: true } },
-      },
-      orderBy: { submittedAt: 'desc' },
-    }),
-  ]);
-
-  // Get payment status — ONLY for milestones assigned to or submitted by this vendor
-  const vendorMilestoneIds = milestones
-    .filter((m) => m.vendorUserId === vendorId || m.evidence.some((e) => e.submittedById === vendorId))
-    .map((m) => m.id);
-
-  const eligibilities = await prisma.paymentEligibility.findMany({
+  const milestones = await prisma.milestone.findMany({
     where: {
-      milestoneId: { in: vendorMilestoneIds },
+      projectId,
+      vendorUserId: vendorId,
     },
     include: {
-      milestone: { select: { title: true, state: true } },
+      paymentEligibility: true,
     },
+    orderBy: { createdAt: 'asc' },
   });
 
+  const vendorMilestoneIds = milestones.map((m) => m.id);
+
+  const [eligibilities, raBillMetrics] = await Promise.all([
+    prisma.paymentEligibility.findMany({
+      where: {
+        milestoneId: { in: vendorMilestoneIds },
+      },
+      include: {
+        milestone: { select: { title: true, state: true } },
+      },
+    }),
+    getVendorRABillMetrics(projectId, vendorId),
+  ]);
+
   return {
+    raBills: raBillMetrics,
     milestonesSummary: {
       total: milestones.length,
       draft: milestones.filter((m) => m.state === MilestoneState.DRAFT).length,
@@ -386,17 +377,6 @@ async function getVendorDashboard(projectId: string, vendorId: string) {
       verified: milestones.filter((m) => m.state === MilestoneState.VERIFIED).length,
       closed: milestones.filter((m) => m.state === MilestoneState.CLOSED).length,
     },
-    rejections: rejectedEvidence.map((e) => ({
-      milestoneTitle: e.milestone.title,
-      rejectedAt: e.reviewedAt,
-      reason: e.reviewNote,
-    })),
-    pendingApprovals: pendingEvidence.map((e) => ({
-      milestoneId: e.milestone.id,
-      milestoneTitle: e.milestone.title,
-      submittedAt: e.submittedAt,
-      daysPending: Math.ceil((Date.now() - e.submittedAt.getTime()) / (1000 * 60 * 60 * 24)),
-    })),
     paymentStatus: eligibilities.map((p) => ({
       milestoneTitle: p.milestone.title,
       milestoneState: p.milestone.state,

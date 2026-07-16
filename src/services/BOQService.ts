@@ -9,8 +9,45 @@ export interface BOQItemInput {
   rate: number;
 }
 
+export interface BOQHeaderInput {
+  name?: string;
+  description?: string;
+  category?: string;
+  scope?: string;
+  plannedStart?: Date | null;
+  plannedEnd?: Date | null;
+  /** A BOQ represents a single scope/measurement line — its item is created together with it. */
+  item?: BOQItemInput;
+}
+
+export interface BOQOverviewRollup {
+  totalValue: number;
+  itemCount: number;
+  /** Populated only when the BOQ has exactly one item — the common case for a single scope line. */
+  quantity: number | null;
+  unit: string | null;
+  rate: number | null;
+  /** Human summary shown instead of quantity/unit/rate when there are 0 or 2+ items. */
+  summary: string;
+}
+
 function isEditableBOQStatus(status: string): boolean {
   return status === BOQStatus.DRAFT || status === BOQStatus.REVISED;
+}
+
+/** Derives the Overview tab's Quantity/Unit/Rate/Total Value from a BOQ's items. */
+export function getOverviewRollup(items: Array<{ plannedQty: number; unit: string; rate: number; plannedValue: number }>): BOQOverviewRollup {
+  const totalValue = items.reduce((sum, i) => sum + i.plannedValue, 0);
+  if (items.length === 1) {
+    const [item] = items;
+    return { totalValue, itemCount: 1, quantity: item.plannedQty, unit: item.unit, rate: item.rate, summary: `1 item · ${item.unit}` };
+  }
+  if (items.length === 0) {
+    return { totalValue: 0, itemCount: 0, quantity: null, unit: null, rate: null, summary: 'No items yet' };
+  }
+  const units = new Set(items.map((i) => i.unit));
+  const unitLabel = units.size === 1 ? Array.from(units)[0] : 'mixed units';
+  return { totalValue, itemCount: items.length, quantity: null, unit: null, rate: null, summary: `${items.length} items · ${unitLabel}` };
 }
 
 /**
@@ -28,29 +65,64 @@ export class BOQService {
     projectId: string,
     actorId: string,
     role: Role,
-    phaseId?: string
+    orderId?: string,
+    header?: BOQHeaderInput
   ): Promise<{ success: boolean; boqId?: string; error?: string }> {
     if (role !== Role.PMC) {
       return { success: false, error: 'Only PMC can create BOQ' };
     }
 
-    if (!phaseId) {
-      return { success: false, error: 'Phase is required to create a BOQ' };
+    if (!orderId) {
+      return { success: false, error: 'Purchase order is required to create a BOQ' };
     }
 
-    const phase = await prisma.phase.findFirst({
-      where: { id: phaseId, projectId },
-      include: { boq: { select: { id: true } } },
+    // parentPhaseId: null, scheduleImportId: null — a BOQ can only ever be created against a
+    // genuine top-level Purchase Order, never an Execution/WBS phase imported from a schedule
+    // file (those are a Schedule-tab concept, not an "Order"; a promoted top-level WBS phase
+    // — see mspdiParser's echo-phase detection — would otherwise satisfy parentPhaseId: null
+    // too, so scheduleImportId is the field that actually distinguishes the two).
+    const order = await prisma.phase.findFirst({
+      where: { id: orderId, projectId, parentPhaseId: null, scheduleImportId: null },
+      include: { _count: { select: { boqs: true } } },
     });
-    if (!phase) {
-      return { success: false, error: 'Phase not found in this project' };
-    }
-    if (phase.boq) {
-      return { success: false, error: 'This phase already has a BOQ' };
+    if (!order) {
+      return { success: false, error: 'Purchase order not found in this project' };
     }
 
-    const boq = await prisma.bOQ.create({
-      data: { projectId, phaseId, status: BOQStatus.DRAFT },
+    // A Purchase Order's items ARE its BOQs (1:1) — number them sequentially per-order.
+    const boqNumber = `BOQ-${String(order._count.boqs + 1).padStart(3, '0')}`;
+    const item = header?.item;
+
+    const boq = await prisma.$transaction(async (tx) => {
+      const created = await tx.bOQ.create({
+        data: {
+          projectId,
+          orderId,
+          status: BOQStatus.DRAFT,
+          boqNumber,
+          name: header?.name || item?.description,
+          description: header?.description,
+          category: header?.category,
+          scope: header?.scope,
+          plannedStart: header?.plannedStart,
+          plannedEnd: header?.plannedEnd,
+        },
+      });
+
+      if (item) {
+        await tx.bOQItem.create({
+          data: {
+            boqId: created.id,
+            description: item.description,
+            unit: item.unit,
+            plannedQty: item.plannedQty,
+            rate: item.rate,
+            plannedValue: item.plannedQty * item.rate,
+          },
+        });
+      }
+
+      return created;
     });
 
     await AuditLogger.log({
@@ -60,10 +132,67 @@ export class BOQService {
       actionType: AuditActionTypes.BOQ_CREATE,
       entityType: 'BOQ',
       entityId: boq.id,
-      afterJson: { phaseId, status: BOQStatus.DRAFT },
+      afterJson: { orderId, status: BOQStatus.DRAFT, boqNumber, name: header?.name, item },
     });
 
     return { success: true, boqId: boq.id };
+  }
+
+  /**
+   * Update a BOQ's header fields (name/description/category/scope/planned dates).
+   * Only allowed while DRAFT/REVISED, same gate as item edits.
+   */
+  static async update(
+    boqId: string,
+    updates: BOQHeaderInput,
+    actorId: string,
+    role: Role,
+    projectId: string
+  ): Promise<{ success: boolean; error?: string }> {
+    if (role !== Role.PMC) {
+      return { success: false, error: 'Only PMC can edit BOQ details' };
+    }
+
+    const boq = await prisma.bOQ.findFirst({ where: { id: boqId, projectId } });
+    if (!boq) {
+      return { success: false, error: 'BOQ not found' };
+    }
+    if (!isEditableBOQStatus(boq.status)) {
+      return { success: false, error: 'Cannot edit an approved BOQ. Owner must send it to Revised first.' };
+    }
+
+    const before: Record<string, unknown> = {};
+    const after: Record<string, unknown> = {};
+    const fields: Array<keyof BOQHeaderInput> = ['name', 'description', 'category', 'scope', 'plannedStart', 'plannedEnd'];
+    for (const field of fields) {
+      if (updates[field] === undefined) continue;
+      const prevValue = boq[field as keyof typeof boq];
+      const nextValue = updates[field];
+      const prevTime = prevValue instanceof Date ? prevValue.getTime() : prevValue;
+      const nextTime = nextValue instanceof Date ? nextValue.getTime() : nextValue;
+      if (prevTime === nextTime) continue;
+      before[field] = prevValue;
+      after[field] = nextValue;
+    }
+
+    if (Object.keys(after).length === 0) {
+      return { success: true };
+    }
+
+    await prisma.bOQ.update({ where: { id: boqId }, data: after });
+
+    await AuditLogger.log({
+      projectId,
+      actorId,
+      role,
+      actionType: AuditActionTypes.BOQ_HEADER_UPDATE,
+      entityType: 'BOQ',
+      entityId: boqId,
+      beforeJson: before,
+      afterJson: after,
+    });
+
+    return { success: true };
   }
 
   /**
@@ -567,6 +696,158 @@ export class BOQService {
   }
 
   /**
+   * PMC submits every eligible BOQ under a Purchase Order for Owner review in one action —
+   * same DRAFT/REVISED + has-items eligibility as the single-BOQ sendForApproval, applied to
+   * the whole order at once so a PO with several BOQs doesn't need submitting one at a time.
+   */
+  static async sendForApprovalBulk(
+    orderId: string,
+    actorId: string,
+    role: Role,
+    projectId: string
+  ): Promise<{ success: boolean; count?: number; error?: string }> {
+    if (role !== Role.PMC) {
+      return { success: false, error: 'Only PMC can submit BOQs for approval' };
+    }
+
+    const order = await prisma.phase.findFirst({ where: { id: orderId, projectId } });
+    if (!order) {
+      return { success: false, error: 'Purchase order not found in this project' };
+    }
+
+    const eligible = await prisma.bOQ.findMany({
+      where: {
+        orderId,
+        projectId,
+        status: { in: [BOQStatus.DRAFT, BOQStatus.REVISED] },
+        items: { some: {} },
+      },
+      select: { id: true, status: true },
+    });
+
+    if (eligible.length === 0) {
+      return { success: false, error: 'No BOQs are ready to submit — each needs at least one item and must be Draft or Needs Revision' };
+    }
+
+    const ids = eligible.map((b) => b.id);
+    await prisma.bOQ.updateMany({
+      where: { id: { in: ids } },
+      data: { status: BOQStatus.PENDING_APPROVAL },
+    });
+
+    await AuditLogger.log({
+      projectId,
+      actorId,
+      role,
+      actionType: AuditActionTypes.BOQ_SUBMIT as AuditActionType,
+      entityType: 'Phase',
+      entityId: orderId,
+      afterJson: { status: BOQStatus.PENDING_APPROVAL, boqsSubmitted: ids.length },
+    });
+
+    return { success: true, count: ids.length };
+  }
+
+  /**
+   * Owner approves every BOQ under a Purchase Order that's ready for approval, in one action.
+   * Reuses the single-BOQ `approve()` (which also stamps the latest revision when coming
+   * from REVISED) for each eligible BOQ, so the per-BOQ business rules stay in one place.
+   */
+  static async approveBulk(
+    orderId: string,
+    actorId: string,
+    role: Role,
+    projectId: string
+  ): Promise<{ success: boolean; count?: number; error?: string }> {
+    if (role !== Role.CLIENT) {
+      return { success: false, error: 'Only Owner can approve BOQs' };
+    }
+
+    const order = await prisma.phase.findFirst({ where: { id: orderId, projectId } });
+    if (!order) {
+      return { success: false, error: 'Purchase order not found in this project' };
+    }
+
+    const eligible = await prisma.bOQ.findMany({
+      where: {
+        orderId,
+        projectId,
+        status: { in: [BOQStatus.DRAFT, BOQStatus.REVISED, BOQStatus.PENDING_APPROVAL] },
+        items: { some: {} },
+      },
+      select: { id: true },
+    });
+
+    if (eligible.length === 0) {
+      return { success: false, error: 'No BOQs are ready to approve' };
+    }
+
+    let count = 0;
+    for (const { id } of eligible) {
+      const result = await BOQService.approve(id, actorId, role, projectId);
+      if (result.success) count++;
+    }
+
+    if (count === 0) {
+      return { success: false, error: 'Failed to approve BOQs' };
+    }
+
+    return { success: true, count };
+  }
+
+  /**
+   * Owner sends every BOQ under a Purchase Order that's ready for a decision back for
+   * revision, in one action, with a single shared reason. Same eligible set as `approveBulk`
+   * (the two are the alternate outcomes of the same review batch), reusing the single-BOQ
+   * `requestRevision()` so the per-BOQ business rules stay in one place.
+   */
+  static async requestRevisionBulk(
+    orderId: string,
+    reason: string,
+    actorId: string,
+    role: Role,
+    projectId: string
+  ): Promise<{ success: boolean; count?: number; error?: string }> {
+    if (role !== Role.CLIENT) {
+      return { success: false, error: 'Only Owner can request BOQ revision' };
+    }
+    if (!reason || reason.trim().length === 0) {
+      return { success: false, error: 'Revision reason is required' };
+    }
+
+    const order = await prisma.phase.findFirst({ where: { id: orderId, projectId } });
+    if (!order) {
+      return { success: false, error: 'Purchase order not found in this project' };
+    }
+
+    const eligible = await prisma.bOQ.findMany({
+      where: {
+        orderId,
+        projectId,
+        status: { in: [BOQStatus.DRAFT, BOQStatus.REVISED, BOQStatus.PENDING_APPROVAL] },
+        items: { some: {} },
+      },
+      select: { id: true },
+    });
+
+    if (eligible.length === 0) {
+      return { success: false, error: 'No BOQs are ready to send back for revision' };
+    }
+
+    let count = 0;
+    for (const { id } of eligible) {
+      const result = await BOQService.requestRevision(id, reason, actorId, role, projectId);
+      if (result.success) count++;
+    }
+
+    if (count === 0) {
+      return { success: false, error: 'Failed to send BOQs back for revision' };
+    }
+
+    return { success: true, count };
+  }
+
+  /**
    * Get BOQ with items.
    */
   static async getWithItems(boqId: string) {
@@ -578,6 +859,9 @@ export class BOQService {
         },
         revisions: {
           orderBy: { revisionNumber: 'desc' },
+        },
+        order: {
+          select: { id: true, name: true, vendorUserId: true },
         },
       },
     });
