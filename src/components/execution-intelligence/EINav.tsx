@@ -2,6 +2,7 @@
 
 import Link from 'next/link';
 import { usePathname } from 'next/navigation';
+import ProjectSwitcher from '@/components/ProjectSwitcher';
 
 interface EINavProps {
   projectId: string;
@@ -30,7 +31,11 @@ export default function EINav({ projectId, projectName, role }: EINavProps) {
           Execution Intelligence
         </Link>
         <span className="text-[rgba(var(--ax-text-rgb),0.12)] text-[12px]">/</span>
-        <span className="text-[12px] text-[rgba(var(--ax-text-rgb),0.55)] font-medium">{projectName}</span>
+        <ProjectSwitcher
+          currentProjectId={projectId}
+          currentProjectName={projectName}
+          buildHref={(id) => `/execution-intelligence/${id}/overview`}
+        />
         <span className="ml-2 px-2 py-0.5 rounded-full bg-[rgba(var(--ax-accent-rgb),0.08)] text-[var(--ax-accent)] text-[11px] font-medium">
           {role}
         </span>

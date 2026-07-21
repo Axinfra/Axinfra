@@ -5,6 +5,7 @@ import { useParams } from 'next/navigation';
 import useSWR from 'swr';
 import Layout from '@/components/Layout';
 import Navbar from '@/components/Navbar';
+import ProjectSwitcher from '@/components/ProjectSwitcher';
 import { useProject } from '@/lib/contexts/ProjectContext';
 import { jsonFetcher } from '@/lib/fetcher';
 import { formatDate, formatCurrency } from '@/lib/utils';
@@ -1286,6 +1287,14 @@ export default function ArchitecturePage() {
         {/* Header */}
         <div className="flex items-center justify-between">
           <div>
+            <div className="flex items-center gap-2 mb-1">
+              <span className="text-[12px]" style={{ color: 'rgba(232,228,220,0.35)' }}>Architecture ·</span>
+              <ProjectSwitcher
+                currentProjectId={projectId}
+                currentProjectName={projectName}
+                buildHref={(id) => `/projects/${id}/architecture`}
+              />
+            </div>
             <h1 className="text-2xl font-bold text-[#e8e4dc]">Architecture</h1>
             <p className="text-sm text-[rgba(232,228,220,0.45)] mt-0.5">Drawing register, sets &amp; version control</p>
           </div>

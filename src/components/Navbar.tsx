@@ -18,7 +18,6 @@ import {
   Settings,
   ChevronRight,
   FolderOpen,
-  Ruler,
   CalendarRange,
 } from 'lucide-react';
 import { cn } from '@/lib/utils';
@@ -49,7 +48,6 @@ export default function Navbar({ projectId, projectName, role }: NavbarProps) {
   // so the click feels instant.
   const navItems = [
     { href: `/projects/${projectId}`, label: 'Overview', icon: LayoutDashboard, always: true, prefetchApi: [`/api/projects/${projectId}`] },
-    { href: `/projects/${projectId}/architecture`, label: 'Architecture', icon: Ruler, roles: ['CLIENT', 'PMC', 'CONSULTANT', 'VIEWER', 'VENDOR'], prefetchApi: [`/api/projects/${projectId}/architecture`] },
     { href: `/projects/${projectId}/boqs`, label: role === 'CLIENT' ? 'View BOQ' : 'BOQ', icon: FileText, roles: ['CLIENT', 'PMC', 'CONSULTANT', 'VIEWER', 'VENDOR'], prefetchApi: [`/api/projects/${projectId}/boq`] },
     { href: `/projects/${projectId}/schedule`, label: 'Schedule', icon: CalendarRange, roles: ['CLIENT', 'PMC', 'VENDOR', 'CONSULTANT'], prefetchApi: [`/api/projects/${projectId}/schedule`] },
     { href: `/projects/${projectId}/activities`, label: 'Activities', icon: Flag, always: true, prefetchApi: [`/api/projects/${projectId}/milestones`] },

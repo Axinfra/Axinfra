@@ -3,6 +3,7 @@
 import { useRouter, usePathname } from 'next/navigation';
 import Link from 'next/link';
 import { useState, useEffect, useRef, FormEvent } from 'react';
+import { Ruler } from 'lucide-react';
 import ThemeNavbarPicker from '@/components/ThemeSwitcher';
 import AxinfraLogo from '@/components/AxinfraLogo';
 
@@ -162,17 +163,52 @@ export default function Layout({ children }: LayoutProps) {
     router.push('/auth/login');
   };
 
+  // Execution Intelligence / Viseron Intelligence / Architecture are all project-scoped
+  // sections with a project-picker landing page for when none is selected yet — pulled
+  // straight from the URL rather than a fetch, same as any other route param. `/projects`
+  // itself (the list page) has no further path segment, so this stays null there. Once a
+  // project is selected, each link jumps straight into that project's section instead of
+  // showing the picker again.
+  //
+  // The project id can appear under any of these three route prefixes (Architecture lives
+  // under /projects/[id]/architecture, but Execution/Viseron Intelligence have their own
+  // top-level /execution-intelligence/[id]/... and /viseron-intelligence/[id]/... routes) —
+  // checking only /projects/ meant the other two links fell back to their unscoped pickers
+  // whenever you were actually inside Execution or Viseron Intelligence.
+  const currentProjectId =
+    pathname.match(/^\/projects\/([^/]+)/)?.[1] ??
+    pathname.match(/^\/execution-intelligence\/([^/]+)/)?.[1] ??
+    pathname.match(/^\/viseron-intelligence\/([^/]+)/)?.[1] ??
+    null;
+
   const navItems = isVendorOnly
     ? [
       { href: '/vendor', label: 'Vendor Portal', icon: VendorIcon },
     ]
     : [
       { href: '/projects', label: 'Projects', icon: FolderIcon },
-      { href: '/execution-intelligence', label: 'Execution Intelligence', icon: ChartIcon },
-      { href: '/viseron-intelligence', label: 'Viseron Intelligence', icon: ViseronNavIcon },
+      {
+        href: currentProjectId ? `/execution-intelligence/${currentProjectId}/overview` : '/execution-intelligence',
+        matchPrefix: '/execution-intelligence',
+        label: 'Execution Intelligence', icon: ChartIcon,
+      },
+      {
+        href: currentProjectId ? `/viseron-intelligence/${currentProjectId}/dashboard` : '/viseron-intelligence',
+        matchPrefix: '/viseron-intelligence',
+        label: 'Viseron Intelligence', icon: ViseronNavIcon,
+      },
       ...(isAdminUser
-        ? [{ href: '/vendor-onboarding', label: 'Vendor Onboarding', icon: UsersIcon }]
+        ? [{
+            href: currentProjectId ? `/vendor-onboarding?projectId=${currentProjectId}` : '/vendor-onboarding',
+            matchPrefix: '/vendor-onboarding',
+            label: 'Vendor Onboarding', icon: UsersIcon,
+          }]
         : []),
+      {
+        href: currentProjectId ? `/projects/${currentProjectId}/architecture` : '/architecture',
+        matchPrefix: currentProjectId ? `/projects/${currentProjectId}/architecture` : '/architecture',
+        label: 'Architecture', icon: Ruler,
+      },
     ];
 
   return (
@@ -203,7 +239,8 @@ export default function Layout({ children }: LayoutProps) {
           <p className="px-3 mb-2 text-[10px] font-medium uppercase tracking-wider" style={{ color: 'rgba(var(--ax-text-rgb), 0.35)' }}>Menu</p>
           <div className="space-y-0.5">
             {navItems.map((item) => {
-              const isActive = pathname === item.href || pathname.startsWith(item.href + '/');
+              const prefix = 'matchPrefix' in item ? item.matchPrefix : item.href;
+              const isActive = pathname === prefix || pathname.startsWith(prefix + '/');
               return (
                 <Link
                   key={item.href}
@@ -227,17 +264,29 @@ export default function Layout({ children }: LayoutProps) {
                 {vendorProjects.map((vp) => {
                   const milestoneHref = `/projects/${vp.projectId}/activities`;
                   const isActive = pathname === milestoneHref || pathname.startsWith(milestoneHref + '/');
+                  const architectureHref = `/projects/${vp.projectId}/architecture`;
+                  const isArchitectureActive = pathname === architectureHref || pathname.startsWith(architectureHref + '/');
                   return (
-                    <Link
-                      key={vp.projectId}
-                      href={milestoneHref}
-                      onClick={() => setSidebarOpen(false)}
-                      className={`flex items-center gap-2.5 px-3 py-2 rounded-lg text-[13px] font-medium transition-colors duration-100
-                        ${isActive ? 'ax-nav-active' : 'ax-nav-item'}`}
-                    >
-                      <FlagIcon className="w-[18px] h-[18px] shrink-0" />
-                      {vp.projectName}
-                    </Link>
+                    <div key={vp.projectId}>
+                      <Link
+                        href={milestoneHref}
+                        onClick={() => setSidebarOpen(false)}
+                        className={`flex items-center gap-2.5 px-3 py-2 rounded-lg text-[13px] font-medium transition-colors duration-100
+                          ${isActive ? 'ax-nav-active' : 'ax-nav-item'}`}
+                      >
+                        <FlagIcon className="w-[18px] h-[18px] shrink-0" />
+                        {vp.projectName}
+                      </Link>
+                      <Link
+                        href={architectureHref}
+                        onClick={() => setSidebarOpen(false)}
+                        className={`flex items-center gap-2.5 pl-9 pr-3 py-1.5 rounded-lg text-[12px] font-medium transition-colors duration-100
+                          ${isArchitectureActive ? 'ax-nav-active' : 'ax-nav-item'}`}
+                      >
+                        <Ruler className="w-[14px] h-[14px] shrink-0" />
+                        Architecture
+                      </Link>
+                    </div>
                   );
                 })}
               </div>
