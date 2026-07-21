@@ -178,11 +178,15 @@ export default function ActivitiesPage() {
   // Bucket cards are taller/richer than table rows, so a smaller page keeps each screen
   // scannable — a 300+ item Overdue tab still shouldn't be one long unbroken scroll.
   const BUCKET_PAGE_SIZE = 10;
+  // Same reasoning for Pending Approvals — a project with dozens of BOQs/RA Bills/Work Orders
+  // all awaiting this user's action shouldn't render every row unconditionally.
+  const APPROVALS_PAGE_SIZE = 10;
   const [error, setError] = useState('');
   const [deleteConfirm, setDeleteConfirm] = useState<string | null>(null);
   const [searchActive, setSearchActive] = useState(false);
   const [activeTab, setActiveTab] = useState<ActivityTab>('DUE_TODAY');
   const [bucketPage, setBucketPage] = useState(1);
+  const [approvalsPage, setApprovalsPage] = useState(1);
   const [phaseFilter, setPhaseFilter] = useState(urlPhaseId);
   const [dependencyFilter, setDependencyFilter] = useState<DependencyFilter>('ALL');
   const [page, setPage] = useState(1);
@@ -355,6 +359,13 @@ export default function ActivitiesPage() {
   const totalPages = Math.max(1, Math.ceil(visibleActivities.length / PAGE_SIZE));
   const safePage = Math.min(page, totalPages);
   const pagedActivities = visibleActivities.slice((safePage - 1) * PAGE_SIZE, safePage * PAGE_SIZE);
+
+  const approvalsTotalPages = Math.max(1, Math.ceil(approvalItems.length / APPROVALS_PAGE_SIZE));
+  const safeApprovalsPage = Math.min(approvalsPage, approvalsTotalPages);
+  const pagedApprovalItems = approvalItems.slice(
+    (safeApprovalsPage - 1) * APPROVALS_PAGE_SIZE,
+    safeApprovalsPage * APPROVALS_PAGE_SIZE,
+  );
 
   const editingActivity = editingId ? activities.find((a) => a.id === editingId) ?? null : null;
 
@@ -715,7 +726,7 @@ export default function ActivitiesPage() {
             </div>
             <div className="card-body p-0">
               <div className="divide-y" style={{ borderColor: 'var(--ax-border-subtle)' }}>
-                {approvalItems.map((item) => (
+                {pagedApprovalItems.map((item) => (
                   <Link
                     key={item.id}
                     href={item.href}
@@ -731,6 +742,17 @@ export default function ActivitiesPage() {
                   </Link>
                 ))}
               </div>
+              {approvalsTotalPages > 1 && (
+                <div className="px-5">
+                  <Pagination
+                    page={safeApprovalsPage}
+                    totalPages={approvalsTotalPages}
+                    totalItems={approvalItems.length}
+                    pageSize={APPROVALS_PAGE_SIZE}
+                    onPageChange={setApprovalsPage}
+                  />
+                </div>
+              )}
             </div>
           </div>
         )}
