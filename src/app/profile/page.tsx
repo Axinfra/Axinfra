@@ -110,24 +110,26 @@ export default function ProfilePage() {
           </div>
         </div>
 
-        {/* Completeness banner */}
-        {!profile.isProfileComplete ? (
-          <div className="rounded-xl border p-4 flex items-start gap-3" style={{ borderColor: 'rgba(224,160,48,0.35)', background: 'rgba(224,160,48,0.07)' }}>
-            <AlertTriangle className="w-5 h-5 shrink-0 mt-0.5" style={{ color: '#e0a030' }} />
-            <div>
-              <p className="text-sm font-semibold" style={{ color: '#e0a030' }}>Business profile incomplete</p>
-              <p className="text-xs mt-1" style={{ color: 'rgba(224,160,48,0.85)' }}>
-                {profile.isVendor
-                  ? 'Add your GST number below — RA Bills can’t be submitted and Work Orders can’t be issued for your account until this is filled in.'
-                  : 'Add your GST number and business details so they appear correctly on generated documents.'}
-              </p>
+        {/* Completeness banner — only vendors need a business/tax profile (GST is enforced
+        before RA Bill submission / Work Order issuance, see api/profile/route.ts). Client/PMC/
+        Consultant business fields are stored but never read anywhere else in the app. */}
+        {profile.isVendor && (
+          !profile.isProfileComplete ? (
+            <div className="rounded-xl border p-4 flex items-start gap-3" style={{ borderColor: 'rgba(224,160,48,0.35)', background: 'rgba(224,160,48,0.07)' }}>
+              <AlertTriangle className="w-5 h-5 shrink-0 mt-0.5" style={{ color: '#e0a030' }} />
+              <div>
+                <p className="text-sm font-semibold" style={{ color: '#e0a030' }}>Business profile incomplete</p>
+                <p className="text-xs mt-1" style={{ color: 'rgba(224,160,48,0.85)' }}>
+                  Add your GST number below — RA Bills can’t be submitted and Work Orders can’t be issued for your account until this is filled in.
+                </p>
+              </div>
             </div>
-          </div>
-        ) : (
-          <div className="rounded-xl border p-4 flex items-center gap-3" style={{ borderColor: 'rgba(92,186,128,0.3)', background: 'rgba(92,186,128,0.07)' }}>
-            <CheckCircle2 className="w-5 h-5 shrink-0" style={{ color: '#5cba80' }} />
-            <p className="text-sm font-medium" style={{ color: '#5cba80' }}>Your business profile is complete.</p>
-          </div>
+          ) : (
+            <div className="rounded-xl border p-4 flex items-center gap-3" style={{ borderColor: 'rgba(92,186,128,0.3)', background: 'rgba(92,186,128,0.07)' }}>
+              <CheckCircle2 className="w-5 h-5 shrink-0" style={{ color: '#5cba80' }} />
+              <p className="text-sm font-medium" style={{ color: '#5cba80' }}>Your business profile is complete.</p>
+            </div>
+          )
         )}
 
         {error && <div className="alert alert-error">{error}</div>}
@@ -157,65 +159,67 @@ export default function ProfilePage() {
           </div>
         </div>
 
-        {/* Business & Tax Details */}
-        <div className="card">
-          <div className="card-header flex items-center gap-2">
-            <Building2 className="w-4 h-4" style={{ color: 'var(--ax-accent)' }} />
-            <h2 className="font-semibold">Business &amp; Tax Details</h2>
-          </div>
-          <div className="card-body space-y-4">
-            <div className="grid grid-cols-1 sm:grid-cols-2 gap-4">
-              <div>
-                <label className="label">Company / Firm Name</label>
-                <input
-                  type="text" className="input" placeholder="e.g. Sharma Construction Co."
-                  value={form.companyName}
-                  onChange={(e) => updateForm({ companyName: e.target.value })}
-                />
-              </div>
-              <div>
-                <label className="label">Contact Person</label>
-                <input
-                  type="text" className="input" placeholder="Who should be contacted for this account"
-                  value={form.contactPerson}
-                  onChange={(e) => updateForm({ contactPerson: e.target.value })}
-                />
-              </div>
-              <div>
-                <label className="label">Mobile Number</label>
-                <input
-                  type="tel" className="input" placeholder="+91 98765 43210"
-                  value={form.mobile}
-                  onChange={(e) => updateForm({ mobile: e.target.value })}
-                />
-              </div>
-              <div>
-                <label className="label flex items-center gap-1.5">
-                  GST Number
-                  {profile.isVendor && (
+        {/* Business & Tax Details — vendor-only. These fields only ever appear on the
+        Vendor party block of generated RA Bill / Work Order PDFs and are never read for
+        Client/PMC/Consultant, so there's nothing for those roles to fill in here. */}
+        {profile.isVendor && (
+          <div className="card">
+            <div className="card-header flex items-center gap-2">
+              <Building2 className="w-4 h-4" style={{ color: 'var(--ax-accent)' }} />
+              <h2 className="font-semibold">Business &amp; Tax Details</h2>
+            </div>
+            <div className="card-body space-y-4">
+              <div className="grid grid-cols-1 sm:grid-cols-2 gap-4">
+                <div>
+                  <label className="label">Company / Firm Name</label>
+                  <input
+                    type="text" className="input" placeholder="e.g. Sharma Construction Co."
+                    value={form.companyName}
+                    onChange={(e) => updateForm({ companyName: e.target.value })}
+                  />
+                </div>
+                <div>
+                  <label className="label">Contact Person</label>
+                  <input
+                    type="text" className="input" placeholder="Who should be contacted for this account"
+                    value={form.contactPerson}
+                    onChange={(e) => updateForm({ contactPerson: e.target.value })}
+                  />
+                </div>
+                <div>
+                  <label className="label">Mobile Number</label>
+                  <input
+                    type="tel" className="input" placeholder="+91 98765 43210"
+                    value={form.mobile}
+                    onChange={(e) => updateForm({ mobile: e.target.value })}
+                  />
+                </div>
+                <div>
+                  <label className="label flex items-center gap-1.5">
+                    GST Number
                     <span className="text-[10px] px-1.5 py-0.5 rounded-full bg-[rgba(var(--ax-accent-rgb),0.12)] text-[var(--ax-accent)] font-semibold">Required</span>
-                  )}
-                </label>
-                <input
-                  type="text" className="input" placeholder="22AAAAA0000A1Z5"
-                  value={form.gstNumber}
-                  onChange={(e) => updateForm({ gstNumber: e.target.value.toUpperCase() })}
+                  </label>
+                  <input
+                    type="text" className="input" placeholder="22AAAAA0000A1Z5"
+                    value={form.gstNumber}
+                    onChange={(e) => updateForm({ gstNumber: e.target.value.toUpperCase() })}
+                  />
+                </div>
+              </div>
+              <div>
+                <label className="label">Business Address</label>
+                <textarea
+                  className="input" rows={2} placeholder="Registered business address"
+                  value={form.address}
+                  onChange={(e) => updateForm({ address: e.target.value })}
                 />
               </div>
+              <p className="text-xs" style={{ color: 'rgba(232,228,220,0.4)' }}>
+                This information appears on generated RA Bills and Work Order documents.
+              </p>
             </div>
-            <div>
-              <label className="label">Business Address</label>
-              <textarea
-                className="input" rows={2} placeholder="Registered business address"
-                value={form.address}
-                onChange={(e) => updateForm({ address: e.target.value })}
-              />
-            </div>
-            <p className="text-xs" style={{ color: 'rgba(232,228,220,0.4)' }}>
-              This information appears on generated RA Bills and Work Order documents.
-            </p>
           </div>
-        </div>
+        )}
 
         {/* Save bar */}
         <div className="flex items-center justify-end gap-3">

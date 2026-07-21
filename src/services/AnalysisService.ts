@@ -1,6 +1,7 @@
 import { prisma } from '@/lib/db';
 import { MilestoneState, EligibilityState, Role } from '@/types';
 import { computeScheduleVariance, type ActivityHealth } from '@/lib/scheduleVariance';
+import { classifyLifecycleStatus, startOfDay, type LifecycleStatus } from '@/lib/activityStatus';
 
 /**
  * AnalysisService - READ-ONLY intelligence layer for Axinfra.
@@ -28,8 +29,12 @@ export interface ExecutionAnalysis {
     approachingCount: number; // due within 30d, not verified
     draftCount: number;
   };
+  /** Grouped by the 6 valid, user-facing lifecycle labels (Draft/Upcoming/In Progress/Delayed/
+   * Complete/Closed) — not the raw `Milestone.state` column, which is an unconstrained `String`
+   * in the DB (no enum, no CHECK constraint) and only holds DRAFT/IN_PROGRESS/SUBMITTED/VERIFIED/
+   * CLOSED by application convention. See `classifyLifecycleStatus` in `lib/activityStatus.ts`. */
   stateBreakdown: Array<{
-    state: MilestoneState;
+    state: LifecycleStatus;
     count: number;
     percent: number;
     avgDaysInState: number;
@@ -379,13 +384,53 @@ export class AnalysisService {
 
     // Calculate averages
     const avg = (arr: number[]) => arr.length > 0 ? arr.reduce((a, b) => a + b, 0) / arr.length : 0;
+    const DAY_MS = 1000 * 60 * 60 * 24;
 
-    // State breakdown
-    const stateBreakdown = Object.entries(stateTimings).map(([state, times]) => ({
-      state: state as MilestoneState,
-      count: milestones.filter(m => m.state === state).length,
-      percent: totalMilestones > 0 ? (milestones.filter(m => m.state === state).length / totalMilestones) * 100 : 0,
-      avgDaysInState: Math.round(avg(times) * 10) / 10,
+    // Lifecycle breakdown (Draft/Upcoming/In Progress/Delayed/Complete/Closed) — the 6 valid
+    // display buckets, computed from real DB fields (state + plannedStart/plannedEnd) via
+    // classifyLifecycleStatus, the same single source of truth used by the Activities page.
+    // The "avg" metric is bucket-relevant rather than a single generic "days in state" figure:
+    // Draft = days sitting unscheduled, Upcoming = days until start, In Progress = days actively
+    // running, Delayed = days overdue, Complete/Closed = actual cycle time (start → verified).
+    const today = startOfDay(now);
+    const lifecycleCounts: Record<LifecycleStatus, number> = {
+      DRAFT: 0, UPCOMING: 0, IN_PROGRESS: 0, DELAYED: 0, COMPLETE: 0, CLOSED: 0,
+    };
+    const lifecycleTimings: Record<LifecycleStatus, number[]> = {
+      DRAFT: [], UPCOMING: [], IN_PROGRESS: [], DELAYED: [], COMPLETE: [], CLOSED: [],
+    };
+
+    for (const milestone of milestones) {
+      const bucket = classifyLifecycleStatus(milestone, today);
+      lifecycleCounts[bucket]++;
+
+      const lastTransition = milestone.transitions[milestone.transitions.length - 1];
+      const lastTransitionTime = lastTransition ? lastTransition.createdAt : milestone.createdAt;
+
+      let metric: number | null = null;
+      if (bucket === 'DRAFT') {
+        metric = (now.getTime() - milestone.createdAt.getTime()) / DAY_MS;
+      } else if (bucket === 'UPCOMING') {
+        metric = milestone.plannedStart ? (milestone.plannedStart.getTime() - now.getTime()) / DAY_MS : null;
+      } else if (bucket === 'IN_PROGRESS') {
+        metric = (now.getTime() - (milestone.actualStart ?? lastTransitionTime).getTime()) / DAY_MS;
+      } else if (bucket === 'DELAYED') {
+        metric = milestone.plannedEnd ? (now.getTime() - milestone.plannedEnd.getTime()) / DAY_MS : null;
+      } else {
+        // COMPLETE (VERIFIED) or CLOSED — real cycle time when we have both dates.
+        metric = milestone.actualVerification && milestone.actualStart
+          ? (milestone.actualVerification.getTime() - milestone.actualStart.getTime()) / DAY_MS
+          : (now.getTime() - lastTransitionTime.getTime()) / DAY_MS;
+      }
+      if (metric !== null) lifecycleTimings[bucket].push(metric);
+    }
+
+    const LIFECYCLE_ORDER: LifecycleStatus[] = ['DRAFT', 'UPCOMING', 'IN_PROGRESS', 'DELAYED', 'COMPLETE', 'CLOSED'];
+    const stateBreakdown = LIFECYCLE_ORDER.map((bucket) => ({
+      state: bucket,
+      count: lifecycleCounts[bucket],
+      percent: totalMilestones > 0 ? (lifecycleCounts[bucket] / totalMilestones) * 100 : 0,
+      avgDaysInState: Math.round(avg(lifecycleTimings[bucket]) * 10) / 10,
     }));
 
     // By trade (derived from BOQ descriptions)

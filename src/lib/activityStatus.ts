@@ -55,3 +55,56 @@ export function daysFromToday(plannedEnd: string | Date | null, today: Date = st
   const due = startOfDay(new Date(plannedEnd));
   return Math.round((due.getTime() - today.getTime()) / 86_400_000);
 }
+
+/** The 6 valid, user-facing lifecycle labels for an activity — as opposed to the raw
+ * `Milestone.state` column, which is a plain unconstrained `String` in the DB (no Postgres
+ * enum, no CHECK constraint) and only ever holds DRAFT/IN_PROGRESS/SUBMITTED/VERIFIED/CLOSED
+ * by application convention. This taxonomy folds SUBMITTED into IN_PROGRESS and layers real
+ * schedule data (plannedStart/plannedEnd) on top, so "Upcoming" and "Delayed" reflect actual
+ * dates rather than just workflow state. */
+export type LifecycleStatus = 'DRAFT' | 'UPCOMING' | 'IN_PROGRESS' | 'DELAYED' | 'COMPLETE' | 'CLOSED';
+
+export const LIFECYCLE_LABEL: Record<LifecycleStatus, string> = {
+  DRAFT: 'Draft',
+  UPCOMING: 'Upcoming',
+  IN_PROGRESS: 'In Progress',
+  DELAYED: 'Delayed',
+  COMPLETE: 'Complete',
+  CLOSED: 'Closed',
+};
+
+export const LIFECYCLE_COLOR: Record<LifecycleStatus, string> = {
+  DRAFT: 'bg-gray-400',
+  UPCOMING: 'bg-yellow-500',
+  IN_PROGRESS: 'bg-blue-500',
+  DELAYED: 'bg-[#e06050]',
+  COMPLETE: 'bg-green-500',
+  CLOSED: 'bg-purple-500',
+};
+
+export interface LifecycleClassifiable {
+  state: string;
+  plannedStart: string | Date | null;
+  plannedEnd: string | Date | null;
+}
+
+/** Single exhaustive classification into the 6 lifecycle buckets above — every activity lands
+ * in exactly one, same discipline as `classifyActivity`. `state` (CLOSED/VERIFIED) always wins
+ * first since those are genuine terminal DB states; everything still "open" (DRAFT/IN_PROGRESS/
+ * SUBMITTED) is then split by real dates rather than the raw workflow string. */
+export function classifyLifecycleStatus(activity: LifecycleClassifiable, today: Date = startOfDay(new Date())): LifecycleStatus {
+  if (activity.state === 'CLOSED') return 'CLOSED';
+  if (activity.state === 'VERIFIED') return 'COMPLETE';
+
+  const end = activity.plannedEnd ? startOfDay(new Date(activity.plannedEnd)) : null;
+  if (end && end.getTime() < today.getTime()) return 'DELAYED';
+
+  if (activity.state === 'DRAFT') {
+    const start = activity.plannedStart ? startOfDay(new Date(activity.plannedStart)) : null;
+    if (start && start.getTime() > today.getTime()) return 'UPCOMING';
+    return 'DRAFT';
+  }
+
+  // IN_PROGRESS or SUBMITTED, not yet overdue.
+  return 'IN_PROGRESS';
+}

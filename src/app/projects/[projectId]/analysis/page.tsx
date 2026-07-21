@@ -12,6 +12,7 @@ import { formatCurrency, formatDate } from '@/lib/utils';
 import { useProject } from '@/lib/contexts/ProjectContext';
 import { jsonFetcher } from '@/lib/fetcher';
 import { HEALTH_LABEL, HEALTH_COLOR } from '@/lib/scheduleVariance';
+import { LIFECYCLE_LABEL, LIFECYCLE_COLOR } from '@/lib/activityStatus';
 
 // recharts is a heavy dependency — only load it when a schedule-imported project actually
 // renders this chart, not on every visit to the Analysis tab.
@@ -283,11 +284,11 @@ function ExecutionTab({ data }: { data: any }) {
           <div className="space-y-3">
             {stateBreakdown.map((state: any) => (
               <div key={state.state} className="flex items-center">
-                <div className="w-28 text-sm text-[rgba(232,228,220,0.7)]">{state.state.replace('_', ' ')}</div>
+                <div className="w-28 text-sm text-[rgba(232,228,220,0.7)]">{LIFECYCLE_LABEL[state.state as keyof typeof LIFECYCLE_LABEL] ?? state.state}</div>
                 <div className="flex-1 mx-4">
                   <div className="h-6 bg-[rgba(255,255,255,0.06)] rounded-full overflow-hidden">
                     <div
-                      className={`h-full ${getStateColor(state.state)}`}
+                      className={`h-full ${LIFECYCLE_COLOR[state.state as keyof typeof LIFECYCLE_COLOR] ?? 'bg-gray-400'}`}
                       style={{ width: `${state.percent}%` }}
                     />
                   </div>
@@ -1026,17 +1027,6 @@ function InsightBox({ text, type = 'info' }: { text: string; type?: 'info' | 'wa
 // ============================================
 // HELPER FUNCTIONS
 // ============================================
-
-function getStateColor(state: string): string {
-  const colors: Record<string, string> = {
-    DRAFT: 'bg-gray-400',
-    IN_PROGRESS: 'bg-blue-500',
-    SUBMITTED: 'bg-yellow-500',
-    VERIFIED: 'bg-green-500',
-    CLOSED: 'bg-purple-500',
-  };
-  return colors[state] || 'bg-gray-400';
-}
 
 function generateExecutionInsight(overview: any, byTrade: any[]): string {
   if (overview.avgDaysInSubmitted > 7) {
