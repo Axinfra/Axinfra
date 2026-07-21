@@ -39,7 +39,7 @@ function fmt(d: string) {
   return new Date(d).toLocaleDateString('en-IN', { day: '2-digit', month: 'short', year: 'numeric' });
 }
 
-const ALL_ROLES = ['ALL', 'CLIENT', 'PMC', 'VENDOR', 'CONSULTANT', 'VIEWER'];
+const ALL_ROLES = ['ALL', 'CLIENT', 'PMC', 'VENDOR', 'CONSULTANT', 'VIEWER', 'SITE_ENGINEER'];
 
 /* ─── Edit Drawer ───────────────────────────────────────────────────── */
 interface EditDrawerProps {

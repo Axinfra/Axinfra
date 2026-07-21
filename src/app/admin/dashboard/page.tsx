@@ -16,7 +16,7 @@ interface Stats {
 
 const ROLE_COLORS: Record<string, string> = {
   CLIENT: 'var(--ax-accent)', PMC: '#60a5fa', VENDOR: '#5cba80',
-  CONSULTANT: '#a78bfa', VIEWER: 'rgba(var(--ax-text-rgb),0.4)',
+  CONSULTANT: '#a78bfa', VIEWER: 'rgba(var(--ax-text-rgb),0.4)', SITE_ENGINEER: '#94a3b8',
 };
 const STATE_COLORS: Record<string, string> = {
   DRAFT: 'rgba(var(--ax-text-rgb),0.3)', IN_PROGRESS: '#60a5fa',

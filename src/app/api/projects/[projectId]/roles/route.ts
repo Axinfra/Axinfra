@@ -15,7 +15,7 @@ import { randomBytes } from 'crypto';
 
 const assignRoleSchema = z.object({
   email: z.string().email(),
-  role: z.enum(['CLIENT', 'PMC', 'VENDOR', 'VIEWER', 'CONSULTANT']),
+  role: z.enum(['CLIENT', 'PMC', 'VENDOR', 'VIEWER', 'CONSULTANT', 'SITE_ENGINEER']),
   force: z.boolean().optional().default(false),
 });
 

@@ -10,10 +10,11 @@ import { Suspense } from 'react';
 import AxinfraLogo from '@/components/AxinfraLogo';
 
 const ROLES = [
-  { id: 'CLIENT',      label: 'Client',      icon: '🏢', desc: 'Project owner' },
-  { id: 'PMC',         label: 'PMC',          icon: '📋', desc: 'Project manager' },
-  { id: 'VENDOR',      label: 'Vendor',       icon: '🔧', desc: 'Contractor' },
-  { id: 'CONSULTANT',  label: 'Consultant',   icon: '💡', desc: 'Specialist' },
+  { id: 'CLIENT',        label: 'Client',        icon: '🏢', desc: 'Project owner' },
+  { id: 'PMC',           label: 'PMC',           icon: '📋', desc: 'Project manager' },
+  { id: 'VENDOR',        label: 'Vendor',        icon: '🔧', desc: 'Contractor' },
+  { id: 'CONSULTANT',    label: 'Consultant',    icon: '💡', desc: 'Specialist' },
+  { id: 'SITE_ENGINEER', label: 'Site Engineer', icon: '👷', desc: 'Read-only site view' },
 ] as const;
 
 type RoleId = (typeof ROLES)[number]['id'];

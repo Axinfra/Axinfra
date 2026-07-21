@@ -473,7 +473,7 @@ export async function sendPhaseCreatedEmail(
   const projectUrl = `${APP_URL}/projects/${projectId}/schedule`;
   const roleLabels: Record<string, string> = {
     CLIENT: 'Project Owner', PMC: 'PMC', VENDOR: 'Vendor',
-    CONSULTANT: 'Consultant', VIEWER: 'Viewer',
+    CONSULTANT: 'Consultant', VIEWER: 'Viewer', SITE_ENGINEER: 'Site Engineer',
   };
   const actorLabel = roleLabels[actorRole] ?? actorRole;
 
@@ -529,7 +529,7 @@ export async function sendScheduleUpdatedEmail(
 
   const roleLabels: Record<string, string> = {
     CLIENT: 'Project Owner', PMC: 'PMC', VENDOR: 'Vendor',
-    CONSULTANT: 'Consultant', VIEWER: 'Viewer',
+    CONSULTANT: 'Consultant', VIEWER: 'Viewer', SITE_ENGINEER: 'Site Engineer',
   };
   const actorLabel = roleLabels[actorRole] ?? actorRole;
 

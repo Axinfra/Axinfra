@@ -7,7 +7,7 @@ import { z } from 'zod';
 
 export const dynamic = 'force-dynamic';
 
-const VALID_ROLES = ['CLIENT', 'PMC', 'VENDOR', 'CONSULTANT', 'VIEWER'] as const;
+const VALID_ROLES = ['CLIENT', 'PMC', 'VENDOR', 'CONSULTANT', 'VIEWER', 'SITE_ENGINEER'] as const;
 
 const loginSchema = z.object({
   email: z.string().email(),

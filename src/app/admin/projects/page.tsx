@@ -22,7 +22,7 @@ const STATUS_STYLE: Record<string, { bg: string; fg: string }> = {
 };
 const ROLE_COLOR: Record<string, string> = {
   CLIENT: 'var(--ax-accent)', PMC: '#60a5fa', VENDOR: '#5cba80',
-  CONSULTANT: '#a78bfa', VIEWER: 'rgba(var(--ax-text-rgb),0.4)',
+  CONSULTANT: '#a78bfa', VIEWER: 'rgba(var(--ax-text-rgb),0.4)', SITE_ENGINEER: '#94a3b8',
 };
 
 // Platform admin is never shown as a client "owner" group header

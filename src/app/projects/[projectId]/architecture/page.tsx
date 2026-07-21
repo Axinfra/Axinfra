@@ -141,7 +141,9 @@ export default function ArchitecturePage() {
 
   const tabs = (() => {
     if (myRole === 'CONSULTANT') return ['Overview', 'My Sets', 'All Drawings', 'Import'];
-    if (myRole === 'PMC')       return ['Overview', 'Drawing Sets', 'Review Queue'];
+    // Site Engineer mirrors PMC's tab set — same view, no edit affordances within it (those
+    // are separately gated by scattered myRole === 'PMC' checks below, which stay PMC-only).
+    if (myRole === 'PMC' || myRole === 'SITE_ENGINEER') return ['Overview', 'Drawing Sets', 'Review Queue'];
     if (myRole === 'CLIENT')     return ['Overview', 'Drawing Sets', 'All Drawings'];
     if (myRole === 'VENDOR')    return ['Approved Drawings'];
     return ['Overview', 'Drawing Sets', 'All Drawings'];
@@ -666,7 +668,7 @@ export default function ArchitecturePage() {
     const isLoading = actionLoading === set.id;
     const isRequested = set.status === 'REQUESTED';
     const isJustCreated = justCreatedSetId === set.id;
-    const canOpenSetRows = ['CONSULTANT', 'PMC', 'CLIENT'].includes(myRole);
+    const canOpenSetRows = ['CONSULTANT', 'PMC', 'CLIENT', 'SITE_ENGINEER'].includes(myRole);
     return (
       <div
         key={set.id}

@@ -4,6 +4,10 @@ export const Role = {
   VENDOR: 'VENDOR',
   VIEWER: 'VIEWER',
   CONSULTANT: 'CONSULTANT',
+  /** Read-only variant of PMC — sees the same project data (BOQ, Schedule, Activities, RA
+   * Bills, Dashboard) but no Analysis/Payments/Audit Log, and no edit/create/delete anywhere.
+   * See RoleGuard.getPermissions() and Navbar.tsx's per-tab `roles` arrays. */
+  SITE_ENGINEER: 'SITE_ENGINEER',
 } as const;
 export type Role = (typeof Role)[keyof typeof Role];
 

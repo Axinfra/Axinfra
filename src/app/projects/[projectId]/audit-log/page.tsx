@@ -61,9 +61,13 @@ export default function AuditLogPage() {
   const { project, isLoading: projectLoading } = useProject();
   const projectName = project?.name ?? '';
   const myRole = project?.myRole ?? '';
+  // Matches Navbar's `roles` array for this tab (and the GET route's RoleGuard.requireRole
+  // check) — kept in sync so a direct URL hit gets the same friendly denial as Analysis/
+  // Payments instead of a silently-empty "0 of 0 entries" table.
+  const hasAccess = ['CLIENT', 'PMC', 'VENDOR', 'VIEWER', 'CONSULTANT'].includes(myRole);
 
   const auditUrl = useMemo(() => {
-    if (!projectId) return null;
+    if (!projectId || !hasAccess) return null;
     return (
       `/api/projects/${projectId}/audit-log?` +
       new URLSearchParams({
@@ -73,7 +77,7 @@ export default function AuditLogPage() {
         offset: filters.offset.toString(),
       })
     );
-  }, [projectId, filters]);
+  }, [projectId, filters, hasAccess]);
 
   const { data: payload, isLoading: logsLoading } = useSWR<{
     logs: AuditLogEntry[];
@@ -137,7 +141,18 @@ export default function AuditLogPage() {
     );
   }
 
-  const entityTypes = ['Milestone', 'BOQ', 'Phase', 'Evidence', 'Project', 'Role', 'FollowUp', 'Payment', 'Cash'];
+  if (myRole && !hasAccess) {
+    return (
+      <Layout>
+        <Navbar projectId={projectId} projectName={projectName} role={myRole} />
+        <div className="alert alert-error">
+          Access denied. Audit Log is not available for your role.
+        </div>
+      </Layout>
+    );
+  }
+
+  const entityTypes =['Milestone', 'BOQ', 'Phase', 'Evidence', 'Project', 'Role', 'FollowUp', 'Payment', 'Cash'];
   const actionTypes = [
     'BOQ_CREATE', 'BOQ_APPROVE', 'BOQ_REVISE', 'BOQ_ITEM_ADD', 'BOQ_ITEM_UPDATE', 'BOQ_ITEM_REMOVE',
     'PHASE_CREATE', 'PHASE_UPDATE', 'PHASE_DELETE',

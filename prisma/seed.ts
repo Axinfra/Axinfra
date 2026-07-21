@@ -5,7 +5,7 @@ const prisma = new PrismaClient();
 
 // ─── String-based enums (matches src/types/index.ts) ────────────────────────
 // App uses 'CLIENT' as the project-owner role throughout (types/index.ts, all API routes)
-const Role = { OWNER: 'CLIENT', PMC: 'PMC', VENDOR: 'VENDOR', VIEWER: 'VIEWER', CONSULTANT: 'CONSULTANT' } as const;
+const Role = { OWNER: 'CLIENT', PMC: 'PMC', VENDOR: 'VENDOR', VIEWER: 'VIEWER', CONSULTANT: 'CONSULTANT', SITE_ENGINEER: 'SITE_ENGINEER' } as const;
 const BOQStatus = { DRAFT: 'DRAFT', APPROVED: 'APPROVED', REVISED: 'REVISED' } as const;
 const MilestoneState = {
   DRAFT: 'DRAFT', IN_PROGRESS: 'IN_PROGRESS', SUBMITTED: 'SUBMITTED',
@@ -109,7 +109,10 @@ async function main() {
   const consultant = await prisma.user.create({
     data: { name: 'Arthur Consultant', email: 'consultant@example.com', hashedPassword: hash, preferredRole: 'CONSULTANT' },
   });
-  console.log('  Created 6 users (1 admin + 5 demo)');
+  const siteEngineer = await prisma.user.create({
+    data: { name: 'Sam Site Engineer', email: 'siteengineer@example.com', hashedPassword: hash, preferredRole: 'SITE_ENGINEER' },
+  });
+  console.log('  Created 7 users (1 admin + 6 demo)');
 
   async function seedArchitectureForProject(projectId: string, label: string) {
     const draftSet = await prisma.drawingSet.create({
@@ -317,6 +320,7 @@ async function main() {
       { projectId: project.id, userId: vendor1.id,     role: Role.VENDOR },
       { projectId: project.id, userId: vendor2.id,     role: Role.VENDOR },
       { projectId: project.id, userId: consultant.id,  role: Role.CONSULTANT },
+      { projectId: project.id, userId: siteEngineer.id, role: Role.SITE_ENGINEER },
     ],
   });
 
@@ -1180,7 +1184,7 @@ async function main() {
 
   console.log('🎉 Seed complete!\n');
   console.log('  Projects       : 1 (Gateway Commercial Tower)');
-  console.log('  Users          : 6 (admin + owner + pmc + 2 vendors + consultant)');
+  console.log('  Users          : 7 (admin + owner + pmc + 2 vendors + consultant + site engineer)');
   console.log('  Phases (WBS)   : 6');
   console.log('  Purchase Orders: 5');
   console.log('  BOQ items      : 10');
@@ -1195,6 +1199,7 @@ async function main() {
   console.log('    Vendor 1   :  vendor@example.com');
   console.log('    Vendor 2   :  vendor2@example.com');
   console.log('    Consultant :  consultant@example.com');
+  console.log('    Site Eng.  :  siteengineer@example.com');
   console.log('    Admin      :  admin@axinfra.local   (password: admin123)');
 }
 

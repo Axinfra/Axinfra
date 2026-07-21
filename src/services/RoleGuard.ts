@@ -14,7 +14,7 @@ export class RoleGuard {
   }
 
   static canRead(auth: ProjectAuthContext): boolean {
-    return ([Role.CLIENT, Role.PMC, Role.VENDOR, Role.VIEWER, Role.CONSULTANT] as string[]).includes(auth.role);
+    return ([Role.CLIENT, Role.PMC, Role.VENDOR, Role.VIEWER, Role.CONSULTANT, Role.SITE_ENGINEER] as string[]).includes(auth.role);
   }
 
   static canManageProject(auth: ProjectAuthContext): boolean {
@@ -35,13 +35,14 @@ export class RoleGuard {
 
   /**
    * Which BOQ statuses a role is allowed to see. PMC sees everything (they're still drafting
-   * some of it). Owner shouldn't see BOQs PMC hasn't submitted yet — DRAFT is hidden, but
-   * REVISED stays visible since Owner is the one who triggered that state. Vendor/Consultant
+   * some of it) — Site Engineer mirrors PMC here since it's a read-only view of the same data,
+   * not a restricted one. Owner shouldn't see BOQs PMC hasn't submitted yet — DRAFT is hidden,
+   * but REVISED stays visible since Owner is the one who triggered that state. Vendor/Consultant
    * (and any other role) only ever see the final APPROVED version — never a draft or an
    * in-review one. `null` means "no filter, show every status."
    */
   static visibleBOQStatuses(auth: ProjectAuthContext): string[] | null {
-    if (auth.role === Role.PMC) return null;
+    if (auth.role === Role.PMC || auth.role === Role.SITE_ENGINEER) return null;
     if (auth.role === Role.CLIENT) return ['PENDING_APPROVAL', 'REVISED', 'APPROVED'];
     return ['APPROVED'];
   }

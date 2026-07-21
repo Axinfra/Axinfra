@@ -34,10 +34,12 @@ const roleColors: Record<string, "default" | "secondary" | "outline" | "destruct
   VENDOR: 'success',
   VIEWER: 'secondary',
   CONSULTANT: 'outline',
+  SITE_ENGINEER: 'neutral',
 };
 
 const roleLabels: Record<string, string> = {
   CONSULTANT: 'CONSULTANT',
+  SITE_ENGINEER: 'SITE ENGINEER',
 };
 
 export default function Navbar({ projectId, projectName, role }: NavbarProps) {
@@ -48,16 +50,20 @@ export default function Navbar({ projectId, projectName, role }: NavbarProps) {
   // so the click feels instant.
   const navItems = [
     { href: `/projects/${projectId}`, label: 'Overview', icon: LayoutDashboard, always: true, prefetchApi: [`/api/projects/${projectId}`] },
-    { href: `/projects/${projectId}/boqs`, label: role === 'CLIENT' ? 'View BOQ' : 'BOQ', icon: FileText, roles: ['CLIENT', 'PMC', 'CONSULTANT', 'VIEWER', 'VENDOR'], prefetchApi: [`/api/projects/${projectId}/boq`] },
-    { href: `/projects/${projectId}/schedule`, label: 'Schedule', icon: CalendarRange, roles: ['CLIENT', 'PMC', 'VENDOR', 'CONSULTANT'], prefetchApi: [`/api/projects/${projectId}/schedule`] },
+    { href: `/projects/${projectId}/boqs`, label: role === 'CLIENT' ? 'View BOQ' : 'BOQ', icon: FileText, roles: ['CLIENT', 'PMC', 'CONSULTANT', 'VIEWER', 'VENDOR', 'SITE_ENGINEER'], prefetchApi: [`/api/projects/${projectId}/boq`] },
+    { href: `/projects/${projectId}/schedule`, label: 'Schedule', icon: CalendarRange, roles: ['CLIENT', 'PMC', 'VENDOR', 'CONSULTANT', 'SITE_ENGINEER'], prefetchApi: [`/api/projects/${projectId}/schedule`] },
     { href: `/projects/${projectId}/activities`, label: 'Activities', icon: Flag, always: true, prefetchApi: [`/api/projects/${projectId}/milestones`] },
     { href: `/projects/${projectId}/views`, label: 'Views', icon: Layers, always: true, prefetchApi: [`/api/projects/${projectId}/views`] },
+    // Analysis and Payments are deliberately NOT extended to SITE_ENGINEER (read-only PMC
+    // variant, but these two stay off-limits per the role's definition).
     { href: `/projects/${projectId}/analysis`, label: 'Analysis', icon: BarChart2, roles: ['CLIENT', 'PMC'], prefetchApi: [`/api/projects/${projectId}/analysis`] },
     { href: `/projects/${projectId}/payments`, label: role === 'VENDOR' ? 'My Invoices' : 'Payments', icon: CreditCard, roles: ['CLIENT', 'PMC', 'VENDOR'], prefetchApi: [`/api/projects/${projectId}/payment-eligibility`] },
-    { href: `/projects/${projectId}/ra-bills`, label: 'RA Bills', icon: Receipt, roles: ['CLIENT', 'PMC', 'VENDOR', 'CONSULTANT'], prefetchApi: [`/api/projects/${projectId}/ra-bills`] },
-    { href: `/projects/${projectId}/follow-ups`, label: 'Follow-ups', icon: BellRing, roles: ['CLIENT', 'PMC'], prefetchApi: [`/api/projects/${projectId}/follow-ups`] },
+    { href: `/projects/${projectId}/ra-bills`, label: 'RA Bills', icon: Receipt, roles: ['CLIENT', 'PMC', 'VENDOR', 'CONSULTANT', 'SITE_ENGINEER'], prefetchApi: [`/api/projects/${projectId}/ra-bills`] },
+    { href: `/projects/${projectId}/follow-ups`, label: 'Follow-ups', icon: BellRing, roles: ['CLIENT', 'PMC', 'SITE_ENGINEER'], prefetchApi: [`/api/projects/${projectId}/follow-ups`] },
     { href: `/projects/${projectId}/dashboard`, label: 'Dashboard', icon: BarChart2, always: true, prefetchApi: [`/api/projects/${projectId}/dashboard`] },
-    { href: `/projects/${projectId}/audit-log`, label: 'Audit Log', icon: History, always: true, prefetchApi: [`/api/projects/${projectId}/audit-log`] },
+    // Was `always: true` — converted to an explicit list (every existing role included, so
+    // nobody else's access changes) so SITE_ENGINEER can be excluded, per its definition.
+    { href: `/projects/${projectId}/audit-log`, label: 'Audit Log', icon: History, roles: ['CLIENT', 'PMC', 'VENDOR', 'VIEWER', 'CONSULTANT'], prefetchApi: [`/api/projects/${projectId}/audit-log`] },
 { href: `/projects/${projectId}/roles`, label: 'Roles', icon: Users, roles: ['CLIENT'], prefetchApi: [`/api/projects/${projectId}/roles`] },
     { href: `/projects/${projectId}/settings`, label: 'Settings', icon: Settings, roles: ['CLIENT'] },
     { href: `/projects`, label: 'Manage Projects', icon: FolderOpen, roles: ['CLIENT'] },

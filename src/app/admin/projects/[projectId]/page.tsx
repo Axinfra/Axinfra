@@ -36,7 +36,7 @@ const PAY_STATE: Record<string, string> = {
   BLOCKED: '#e06050', MARKED_PAID: 'var(--ax-accent)',
 };
 const ROLE_COLOR: Record<string, string> = {
-  CLIENT: 'var(--ax-accent)', PMC: '#60a5fa', VENDOR: '#5cba80', CONSULTANT: '#a78bfa', VIEWER: 'rgba(var(--ax-text-rgb),0.4)',
+  CLIENT: 'var(--ax-accent)', PMC: '#60a5fa', VENDOR: '#5cba80', CONSULTANT: '#a78bfa', VIEWER: 'rgba(var(--ax-text-rgb),0.4)', SITE_ENGINEER: '#94a3b8',
 };
 const FU_STYLE: Record<string, { bg: string; fg: string }> = {
   OPEN:      { bg: 'rgba(251,146,60,0.13)', fg: '#fb923c' },
@@ -204,7 +204,7 @@ export default function AdminProjectDetailPage() {
       {/* ── TEAM ────────────────────────────────────────────────────────── */}
       {tab === 'team' && (
         <div className="space-y-4">
-          {['CLIENT', 'PMC', 'VENDOR', 'CONSULTANT', 'VIEWER'].map(role => {
+          {['CLIENT', 'PMC', 'VENDOR', 'CONSULTANT', 'VIEWER', 'SITE_ENGINEER'].map(role => {
             const members = roleGroups[role] ?? [];
             if (!members.length) return null;
             return (

@@ -170,6 +170,7 @@ export async function POST(request: NextRequest) {
     // ── Vendor in DB → check preferredRole conflict ──────────────────────────
     const ROLE_LABELS: Record<string, string> = {
       CLIENT: 'Project Owner', PMC: 'PMC', VENDOR: 'Vendor', CONSULTANT: 'Consultant', VIEWER: 'Viewer',
+      SITE_ENGINEER: 'Site Engineer',
     };
 
     if (existingUser.preferredRole && existingUser.preferredRole !== 'VENDOR') {

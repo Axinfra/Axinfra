@@ -156,6 +156,11 @@ export default function PaymentsPage() {
   const { project, isLoading: projectLoading } = useProject();
   const myRole = project?.myRole ?? '';
   const projectName = project?.name ?? '';
+  // Matches Navbar's `roles` array for this tab — the underlying data here comes from the
+  // Milestones/RA Bills/Architecture endpoints (all accessible to other roles for their own
+  // tabs), so unlike Analysis this page needs its own explicit gate rather than relying on a
+  // single protected API route.
+  const hasAccess = ['CLIENT', 'PMC', 'VENDOR'].includes(myRole);
   const isOwner = myRole === 'CLIENT';
   const canApproveRABill = isOwner;
   const canReleaseRABillPayment = isOwner || myRole === 'PMC';
@@ -208,6 +213,17 @@ export default function PaymentsPage() {
   };
 
   if (projectLoading) return <Layout><ListPageSkeleton /></Layout>;
+
+  if (myRole && !hasAccess) {
+    return (
+      <Layout>
+        <Navbar projectId={projectId} projectName={projectName} role={myRole} />
+        <div className="alert alert-error">
+          Access denied. Payments is available to Owner, PMC, and Vendor only.
+        </div>
+      </Layout>
+    );
+  }
 
   // ── Vendor: completely separate invoice view ────────────────────────────────
   if (myRole === 'VENDOR') {

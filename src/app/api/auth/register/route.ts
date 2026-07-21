@@ -9,7 +9,7 @@ import { z } from 'zod';
 
 export const dynamic = 'force-dynamic';
 
-const VALID_ROLES = ['CLIENT', 'PMC', 'VENDOR', 'CONSULTANT'] as const;
+const VALID_ROLES = ['CLIENT', 'PMC', 'VENDOR', 'CONSULTANT', 'SITE_ENGINEER'] as const;
 
 const registerSchema = z.object({
   name:          z.string().min(2).max(100).trim(),

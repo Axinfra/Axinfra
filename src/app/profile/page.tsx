@@ -28,6 +28,7 @@ const ROLE_LABEL: Record<string, string> = {
   VENDOR: 'Vendor',
   CONSULTANT: 'Consultant',
   VIEWER: 'Viewer',
+  SITE_ENGINEER: 'Site Engineer',
 };
 
 export default function ProfilePage() {

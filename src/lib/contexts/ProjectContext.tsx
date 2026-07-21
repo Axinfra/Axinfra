@@ -19,7 +19,7 @@ export interface ProjectMeta {
   name: string;
   description?: string | null;
   status?: string;
-  myRole: 'CLIENT' | 'PMC' | 'VENDOR' | 'VIEWER' | 'CONSULTANT';
+  myRole: 'CLIENT' | 'PMC' | 'VENDOR' | 'VIEWER' | 'CONSULTANT' | 'SITE_ENGINEER';
   permissions?: Record<string, boolean>;
   // Anything else the API returns; consumers cast as needed.
   [key: string]: unknown;

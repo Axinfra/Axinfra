@@ -77,17 +77,18 @@ function LoginContent() {
     }
   };
 
-  const fillDemo = (role: 'admin' | 'client' | 'pmc' | 'vendor' | 'consultant') => {
+  const fillDemo = (role: 'admin' | 'client' | 'pmc' | 'vendor' | 'consultant' | 'siteengineer') => {
     const emails: Record<string, string> = {
       admin:      'admin@axinfra.local',
       client:     'client@example.com',
       pmc:        'pmc@example.com',
       vendor:     'vendor@example.com',
       consultant: 'consultant@example.com',
+      siteengineer: 'siteengineer@example.com',
     };
     const passwords: Record<string, string> = {
       admin: 'admin123', client: 'password123', pmc: 'password123',
-      vendor: 'password123', consultant: 'password123',
+      vendor: 'password123', consultant: 'password123', siteengineer: 'password123',
     };
     setEmail(emails[role]);
     setPassword(passwords[role]);
@@ -204,11 +205,11 @@ function LoginContent() {
               Demo Access
             </p>
             <div className="flex items-center justify-center flex-wrap gap-x-4 gap-y-2 text-xs font-medium text-[rgba(var(--ax-text-rgb),0.5)]">
-              {(['client', 'pmc', 'vendor', 'consultant'] as const).map((role, i, arr) => (
+              {(['client', 'pmc', 'vendor', 'consultant', 'siteengineer'] as const).map((role, i, arr) => (
                 <React.Fragment key={role}>
                   <button type="button" onClick={() => fillDemo(role)}
                     className="hover:text-[var(--ax-accent)] transition-colors">
-                    {role === 'pmc' ? 'PMC' : role.charAt(0).toUpperCase() + role.slice(1)}
+                    {role === 'pmc' ? 'PMC' : role === 'siteengineer' ? 'Site Engineer' : role.charAt(0).toUpperCase() + role.slice(1)}
                   </button>
                   {i < arr.length - 1 && <span className="text-[rgba(var(--ax-text-rgb),0.1)]">·</span>}
                 </React.Fragment>

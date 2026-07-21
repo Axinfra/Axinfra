@@ -53,6 +53,7 @@ export default function RolesPage() {
 
   const ROLE_LABELS: Record<string, string> = {
     CLIENT: 'Project Owner', PMC: 'PMC', VENDOR: 'Vendor', CONSULTANT: 'Consultant', VIEWER: 'Viewer',
+    SITE_ENGINEER: 'Site Engineer',
   };
 
   const submitRole = async (force: boolean) => {
@@ -199,7 +200,7 @@ export default function RolesPage() {
                     </td>
                     <td>
                       <div className="flex items-center gap-2">
-                        <span className="badge badge-draft">{entry.role}</span>
+                        <span className="badge badge-draft">{entry.role === 'SITE_ENGINEER' ? 'SITE ENGINEER' : entry.role}</span>
                         {entry.isPendingInvite && (
                           <span
                             className="inline-flex items-center gap-1 px-2 py-0.5 rounded-full text-[10px] font-semibold"
@@ -290,6 +291,14 @@ export default function RolesPage() {
                 <ul className="text-sm text-[rgba(232,228,220,0.55)] space-y-1">
                   <li>Read-only access</li>
                   <li>No control actions</li>
+                </ul>
+              </div>
+              <div>
+                <h3 className="font-medium text-[#e8e4dc] mb-2">SITE ENGINEER</h3>
+                <ul className="text-sm text-[rgba(232,228,220,0.55)] space-y-1">
+                  <li>Same view as PMC: BOQ, Schedule, Activities, RA Bills</li>
+                  <li>No Analysis, Payments, or Audit Log access</li>
+                  <li>Read-only — no edit, approve, or create actions</li>
                 </ul>
               </div>
             </div>
@@ -457,6 +466,7 @@ export default function RolesPage() {
                       <option value="CONSULTANT">Consultants</option>
                       <option value="VENDOR">Vendor</option>
                       <option value="VIEWER">Viewer</option>
+                      <option value="SITE_ENGINEER">Site Engineer</option>
                     </select>
                   </div>
 

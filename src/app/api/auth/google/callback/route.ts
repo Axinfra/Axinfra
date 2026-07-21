@@ -79,7 +79,7 @@ export async function GET(request: NextRequest) {
       },
     });
 
-    const VALID_ROLES = ['CLIENT', 'PMC', 'VENDOR', 'CONSULTANT', 'VIEWER'];
+    const VALID_ROLES = ['CLIENT', 'PMC', 'VENDOR', 'CONSULTANT', 'VIEWER', 'SITE_ENGINEER'];
     const preferredRole = VALID_ROLES.includes(role) ? role : undefined;
 
     if (!user) {

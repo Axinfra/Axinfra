@@ -66,6 +66,10 @@ export async function GET(
   try {
     const { projectId } = await params;
     const auth = await requireProjectAuth(projectId);
+    // Every existing role stays included here — this only closes the tab off for the new
+    // read-only SITE_ENGINEER role, matching its Navbar entry (previously `always: true`
+    // with no API-level check at all).
+    RoleGuard.requireRole(auth, ['CLIENT', 'PMC', 'VENDOR', 'VIEWER', 'CONSULTANT']);
 
     const { searchParams } = new URL(request.url);
 
@@ -149,6 +153,12 @@ export async function GET(
       return NextResponse.json(
         { success: false, error: 'Unauthorized' },
         { status: 401 }
+      );
+    }
+    if (error instanceof Error && error.message.startsWith('FORBIDDEN')) {
+      return NextResponse.json(
+        { success: false, error: 'Access denied.' },
+        { status: 403 }
       );
     }
     console.error('Audit log error:', error);

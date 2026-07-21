@@ -35,6 +35,7 @@ Demo users created by `npm run db:seed`:
 | Vendor | vendor@example.com | password123 |
 | Viewer | viewer@example.com | password123 |
 | Consultant | consultant@example.com | password123 |
+| Site Engineer | siteengineer@example.com | password123 |
 
 ## Environment Variables
 

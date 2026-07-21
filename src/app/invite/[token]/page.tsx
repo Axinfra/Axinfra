@@ -11,6 +11,7 @@ const ROLE_LABELS: Record<string, string> = {
   VENDOR: 'Vendor',
   CONSULTANT: 'Consultant',
   VIEWER: 'Viewer',
+  SITE_ENGINEER: 'Site Engineer',
 };
 
 const ROLE_DESCRIPTIONS: Record<string, string> = {
@@ -19,10 +20,11 @@ const ROLE_DESCRIPTIONS: Record<string, string> = {
   VENDOR: 'Execute work on-site, submit milestones for verification and receive payments.',
   CONSULTANT: 'Upload documents, review submissions, and export audit logs.',
   VIEWER: 'Read-only access to project status, milestones, and reports.',
+  SITE_ENGINEER: 'Read-only view of BOQ, Schedule, Activities, and RA Bills — no edit access.',
 };
 
 const ROLE_ICONS: Record<string, string> = {
-  CLIENT: '🏢', PMC: '📋', VENDOR: '🔧', CONSULTANT: '💡', VIEWER: '👁',
+  CLIENT: '🏢', PMC: '📋', VENDOR: '🔧', CONSULTANT: '💡', VIEWER: '👁', SITE_ENGINEER: '👷',
 };
 
 interface InviteData {
