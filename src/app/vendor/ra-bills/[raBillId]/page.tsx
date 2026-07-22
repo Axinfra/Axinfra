@@ -3,7 +3,7 @@
 import { useState } from 'react';
 import { useParams } from 'next/navigation';
 import useSWR from 'swr';
-import { Send, AlertTriangle, Save, Download } from 'lucide-react';
+import { Send, AlertTriangle, Save, Download, Check } from 'lucide-react';
 import Layout from '@/components/Layout';
 import VendorNav from '@/components/vendor/VendorNav';
 import VendorActionButton from '@/components/vendor/VendorActionButton';
@@ -27,6 +27,10 @@ interface RABillDetail {
   periodStart: string;
   periodEnd: string;
   submittedValue: number | null;
+  siteEngineerReviewedAt: string | null;
+  siteEngineerReviewedValue: number | null;
+  siteEngineerReviewedBy: { name: string } | null;
+  vendorAcceptedAt: string | null;
   certifiedAt: string | null;
   approvedValue: number | null;
   releasedValue: number | null;
@@ -52,6 +56,25 @@ export default function VendorRABillDetailPage() {
   const [error, setError] = useState('');
   const [qtyDraft, setQtyDraft] = useState<Record<string, string>>({});
   const [saving, setSaving] = useState(false);
+  const [accepting, setAccepting] = useState(false);
+
+  const handleAccept = async () => {
+    setAccepting(true);
+    setError('');
+    try {
+      const res = await fetch(`/api/vendor/ra-bills/${raBillId}/accept`, { method: 'POST' });
+      const data = await res.json();
+      if (data.success) {
+        void mutate();
+      } else {
+        setError(data.error ?? 'Could not accept. Try again.');
+      }
+    } catch {
+      setError('Could not accept. Try again.');
+    } finally {
+      setAccepting(false);
+    }
+  };
 
   const handleSubmit = async () => {
     setSubmitting(true);
@@ -117,6 +140,7 @@ export default function VendorRABillDetailPage() {
 
   const canEditQty = bill.status === 'DRAFT' || bill.status === 'REVISION_REQUESTED';
   const canSubmit = canEditQty;
+  const canAccept = !!bill.siteEngineerReviewedAt && !bill.vendorAcceptedAt;
 
   return (
     <Layout>
@@ -142,6 +166,31 @@ export default function VendorRABillDetailPage() {
               <p className="text-lg font-bold" style={{ color: '#ef4444' }}>Please Fix</p>
               <p className="text-base mt-0.5" style={{ color: 'rgba(239,68,68,0.85)' }}>{bill.revisionReason}</p>
             </div>
+          </div>
+        )}
+
+        {bill.status === 'PENDING_SITE_ENGINEER_REVIEW' && (
+          <div className="flex items-start gap-3 p-4 rounded-2xl" style={{ background: 'rgba(168,85,247,0.1)', boxShadow: 'inset 0 0 0 1.5px rgba(168,85,247,0.3)' }}>
+            <p className="text-base font-semibold" style={{ color: '#a855f7' }}>With Site Engineer for review</p>
+          </div>
+        )}
+
+        {canAccept && (
+          <div className="p-4 rounded-2xl space-y-1" style={{ background: 'rgba(92,186,128,0.1)', boxShadow: 'inset 0 0 0 1.5px rgba(92,186,128,0.3)' }}>
+            <p className="text-lg font-bold" style={{ color: '#5cba80' }}>
+              Site Engineer{bill.siteEngineerReviewedBy ? ` (${bill.siteEngineerReviewedBy.name})` : ''} reviewed this bill
+            </p>
+            {bill.siteEngineerReviewedValue !== null && (
+              <p className="text-base font-medium" style={{ color: 'rgba(92,186,128,0.85)' }}>Value: {formatCurrency(bill.siteEngineerReviewedValue)}</p>
+            )}
+            <p className="text-sm" style={{ color: 'rgba(92,186,128,0.7)' }}>Accept below to make this binding.</p>
+          </div>
+        )}
+
+        {bill.vendorAcceptedAt && (
+          <div className="flex items-start gap-3 p-4 rounded-2xl" style={{ background: 'rgba(92,186,128,0.1)', boxShadow: 'inset 0 0 0 1.5px rgba(92,186,128,0.3)' }}>
+            <Check className="w-6 h-6 shrink-0 mt-0.5" style={{ color: '#5cba80' }} />
+            <p className="text-base font-semibold" style={{ color: '#5cba80' }}>You accepted this bill on {formatDate(bill.vendorAcceptedAt)}</p>
           </div>
         )}
 
@@ -210,6 +259,17 @@ export default function VendorRABillDetailPage() {
             loading={submitting}
             onClick={() => void handleSubmit()}
             icon={Send}
+            variant="primary"
+          />
+        )}
+
+        {canAccept && (
+          <VendorActionButton
+            label="Accept"
+            loadingLabel="Accepting…"
+            loading={accepting}
+            onClick={() => void handleAccept()}
+            icon={Check}
             variant="primary"
           />
         )}

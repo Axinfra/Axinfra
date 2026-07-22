@@ -1,0 +1,463 @@
+import { prisma } from '@/lib/db';
+import { AnalysisService } from '@/services/AnalysisService';
+import { classifyLifecycleStatus, startOfDay } from '@/lib/activityStatus';
+import type { ReportPeriod } from '@/lib/reportPeriod';
+
+const DAY_MS = 86_400_000;
+function computeDuration(startDate: string | null, endDate: string | null, asOf: Date) {
+  if (!startDate || !endDate) return null;
+  const start = new Date(startDate);
+  const end = new Date(endDate);
+  const totalDurationDays = Math.round((end.getTime() - start.getTime()) / DAY_MS);
+  const elapsedDays = Math.round((asOf.getTime() - start.getTime()) / DAY_MS);
+  return { totalDurationDays, elapsedDays, balanceDays: totalDurationDays - elapsedDays };
+}
+
+/**
+ * ReportService — builds the weekly/monthly project rollup. READ-ONLY, same discipline as
+ * AnalysisService: no mutation, no new business logic, just aggregation over existing data.
+ *
+ * Two kinds of numbers are mixed deliberately:
+ *  - "As of period end" cumulative snapshots (BOQ/financial totals, activity state breakdown)
+ *    — reused straight from AnalysisService so this report never disagrees with the Analysis
+ *    dashboard's own numbers.
+ *  - "This period" activity (RA Bill transitions, progress updates, checklists/DPRs/documents
+ *    created or signed) — fresh date-bounded queries, since AnalysisService has no period
+ *    concept at all.
+ */
+export class ReportService {
+  static async buildProjectReportData(projectId: string, period: ReportPeriod) {
+    const { start, end } = period;
+    const startStr = start.toISOString().slice(0, 10);
+    const endStr = end.toISOString().slice(0, 10);
+
+    const [
+      project,
+      roles,
+      execution,
+      variance,
+      evidenceEntries,
+      stateTransitions,
+      raBillsInPeriod,
+      checklistsInPeriod,
+      dprsInPeriod,
+      documentsInPeriod,
+      allMilestones,
+      allRABills,
+      allChecklists,
+      drawingVersionsInPeriod,
+    ] = await Promise.all([
+      prisma.project.findUnique({ where: { id: projectId } }),
+      prisma.projectRole.findMany({
+        where: { projectId, role: { in: ['CLIENT', 'PMC', 'CONSULTANT'] } },
+        include: { user: { select: { name: true } } },
+      }),
+      AnalysisService.getExecutionAnalysis(projectId),
+      AnalysisService.getVarianceAnalysis(projectId),
+      // Includes both PMC progress-update rows AND Vendor supporting-photo rows — the
+      // former (authorRole !== 'VENDOR') feeds the progress-updates table below, and both
+      // feed the evidence photo gallery, since either kind of entry can carry photos.
+      prisma.evidence.findMany({
+        where: { milestone: { projectId }, submittedAt: { gte: start, lte: end } },
+        include: { milestone: { select: { title: true } }, submittedBy: { select: { name: true } }, files: true },
+        orderBy: { submittedAt: 'asc' },
+      }),
+      prisma.milestoneStateTransition.findMany({
+        where: { milestone: { projectId }, createdAt: { gte: start, lte: end } },
+        include: { milestone: { select: { title: true } }, actor: { select: { name: true } } },
+        orderBy: { createdAt: 'asc' },
+      }),
+      prisma.rABill.findMany({
+        where: {
+          projectId,
+          OR: [
+            { submittedAt: { gte: start, lte: end } },
+            { certifiedAt: { gte: start, lte: end } },
+            { approvedAt: { gte: start, lte: end } },
+            { releasedAt: { gte: start, lte: end } },
+          ],
+        },
+        include: { order: { select: { name: true } } },
+        orderBy: { updatedAt: 'asc' },
+      }),
+      prisma.checklist.findMany({
+        where: { projectId, OR: [{ createdAt: { gte: start, lte: end } }, { signedAt: { gte: start, lte: end } }] },
+        include: { items: true, createdBy: { select: { name: true } }, signedBy: { select: { name: true } } },
+        orderBy: { createdAt: 'asc' },
+      }),
+      prisma.dailyProgressReport.findMany({
+        where: { projectId, reportDate: { gte: startStr, lte: endStr } },
+        include: { manpowerRows: true, highlights: true, photos: true, procurementRows: true, createdBy: { select: { name: true } } },
+        orderBy: { reportDate: 'asc' },
+      }),
+      prisma.projectDocument.findMany({
+        where: { projectId, deletedAt: null, createdAt: { gte: start, lte: end } },
+        include: { uploadedBy: { select: { name: true } } },
+        orderBy: { createdAt: 'asc' },
+      }),
+      prisma.milestone.findMany({
+        where: { projectId },
+        select: { id: true, title: true, state: true, percentComplete: true, plannedStart: true, plannedEnd: true, vendorUser: { select: { name: true } } },
+        orderBy: { sortOrder: 'asc' },
+      }),
+      prisma.rABill.findMany({
+        where: { projectId },
+        include: { order: { select: { name: true } } },
+        orderBy: [{ order: { name: 'asc' } }, { billNumber: 'asc' }],
+      }),
+      prisma.checklist.findMany({
+        where: { projectId },
+        include: { items: true },
+        orderBy: { createdAt: 'asc' },
+      }),
+      prisma.drawingVersion.findMany({
+        where: {
+          drawingRow: { projectId },
+          OR: [{ uploadedAt: { gte: start, lte: end } }, { reviewedAt: { gte: start, lte: end } }],
+        },
+        include: { drawingRow: { select: { serialNo: true, name: true, category: true } }, uploadedBy: { select: { name: true } } },
+        orderBy: { uploadedAt: 'asc' },
+      }),
+    ]);
+
+    if (!project) throw new Error('Project not found');
+
+    const namesByRole = (role: string) =>
+      roles.filter((r) => r.role === role).map((r) => r.user.name).join(', ') || '—';
+
+    // ── Activities ──────────────────────────────────────────────────────
+    const activitiesCompletedThisPeriod = stateTransitions.filter((t) => t.toState === 'VERIFIED' || t.toState === 'CLOSED');
+    const progressUpdates = evidenceEntries.filter((e) => e.authorRole !== 'VENDOR');
+
+    // Evidence photos — any evidence entry (PMC progress update or Vendor supporting
+    // submission) that has image attachments, scoped to this period. Non-image files
+    // (PDFs/docs) on the same entry are left out — the report shows photos, not paperwork.
+    const IMAGE_MIME_TYPES = new Set(['image/jpeg', 'image/png', 'image/gif', 'image/webp', 'image/heic', 'image/heif']);
+    const evidencePhotoGroups = evidenceEntries
+      .map((e) => ({
+        activityTitle: e.milestone.title,
+        submittedByName: e.submittedBy.name,
+        submittedAt: e.submittedAt,
+        remarks: e.remarks,
+        authorRole: e.authorRole,
+        photoFiles: e.files.filter((f) => IMAGE_MIME_TYPES.has(f.mimeType)),
+      }))
+      .filter((g) => g.photoFiles.length > 0);
+
+    // DPR photos, folded into the same "Progress Photographs" gallery as evidence photos —
+    // the report shows both sources under one section since they're both site photos, just
+    // captured through different flows (DPR daily entry vs Milestone progress update).
+    const dprPhotoGroups = dprsInPeriod
+      .filter((d) => d.photos.length > 0)
+      .map((d) => ({
+        activityTitle: `DPR ${d.docRefNo} — ${d.reportDate}`,
+        submittedByName: d.createdBy.name,
+        submittedAt: new Date(d.reportDate),
+        remarks: null as string | null,
+        authorRole: 'SITE_ENGINEER' as string | null,
+        // dprId/photoId let the web preview build the DPR photo-serving URL (a different
+        // route than /api/files/{id}, which only serves EvidenceFile records) — id is
+        // included for shape-parity with evidence photoFiles but isn't used to fetch these.
+        photoFiles: d.photos.map((p) => ({ id: p.id, dprId: d.id, mimeType: p.mimeType, filePath: p.filePath, fileName: p.remarks || p.fileName })),
+      }));
+
+    // Materials — aggregated from DPR Procurement rows across the period. Cumulative/balance
+    // fields are running totals as of each DPR's date, so the LAST day's row per material
+    // (not a sum across days) is the correct "current" cumulative/balance — same reasoning as
+    // RA Bill line items only reading the latest bill's cumulative qty, not summing every bill.
+    const materialsMap = new Map<string, { unit: string; receivedThisPeriod: number; cumulativeReceived: number; consumedTillDate: number; balanceAtSite: number; lastDate: string }>();
+    for (const d of dprsInPeriod) {
+      for (const row of d.procurementRows) {
+        const existing = materialsMap.get(row.materialName);
+        const receivedThisPeriod = (existing?.receivedThisPeriod ?? 0) + row.receivedThisWeek;
+        if (!existing || d.reportDate >= existing.lastDate) {
+          materialsMap.set(row.materialName, {
+            unit: row.unit,
+            receivedThisPeriod,
+            cumulativeReceived: row.cumulativeReceivedTillDate,
+            consumedTillDate: row.consumedTillDate,
+            balanceAtSite: row.balanceAtSite,
+            lastDate: d.reportDate,
+          });
+        } else {
+          materialsMap.set(row.materialName, { ...existing, receivedThisPeriod });
+        }
+      }
+    }
+    const materials = Array.from(materialsMap.entries()).map(([materialName, m]) => ({ materialName, ...m }));
+
+    // Non-conformances — checklist check-points marked Not O.K. this period, the closest real
+    // equivalent this system has to a formal NCR log.
+    const nonConformances: Array<{ docRefNo: string; checklistTitle: string; description: string; remarks: string | null }> = [];
+    for (const c of checklistsInPeriod) {
+      for (const item of c.items) {
+        if (item.result === 'NOT_OK') {
+          nonConformances.push({ docRefNo: c.docRefNo, checklistTitle: c.title, description: item.description, remarks: item.remarks });
+        }
+      }
+    }
+
+    // Activities due this period — plannedEnd falling inside [start, end], regardless of
+    // when they were last touched, classified by the same lifecycle buckets as everywhere
+    // else in the app (see allActivitiesOut below, computed first so this can reuse it).
+
+    // ── RA Bills / Payments ─────────────────────────────────────────────
+    const billEvents: Array<{ billNumber: number; orderName: string; stage: string; amount: number; date: Date }> = [];
+    for (const b of raBillsInPeriod) {
+      if (b.submittedAt && b.submittedAt >= start && b.submittedAt <= end) {
+        billEvents.push({ billNumber: b.billNumber, orderName: b.order.name, stage: 'Submitted', amount: b.submittedValue ?? 0, date: b.submittedAt });
+      }
+      if (b.certifiedAt && b.certifiedAt >= start && b.certifiedAt <= end) {
+        billEvents.push({ billNumber: b.billNumber, orderName: b.order.name, stage: 'Certified', amount: b.submittedValue ?? 0, date: b.certifiedAt });
+      }
+      if (b.approvedAt && b.approvedAt >= start && b.approvedAt <= end) {
+        billEvents.push({ billNumber: b.billNumber, orderName: b.order.name, stage: 'Approved', amount: b.approvedValue ?? 0, date: b.approvedAt });
+      }
+      if (b.releasedAt && b.releasedAt >= start && b.releasedAt <= end) {
+        billEvents.push({ billNumber: b.billNumber, orderName: b.order.name, stage: 'Released', amount: b.releasedValue ?? 0, date: b.releasedAt });
+      }
+    }
+    billEvents.sort((a, b) => a.date.getTime() - b.date.getTime());
+
+    // ── Checklists ──────────────────────────────────────────────────────
+    const checklistsCreated = checklistsInPeriod.filter((c) => c.createdAt >= start && c.createdAt <= end);
+    const checklistsSigned = checklistsInPeriod.filter((c) => c.signedAt && c.signedAt >= start && c.signedAt <= end);
+    let okCount = 0, notOkCount = 0, naCount = 0;
+    for (const c of checklistsSigned) {
+      for (const item of c.items) {
+        if (item.result === 'OK') okCount++;
+        else if (item.result === 'NOT_OK') notOkCount++;
+        else if (item.result === 'NA') naCount++;
+      }
+    }
+
+    // ── DPR ─────────────────────────────────────────────────────────────
+    const calendarDaysInPeriod = Math.round((end.getTime() - start.getTime()) / 86_400_000) + 1;
+    let manpowerActualTotal = 0, manpowerPlannedTotal = 0, highlightsTotal = 0, photosTotal = 0;
+    const criticalIssueReports: Array<{ reportDate: string; docRefNo: string; criticalIssues: string }> = [];
+    const manpowerByDay: Array<{ reportDate: string; actual: number; planned: number }> = [];
+    for (const d of dprsInPeriod) {
+      const dayActual = d.manpowerRows.reduce((s, m) => s + m.actualCount, 0);
+      const dayPlanned = d.manpowerRows.reduce((s, m) => s + m.plannedCount, 0);
+      manpowerActualTotal += dayActual; manpowerPlannedTotal += dayPlanned;
+      highlightsTotal += d.highlights.length;
+      photosTotal += d.photos.length;
+      manpowerByDay.push({ reportDate: d.reportDate, actual: dayActual, planned: dayPlanned });
+      if (d.criticalIssues && d.criticalIssues.trim()) {
+        criticalIssueReports.push({ reportDate: d.reportDate, docRefNo: d.docRefNo, criticalIssues: d.criticalIssues });
+      }
+    }
+
+    // ── Project overview ────────────────────────────────────────────────
+    const metadata = project.metadata ? JSON.parse(project.metadata) : {};
+    const duration = computeDuration(metadata.startDate ?? null, metadata.endDate ?? null, end);
+
+    // ── Full activity/RA Bill/checklist rosters (whole-project, not period-bound) ────────
+    const today = startOfDay(new Date());
+    const allActivitiesOut = allMilestones.map((m) => ({
+      title: m.title,
+      lifecycleStatus: classifyLifecycleStatus({ state: m.state, plannedStart: m.plannedStart, plannedEnd: m.plannedEnd }, today),
+      percentComplete: m.percentComplete ?? 0,
+      plannedEnd: m.plannedEnd,
+      vendorName: m.vendorUser?.name ?? null,
+    }));
+
+    // Project Stakeholders — Client/PMC/Consultant from ProjectRole (namesByRole above), plus
+    // the real vendor names actually assigned to activities (no separate "contractor" concept
+    // in this schema — vendors are assigned per-activity via Milestone.vendorUserId).
+    const vendorNames = Array.from(new Set(allActivitiesOut.map((a) => a.vendorName).filter((n): n is string => Boolean(n))));
+
+    // Executive Dashboard — Physical/Financial progress vs a simple time-linear planned
+    // baseline (elapsed/total duration), since this app doesn't store a formal baseline
+    // S-curve to compare against. Labeled clearly as "time-linear" wherever displayed so it
+    // reads as an estimate, not a real baseline programme figure.
+    const physicalActualPercent = execution.overview.verifiedPercent;
+    const financialActualPercent = variance.bills.totals.totalPlannedValue > 0
+      ? (variance.bills.totals.totalApprovedValue / variance.bills.totals.totalPlannedValue) * 100
+      : 0;
+    const timeElapsedPercent = duration && duration.totalDurationDays > 0
+      ? Math.min(100, Math.max(0, (duration.elapsedDays / duration.totalDurationDays) * 100))
+      : null;
+    const physicalVariancePoints = timeElapsedPercent !== null ? physicalActualPercent - timeElapsedPercent : null;
+    const scheduleStatusLabel = physicalVariancePoints === null ? 'Unknown'
+      : physicalVariancePoints > 2 ? 'Ahead'
+      : physicalVariancePoints < -2 ? 'Behind'
+      : 'On Track';
+
+    // Health Flags (RAG) — Schedule/Cost computed now; Quality is computed just below once
+    // allOkCount/allNotOkCount/allNaCount exist. Safety/HSE and Business/Legal are deliberately
+    // omitted rather than shown as fake green/amber/red, since this system tracks nothing for
+    // either area.
+    const scheduleRag: 'GREEN' | 'AMBER' | 'RED' = physicalVariancePoints === null ? 'AMBER' : physicalVariancePoints < -10 ? 'RED' : physicalVariancePoints < -2 ? 'AMBER' : 'GREEN';
+    const costRag: 'GREEN' | 'AMBER' | 'RED' = variance.bills.totals.totalVariancePercent > 40 ? 'RED' : variance.bills.totals.totalVariancePercent > 15 ? 'AMBER' : 'GREEN';
+
+    const allRABillsOut = allRABills.map((b) => ({
+      billNumber: b.billNumber,
+      orderName: b.order.name,
+      status: b.status,
+      submittedValue: b.submittedValue ?? 0,
+      approvedValue: b.approvedValue ?? 0,
+      releasedValue: b.releasedValue ?? 0,
+    }));
+
+    let allOkCount = 0, allNotOkCount = 0, allNaCount = 0;
+    const allChecklistsOut = allChecklists.map((c) => {
+      const filledCount = c.items.filter((i) => i.result !== null).length;
+      for (const item of c.items) {
+        if (item.result === 'OK') allOkCount++;
+        else if (item.result === 'NOT_OK') allNotOkCount++;
+        else if (item.result === 'NA') allNaCount++;
+      }
+      return { docRefNo: c.docRefNo, title: c.title, status: c.status, itemCount: c.items.length, filledCount };
+    });
+
+    const totalChecklistItems = allOkCount + allNotOkCount + allNaCount;
+    const notOkRate = totalChecklistItems > 0 ? (allNotOkCount / totalChecklistItems) * 100 : 0;
+    const qualityRag: 'GREEN' | 'AMBER' | 'RED' = notOkRate > 15 ? 'RED' : notOkRate > 5 ? 'AMBER' : 'GREEN';
+
+    // Activities due this period — plannedEnd inside [start, end], however far along they
+    // actually are, so PMC/Client can see at a glance what was supposed to finish and whether
+    // it did.
+    const dueThisPeriod = allActivitiesOut.filter((a) => a.plannedEnd && a.plannedEnd >= start && a.plannedEnd <= end);
+    let dueCompletedCount = 0, dueOngoingCount = 0, dueUndoneCount = 0;
+    for (const a of dueThisPeriod) {
+      if (a.lifecycleStatus === 'COMPLETE' || a.lifecycleStatus === 'CLOSED') dueCompletedCount++;
+      else if (a.lifecycleStatus === 'IN_PROGRESS') dueOngoingCount++;
+      else dueUndoneCount++; // DRAFT, UPCOMING, or DELAYED — due but not actually done
+    }
+
+    // Drawings touched this period — Architecture module. Listed for visibility only, not
+    // embedded as images: DrawingVersion.uploadType is PDF/URL, not a raster image, so there's
+    // no thumbnail to render the way Evidence/DPR photos are rendered below.
+    const drawingsThisPeriod = drawingVersionsInPeriod.map((v) => ({
+      serialNo: v.drawingRow.serialNo,
+      name: v.drawingRow.name,
+      category: v.drawingRow.category,
+      status: v.reviewStatus,
+      uploadedByName: v.uploadedBy.name,
+      date: v.uploadedAt,
+    }));
+
+    return {
+      project: { id: project.id, name: project.name },
+      clientName: namesByRole('CLIENT'),
+      pmcName: namesByRole('PMC'),
+      consultantName: namesByRole('CONSULTANT'),
+      period,
+
+      overview: {
+        description: project.description,
+        status: project.status,
+        location: metadata.location ?? null,
+        duration,
+      },
+
+      stakeholders: {
+        clientName: namesByRole('CLIENT'),
+        pmcName: namesByRole('PMC'),
+        consultantName: namesByRole('CONSULTANT'),
+        vendorNames,
+      },
+
+      dashboard: {
+        physicalActualPercent,
+        financialActualPercent,
+        timeElapsedPercent,
+        physicalVariancePoints,
+        scheduleStatusLabel,
+      },
+      healthFlags: {
+        scheduleRag, costRag, qualityRag,
+      },
+
+      execution: {
+        overview: execution.overview,
+        allActivities: allActivitiesOut,
+        dueThisPeriod,
+        dueCompletedCount, dueOngoingCount, dueUndoneCount,
+      },
+      financial: {
+        totals: variance.bills.totals,
+        byOrder: variance.bills.byOrder,
+      },
+
+      keyRisks: {
+        overdueActivities: variance.schedule.overdueActivities,
+        overdueBills: variance.overdueBills,
+      },
+
+      materials,
+      nonConformances,
+
+      evidencePhotos: [...evidencePhotoGroups, ...dprPhotoGroups],
+      drawings: drawingsThisPeriod,
+
+      activities: {
+        progressUpdates: progressUpdates.map((e) => ({
+          date: e.submittedAt,
+          activityTitle: e.milestone.title,
+          percentComplete: e.qtyOrPercent,
+          authorName: e.submittedBy.name,
+          remarks: e.remarks,
+        })),
+        stateTransitions: stateTransitions.map((t) => ({
+          date: t.createdAt,
+          activityTitle: t.milestone.title,
+          fromState: t.fromState,
+          toState: t.toState,
+          actorName: t.actor.name,
+        })),
+        completedThisPeriodCount: activitiesCompletedThisPeriod.length,
+        updatesThisPeriodCount: progressUpdates.length,
+      },
+
+      payments: {
+        events: billEvents,
+        billsTouchedCount: raBillsInPeriod.length,
+        allBills: allRABillsOut,
+      },
+
+      checklists: {
+        createdCount: checklistsCreated.length,
+        signedCount: checklistsSigned.length,
+        okCount, notOkCount, naCount,
+        signed: checklistsSigned.map((c) => ({
+          docRefNo: c.docRefNo, title: c.title, referenceDrawingNo: c.referenceDrawingNo,
+          createdByName: c.createdBy.name, signedByName: c.signedBy?.name ?? null, signedAt: c.signedAt,
+          itemCount: c.items.length,
+        })),
+        allChecklists: allChecklistsOut,
+        allTimeOkCount: allOkCount,
+        allTimeNotOkCount: allNotOkCount,
+        allTimeNaCount: allNaCount,
+      },
+
+      dpr: {
+        reportsFiledCount: dprsInPeriod.length,
+        calendarDaysInPeriod,
+        manpowerActualTotal,
+        manpowerPlannedTotal,
+        highlightsTotal,
+        photosTotal,
+        criticalIssueReports,
+        manpowerByDay,
+        reports: dprsInPeriod.map((d) => ({
+          reportDate: d.reportDate, docRefNo: d.docRefNo, createdByName: d.createdBy.name,
+          manpowerActual: d.manpowerRows.reduce((s, m) => s + m.actualCount, 0),
+          manpowerPlanned: d.manpowerRows.reduce((s, m) => s + m.plannedCount, 0),
+          highlightsCount: d.highlights.length, photosCount: d.photos.length,
+          hasCriticalIssues: Boolean(d.criticalIssues && d.criticalIssues.trim()),
+        })),
+      },
+
+      documents: {
+        uploadedCount: documentsInPeriod.length,
+        uploaded: documentsInPeriod.map((doc) => ({
+          title: doc.title, category: doc.category, uploadedByName: doc.uploadedBy.name, createdAt: doc.createdAt,
+        })),
+      },
+    };
+  }
+}
+
+export type ProjectReportData = Awaited<ReturnType<typeof ReportService.buildProjectReportData>>;

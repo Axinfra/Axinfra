@@ -29,11 +29,15 @@ const lineItemInclude = { boq: { select: { id: true, boqNumber: true, name: true
  * Many RA Bills exist per Purchase Order (RA-1, RA-2, RA-3...), sequentially numbered and
  * cumulative. Mirrors how running account billing actually works on a real project: the
  * CONTRACTOR (vendor) prepares the bill (this-period qty against each APPROVED BOQ under the
- * order, claiming what they executed) and submits it, PMC/Consultant then measures on site
- * and certifies the quantities (certifiedAt is the "work confirmed executed" date — if the
- * claim doesn't match, they send it back for revision instead), CLIENT approves it for
- * payment, then PMC/CLIENT releases payment. Line items snapshot BOQ fields at draft time so
- * a bill's historical figures never change if the BOQ is edited later.
+ * order, claiming what they executed) and submits it. The SITE ENGINEER reviews it first —
+ * they can edit the claimed quantities directly if the numbers are wrong (the vendor has no
+ * say in this edit) — then forwards it to PMC/Consultant, who measure on site and certify the
+ * quantities (certifiedAt is the "work confirmed executed" date — if the claim doesn't match,
+ * they send it back for revision instead). In parallel with certification, the vendor gets a
+ * read-only copy of the Site Engineer's figures and must accept it, making it binding. CLIENT
+ * approves the certified bill for payment, then PMC/CLIENT releases payment. Line items
+ * snapshot BOQ fields at draft time so a bill's historical figures never change if the BOQ is
+ * edited later.
  */
 export class RABillService {
   /**
@@ -229,7 +233,8 @@ export class RABillService {
     return { success: true };
   }
 
-  /** The assigned vendor submits a DRAFT bill for PMC/Consultant certification. */
+  /** The assigned vendor submits a DRAFT bill — it goes to the Site Engineer for review/edit
+   * first, not straight to PMC. See forwardToPMC() for the next step. */
   static async submit(raBillId: string, projectId: string, actorId: string, role: Role): Promise<{ success: boolean; error?: string }> {
     if (role !== Role.VENDOR) {
       return { success: false, error: 'Only the assigned vendor can submit an RA Bill' };
@@ -260,7 +265,7 @@ export class RABillService {
 
     await prisma.rABill.update({
       where: { id: raBillId },
-      data: { status: RABillStatus.PENDING_VENDOR_REVIEW, submittedValue, submittedAt: new Date(), submittedById: actorId },
+      data: { status: RABillStatus.PENDING_SITE_ENGINEER_REVIEW, submittedValue, submittedAt: new Date(), submittedById: actorId },
     });
 
     await AuditLogger.log({
@@ -271,6 +276,159 @@ export class RABillService {
       entityType: 'RABill',
       entityId: raBillId,
       afterJson: { submittedValue },
+    });
+
+    return { success: true };
+  }
+
+  /**
+   * Site Engineer edits the claimed quantities on a bill that's with them for review — the
+   * vendor has no say in this edit. Can be called repeatedly while it's still in their queue;
+   * doesn't change status or forward anything (see forwardToPMC for that).
+   */
+  static async updateSiteEngineerReview(
+    raBillId: string,
+    projectId: string,
+    actorId: string,
+    role: Role,
+    input: { lineItems?: Array<{ lineItemId: string; thisBillQty: number }> }
+  ): Promise<{ success: boolean; error?: string }> {
+    if (role !== Role.SITE_ENGINEER) {
+      return { success: false, error: 'Only the Site Engineer can review this RA Bill' };
+    }
+
+    const raBill = await prisma.rABill.findFirst({ where: { id: raBillId, projectId }, include: { lineItems: true } });
+    if (!raBill) {
+      return { success: false, error: 'RA Bill not found' };
+    }
+    if (raBill.status !== RABillStatus.PENDING_SITE_ENGINEER_REVIEW) {
+      return { success: false, error: 'Only a bill pending Site Engineer review can be edited here' };
+    }
+
+    if (input.lineItems && input.lineItems.length > 0) {
+      const byId = new Map(raBill.lineItems.map((l) => [l.id, l]));
+      await prisma.$transaction(
+        input.lineItems.map((update) => {
+          const line = byId.get(update.lineItemId);
+          if (!line) throw new Error('Line item not found on this bill');
+          return prisma.rABillLineItem.update({
+            where: { id: update.lineItemId },
+            data: {
+              thisBillQty: update.thisBillQty,
+              thisBillAmount: update.thisBillQty * line.rate,
+              cumulativeAmount: (line.previousCumulativeQty + update.thisBillQty) * line.rate,
+            },
+          });
+        })
+      );
+    }
+
+    await AuditLogger.log({
+      projectId,
+      actorId,
+      role,
+      actionType: AuditActionTypes.RA_BILL_SITE_ENGINEER_UPDATE,
+      entityType: 'RABill',
+      entityId: raBillId,
+    });
+
+    return { success: true };
+  }
+
+  /**
+   * Site Engineer forwards their (possibly edited) bill onward. This lands the bill in PMC's
+   * queue and, in parallel — not gated on it — makes it visible to the vendor as a read-only
+   * "approved copy" for them to accept. `siteEngineerReviewedValue` snapshots the total at this
+   * moment, same pattern as `submittedValue`/`approvedValue` elsewhere on this model.
+   */
+  static async forwardToPMC(
+    raBillId: string,
+    projectId: string,
+    actorId: string,
+    role: Role,
+    input: { remarks?: string | null } = {}
+  ): Promise<{ success: boolean; error?: string }> {
+    if (role !== Role.SITE_ENGINEER) {
+      return { success: false, error: 'Only the Site Engineer can forward this RA Bill' };
+    }
+
+    const raBill = await prisma.rABill.findFirst({ where: { id: raBillId, projectId }, include: { lineItems: true } });
+    if (!raBill) {
+      return { success: false, error: 'RA Bill not found' };
+    }
+    if (raBill.status !== RABillStatus.PENDING_SITE_ENGINEER_REVIEW) {
+      return { success: false, error: 'Only a bill pending Site Engineer review can be forwarded' };
+    }
+
+    const siteEngineerReviewedValue = raBill.lineItems.reduce((sum, l) => sum + l.thisBillAmount, 0);
+
+    await prisma.rABill.update({
+      where: { id: raBillId },
+      data: {
+        status: RABillStatus.PENDING_VENDOR_REVIEW,
+        siteEngineerReviewedAt: new Date(),
+        siteEngineerReviewedById: actorId,
+        siteEngineerReviewedValue,
+        siteEngineerRemarks: input.remarks,
+        // A resubmission after revision gets re-reviewed — clear any stale acceptance from a
+        // prior round so the vendor is acknowledging *this* version, not an earlier one.
+        vendorAcceptedAt: null,
+        vendorAcceptedById: null,
+      },
+    });
+
+    await AuditLogger.log({
+      projectId,
+      actorId,
+      role,
+      actionType: AuditActionTypes.RA_BILL_SITE_ENGINEER_FORWARD,
+      entityType: 'RABill',
+      entityId: raBillId,
+      afterJson: { siteEngineerReviewedValue },
+    });
+
+    return { success: true };
+  }
+
+  /**
+   * Vendor's binding acknowledgement of the Site Engineer's figures — a read-only accept, not a
+   * dispute path. Available as soon as the Site Engineer has forwarded the bill and doesn't
+   * block PMC's certification, which can happen before or after this call.
+   */
+  static async vendorAccept(raBillId: string, projectId: string, actorId: string, role: Role): Promise<{ success: boolean; error?: string }> {
+    if (role !== Role.VENDOR) {
+      return { success: false, error: 'Only the assigned vendor can accept an RA Bill' };
+    }
+
+    const raBill = await prisma.rABill.findFirst({
+      where: { id: raBillId, projectId },
+      include: { order: { select: { vendorUserId: true } } },
+    });
+    if (!raBill) {
+      return { success: false, error: 'RA Bill not found' };
+    }
+    if (raBill.order.vendorUserId !== actorId) {
+      return { success: false, error: 'You are not the vendor assigned to this purchase order' };
+    }
+    if (!raBill.siteEngineerReviewedAt) {
+      return { success: false, error: 'Nothing to accept yet — the Site Engineer hasn\'t reviewed this bill' };
+    }
+    if (raBill.vendorAcceptedAt) {
+      return { success: false, error: 'Already accepted' };
+    }
+
+    await prisma.rABill.update({
+      where: { id: raBillId },
+      data: { vendorAcceptedAt: new Date(), vendorAcceptedById: actorId },
+    });
+
+    await AuditLogger.log({
+      projectId,
+      actorId,
+      role,
+      actionType: AuditActionTypes.RA_BILL_VENDOR_ACCEPT,
+      entityType: 'RABill',
+      entityId: raBillId,
     });
 
     return { success: true };
@@ -381,8 +539,8 @@ export class RABillService {
     role: Role,
     input: { deductions?: number }
   ): Promise<{ success: boolean; error?: string }> {
-    if (role !== Role.CLIENT) {
-      return { success: false, error: 'Only Owner can approve an RA Bill' };
+    if (role !== Role.CLIENT && role !== Role.SITE_ENGINEER) {
+      return { success: false, error: 'Only Owner or Site Engineer can approve an RA Bill' };
     }
 
     const raBill = await prisma.rABill.findFirst({ where: { id: raBillId, projectId }, include: { lineItems: true } });
@@ -474,6 +632,8 @@ export class RABillService {
           lineItems: { include: lineItemInclude },
           createdBy: { select: { name: true } },
           submittedBy: { select: { name: true } },
+          siteEngineerReviewedBy: { select: { name: true } },
+          vendorAcceptedBy: { select: { name: true } },
           certifiedBy: { select: { name: true } },
           approvedBy: { select: { name: true } },
           releasedBy: { select: { name: true } },
@@ -523,6 +683,7 @@ export class RABillService {
       totalSubmittedValue: all.reduce((sum, b) => sum + (b.submittedValue ?? 0), 0),
       totalApprovedValue: all.reduce((sum, b) => sum + (b.approvedValue ?? 0), 0),
       totalReleasedValue: all.reduce((sum, b) => sum + (b.releasedValue ?? 0), 0),
+      pendingSiteEngineerReviewCount: all.filter((b) => b.status === RABillStatus.PENDING_SITE_ENGINEER_REVIEW).length,
       pendingCertificationCount: all.filter((b) => b.status === RABillStatus.PENDING_VENDOR_REVIEW).length,
       pendingApprovalCount: all.filter((b) => b.status === RABillStatus.CERTIFIED).length,
     };
@@ -539,6 +700,8 @@ export class RABillService {
         lineItems: { include: lineItemInclude },
         createdBy: { select: { name: true } },
         submittedBy: { select: { name: true } },
+        siteEngineerReviewedBy: { select: { name: true } },
+        vendorAcceptedBy: { select: { name: true } },
         revisionRequestedBy: { select: { name: true } },
         certifiedBy: { select: { name: true } },
         approvedBy: { select: { name: true } },

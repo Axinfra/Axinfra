@@ -100,15 +100,66 @@ export class RoleGuard {
     return auth.role === Role.PMC || auth.role === Role.CONSULTANT;
   }
 
-  /** RA Bills: only Owner approves a certified bill for payment */
+  /** RA Bills: Client or Site Engineer approves a certified bill, setting the approved value
+   * and any deductions. Releasing the actual payment afterwards stays PMC/Client-only — see
+   * the release-payment route, deliberately not gated by this same method. */
   static canApproveRABill(auth: ProjectAuthContext): boolean {
-    return auth.role === Role.CLIENT;
+    return auth.role === Role.CLIENT || auth.role === Role.SITE_ENGINEER;
+  }
+
+  /** RA Bills: Site Engineer reviews every vendor submission before PMC ever sees it — can edit
+   * the claimed quantities directly (the vendor has no say in this edit) and then forwards it to
+   * PMC. A separate, earlier step from canApproveRABill above. */
+  static canSiteEngineerReviewRABill(auth: ProjectAuthContext): boolean {
+    return auth.role === Role.SITE_ENGINEER;
   }
 
   static validateNotSelfApproval(reviewerId: string, submitterId: string): void {
     if (reviewerId === submitterId) {
       throw new Error('FORBIDDEN: Cannot approve own work');
     }
+  }
+
+  /** Documents module: Specs/Other Docs upload — mirrors who can manage Architecture artifacts. */
+  static canUploadProjectDocument(auth: ProjectAuthContext): boolean {
+    return auth.role === Role.PMC || auth.role === Role.CONSULTANT;
+  }
+
+  /** Documents module: Checklists/DPR are visible to everyone except Vendor. */
+  static canViewChecklistsAndDPR(auth: ProjectAuthContext): boolean {
+    return ([Role.CLIENT, Role.PMC, Role.VIEWER, Role.CONSULTANT, Role.SITE_ENGINEER] as string[]).includes(auth.role);
+  }
+
+  /** Project Reports (weekly/monthly rollup): same visibility as Checklists/DPR — it's a
+   * summary of things these roles can already see individually. Vendor excluded. */
+  static canViewProjectReport(auth: ProjectAuthContext): boolean {
+    return ([Role.CLIENT, Role.PMC, Role.VIEWER, Role.CONSULTANT, Role.SITE_ENGINEER] as string[]).includes(auth.role);
+  }
+
+  /** Checklists: PMC defines the check points against a drawing reference. */
+  static canCreateChecklist(auth: ProjectAuthContext): boolean {
+    return auth.role === Role.PMC;
+  }
+
+  /** Checklists: Site Engineer marks OK/Not OK/N.A. per row and adds remarks. */
+  static canFillChecklist(auth: ProjectAuthContext): boolean {
+    return auth.role === Role.SITE_ENGINEER;
+  }
+
+  /** Checklists: Site Engineer digitally signs, freezing the record. */
+  static canSignChecklist(auth: ProjectAuthContext): boolean {
+    return auth.role === Role.SITE_ENGINEER;
+  }
+
+  /** DPR: Site Engineer fills and signs the daily report — its only other edit capability. */
+  static canFillDPR(auth: ProjectAuthContext): boolean {
+    return auth.role === Role.SITE_ENGINEER;
+  }
+
+  /** Activities (Milestone) progress updates: PMC has always owned this; Site Engineer also
+   * works the site day-to-day and can now log progress % + a remark the same way. */
+  static canUpdateActivityProgress(auth: ProjectAuthContext): boolean {
+    return auth.role === Role.PMC || auth.role === Role.SITE_ENGINEER;
   }
 
   static getPermissions(role: Role): Record<string, boolean> {
@@ -132,6 +183,15 @@ export class RoleGuard {
       canManageArtifacts: this.canManageArtifacts(fakeAuth),
       canManageRABill: this.canManageRABill(fakeAuth),
       canApproveRABill: this.canApproveRABill(fakeAuth),
+      canSiteEngineerReviewRABill: this.canSiteEngineerReviewRABill(fakeAuth),
+      canUploadProjectDocument: this.canUploadProjectDocument(fakeAuth),
+      canViewChecklistsAndDPR: this.canViewChecklistsAndDPR(fakeAuth),
+      canCreateChecklist: this.canCreateChecklist(fakeAuth),
+      canFillChecklist: this.canFillChecklist(fakeAuth),
+      canSignChecklist: this.canSignChecklist(fakeAuth),
+      canFillDPR: this.canFillDPR(fakeAuth),
+      canUpdateActivityProgress: this.canUpdateActivityProgress(fakeAuth),
+      canViewProjectReport: this.canViewProjectReport(fakeAuth),
     };
   }
 }

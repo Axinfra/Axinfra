@@ -3,7 +3,8 @@ import { requireProjectAuth } from '@/lib/auth';
 import { RoleGuard } from '@/services/RoleGuard';
 import { RABillService } from '@/services/RABillService';
 
-// POST .../ra-bills/[raBillId]/approve - Owner approves a certified bill for payment
+// POST .../ra-bills/[raBillId]/approve - Owner or Site Engineer approves a certified bill,
+// setting the approved value/deductions. Releasing the payment itself stays PMC/Client-only.
 export async function POST(
   request: NextRequest,
   { params }: { params: Promise<{ projectId: string; orderId: string; raBillId: string }> }
@@ -11,7 +12,7 @@ export async function POST(
   try {
     const { projectId, raBillId } = await params;
     const auth = await requireProjectAuth(projectId);
-    RoleGuard.requireRole(auth, ['CLIENT']);
+    RoleGuard.requireRole(auth, ['CLIENT', 'SITE_ENGINEER']);
 
     const body = await request.json().catch(() => ({}));
     const result = await RABillService.approve(raBillId, projectId, auth.userId, auth.role, {

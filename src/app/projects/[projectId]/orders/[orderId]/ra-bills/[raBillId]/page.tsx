@@ -33,6 +33,10 @@ interface RABillDetail {
   status: string;
   submittedValue: number | null;
   submittedAt: string | null;
+  siteEngineerReviewedAt: string | null;
+  siteEngineerReviewedValue: number | null;
+  siteEngineerRemarks: string | null;
+  vendorAcceptedAt: string | null;
   revisionRequestedAt: string | null;
   revisionReason: string | null;
   certifiedAt: string | null;
@@ -48,6 +52,8 @@ interface RABillDetail {
   lineItems: LineItem[];
   createdBy: { name: string };
   submittedBy: { name: string } | null;
+  siteEngineerReviewedBy: { name: string } | null;
+  vendorAcceptedBy: { name: string } | null;
   revisionRequestedBy: { name: string } | null;
   certifiedBy: { name: string } | null;
   approvedBy: { name: string } | null;
@@ -57,7 +63,8 @@ interface RABillDetail {
 function StatusBadge({ status }: { status: string }) {
   const map: Record<string, { cls: string; label: string }> = {
     DRAFT: { cls: 'bg-[rgba(255,255,255,0.06)] text-[rgba(232,228,220,0.55)]', label: 'Draft' },
-    PENDING_VENDOR_REVIEW: { cls: 'bg-[rgba(234,179,8,0.15)] text-[#eab308]', label: 'Pending Review' },
+    PENDING_SITE_ENGINEER_REVIEW: { cls: 'bg-[rgba(168,85,247,0.15)] text-[#a855f7]', label: 'Pending Site Engineer Review' },
+    PENDING_VENDOR_REVIEW: { cls: 'bg-[rgba(234,179,8,0.15)] text-[#eab308]', label: 'Pending Certification' },
     REVISION_REQUESTED: { cls: 'bg-[rgba(234,88,12,0.12)] text-[#f97316]', label: 'Needs Revision' },
     CERTIFIED: { cls: 'bg-[rgba(56,189,248,0.15)] text-[#38bdf8]', label: 'Certified' },
     APPROVED: { cls: 'bg-[rgba(92,186,128,0.15)] text-[#5cba80]', label: 'Approved' },
@@ -118,6 +125,12 @@ export default function RABillDetailPage() {
   const [paymentReferenceInput, setPaymentReferenceInput] = useState('');
   const [releasing, setReleasing] = useState(false);
 
+  const [showForwardModal, setShowForwardModal] = useState(false);
+  const [forwardRemarks, setForwardRemarks] = useState('');
+  const [forwarding, setForwarding] = useState(false);
+
+  const [accepting, setAccepting] = useState(false);
+
   const loading = projectLoading || billLoading;
 
   if (loading) {
@@ -146,13 +159,20 @@ export default function RABillDetailPage() {
   // and editing quantities belongs to the assigned vendor, who's claiming what they executed.
   const canManage = permissions.canManageRABill;
   const canApprove = permissions.canApproveRABill;
-  const canEditQty = isAssignedVendor && (bill.status === 'DRAFT' || bill.status === 'REVISION_REQUESTED');
+  // Site Engineer sits between the vendor's submission and PMC's certification — reviews the
+  // claimed quantities first and can edit them directly (the vendor has no say in this edit).
+  const canSiteEngineerReview = permissions.canSiteEngineerReviewRABill && bill.status === 'PENDING_SITE_ENGINEER_REVIEW';
+  const canEditQty =
+    (isAssignedVendor && (bill.status === 'DRAFT' || bill.status === 'REVISION_REQUESTED')) || canSiteEngineerReview;
   const canSubmit = isAssignedVendor && bill.status === 'DRAFT';
   const canCertifyOrRevise = canManage && bill.status === 'PENDING_VENDOR_REVIEW';
   const canApproveNow = canApprove && bill.status === 'CERTIFIED';
-  // Release payment is CLIENT or PMC only at the service layer — Consultant is excluded even
-  // though they can certify, so this checks the role directly rather than the broader canManage.
-  const canRelease = (canApprove || myRole === 'PMC') && bill.status === 'APPROVED';
+  // Release payment is CLIENT or PMC only, deliberately narrower than canApprove (which now
+  // also includes Site Engineer) — checked directly by role rather than reusing that flag.
+  const canRelease = (myRole === 'CLIENT' || myRole === 'PMC') && bill.status === 'APPROVED';
+  // The vendor's binding acknowledgement — available as soon as the Site Engineer has forwarded
+  // the bill, regardless of how far it's progressed since (not gated on PMC/Client's steps).
+  const canVendorAccept = isAssignedVendor && !!bill.siteEngineerReviewedAt && !bill.vendorAcceptedAt;
 
   const grossValue = bill.lineItems.reduce((sum, l) => sum + l.thisBillAmount, 0);
 
@@ -257,6 +277,48 @@ export default function RABillDetailPage() {
     }
   };
 
+  const handleForward = async () => {
+    setForwarding(true);
+    setError('');
+    try {
+      const res = await fetch(`/api/projects/${projectId}/orders/${orderId}/ra-bills/${raBillId}/forward-to-pmc`, {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({ remarks: forwardRemarks.trim() || undefined }),
+      });
+      const data = await res.json();
+      if (data.success) {
+        setShowForwardModal(false);
+        setForwardRemarks('');
+        void refetch();
+      } else {
+        setError(data.error ?? 'Failed to forward to PMC');
+      }
+    } catch {
+      setError('Failed to forward to PMC');
+    } finally {
+      setForwarding(false);
+    }
+  };
+
+  const handleAccept = async () => {
+    setAccepting(true);
+    setError('');
+    try {
+      const res = await fetch(`/api/vendor/ra-bills/${raBillId}/accept`, { method: 'POST' });
+      const data = await res.json();
+      if (data.success) {
+        void refetch();
+      } else {
+        setError(data.error ?? 'Failed to accept');
+      }
+    } catch {
+      setError('Failed to accept');
+    } finally {
+      setAccepting(false);
+    }
+  };
+
   const handleApprove = async () => {
     setApproving(true);
     setError('');
@@ -344,6 +406,47 @@ export default function RABillDetailPage() {
               <p className="text-sm font-medium text-[#f97316]">Revision Requested{bill.revisionRequestedBy ? ` by ${bill.revisionRequestedBy.name}` : ''}</p>
               <p className="text-xs text-[rgba(249,115,22,0.7)] mt-0.5">{bill.revisionReason}</p>
             </div>
+          </div>
+        )}
+
+        {canSiteEngineerReview && (
+          <div className="flex items-start gap-3 p-4 rounded-lg bg-[rgba(168,85,247,0.08)] border border-[rgba(168,85,247,0.25)]">
+            <span className="text-[#a855f7] text-lg leading-none mt-0.5">✎</span>
+            <div>
+              <p className="text-sm font-medium text-[#a855f7]">Your review — check quantities before PMC sees this bill</p>
+              <p className="text-xs text-[rgba(168,85,247,0.75)] mt-0.5">
+                Edit any incorrect quantities below, then Forward to PMC. The vendor gets a read-only copy of your figures to accept.
+              </p>
+            </div>
+          </div>
+        )}
+
+        {bill.status === 'PENDING_SITE_ENGINEER_REVIEW' && !canSiteEngineerReview && (
+          <div className="flex items-start gap-3 p-4 rounded-lg bg-[rgba(168,85,247,0.08)] border border-[rgba(168,85,247,0.25)]">
+            <span className="text-[#a855f7] text-lg leading-none mt-0.5">⏳</span>
+            <p className="text-sm text-[rgba(168,85,247,0.85)]">Awaiting Site Engineer review before this reaches PMC.</p>
+          </div>
+        )}
+
+        {canVendorAccept && (
+          <div className="flex items-start justify-between gap-3 p-4 rounded-lg bg-[rgba(92,186,128,0.08)] border border-[rgba(92,186,128,0.25)] flex-wrap">
+            <div>
+              <p className="text-sm font-medium text-[#5cba80]">
+                Site Engineer{bill.siteEngineerReviewedBy ? ` (${bill.siteEngineerReviewedBy.name})` : ''} reviewed this bill
+                {bill.siteEngineerReviewedValue !== null ? ` — value ${formatCurrency(bill.siteEngineerReviewedValue)}` : ''}.
+              </p>
+              <p className="text-xs text-[rgba(92,186,128,0.75)] mt-0.5">Accept to make these figures binding.</p>
+            </div>
+            <button onClick={() => void handleAccept()} disabled={accepting} className="btn btn-success text-sm disabled:opacity-50">
+              {accepting ? 'Accepting…' : 'Accept'}
+            </button>
+          </div>
+        )}
+
+        {isAssignedVendor && bill.vendorAcceptedAt && (
+          <div className="flex items-start gap-3 p-4 rounded-lg bg-[rgba(92,186,128,0.08)] border border-[rgba(92,186,128,0.25)]">
+            <span className="text-[#5cba80] text-lg leading-none mt-0.5">✓</span>
+            <p className="text-sm text-[rgba(92,186,128,0.85)]">You accepted this bill on {formatDate(bill.vendorAcceptedAt)}.</p>
           </div>
         )}
 
@@ -439,6 +542,11 @@ export default function RABillDetailPage() {
               {submitting ? 'Submitting…' : 'Submit for Review'}
             </button>
           )}
+          {canSiteEngineerReview && (
+            <button onClick={() => setShowForwardModal(true)} className="btn text-white bg-[#a855f7] hover:bg-[#9333ea]">
+              Forward to PMC
+            </button>
+          )}
           {canCertifyOrRevise && (
             <>
               <button onClick={() => setShowRevisionModal(true)} className="btn btn-secondary">Request Revision</button>
@@ -466,6 +574,8 @@ export default function RABillDetailPage() {
           <div className="card-body space-y-2 text-sm">
             <p><span className="text-[rgba(232,228,220,0.45)]">Drafted by</span> {bill.createdBy.name}</p>
             {bill.submittedBy && <p><span className="text-[rgba(232,228,220,0.45)]">Submitted by</span> {bill.submittedBy.name}{bill.submittedAt ? ` on ${formatDate(bill.submittedAt)}` : ''}</p>}
+            {bill.siteEngineerReviewedBy && <p><span className="text-[rgba(232,228,220,0.45)]">Reviewed by Site Engineer</span> {bill.siteEngineerReviewedBy.name}{bill.siteEngineerReviewedAt ? ` on ${formatDate(bill.siteEngineerReviewedAt)}` : ''}</p>}
+            {bill.vendorAcceptedBy && <p><span className="text-[rgba(232,228,220,0.45)]">Accepted by Vendor</span> {bill.vendorAcceptedBy.name}{bill.vendorAcceptedAt ? ` on ${formatDate(bill.vendorAcceptedAt)}` : ''}</p>}
             {bill.certifiedBy && <p><span className="text-[rgba(232,228,220,0.45)]">Certified by</span> {bill.certifiedBy.name}{bill.certifiedAt ? ` on ${formatDate(bill.certifiedAt)}` : ''}</p>}
             {bill.approvedBy && <p><span className="text-[rgba(232,228,220,0.45)]">Approved by</span> {bill.approvedBy.name}{bill.approvedAt ? ` on ${formatDate(bill.approvedAt)}` : ''}</p>}
             {bill.releasedBy && <p><span className="text-[rgba(232,228,220,0.45)]">Payment released by</span> {bill.releasedBy.name}{bill.releasedAt ? ` on ${formatDate(bill.releasedAt)}` : ''}</p>}
@@ -493,6 +603,34 @@ export default function RABillDetailPage() {
                   className="btn bg-[#f97316] text-white hover:bg-[#ea7011] disabled:opacity-50"
                 >
                   {sendingRevision ? 'Sending…' : 'Send for Revision'}
+                </button>
+              </div>
+            </div>
+          </div>
+        </div>
+      )}
+
+      {/* Forward to PMC modal */}
+      {showForwardModal && (
+        <div className="fixed inset-0 bg-black/70 flex items-center justify-center z-50 p-4">
+          <div className="bg-[#13151a] border border-[rgba(255,255,255,0.1)] rounded-xl max-w-md w-full">
+            <div className="p-6 space-y-4">
+              <h2 className="text-lg font-semibold text-[#e8e4dc]">Forward to PMC</h2>
+              <p className="text-sm text-[rgba(232,228,220,0.55)]">
+                Sends this bill to PMC for certification. The vendor also gets a read-only copy of your figures to accept.
+              </p>
+              <div>
+                <label className="label text-xs">Remarks (optional)</label>
+                <textarea rows={2} className="input text-sm resize-none" placeholder="e.g. Adjusted item 3 qty down to match site measurement." value={forwardRemarks} onChange={(e) => setForwardRemarks(e.target.value)} />
+              </div>
+              <div className="flex justify-end gap-3 pt-2 border-t border-[rgba(255,255,255,0.07)]">
+                <button onClick={() => setShowForwardModal(false)} className="btn btn-secondary">Cancel</button>
+                <button
+                  onClick={() => void handleForward()}
+                  disabled={forwarding}
+                  className="btn text-white bg-[#a855f7] hover:bg-[#9333ea] disabled:opacity-50"
+                >
+                  {forwarding ? 'Forwarding…' : 'Forward to PMC'}
                 </button>
               </div>
             </div>

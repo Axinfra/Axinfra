@@ -83,6 +83,18 @@ export const sharedPdfStyles = StyleSheet.create({
   th: { fontSize: 6.5, fontFamily: 'Helvetica-Bold', color: INK, textTransform: 'uppercase', letterSpacing: 0.2 },
   td: { fontSize: 8, color: INK },
 
+  // A tinted full-width sub-header row nested inside a table — used by the DPR manpower table
+  // to group trade rows under a vendor name (e.g. "Vanbros — Civil+Interior").
+  groupHeaderRow: {
+    flexDirection: 'row',
+    backgroundColor: PANEL,
+    borderBottomWidth: 0.5,
+    borderBottomColor: BORDER,
+    paddingVertical: 4,
+    paddingHorizontal: 4,
+  },
+  groupHeaderText: { fontSize: 7.5, fontFamily: 'Helvetica-Bold', color: INK },
+
   totalsBlock: { marginTop: 8, alignItems: 'flex-end' },
   totalsRow: { flexDirection: 'row', width: 220, justifyContent: 'space-between', paddingVertical: 3 },
   totalsLabel: { fontSize: 8.5, color: MUTED },

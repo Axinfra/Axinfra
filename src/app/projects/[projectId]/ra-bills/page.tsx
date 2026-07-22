@@ -1,6 +1,6 @@
 'use client';
 
-import { useMemo, useState } from 'react';
+import { useEffect, useMemo, useState } from 'react';
 import { useParams, useRouter } from 'next/navigation';
 import useSWR from 'swr';
 import { TablePageSkeleton } from '@/components/ui/SkeletonPage';
@@ -28,6 +28,7 @@ interface Summary {
   totalSubmittedValue: number;
   totalApprovedValue: number;
   totalReleasedValue: number;
+  pendingSiteEngineerReviewCount: number;
   pendingCertificationCount: number;
   pendingApprovalCount: number;
 }
@@ -42,7 +43,8 @@ const PAGE_SIZE = 25;
 const STATUS_OPTIONS = [
   ['', 'All Statuses'],
   ['DRAFT', 'Draft'],
-  ['PENDING_VENDOR_REVIEW', 'Pending Review'],
+  ['PENDING_SITE_ENGINEER_REVIEW', 'Pending Site Engineer'],
+  ['PENDING_VENDOR_REVIEW', 'Pending Certification'],
   ['REVISION_REQUESTED', 'Needs Revision'],
   ['CERTIFIED', 'Certified'],
   ['APPROVED', 'Approved'],
@@ -52,6 +54,7 @@ const STATUS_OPTIONS = [
 function StatusBadge({ status }: { status: string }) {
   const map: Record<string, string> = {
     DRAFT: 'bg-[rgba(255,255,255,0.06)] text-[rgba(232,228,220,0.55)]',
+    PENDING_SITE_ENGINEER_REVIEW: 'bg-[rgba(168,85,247,0.15)] text-[#a855f7]',
     PENDING_VENDOR_REVIEW: 'bg-[rgba(234,179,8,0.15)] text-[#eab308]',
     REVISION_REQUESTED: 'bg-[rgba(234,88,12,0.12)] text-[#f97316]',
     CERTIFIED: 'bg-[rgba(56,189,248,0.15)] text-[#38bdf8]',
@@ -59,7 +62,7 @@ function StatusBadge({ status }: { status: string }) {
     PAID: 'badge-verified',
   };
   const label: Record<string, string> = {
-    DRAFT: 'Draft', PENDING_VENDOR_REVIEW: 'Pending Review', REVISION_REQUESTED: 'Needs Revision',
+    DRAFT: 'Draft', PENDING_SITE_ENGINEER_REVIEW: 'Pending Site Engineer', PENDING_VENDOR_REVIEW: 'Pending Certification', REVISION_REQUESTED: 'Needs Revision',
     CERTIFIED: 'Certified', APPROVED: 'Approved', PAID: 'Paid',
   };
   if (status === 'PAID') return <span className="badge badge-verified text-xs">Paid</span>;
@@ -90,6 +93,16 @@ export default function RABillsListPage() {
   const [orderFilter, setOrderFilter] = useState('');
   const [statusFilter, setStatusFilter] = useState('');
   const [offset, setOffset] = useState(0);
+  const [defaultFilterApplied, setDefaultFilterApplied] = useState(false);
+
+  // Site Engineer's queue is their reason for visiting this page — default the filter to their
+  // pending reviews so it reads as a dedicated section, while still letting them clear it.
+  useEffect(() => {
+    if (!defaultFilterApplied && myRole === 'SITE_ENGINEER') {
+      setStatusFilter('PENDING_SITE_ENGINEER_REVIEW');
+      setDefaultFilterApplied(true);
+    }
+  }, [myRole, defaultFilterApplied]);
 
   const raBillsUrl = useMemo(() => {
     if (!projectId) return null;
@@ -136,13 +149,16 @@ export default function RABillsListPage() {
       <Navbar projectId={projectId} projectName={projectName} role={myRole} />
 
       <div className="space-y-6">
-        <h1 className="text-2xl font-bold text-[#e8e4dc]">RA Bills</h1>
+        <h1 className="text-2xl font-bold text-[#e8e4dc]">
+          {myRole === 'SITE_ENGINEER' ? 'RA Bills — Your Reviews' : 'RA Bills'}
+        </h1>
 
         {summary && (
-          <div className="grid grid-cols-2 sm:grid-cols-5 gap-4">
+          <div className="grid grid-cols-2 sm:grid-cols-6 gap-4">
             <KPITile label="Total Submitted" value={formatCurrency(summary.totalSubmittedValue)} />
             <KPITile label="Total Approved" value={formatCurrency(summary.totalApprovedValue)} />
             <KPITile label="Total Released" value={formatCurrency(summary.totalReleasedValue)} />
+            <KPITile label="Pending Site Engineer" value={String(summary.pendingSiteEngineerReviewCount)} />
             <KPITile label="Pending Certification" value={String(summary.pendingCertificationCount)} />
             <KPITile label="Pending Approval" value={String(summary.pendingApprovalCount)} />
           </div>

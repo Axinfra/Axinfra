@@ -34,8 +34,9 @@ function deriveState(percentComplete: number): MilestoneState {
 }
 
 // POST /api/projects/[projectId]/milestones/[milestoneId]/progress-update
-// PMC-only. The single entry point for moving an activity's progress — every call appends a
-// new history entry (Evidence row, authorRole=PMC) and never overwrites a previous one.
+// PMC or Site Engineer. The single entry point for moving an activity's progress — every call
+// appends a new history entry (Evidence row, authorRole=the caller's actual role) and never
+// overwrites a previous one.
 export async function POST(
   request: NextRequest,
   { params }: { params: Promise<{ projectId: string; milestoneId: string }> }
@@ -43,7 +44,7 @@ export async function POST(
   try {
     const { projectId, milestoneId } = await params;
     const auth = await requireProjectAuth(projectId);
-    RoleGuard.requireRole(auth, ['PMC']);
+    RoleGuard.requireRole(auth, [Role.PMC, Role.SITE_ENGINEER]);
 
     const milestone = await validateMilestoneOwnership(milestoneId, projectId);
     if (!milestone) {
@@ -122,7 +123,7 @@ export async function POST(
           remarks,
           frozen: false,
           status: 'SUBMITTED',
-          authorRole: Role.PMC,
+          authorRole: auth.role,
         },
       });
 
@@ -191,7 +192,7 @@ export async function POST(
       return NextResponse.json({ success: false, error: 'Unauthorized' }, { status: 401 });
     }
     if (error instanceof Error && error.message.startsWith('FORBIDDEN')) {
-      return NextResponse.json({ success: false, error: 'Only PMC can update activity progress' }, { status: 403 });
+      return NextResponse.json({ success: false, error: 'Only PMC or Site Engineer can update activity progress' }, { status: 403 });
     }
     console.error('Progress update error:', error);
     return NextResponse.json({ success: false, error: 'Internal server error' }, { status: 500 });

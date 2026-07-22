@@ -64,7 +64,7 @@ export default function RABillDocument({ data }: { data: RABillPdfData }) {
         </View>
 
         {/* BOQ progress */}
-        <Text style={styles.sectionTitle} break={data.lineItems.length > 12}>BOQ-wise Progress</Text>
+        <Text style={styles.sectionTitle}>BOQ-wise Progress</Text>
         <View style={styles.table}>
           <View style={styles.tableHeaderRow}>
             <Text style={[styles.th, COLS.no]}>No.</Text>
@@ -106,8 +106,10 @@ export default function RABillDocument({ data }: { data: RABillPdfData }) {
         </View>
 
         {/* Signatures */}
-        <Text style={styles.sectionTitle} break>Signatures</Text>
-        <SignatureGrid signatories={data.signatories} />
+        <View wrap={false}>
+          <Text style={styles.sectionTitle}>Signatures</Text>
+          <SignatureGrid signatories={data.signatories} />
+        </View>
 
         <PdfFooter logoDataUri={data.logoDataUri} qrDataUri={data.qrDataUri} generatedAtFormatted={data.generatedAtFormatted} />
       </Page>

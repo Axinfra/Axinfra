@@ -24,6 +24,7 @@ interface RABillRow {
 function StatusBadge({ status }: { status: string }) {
   const map: Record<string, string> = {
     DRAFT: 'bg-[rgba(255,255,255,0.06)] text-[rgba(232,228,220,0.55)]',
+    PENDING_SITE_ENGINEER_REVIEW: 'bg-[rgba(168,85,247,0.15)] text-[#a855f7]',
     PENDING_VENDOR_REVIEW: 'bg-[rgba(234,179,8,0.15)] text-[#eab308]',
     REVISION_REQUESTED: 'bg-[rgba(234,88,12,0.12)] text-[#f97316]',
     CERTIFIED: 'bg-[rgba(56,189,248,0.15)] text-[#38bdf8]',
@@ -32,6 +33,7 @@ function StatusBadge({ status }: { status: string }) {
   };
   const label: Record<string, string> = {
     DRAFT: 'Draft',
+    PENDING_SITE_ENGINEER_REVIEW: 'Pending Site Engineer',
     PENDING_VENDOR_REVIEW: 'Pending Certification',
     REVISION_REQUESTED: 'Needs Revision',
     CERTIFIED: 'Certified',

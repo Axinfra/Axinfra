@@ -3,7 +3,7 @@
 import { useRouter, usePathname } from 'next/navigation';
 import Link from 'next/link';
 import { useState, useEffect, useRef, FormEvent } from 'react';
-import { Ruler } from 'lucide-react';
+import { Ruler, FileStack, FileBarChart, Contact } from 'lucide-react';
 import ThemeNavbarPicker from '@/components/ThemeSwitcher';
 import AxinfraLogo from '@/components/AxinfraLogo';
 
@@ -209,6 +209,21 @@ export default function Layout({ children }: LayoutProps) {
         matchPrefix: currentProjectId ? `/projects/${currentProjectId}/architecture` : '/architecture',
         label: 'Architecture', icon: Ruler,
       },
+      {
+        href: currentProjectId ? `/projects/${currentProjectId}/documents` : '/documents',
+        matchPrefix: currentProjectId ? `/projects/${currentProjectId}/documents` : '/documents',
+        label: 'Documents', icon: FileStack,
+      },
+      {
+        href: currentProjectId ? `/projects/${currentProjectId}/reports` : '/reports',
+        matchPrefix: currentProjectId ? `/projects/${currentProjectId}/reports` : '/reports',
+        label: 'Reports', icon: FileBarChart,
+      },
+      {
+        href: '/directory',
+        matchPrefix: '/directory',
+        label: 'Directory', icon: Contact,
+      },
     ];
 
   return (
@@ -266,6 +281,8 @@ export default function Layout({ children }: LayoutProps) {
                   const isActive = pathname === milestoneHref || pathname.startsWith(milestoneHref + '/');
                   const architectureHref = `/projects/${vp.projectId}/architecture`;
                   const isArchitectureActive = pathname === architectureHref || pathname.startsWith(architectureHref + '/');
+                  const documentsHref = `/projects/${vp.projectId}/documents`;
+                  const isDocumentsActive = pathname === documentsHref || pathname.startsWith(documentsHref + '/');
                   return (
                     <div key={vp.projectId}>
                       <Link
@@ -285,6 +302,15 @@ export default function Layout({ children }: LayoutProps) {
                       >
                         <Ruler className="w-[14px] h-[14px] shrink-0" />
                         Architecture
+                      </Link>
+                      <Link
+                        href={documentsHref}
+                        onClick={() => setSidebarOpen(false)}
+                        className={`flex items-center gap-2.5 pl-9 pr-3 py-1.5 rounded-lg text-[12px] font-medium transition-colors duration-100
+                          ${isDocumentsActive ? 'ax-nav-active' : 'ax-nav-item'}`}
+                      >
+                        <FileStack className="w-[14px] h-[14px] shrink-0" />
+                        Documents
                       </Link>
                     </div>
                   );

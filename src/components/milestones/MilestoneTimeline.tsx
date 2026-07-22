@@ -130,20 +130,24 @@ export default function MilestoneTimeline({ submissions, verifications, comments
             )}
 
             {event.kind === 'submission' && (() => {
-              const isPmc = event.data.authorRole === 'PMC';
+              // authorRole is 'VENDOR' only for the vendor-submission route; every other
+              // caller (PMC, and now Site Engineer) came through progress-update, so treat
+              // "not vendor" as the progress-update styling rather than hardcoding 'PMC'.
+              const isVendor = event.data.authorRole === 'VENDOR';
+              const roleLabel = isVendor ? 'Vendor' : event.data.authorRole === 'SITE_ENGINEER' ? 'Site Engineer' : 'PMC';
               return (
                 <>
                   <div className={`relative z-10 w-8 h-8 rounded-full flex items-center justify-center shrink-0 ${
-                    isPmc ? 'bg-[rgba(92,186,128,0.15)] text-[#5cba80]' : 'bg-[rgba(var(--ax-accent-rgb),0.12)] text-[var(--ax-accent)]'
+                    isVendor ? 'bg-[rgba(var(--ax-accent-rgb),0.12)] text-[var(--ax-accent)]' : 'bg-[rgba(92,186,128,0.15)] text-[#5cba80]'
                   }`}>
-                    {isPmc ? <CheckCircle2 className="w-4 h-4" /> : <Paperclip className="w-4 h-4" />}
+                    {isVendor ? <Paperclip className="w-4 h-4" /> : <CheckCircle2 className="w-4 h-4" />}
                   </div>
                   <div className="flex-1 min-w-0 pt-0.5">
                     <div className="flex items-center gap-2 flex-wrap">
                       <span className="text-sm font-medium text-[#e8e4dc]">{event.data.submittedBy.name}</span>
-                      <Badge variant={isPmc ? 'warning' : 'success'} className="text-[10px] px-1.5 py-0">{isPmc ? 'PMC' : 'Vendor'}</Badge>
-                      <span className={`text-xs ${isPmc ? 'text-[#5cba80] font-medium' : 'text-[rgba(232,228,220,0.4)]'}`}>
-                        {isPmc ? `updated progress to ${event.data.qtyOrPercent}%` : 'attached documents'}
+                      <Badge variant={isVendor ? 'success' : 'warning'} className="text-[10px] px-1.5 py-0">{roleLabel}</Badge>
+                      <span className={`text-xs ${!isVendor ? 'text-[#5cba80] font-medium' : 'text-[rgba(232,228,220,0.4)]'}`}>
+                        {!isVendor ? `updated progress to ${event.data.qtyOrPercent}%` : 'attached documents'}
                       </span>
                       <span className="text-xs text-[rgba(232,228,220,0.3)]">· {formatDateTime(event.data.submittedAt)}</span>
                     </div>

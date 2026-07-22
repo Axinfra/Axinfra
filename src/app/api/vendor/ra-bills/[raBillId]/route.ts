@@ -18,6 +18,7 @@ export async function GET(
         order: { select: { id: true, name: true, vendorUserId: true } },
         lineItems: { include: { boq: { select: { id: true, boqNumber: true, name: true } } } },
         createdBy: { select: { name: true } },
+        siteEngineerReviewedBy: { select: { name: true } },
         certifiedBy: { select: { name: true } },
         approvedBy: { select: { name: true } },
       },

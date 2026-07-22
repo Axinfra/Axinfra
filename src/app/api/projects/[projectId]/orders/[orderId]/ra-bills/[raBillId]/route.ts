@@ -31,7 +31,8 @@ export async function GET(
   }
 }
 
-// PATCH /api/projects/[projectId]/orders/[orderId]/ra-bills/[raBillId] - Vendor edits their own Draft
+// PATCH /api/projects/[projectId]/orders/[orderId]/ra-bills/[raBillId] - Vendor edits their own
+// Draft, or Site Engineer edits a bill that's with them for review.
 export async function PATCH(
   request: NextRequest,
   { params }: { params: Promise<{ projectId: string; orderId: string; raBillId: string }> }
@@ -39,15 +40,20 @@ export async function PATCH(
   try {
     const { projectId, raBillId } = await params;
     const auth = await requireProjectAuth(projectId);
-    RoleGuard.requireRole(auth, ['VENDOR']);
+    RoleGuard.requireRole(auth, ['VENDOR', 'SITE_ENGINEER']);
 
     const body = await request.json().catch(() => ({}));
-    const result = await RABillService.updateDraft(raBillId, projectId, auth.userId, auth.role, {
-      periodStart: body.periodStart ? new Date(body.periodStart) : undefined,
-      periodEnd: body.periodEnd ? new Date(body.periodEnd) : undefined,
-      remarks: body.remarks,
-      lineItems: body.lineItems,
-    });
+    const result =
+      auth.role === 'SITE_ENGINEER'
+        ? await RABillService.updateSiteEngineerReview(raBillId, projectId, auth.userId, auth.role, {
+            lineItems: body.lineItems,
+          })
+        : await RABillService.updateDraft(raBillId, projectId, auth.userId, auth.role, {
+            periodStart: body.periodStart ? new Date(body.periodStart) : undefined,
+            periodEnd: body.periodEnd ? new Date(body.periodEnd) : undefined,
+            remarks: body.remarks,
+            lineItems: body.lineItems,
+          });
 
     if (!result.success) {
       return NextResponse.json({ success: false, error: result.error }, { status: 400 });

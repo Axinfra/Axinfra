@@ -69,7 +69,7 @@ export default function WorkOrderDocument({ data }: { data: WorkOrderPdfData }) 
         </View>
 
         {/* BOQ */}
-        <Text style={styles.sectionTitle} break={data.boqItems.length > 14}>Bill of Quantities</Text>
+        <Text style={styles.sectionTitle}>Bill of Quantities</Text>
         <View style={styles.table}>
           <View style={styles.tableHeaderRow}>
             <Text style={[styles.th, { width: '7%' }]}>Item No.</Text>
@@ -117,8 +117,10 @@ export default function WorkOrderDocument({ data }: { data: WorkOrderPdfData }) 
         </View>
 
         {/* Signatures */}
-        <Text style={styles.sectionTitle} break>Signatures</Text>
-        <SignatureGrid signatories={data.signatories} />
+        <View wrap={false}>
+          <Text style={styles.sectionTitle}>Signatures</Text>
+          <SignatureGrid signatories={data.signatories} />
+        </View>
 
         <PdfFooter logoDataUri={data.logoDataUri} qrDataUri={data.qrDataUri} generatedAtFormatted={data.generatedAtFormatted} />
       </Page>

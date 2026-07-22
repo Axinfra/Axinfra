@@ -169,13 +169,28 @@ model RABill {
   billNumber  Int
   periodStart DateTime
   periodEnd   DateTime
-  /// DRAFT | PENDING_VENDOR_REVIEW | REVISION_REQUESTED | CERTIFIED | APPROVED | PAID
+  /// DRAFT | PENDING_SITE_ENGINEER_REVIEW | PENDING_VENDOR_REVIEW | REVISION_REQUESTED | CERTIFIED | APPROVED | PAID
   status      String   @default("DRAFT")
 
   /// Sum of lineItems.thisBillAmount at the moment of vendor submission — headline #1.
   submittedValue Float?
   submittedAt    DateTime?
   submittedById  String?
+
+  /// Site Engineer reviews every vendor submission before PMC ever sees it, and may edit the
+  /// claimed quantities directly (the vendor has no say in this edit). `siteEngineerReviewedValue`
+  /// snapshots the line-item total at the moment they forward it to PMC — the "approved copy"
+  /// figure shown back to the vendor.
+  siteEngineerReviewedAt    DateTime?
+  siteEngineerReviewedById  String?
+  siteEngineerReviewedValue Float?
+  siteEngineerRemarks       String?
+
+  /// The vendor's binding acknowledgement of the Site Engineer's (possibly edited) figures.
+  /// Recorded in parallel with PMC's certification, not a gate in front of it — the vendor
+  /// cannot dispute here, only accept.
+  vendorAcceptedAt   DateTime?
+  vendorAcceptedById String?
 
   /// PMC/Consultant sends the bill back for correction instead of certifying it.
   revisionRequestedAt   DateTime?
@@ -217,6 +232,8 @@ model RABill {
   lineItems           RABillLineItem[]
   createdBy           User             @relation("RABillCreator", fields: [createdById], references: [id])
   submittedBy         User?            @relation("RABillSubmitter", fields: [submittedById], references: [id])
+  siteEngineerReviewedBy User?         @relation("RABillSiteEngineerReviewer", fields: [siteEngineerReviewedById], references: [id])
+  vendorAcceptedBy    User?            @relation("RABillVendorAccepter", fields: [vendorAcceptedById], references: [id])
   revisionRequestedBy User?            @relation("RABillRevisionRequester", fields: [revisionRequestedById], references: [id])
   certifiedBy         User?            @relation("RABillCertifier", fields: [certifiedById], references: [id])
   approvedBy          User?            @relation("RABillApprover", fields: [approvedById], references: [id])
@@ -544,6 +561,10 @@ model Project {
   projectInvites   ProjectInvite[]
   scheduleImports  ScheduleImport[]
   resources        Resource[]
+  // Documents module
+  projectDocuments     ProjectDocument[]
+  checklists           Checklist[]
+  dailyProgressReports DailyProgressReport[]
 }
 
 /// Dependency link between two milestones (CPM / Gantt edges)
@@ -645,10 +666,18 @@ model User {
   workOrderRevisionsRejected WorkOrderRevision[]        @relation("WorkOrderRevisionRejector")
   raBillsCreated             RABill[]                   @relation("RABillCreator")
   raBillsSubmitted           RABill[]                   @relation("RABillSubmitter")
+  raBillsSiteEngineerReviewed RABill[]                  @relation("RABillSiteEngineerReviewer")
+  raBillsVendorAccepted     RABill[]                    @relation("RABillVendorAccepter")
   raBillsRevisionRequested   RABill[]                   @relation("RABillRevisionRequester")
   raBillsCertified           RABill[]                   @relation("RABillCertifier")
   raBillsApproved            RABill[]                   @relation("RABillApprover")
   raBillsPaymentReleased     RABill[]                   @relation("RABillPaymentReleaser")
+  // Documents module
+  projectDocumentsUploaded   ProjectDocument[]          @relation("ProjectDocumentUploader")
+  checklistsCreated          Checklist[]                @relation("ChecklistCreator")
+  checklistsSigned           Checklist[]                @relation("ChecklistSigner")
+  dprsCreated                DailyProgressReport[]      @relation("DPRCreator")
+  dprsSigned                 DailyProgressReport[]      @relation("DPRSigner")
 }
 
 model Verification {
@@ -1064,4 +1093,196 @@ model MilestoneResourceAssignment {
   resource  Resource  @relation(fields: [resourceId], references: [id], onDelete: Cascade)
 
   @@unique([milestoneId, resourceId])
+}
+
+// ═══════════════════════════════════════════════════════════════════════════
+// Documents module — Specs / Other Docs / Checklists / DPR
+// ═══════════════════════════════════════════════════════════════════════════
+
+/// A single upload event in the Specs or Other Docs library — append-only, mirrors
+/// Evidence/EvidenceFile's field naming rather than DrawingVersion's isCurrent-flag
+/// versioning, since there's no "supersedes" concept here, just a browsable library.
+model ProjectDocument {
+  id           String    @id @default(uuid())
+  projectId    String
+  category     String // 'SPEC' | 'OTHER'
+  title        String
+  description  String?
+  uploadedById String
+  createdAt    DateTime  @default(now())
+  updatedAt    DateTime  @updatedAt
+  deletedAt    DateTime?
+
+  project    Project               @relation(fields: [projectId], references: [id], onDelete: Cascade)
+  uploadedBy User                  @relation("ProjectDocumentUploader", fields: [uploadedById], references: [id])
+  files      ProjectDocumentFile[]
+
+  @@index([projectId, category, createdAt])
+}
+
+model ProjectDocumentFile {
+  id         String   @id @default(uuid())
+  documentId String
+  storageKey String
+  fileName   String
+  mimeType   String
+  size       Int
+  /// The actual return value of fileStorage.save() — required to read the file back (e.g.
+  /// Vercel Blob's save() returns a full URL, different from the storageKey passed in).
+  /// Mirrors EvidenceFile's identical filePath field for the same reason.
+  filePath   String   @default("")
+  createdAt  DateTime @default(now())
+
+  document ProjectDocument @relation(fields: [documentId], references: [id], onDelete: Cascade)
+
+  @@index([documentId])
+}
+
+/// PMC-defined inspection checklist (e.g. Waterproofing, Internal & External MEP work) tied to
+/// a drawing reference. Site Engineer marks each check point OK/Not OK/N.A. with remarks, then
+/// digitally signs — which freezes the record. Project/Client/Location are deliberately not
+/// stored here; resolved at read/PDF time from Project + ProjectRole, same as RA Bill PDFs do.
+model Checklist {
+  id                   String    @id @default(uuid())
+  projectId            String
+  title                String // free text, PMC types this — not an enum
+  docRefNo             String // "CHK-001", auto-numbered per project
+  referenceDrawingNo   String
+  status               String    @default("DRAFT") // DRAFT | IN_PROGRESS | SIGNED
+  certificationRemarks String?
+  createdById          String
+  signedAt             DateTime?
+  signedByActorId      String?
+  createdAt            DateTime  @default(now())
+  updatedAt            DateTime  @updatedAt
+
+  project   Project         @relation(fields: [projectId], references: [id], onDelete: Cascade)
+  createdBy User            @relation("ChecklistCreator", fields: [createdById], references: [id])
+  signedBy  User?           @relation("ChecklistSigner", fields: [signedByActorId], references: [id])
+  items     ChecklistItem[]
+
+  @@unique([projectId, docRefNo])
+  @@index([projectId, status])
+  @@index([projectId, createdAt])
+}
+
+model ChecklistItem {
+  id          String   @id @default(uuid())
+  checklistId String
+  sortOrder   Int      @default(0)
+  description String // the check point text, PMC-defined
+  result      String? // 'OK' | 'NOT_OK' | 'NA' — null until Site Engineer fills it
+  remarks     String?
+  createdAt   DateTime @default(now())
+  updatedAt   DateTime @updatedAt
+
+  checklist Checklist @relation(fields: [checklistId], references: [id], onDelete: Cascade)
+
+  @@index([checklistId, sortOrder])
+}
+
+/// Site Engineer's Daily Progress Report — one per project per calendar day. reportDate is a
+/// date-only string ("YYYY-MM-DD"), mirroring ProjectMetrics.period's deliberate use of String
+/// over DateTime to sidestep timezone/granularity issues on the uniqueness constraint.
+model DailyProgressReport {
+  id              String    @id @default(uuid())
+  projectId       String
+  reportDate      String
+  periodFrom      String?
+  periodTo        String?
+  docRefNo        String // "DPR-001"
+  status          String    @default("DRAFT") // DRAFT | SIGNED
+  /// Free text, separate from Day's Highlights — for flagging urgent/critical issues that
+  /// need PMC/Client attention (e.g. safety concerns, blockers), not just routine progress notes.
+  criticalIssues  String?
+  createdById     String
+  signedAt        DateTime?
+  signedByActorId String?
+  createdAt       DateTime  @default(now())
+  updatedAt       DateTime  @updatedAt
+
+  project         Project             @relation(fields: [projectId], references: [id], onDelete: Cascade)
+  createdBy       User                @relation("DPRCreator", fields: [createdById], references: [id])
+  signedBy        User?               @relation("DPRSigner", fields: [signedByActorId], references: [id])
+  procurementRows DPRProcurementRow[]
+  manpowerRows    DPRManpowerRow[]
+  highlights      DPRHighlight[]
+  photos          DPRPhoto[]
+
+  @@unique([projectId, reportDate])
+  @@index([projectId, status])
+}
+
+model DPRProcurementRow {
+  id                         String   @id @default(uuid())
+  dprId                      String
+  sortOrder                  Int      @default(0)
+  materialName                String
+  description                 String?
+  unit                        String
+  alreadyReceived             Float    @default(0)
+  receivedThisWeek            Float    @default(0)
+  cumulativeReceivedTillDate  Float    @default(0)
+  consumedTillDate            Float    @default(0)
+  balanceAtSite               Float    @default(0)
+  additionalRequirement       String?
+  createdAt                   DateTime @default(now())
+  updatedAt                   DateTime @updatedAt
+
+  dpr DailyProgressReport @relation(fields: [dprId], references: [id], onDelete: Cascade)
+
+  @@index([dprId, sortOrder])
+}
+
+/// One row per labour trade within a vendor group for a given DPR (e.g. Vanbros -> Engineer,
+/// Vanbros -> Mason). vendorName is free text, not an FK to a Vendor User/ProjectRole, since
+/// DPR subcontractor names don't always correspond to onboarded platform accounts.
+model DPRManpowerRow {
+  id           String   @id @default(uuid())
+  dprId        String
+  sortOrder    Int      @default(0)
+  vendorName   String
+  tradeName    String
+  unit         String   @default("")
+  actualCount  Int      @default(0)
+  plannedCount Int      @default(0)
+  createdAt    DateTime @default(now())
+  updatedAt    DateTime @updatedAt
+
+  dpr DailyProgressReport @relation(fields: [dprId], references: [id], onDelete: Cascade)
+
+  @@index([dprId, vendorName])
+  @@index([dprId, sortOrder])
+}
+
+model DPRHighlight {
+  id          String   @id @default(uuid())
+  dprId       String
+  sortOrder   Int      @default(0)
+  description String
+  createdAt   DateTime @default(now())
+
+  dpr DailyProgressReport @relation(fields: [dprId], references: [id], onDelete: Cascade)
+
+  @@index([dprId, sortOrder])
+}
+
+/// Site photos attached to a DPR, each with its own caption — mirrors ProjectDocumentFile's
+/// field shape (storageKey + filePath, since e.g. Vercel Blob's save() return value differs
+/// from the key passed in) plus a per-photo remarks/caption field.
+model DPRPhoto {
+  id         String   @id @default(uuid())
+  dprId      String
+  storageKey String
+  filePath   String   @default("")
+  fileName   String
+  mimeType   String
+  size       Int
+  remarks    String?
+  sortOrder  Int      @default(0)
+  createdAt  DateTime @default(now())
+
+  dpr DailyProgressReport @relation(fields: [dprId], references: [id], onDelete: Cascade)
+
+  @@index([dprId, sortOrder])
 }

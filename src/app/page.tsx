@@ -85,50 +85,50 @@ function Counter({ to, decimals = 0 }: { to: number; decimals?: number }) {
 type FlowPalette = {
   svgBg: string; nodeText: string; divColor: string; divOpacity: string;
   rejectBoxBg: string;
-  CLIENT: string; CONSULTANT: string; GREEN: string; RED: string; PMC: string;
-  nodeBgClient: string; nodeBgConsultant: string; nodeBgGreen: string; nodeBgPmc: string;
+  CLIENT: string; CONSULTANT: string; GREEN: string; RED: string; PMC: string; SITE: string;
+  nodeBgClient: string; nodeBgConsultant: string; nodeBgGreen: string; nodeBgPmc: string; nodeBgSite: string;
 };
 
 const FLOW_PALETTES: Record<string, FlowPalette> = {
   obsidian: {
     svgBg: '#08090d', nodeText: '#f5e9c8', divColor: '#fff', divOpacity: '.05', rejectBoxBg: '#1a0606',
-    CLIENT: '#c9a84c', CONSULTANT: '#7b9ef8', GREEN: '#1d9e75', RED: '#e24b4a', PMC: '#9ca3af',
-    nodeBgClient: '#1a1508', nodeBgConsultant: '#080f1a', nodeBgGreen: '#0a1a12', nodeBgPmc: '#111118',
+    CLIENT: '#c9a84c', CONSULTANT: '#7b9ef8', GREEN: '#1d9e75', RED: '#e24b4a', PMC: '#9ca3af', SITE: '#e0955c',
+    nodeBgClient: '#1a1508', nodeBgConsultant: '#080f1a', nodeBgGreen: '#0a1a12', nodeBgPmc: '#111118', nodeBgSite: '#1a0f08',
   },
   sapphire: {
     svgBg: '#050c18', nodeText: '#bfdbfe', divColor: '#fff', divOpacity: '.05', rejectBoxBg: '#1a0808',
-    CLIENT: '#60a5fa', CONSULTANT: '#93c5fd', GREEN: '#34d399', RED: '#f87171', PMC: '#94a3b8',
-    nodeBgClient: '#091628', nodeBgConsultant: '#0c1a35', nodeBgGreen: '#081a14', nodeBgPmc: '#0e1525',
+    CLIENT: '#60a5fa', CONSULTANT: '#93c5fd', GREEN: '#34d399', RED: '#f87171', PMC: '#94a3b8', SITE: '#fbbf24',
+    nodeBgClient: '#091628', nodeBgConsultant: '#0c1a35', nodeBgGreen: '#081a14', nodeBgPmc: '#0e1525', nodeBgSite: '#241a08',
   },
   emerald: {
     svgBg: '#040c06', nodeText: '#d1fae5', divColor: '#fff', divOpacity: '.05', rejectBoxBg: '#1a0606',
-    CLIENT: '#34d399', CONSULTANT: '#6ee7b7', GREEN: '#10b981', RED: '#f87171', PMC: '#86efac',
-    nodeBgClient: '#071a0e', nodeBgConsultant: '#091a12', nodeBgGreen: '#051208', nodeBgPmc: '#0a150d',
+    CLIENT: '#34d399', CONSULTANT: '#6ee7b7', GREEN: '#10b981', RED: '#f87171', PMC: '#86efac', SITE: '#fbbf24',
+    nodeBgClient: '#071a0e', nodeBgConsultant: '#091a12', nodeBgGreen: '#051208', nodeBgPmc: '#0a150d', nodeBgSite: '#1e1808',
   },
   violet: {
     svgBg: '#07050c', nodeText: '#ede9fe', divColor: '#fff', divOpacity: '.05', rejectBoxBg: '#1a0606',
-    CLIENT: '#a78bfa', CONSULTANT: '#c4b5fd', GREEN: '#34d399', RED: '#f87171', PMC: '#d8b4fe',
-    nodeBgClient: '#18102e', nodeBgConsultant: '#140d26', nodeBgGreen: '#0a1a14', nodeBgPmc: '#140e20',
+    CLIENT: '#a78bfa', CONSULTANT: '#c4b5fd', GREEN: '#34d399', RED: '#f87171', PMC: '#d8b4fe', SITE: '#f472b6',
+    nodeBgClient: '#18102e', nodeBgConsultant: '#140d26', nodeBgGreen: '#0a1a14', nodeBgPmc: '#140e20', nodeBgSite: '#2a0f1e',
   },
   pearl: {
     svgBg: '#f4f1e8', nodeText: '#1a1a1a', divColor: '#000', divOpacity: '.07', rejectBoxBg: '#fff0f0',
-    CLIENT: '#8a5e10', CONSULTANT: '#1a4fc4', GREEN: '#027a54', RED: '#b91c1c', PMC: '#4b5563',
-    nodeBgClient: '#fefaf1', nodeBgConsultant: '#eff4ff', nodeBgGreen: '#effaf5', nodeBgPmc: '#f5f5f5',
+    CLIENT: '#8a5e10', CONSULTANT: '#1a4fc4', GREEN: '#027a54', RED: '#b91c1c', PMC: '#4b5563', SITE: '#c2660d',
+    nodeBgClient: '#fefaf1', nodeBgConsultant: '#eff4ff', nodeBgGreen: '#effaf5', nodeBgPmc: '#f5f5f5', nodeBgSite: '#fef3ea',
   },
   frost: {
     svgBg: '#e6eef9', nodeText: '#1e293b', divColor: '#000', divOpacity: '.07', rejectBoxBg: '#fff0f0',
-    CLIENT: '#1a4fc4', CONSULTANT: '#0369a1', GREEN: '#047857', RED: '#b91c1c', PMC: '#475569',
-    nodeBgClient: '#eff4ff', nodeBgConsultant: '#e0f2fe', nodeBgGreen: '#ecfdf5', nodeBgPmc: '#f1f5f9',
+    CLIENT: '#1a4fc4', CONSULTANT: '#0369a1', GREEN: '#047857', RED: '#b91c1c', PMC: '#475569', SITE: '#c2660d',
+    nodeBgClient: '#eff4ff', nodeBgConsultant: '#e0f2fe', nodeBgGreen: '#ecfdf5', nodeBgPmc: '#f1f5f9', nodeBgSite: '#fef3ea',
   },
   sage: {
     svgBg: '#e3ede5', nodeText: '#14532d', divColor: '#000', divOpacity: '.07', rejectBoxBg: '#fff0f0',
-    CLIENT: '#027a54', CONSULTANT: '#0e7490', GREEN: '#15803d', RED: '#b91c1c', PMC: '#4b5563',
-    nodeBgClient: '#f0faf5', nodeBgConsultant: '#e0f7fa', nodeBgGreen: '#dcfce7', nodeBgPmc: '#f4f4f5',
+    CLIENT: '#027a54', CONSULTANT: '#0e7490', GREEN: '#15803d', RED: '#b91c1c', PMC: '#4b5563', SITE: '#b45309',
+    nodeBgClient: '#f0faf5', nodeBgConsultant: '#e0f7fa', nodeBgGreen: '#dcfce7', nodeBgPmc: '#f4f4f5', nodeBgSite: '#fdf1e7',
   },
   blush: {
     svgBg: '#ebe6f8', nodeText: '#1e1b4b', divColor: '#000', divOpacity: '.07', rejectBoxBg: '#fff0f0',
-    CLIENT: '#6020c8', CONSULTANT: '#7c3aed', GREEN: '#047857', RED: '#b91c1c', PMC: '#4b5563',
-    nodeBgClient: '#f3eeff', nodeBgConsultant: '#ede9fe', nodeBgGreen: '#ecfdf5', nodeBgPmc: '#f4f4f5',
+    CLIENT: '#6020c8', CONSULTANT: '#7c3aed', GREEN: '#047857', RED: '#b91c1c', PMC: '#4b5563', SITE: '#c026d3',
+    nodeBgClient: '#f3eeff', nodeBgConsultant: '#ede9fe', nodeBgGreen: '#ecfdf5', nodeBgPmc: '#f4f4f5', nodeBgSite: '#fdf0fb',
   },
 };
 
@@ -142,6 +142,7 @@ function FlowDiagram() {
   const GREEN = p.GREEN;
   const RED   = p.RED;
   const PMC   = p.PMC;
+  const SITE  = p.SITE;
   const isLight = theme === 'pearl' || theme === 'frost' || theme === 'sage' || theme === 'blush';
 
   const Arr = ({ id, color }: { id: string; color: string }) => (
@@ -157,6 +158,7 @@ function FlowDiagram() {
     const bg = stroke === GOLD ? p.nodeBgClient
              : stroke === ARCH ? p.nodeBgConsultant
              : stroke === GREEN ? p.nodeBgGreen
+             : stroke === SITE ? p.nodeBgSite
              : p.nodeBgPmc;
     return (
       <g>
@@ -204,82 +206,90 @@ function FlowDiagram() {
   );
 
   /* ── coordinate reference ──────────────────────────────────────────────────
-     ViewBox 920×560   Node w=160 h=48
-     OWNER   cx=110   x=30    divider-right x=215
-     CONSULTANT cx=310  x=230   divider-right x=430
-     PMC     cx=530   x=450   divider-right x=648
-     VENDOR  cx=750   x=660
+     ViewBox 1010×560   Node w=160 h=48
+     CLIENT        cx=100   x=20    divider-right x=205
+     CONSULTANT    cx=300   x=220   divider-right x=405
+     PMC           cx=500   x=420   divider-right x=605
+     SITE ENGINEER cx=700   x=620   divider-right x=805
+     VENDOR        cx=900   x=820
   ─────────────────────────────────────────────────────────────────────────── */
   return (
-    <svg width="100%" viewBox="0 0 920 560" role="img" xmlns="http://www.w3.org/2000/svg" style={{ background: svgBg, borderRadius: 12, display: 'block' }}>
-      <title>Axinfra project governance flow</title>
+    <svg width="100%" viewBox="0 0 1010 560" role="img" aria-label="Axinfra project governance flow" xmlns="http://www.w3.org/2000/svg" style={{ background: svgBg, borderRadius: 12, display: 'block' }}>
       <defs>
         <Arr id="ag"  color={GOLD}  />
         <Arr id="agr" color={GREEN} />
         <Arr id="ar"  color={RED}   />
         <Arr id="ab"  color={ARCH}  />
+        <Arr id="as"  color={SITE}  />
       </defs>
 
       {/* ── swimlane headers ── */}
       {[
-        { x: '30',  label: 'CLIENT',     color: GOLD,  x2: '200' },
-        { x: '230', label: 'CONSULTANT', color: ARCH,  x2: '385' },
-        { x: '450', label: 'PMC',        color: PMC,   x2: '610' },
-        { x: '660', label: 'VENDOR',     color: GREEN, x2: '845' },
+        { x: '20',  label: 'CLIENT',        color: GOLD,  x2: '190' },
+        { x: '220', label: 'CONSULTANT',    color: ARCH,  x2: '375' },
+        { x: '420', label: 'PMC',           color: PMC,   x2: '580' },
+        { x: '620', label: 'SITE ENGINEER', color: SITE,  x2: '795' },
+        { x: '820', label: 'VENDOR',        color: GREEN, x2: '985' },
       ].map(({ x, label, color, x2 }) => (
         <g key={label}>
           <text x={x} y="32" fill={color} fontSize="10" fontFamily="JetBrains Mono,monospace" fontWeight="600" letterSpacing="2" opacity={isLight ? '.8' : '.65'}>{label}</text>
           <line x1={x} y1="38" x2={x2} y2="38" stroke={color} strokeWidth=".5" opacity=".25" />
         </g>
       ))}
-      <line x1="215" y1="46" x2="215" y2="535" stroke={divColor} strokeWidth=".4" opacity={divOpacity} />
-      <line x1="430" y1="46" x2="430" y2="535" stroke={divColor} strokeWidth=".4" opacity={divOpacity} />
-      <line x1="648" y1="46" x2="648" y2="535" stroke={divColor} strokeWidth=".4" opacity={divOpacity} />
+      <line x1="205" y1="46" x2="205" y2="535" stroke={divColor} strokeWidth=".4" opacity={divOpacity} />
+      <line x1="405" y1="46" x2="405" y2="535" stroke={divColor} strokeWidth=".4" opacity={divOpacity} />
+      <line x1="605" y1="46" x2="605" y2="535" stroke={divColor} strokeWidth=".4" opacity={divOpacity} />
+      <line x1="805" y1="46" x2="805" y2="535" stroke={divColor} strokeWidth=".4" opacity={divOpacity} />
 
       {/* ── row 1: Creates project → Designs plans → Creates BOQ ── */}
-      <Node x={30}  y={76} w={160} h={48} stroke={GOLD} roleColor={GOLD} role="CLIENT"     label="Creates project" pulse />
-      <Connector d="M190 100 L230 100" stroke={GOLD} dur={1.2} />
-      <Node x={230} y={76} w={160} h={48} stroke={ARCH} roleColor={ARCH} role="CONSULTANT" label="Designs plans"  pulse />
-      <Connector d="M390 100 L450 100" stroke={ARCH} dur={1.4} />
-      <Node x={450} y={76} w={160} h={48} stroke={GOLD} roleColor={GOLD} role="PMC"        label="Creates BOQ" />
+      <Node x={20}  y={76} w={160} h={48} stroke={GOLD} roleColor={GOLD} role="CLIENT"     label="Creates project" pulse />
+      <Connector d="M180 100 L220 100" stroke={GOLD} dur={1.2} />
+      <Node x={220} y={76} w={160} h={48} stroke={ARCH} roleColor={ARCH} role="CONSULTANT" label="Designs plans"  pulse />
+      <Connector d="M380 100 L420 100" stroke={ARCH} dur={1.4} />
+      <Node x={420} y={76} w={160} h={48} stroke={GOLD} roleColor={GOLD} role="PMC"        label="Creates BOQ" />
 
-      {/* BOQ routes back to Owner for approval */}
-      <Connector d="M530 124 L530 160 L110 160 L110 188" stroke={GOLD} dur={2.2} />
+      {/* BOQ routes back to Client for approval */}
+      <Connector d="M500 124 L500 160 L100 160 L100 188" stroke={GOLD} dur={2.2} />
 
-      {/* ── row 2: Owner approves BOQ ── */}
-      <Diamond cx={110} cy={232} size={44} stroke={GOLD} roleColor={GOLD} role="CLIENT" label="Approve BOQ?" pulse />
-      <text x={166} y={228} fill={GREEN} fontSize="10" fontFamily="Instrument Sans,sans-serif" fontWeight="600">✓ Approve</text>
-      <text x={10}  y={302} fill={RED}  fontSize="10" fontFamily="Instrument Sans,sans-serif" fontWeight="600">✗ Reject</text>
+      {/* ── row 2: Client approves BOQ ── */}
+      <Diamond cx={100} cy={232} size={44} stroke={GOLD} roleColor={GOLD} role="CLIENT" label="Approve BOQ?" pulse />
+      <text x={156} y={228} fill={GREEN} fontSize="10" fontFamily="Instrument Sans,sans-serif" fontWeight="600">✓ Approve</text>
+      <text x={0}   y={302} fill={RED}  fontSize="10" fontFamily="Instrument Sans,sans-serif" fontWeight="600">✗ Reject</text>
 
       {/* Reject → BOQ revised loop */}
-      <path d="M110 276 L110 308 L530 308 L530 124" fill="none" stroke={RED} strokeWidth="1" strokeDasharray="4 6" opacity=".6" markerEnd="url(#ar)" />
-      <circle r="2.5" fill={RED}><animateMotion dur="4.2s" repeatCount="indefinite" path="M110,276 L110,308 L530,308 L530,124" calcMode="paced" /></circle>
-      <rect x={230} y={297} width={162} height={20} rx="5" fill={rejectBoxBg} />
-      <text x={311} y={311} textAnchor="middle" fill={RED} fontSize="9" fontFamily="JetBrains Mono,monospace">BOQ Revised — re-submit</text>
+      <path d="M100 276 L100 308 L500 308 L500 124" fill="none" stroke={RED} strokeWidth="1" strokeDasharray="4 6" opacity=".6" markerEnd="url(#ar)" />
+      <circle r="2.5" fill={RED}><animateMotion dur="4.2s" repeatCount="indefinite" path="M100,276 L100,308 L500,308 L500,124" calcMode="paced" /></circle>
+      <rect x={220} y={297} width={162} height={20} rx="5" fill={rejectBoxBg} />
+      <text x={301} y={311} textAnchor="middle" fill={RED} fontSize="9" fontFamily="JetBrains Mono,monospace">BOQ Revised — re-submit</text>
 
-      {/* Approve → PMC milestones → Vendor starts work */}
-      <Connector d="M154 232 L450 232" stroke={GREEN} dur={1.6} />
-      <Node x={450} y={208} w={160} h={48} stroke={GREEN} roleColor={GREEN} role="PMC"    label="Creates milestones" />
-      <Connector d="M610 232 L660 232" stroke={GREEN} dur={1.7} />
-      <Node x={660} y={208} w={160} h={48} stroke={GREEN} roleColor={GREEN} role="VENDOR" label="Starts work" pulse />
+      {/* Approve → PMC milestones → Vendor starts work (spans past Site Engineer's lane) */}
+      <Connector d="M144 232 L420 232" stroke={GREEN} dur={1.6} />
+      <Node x={420} y={208} w={160} h={48} stroke={GREEN} roleColor={GREEN} role="PMC"    label="Creates milestones" />
+      <Connector d="M580 232 L820 232" stroke={GREEN} dur={1.9} />
+      <Node x={820} y={208} w={160} h={48} stroke={GREEN} roleColor={GREEN} role="VENDOR" label="Starts work" pulse />
 
-      {/* ── row 3: Vendor submits for verification → PMC verifies ── */}
-      <Connector d="M740 256 L740 360" stroke={GREEN} dur={1.8} />
-      <Node x={655} y={360} w={170} h={48} stroke={GREEN} roleColor={GREEN} role="VENDOR" label="Submits milestone" />
-      <Connector d="M655 384 L574 384" stroke={GOLD} dur={1.6} />
-      <Diamond cx={530} cy={384} size={44} stroke={GOLD} roleColor={GOLD} role="PMC" label="Verifies?" pulse />
-      <text x={398} y={380} fill={GREEN} fontSize="10" fontFamily="Instrument Sans,sans-serif" fontWeight="600">✓ Verified</text>
-      <text x={536} y={446} fill={RED}  fontSize="10" fontFamily="Instrument Sans,sans-serif" fontWeight="600">✗ Not satisfied</text>
+      {/* ── row 3: Site Engineer inspects daily while Vendor executes → both feed PMC verification ── */}
+      {/* Verifies → Vendor connector drawn first so it passes *behind* the Site Engineer node, not over it */}
+      <Connector d="M820 384 L544 384" stroke={GOLD} dur={1.6} />
+      <Connector d="M900 256 L900 300 L700 300 L700 360" stroke={SITE} dur={2.1} />
+      <Node x={620} y={360} w={160} h={48} stroke={SITE} roleColor={SITE} role="SITE ENGINEER" label="Daily checklist + DPR" sub="Photos · manpower" pulse />
+      <Connector d="M900 300 L900 360" stroke={GREEN} dur={1.5} />
+      <Node x={820} y={360} w={160} h={48} stroke={GREEN} roleColor={GREEN} role="VENDOR" label="Submits milestone" />
+
+      <Connector d="M700 360 L700 320 L500 320 L500 340" stroke={SITE} dur={1.7} />
+      <Diamond cx={500} cy={384} size={44} stroke={GOLD} roleColor={GOLD} role="PMC" label="Verifies?" pulse />
+      <text x={368} y={380} fill={GREEN} fontSize="10" fontFamily="Instrument Sans,sans-serif" fontWeight="600">✓ Verified</text>
+      <text x={506} y={446} fill={RED}  fontSize="10" fontFamily="Instrument Sans,sans-serif" fontWeight="600">✗ Not satisfied</text>
 
       {/* Not satisfied → back to Vendor */}
-      <path d="M530 428 L530 472 L740 472 L740 408" fill="none" stroke={RED} strokeWidth="1" strokeDasharray="4 6" opacity=".6" markerEnd="url(#ar)" />
-      <circle r="2.5" fill={RED}><animateMotion dur="4s" repeatCount="indefinite" path="M530,428 L530,472 L740,472 L740,408" calcMode="paced" /></circle>
-      <rect x={568} y={461} width={148} height={20} rx="5" fill={rejectBoxBg} />
-      <text x={642} y={475} textAnchor="middle" fill={RED} fontSize="9" fontFamily="JetBrains Mono,monospace">Back to In Progress</text>
+      <path d="M500 428 L500 472 L900 472 L900 408" fill="none" stroke={RED} strokeWidth="1" strokeDasharray="4 6" opacity=".6" markerEnd="url(#ar)" />
+      <circle r="2.5" fill={RED}><animateMotion dur="4s" repeatCount="indefinite" path="M500,428 L500,472 L900,472 L900,408" calcMode="paced" /></circle>
+      <rect x={626} y={461} width={148} height={20} rx="5" fill={rejectBoxBg} />
+      <text x={700} y={475} textAnchor="middle" fill={RED} fontSize="9" fontFamily="JetBrains Mono,monospace">Back to In Progress</text>
 
-      {/* ── row 4: Owner releases payment ── */}
-      <Connector d="M486 384 L110 384 L110 460" stroke={GREEN} dur={2.5} />
-      <Node x={30} y={460} w={160} h={52} stroke={GREEN} roleColor={GREEN} role="CLIENT" label="Releases payment" sub="Milestone closed" pulse />
+      {/* ── row 4: Client releases payment ── */}
+      <Connector d="M456 384 L100 384 L100 460" stroke={GREEN} dur={2.5} />
+      <Node x={20} y={460} w={160} h={52} stroke={GREEN} roleColor={GREEN} role="CLIENT" label="Releases payment" sub="Milestone closed" pulse />
     </svg>
   );
 }
@@ -305,8 +315,11 @@ const MONTHS = ['Jan', 'Feb', 'Mar', 'Apr', 'May', 'Jun', 'Jul', 'Aug'];
 const FEATURES = [
   { icon: '🏗️', title: 'Milestone-gated workflows', desc: 'Every phase is broken into milestones. Work can only progress once it is submitted and verified — no shortcuts, no exceptions.' },
   { icon: '💸', title: 'Verification-based payment release', desc: 'Owners release payment only after the PMC verifies the vendor’s work. No approval, no disbursement. Advance exposure becomes a thing of the past.' },
-  { icon: '👥', title: 'Role-based access — Owner, PMC, Vendor', desc: 'Each stakeholder sees exactly what they need. Owners see financials. PMC sees execution. Vendors see their milestones. Zero information leakage.' },
+  { icon: '👥', title: 'Six roles, zero information leakage', desc: 'Owner, PMC, Consultant, Vendor, Viewer, and Site Engineer each see exactly what they need — from full financials down to a single day’s checklist.' },
   { icon: '📋', title: 'Immutable audit trail', desc: 'Every action is timestamped and attributed. Disputes are resolved in minutes with data, not weeks with screenshots. 100% traceable from day one.' },
+  { icon: '📸', title: 'Digital checklists & daily site reports', desc: 'Site Engineers file inspection checklists and Daily Progress Reports with photo evidence, manpower counts, and critical issues — straight from site.' },
+  { icon: '📑', title: 'Board-ready progress reports', desc: 'Weekly or monthly reports generate automatically in a professional MPR format — BOQ progress, RA Bills, manpower, QA/QC, risks, drawings, and site photos, one PDF.' },
+  { icon: '🤝', title: 'Vendor & consultant directory', desc: 'Every vendor and consultant on the platform, searchable with contact details and full project history — built for onboarding your next hire fast.' },
   { icon: '⚡', title: 'Viseron AI risk detection', desc: 'Predictive intelligence flags delays, budget overruns, and compliance gaps before they escalate. Built into the intelligence tier — no extra setup.' },
   { icon: '📊', title: 'Execution intelligence & analytics', desc: 'S-curves, burn-down charts, vendor scorecards, delay cost estimates, and payment cycle analysis — all derived from live project data.' },
 ];
@@ -561,9 +574,9 @@ export default function HomePage() {
         <Section className="sec-head-row">
           <div>
             <div className="sec-tag">How it works</div>
-            <h2 className="sec-title">Four roles.<br /><em>One governed flow.</em></h2>
+            <h2 className="sec-title">Five roles.<br /><em>One governed flow.</em></h2>
           </div>
-          <p className="sec-sub">Owner creates the project. Consultant designs the plans. PMC writes the BOQ, governs milestones, and verifies completed work. Vendor executes and submits for verification. Every approval on record — nothing moves without a paper trail.</p>
+          <p className="sec-sub">Client creates the project. Consultant designs the plans. PMC writes the BOQ, governs milestones, and verifies completed work. Site Engineer inspects daily on-site — checklists, photos, manpower — feeding directly into PMC&apos;s verification. Vendor executes and submits for verification. Every approval on record — nothing moves without a paper trail.</p>
         </Section>
         <Section className="flow-wrap">
           <FlowDiagram />
@@ -992,7 +1005,9 @@ export default function HomePage() {
             <h4>Platform</h4>
             <a href="#platform">Milestone Tracking</a>
             <a href="#platform">Payment Governance</a>
-            <a href="#platform">Audit Trail</a>
+            <a href="#platform">Checklists &amp; Site Reports</a>
+            <a href="#platform">Progress Reports</a>
+            <a href="#platform">Vendor Directory</a>
             <a href="#dashboard">Execution Intelligence</a>
             <a href="#how-it-works">Viseron AI</a>
           </div>

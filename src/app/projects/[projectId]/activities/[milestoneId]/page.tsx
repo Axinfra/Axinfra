@@ -141,7 +141,7 @@ export default function MilestoneDetailPage() {
   }
   const hasDependencyWarning = depViolations.length > 0;
 
-  const isPmc = myRole === 'PMC';
+  const canUpdateProgress = myRole === 'PMC' || myRole === 'SITE_ENGINEER';
   const isAssignedVendor = myRole === 'VENDOR' && milestone.vendorUserId === myUserId;
   const canComment = myRole === 'PMC' || myRole === 'CLIENT';
 
@@ -224,8 +224,8 @@ export default function MilestoneDetailPage() {
           }}
         />
 
-        {/* Update Progress — PMC only. The single place progress/status ever changes. */}
-        {isPmc && (
+        {/* Update Progress — PMC or Site Engineer. The single place progress/status ever changes. */}
+        {canUpdateProgress && (
           <ProgressUpdateCard
             projectId={projectId}
             milestoneId={milestoneId}
