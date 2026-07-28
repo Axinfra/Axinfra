@@ -30,7 +30,13 @@ function getClient(): Anthropic | null {
   clientInitAttempted = true;
 
   const apiKey = process.env.ANTHROPIC_API_KEY;
-  if (!apiKey) return null;
+  if (!apiKey) {
+    // The one failure mode with no other trace — every other path (bad key, network error,
+    // refusal) logs via the catch blocks below or in the callers. Without this, "AI feature
+    // silently does nothing in prod" is indistinguishable from "call failed" in the logs.
+    logger.warn('ANTHROPIC_API_KEY is not set — AI features (work order draft, report summary) are disabled');
+    return null;
+  }
 
   try {
     client = new Anthropic({ apiKey });
