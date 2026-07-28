@@ -320,6 +320,16 @@ export interface ReportRABillRosterRow {
   submittedValueFormatted: string;
   approvedValueFormatted: string;
   releasedValueFormatted: string;
+  measurementSheetCount: number;
+}
+
+export interface ReportMeasurementSheetRow {
+  billLabel: string;
+  orderName: string;
+  fileName: string;
+  uploadedByName: string;
+  dateFormatted: string;
+  remarks: string | null;
 }
 
 export interface ReportChecklistRosterRow {
@@ -409,6 +419,113 @@ export interface ReportRiskRow {
   detail: string;
 }
 
+/** One historical snapshot point for the S-curve chart — built up over time from the
+ * ProjectMetrics table, one row per period a report was ever generated for this project. */
+export interface ReportSCurvePoint {
+  periodLabel: string;
+  plannedPercent: number;
+  actualPercent: number;
+}
+
+/** One bar in the schedule/Gantt timeline chart. Offsets are pre-computed (0-100, relative to
+ * the overall date range of the plotted activities) so the PDF template only draws bars. */
+export interface ReportGanttRow {
+  kind: 'PHASE' | 'MILESTONE';
+  indent: number;
+  title: string;
+  lifecycleStatus: string;
+  startOffsetPercent: number;
+  durationPercent: number;
+  plannedStartFormatted: string;
+  plannedEndFormatted: string;
+}
+
+/** One row in the Work Breakdown Structure / Schedule table (Annexure I). */
+export interface ReportWbsRow {
+  wbsCode: string;
+  kind: 'PHASE' | 'MILESTONE';
+  indent: number;
+  title: string;
+  lifecycleStatus: string;
+  percentComplete: number;
+  plannedStartFormatted: string;
+  plannedEndFormatted: string;
+  vendorName: string;
+}
+
+export interface ReportBoqItemRow {
+  itemNo: number;
+  description: string;
+  unit: string;
+  plannedQtyFormatted: string;
+  rateFormatted: string;
+  plannedValueFormatted: string;
+}
+
+/** One Purchase Order's BOQ line items, for Annexure IV. */
+export interface ReportBoqOrderGroup {
+  orderName: string;
+  items: ReportBoqItemRow[];
+  subtotalFormatted: string;
+}
+
+/** Project-wide schedule KPIs from the Execution Intelligence engine (scheduleMetrics.ts). */
+export interface ReportExecutionKpis {
+  netScheduleDaysFormatted: string;
+  totalSavedDaysFormatted: string;
+  totalOverrunDaysFormatted: string;
+  onTimePctFormatted: string;
+  avgApprovalCycleDaysFormatted: string;
+  criticalMilestoneCount: number;
+  escalationsLast30Days: number;
+  completedMilestones: number;
+  totalMilestones: number;
+}
+
+export interface ReportVendorScorecardRow {
+  vendorName: string;
+  totalMilestones: number;
+  completedOnTime: number;
+  completedLate: number;
+  inProgress: number;
+  onTimePctFormatted: string;
+  avgDelayDaysFormatted: string;
+  avgApprovalCycleDaysFormatted: string;
+  escalationCount: number;
+  rank: number;
+}
+
+export interface ReportDelayBucket {
+  bucket: string;
+  count: number;
+}
+
+export interface ReportEscalationWeek {
+  weekLabel: string;
+  count: number;
+}
+
+export interface ReportCriticalityRow {
+  title: string;
+  isCritical: boolean;
+  totalFloatDaysFormatted: string;
+  durationDaysFormatted: string;
+}
+
+export interface ReportPaymentCycles {
+  avgDaysFormatted: string;
+  byVendor: Array<{ vendorName: string; avgDaysFormatted: string }>;
+}
+
+export interface ReportDelayCost {
+  isConfigured: boolean;
+  totalOverrunDays: number;
+  overheadCostFormatted: string;
+  penaltyCostFormatted: string;
+  opportunityCostFormatted: string;
+  totalEstimatedCostFormatted: string;
+}
+
 /** Fully-resolved, display-ready data for the weekly/monthly Project Report PDF. Every number
  * is pre-formatted the same way every other PDF in this app does it, so ProjectReportDocument
  * never needs to know about currency/date formatting rules. */
@@ -421,6 +538,45 @@ export interface ProjectReportPdfData {
   periodLabel: string; // formatted date range
 
   keyStats: ReportKeyStat[];
+
+  /** AI-generated (Claude) narrative summary paragraph — null when AI isn't configured or the call failed. */
+  aiExecutiveSummary: string | null;
+  /** AI-generated (Claude) recommendations/next-steps text — null when AI isn't configured or the call failed. */
+  aiRecommendations: string | null;
+  /** AI-generated (Claude) plain-language explanation of the S-curve/Gantt charts. */
+  aiScheduleNote: string | null;
+  /** AI-generated (Claude) plain-language explanation of the financial/variance numbers. */
+  aiFinancialNote: string | null;
+  /** AI-generated (Claude) plain-language explanation of the quality/checklist results. */
+  aiQualityNote: string | null;
+  /** AI-generated (Claude) plain-language explanation of manpower/DPR coverage. */
+  aiResourceNote: string | null;
+  /** AI-generated (Claude) plain-language explanation of the key risks. */
+  aiRiskNote: string | null;
+  /** AI-generated (Claude) 2-3 line plain-language overview of the project particulars section. */
+  aiOverviewNote: string | null;
+  /** AI-generated (Claude) 2-3 line plain-language explanation of the BOQ line items/value split. */
+  aiBoqNote: string | null;
+  /** AI-generated (Claude) 2-3 line plain-language explanation of the S-curve/burndown/vendor/delay analysis. */
+  aiExecutionNote: string | null;
+  /** AI-generated (Claude) 2-3 line plain-language explanation of the delay cost/criticality findings. */
+  aiCostRiskNote: string | null;
+
+  sCurve: ReportSCurvePoint[];
+  burndown: ReportSCurvePoint[];
+  gantt: ReportGanttRow[];
+  wbs: ReportWbsRow[];
+  boq: {
+    byOrder: ReportBoqOrderGroup[];
+    grandTotalFormatted: string;
+  };
+  executionKpis: ReportExecutionKpis;
+  vendorScorecards: ReportVendorScorecardRow[];
+  delayHistogram: ReportDelayBucket[];
+  escalationTrend: ReportEscalationWeek[];
+  paymentCycles: ReportPaymentCycles;
+  delayCost: ReportDelayCost;
+  criticality: ReportCriticalityRow[];
 
   overview: {
     description: string;
@@ -471,6 +627,7 @@ export interface ProjectReportPdfData {
     billsTouchedCount: number;
     events: ReportBillEventRow[];
     allBills: ReportRABillRosterRow[];
+    measurementSheets: ReportMeasurementSheetRow[];
   };
 
   evidencePhotos: ReportEvidencePhotoGroup[];

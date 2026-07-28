@@ -100,16 +100,18 @@ export class RoleGuard {
     return auth.role === Role.PMC || auth.role === Role.CONSULTANT;
   }
 
-  /** RA Bills: Client or Site Engineer approves a certified bill, setting the approved value
-   * and any deductions. Releasing the actual payment afterwards stays PMC/Client-only — see
-   * the release-payment route, deliberately not gated by this same method. */
+  /** RA Bills: PMC approves a certified bill, setting the approved value/deductions — PMC owns
+   * the whole amount/variance/deduction decision. Client's only remaining action on the bill is
+   * releasing payment afterwards (release-payment route, deliberately not gated by this method,
+   * still allows CLIENT and PMC both). */
   static canApproveRABill(auth: ProjectAuthContext): boolean {
-    return auth.role === Role.CLIENT || auth.role === Role.SITE_ENGINEER;
+    return auth.role === Role.PMC;
   }
 
   /** RA Bills: Site Engineer reviews every vendor submission before PMC ever sees it — can edit
-   * the claimed quantities directly (the vendor has no say in this edit) and then forwards it to
-   * PMC. A separate, earlier step from canApproveRABill above. */
+   * the claimed quantities directly (the vendor has no say in this edit), attach supporting
+   * measurement sheets, and then forwards it to PMC. A separate, earlier step from
+   * canApproveRABill above. */
   static canSiteEngineerReviewRABill(auth: ProjectAuthContext): boolean {
     return auth.role === Role.SITE_ENGINEER;
   }

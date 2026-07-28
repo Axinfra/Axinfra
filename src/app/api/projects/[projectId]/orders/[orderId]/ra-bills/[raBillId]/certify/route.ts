@@ -34,10 +34,12 @@ export async function POST(
     const contentType = request.headers.get('content-type') ?? '';
     let remarks: string | undefined;
     let file: { storageKey: string; fileName: string; mimeType: string; fileSize: number } | undefined;
+    let measurementSheetId: string | undefined;
 
     if (contentType.includes('multipart/form-data')) {
       const formData = await request.formData();
       remarks = formData.get('remarks') ? String(formData.get('remarks')) : undefined;
+      measurementSheetId = formData.get('measurementSheetId') ? String(formData.get('measurementSheetId')) : undefined;
       const uploaded = formData.get('file') as File | null;
       if (uploaded) {
         const fileExt = (uploaded.name.split('.').pop() ?? '').toLowerCase();
@@ -57,9 +59,10 @@ export async function POST(
     } else {
       const body = await request.json().catch(() => ({}));
       remarks = body.remarks;
+      measurementSheetId = body.measurementSheetId;
     }
 
-    const result = await RABillService.certify(raBillId, projectId, auth.userId, auth.role, { remarks, file });
+    const result = await RABillService.certify(raBillId, projectId, auth.userId, auth.role, { remarks, file, measurementSheetId });
     if (!result.success) {
       return NextResponse.json({ success: false, error: result.error }, { status: 400 });
     }

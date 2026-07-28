@@ -14,13 +14,20 @@ export async function GET(
     const raBill = await prisma.rABill.findFirst({
       where: { id: raBillId, order: { vendorUserId: auth.userId } },
       include: {
-        project: { select: { id: true, name: true } },
+        project: { select: { id: true, name: true, metadata: true } },
         order: { select: { id: true, name: true, vendorUserId: true } },
         lineItems: { include: { boq: { select: { id: true, boqNumber: true, name: true } } } },
         createdBy: { select: { name: true } },
         siteEngineerReviewedBy: { select: { name: true } },
         certifiedBy: { select: { name: true } },
         approvedBy: { select: { name: true } },
+        measurementSheets: {
+          orderBy: { uploadedAt: 'asc' },
+          include: { uploadedBy: { select: { name: true } } },
+        },
+        certifiedMeasurementSheet: {
+          include: { uploadedBy: { select: { name: true } } },
+        },
       },
     });
 
@@ -28,7 +35,9 @@ export async function GET(
       return NextResponse.json({ success: false, error: 'RA Bill not found' }, { status: 404 });
     }
 
-    return NextResponse.json({ success: true, data: raBill });
+    const currency = raBill.project.metadata ? (JSON.parse(raBill.project.metadata).currency || 'INR') : 'INR';
+
+    return NextResponse.json({ success: true, data: { ...raBill, currency } });
   } catch (error) {
     if (error instanceof Error && error.message === 'UNAUTHORIZED') {
       return NextResponse.json({ success: false, error: 'Unauthorized' }, { status: 401 });

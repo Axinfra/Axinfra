@@ -265,22 +265,22 @@ export default function CashModulePage() {
           <div className="grid gap-4 md:grid-cols-4">
             <div className="bg-[rgba(255,255,255,0.03)] rounded-xl border border-[rgba(255,255,255,0.07)] p-5">
               <p className="text-xs font-medium text-[rgba(232,228,220,0.35)] uppercase tracking-wider">Total Credits</p>
-              <p className="text-2xl font-bold text-[#5cba80] mt-1">{formatCurrency(summary.totalCredits)}</p>
+              <p className="text-2xl font-bold text-[#5cba80] mt-1">{formatCurrency(summary.totalCredits, project?.currency)}</p>
               <p className="text-xs text-[rgba(232,228,220,0.35)] mt-1">{summary.adjustmentCount} adjustments</p>
             </div>
             <div className="bg-[rgba(255,255,255,0.03)] rounded-xl border border-[rgba(255,255,255,0.07)] p-5">
               <p className="text-xs font-medium text-[rgba(232,228,220,0.35)] uppercase tracking-wider">Total Debits</p>
-              <p className="text-2xl font-bold text-[#e06050] mt-1">{formatCurrency(summary.totalDebits)}</p>
+              <p className="text-2xl font-bold text-[#e06050] mt-1">{formatCurrency(summary.totalDebits, project?.currency)}</p>
             </div>
             <div className="bg-[rgba(255,255,255,0.03)] rounded-xl border border-[rgba(255,255,255,0.07)] p-5">
               <p className="text-xs font-medium text-[rgba(232,228,220,0.35)] uppercase tracking-wider">Net Cash Position</p>
               <p className={`text-2xl font-bold mt-1 ${summary.netCashPosition >= 0 ? 'text-[#5cba80]' : 'text-[#e06050]'}`}>
-                {formatCurrency(summary.netCashPosition)}
+                {formatCurrency(summary.netCashPosition, project?.currency)}
               </p>
             </div>
             <div className="bg-[rgba(255,255,255,0.03)] rounded-xl border border-[rgba(255,255,255,0.07)] p-5">
               <p className="text-xs font-medium text-[rgba(232,228,220,0.35)] uppercase tracking-wider">Private Costs</p>
-              <p className="text-2xl font-bold text-[#e8e4dc] mt-1">{formatCurrency(summary.totalPrivateCosts)}</p>
+              <p className="text-2xl font-bold text-[#e8e4dc] mt-1">{formatCurrency(summary.totalPrivateCosts, project?.currency)}</p>
               <p className="text-xs text-[rgba(232,228,220,0.35)] mt-1">{summary.costEntryCount} entries</p>
             </div>
           </div>
@@ -371,7 +371,7 @@ export default function CashModulePage() {
                           </td>
                           <td className="px-4 py-3 text-sm font-medium text-[#e8e4dc]">{adj.description}</td>
                           <td className={`px-4 py-3 text-sm font-semibold text-right ${adj.type === 'CREDIT' ? 'text-[#5cba80]' : 'text-[#e06050]'}`}>
-                            {adj.type === 'CREDIT' ? '+' : '-'}{formatCurrency(adj.amount)}
+                            {adj.type === 'CREDIT' ? '+' : '-'}{formatCurrency(adj.amount, project?.currency)}
                           </td>
                           <td className="px-4 py-3 text-sm text-[rgba(232,228,220,0.55)]">{adj.reason || '-'}</td>
                           <td className="px-4 py-3 text-sm text-[rgba(232,228,220,0.55)]">{adj.createdBy.name}</td>
@@ -399,7 +399,7 @@ export default function CashModulePage() {
                   {Object.entries(summary.costsByCategory).map(([cat, total]) => (
                     <span key={cat} className="inline-flex items-center gap-1.5 px-3 py-1 bg-[rgba(255,255,255,0.03)] border border-[rgba(255,255,255,0.07)] rounded-full text-xs text-[rgba(232,228,220,0.55)]">
                       <span className="font-medium">{PrivateCostCategoryLabels[cat as keyof typeof PrivateCostCategoryLabels] || cat}</span>
-                      <span className="text-[rgba(232,228,220,0.35)]">{formatCurrency(total)}</span>
+                      <span className="text-[rgba(232,228,220,0.35)]">{formatCurrency(total, project?.currency)}</span>
                     </span>
                   ))}
                 </div>
@@ -444,7 +444,7 @@ export default function CashModulePage() {
                             </span>
                           </td>
                           <td className="px-4 py-3 text-sm font-medium text-[#e8e4dc]">{cost.description}</td>
-                          <td className="px-4 py-3 text-sm font-semibold text-right text-[#e8e4dc]">{formatCurrency(cost.amount)}</td>
+                          <td className="px-4 py-3 text-sm font-semibold text-right text-[#e8e4dc]">{formatCurrency(cost.amount, project?.currency)}</td>
                           <td className="px-4 py-3 text-sm text-[rgba(232,228,220,0.55)]">{cost.vendor || '-'}</td>
                           <td className="px-4 py-3 text-sm text-[rgba(232,228,220,0.35)]">{cost.incurredAt ? formatDate(cost.incurredAt) : '-'}</td>
                           <td className="px-4 py-3 text-sm text-[rgba(232,228,220,0.35)] max-w-[200px] truncate">{cost.notes || '-'}</td>

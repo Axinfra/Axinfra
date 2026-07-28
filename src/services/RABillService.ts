@@ -391,6 +391,56 @@ export class RABillService {
   }
 
   /**
+   * Site Engineer attaches a supporting measurement sheet while the bill is with them for
+   * review — separate from RABill's own single storageKey/fileName (PMC/Consultant's
+   * certify-time attachment). Can be called repeatedly: a bill can carry several sheets (e.g.
+   * multiple pages of a measurement book), each readable afterwards by anyone who can view the
+   * bill (PMC, Consultant, Client, the assigned Vendor).
+   */
+  static async addMeasurementSheet(
+    raBillId: string,
+    projectId: string,
+    actorId: string,
+    role: Role,
+    input: { file: RABillFileInput; remarks?: string | null }
+  ): Promise<{ success: boolean; error?: string }> {
+    if (role !== Role.SITE_ENGINEER) {
+      return { success: false, error: 'Only the Site Engineer can add a measurement sheet' };
+    }
+
+    const raBill = await prisma.rABill.findFirst({ where: { id: raBillId, projectId } });
+    if (!raBill) {
+      return { success: false, error: 'RA Bill not found' };
+    }
+    if (raBill.status !== RABillStatus.PENDING_SITE_ENGINEER_REVIEW) {
+      return { success: false, error: 'Measurement sheets can only be added while the bill is with the Site Engineer for review' };
+    }
+
+    await prisma.rABillMeasurementSheet.create({
+      data: {
+        raBillId,
+        storageKey: input.file.storageKey,
+        fileName: input.file.fileName,
+        mimeType: input.file.mimeType,
+        fileSize: input.file.fileSize,
+        remarks: input.remarks,
+        uploadedById: actorId,
+      },
+    });
+
+    await AuditLogger.log({
+      projectId,
+      actorId,
+      role,
+      actionType: AuditActionTypes.RA_BILL_MEASUREMENT_SHEET_ADD,
+      entityType: 'RABill',
+      entityId: raBillId,
+    });
+
+    return { success: true };
+  }
+
+  /**
    * Vendor's binding acknowledgement of the Site Engineer's figures — a read-only accept, not a
    * dispute path. Available as soon as the Site Engineer has forwarded the bill and doesn't
    * block PMC's certification, which can happen before or after this call.
@@ -489,7 +539,7 @@ export class RABillService {
     projectId: string,
     actorId: string,
     role: Role,
-    input: { remarks?: string | null; file?: RABillFileInput }
+    input: { remarks?: string | null; file?: RABillFileInput; measurementSheetId?: string | null }
   ): Promise<{ success: boolean; error?: string }> {
     if (role !== Role.PMC && role !== Role.CONSULTANT) {
       return { success: false, error: 'Only PMC or Consultant can certify an RA Bill' };
@@ -503,6 +553,18 @@ export class RABillService {
       return { success: false, error: 'Only a bill pending review can be certified' };
     }
 
+    if (input.measurementSheetId) {
+      // Must belong to this bill — the picker only ever offers this bill's own sheets, but a
+      // crafted request could pass any UUID.
+      const sheet = await prisma.rABillMeasurementSheet.findFirst({
+        where: { id: input.measurementSheetId, raBillId },
+        select: { id: true },
+      });
+      if (!sheet) {
+        return { success: false, error: 'Measurement sheet not found for this bill' };
+      }
+    }
+
     await prisma.rABill.update({
       where: { id: raBillId },
       data: {
@@ -510,6 +572,7 @@ export class RABillService {
         certifiedAt: new Date(),
         certifiedById: actorId,
         certifiedRemarks: input.remarks,
+        certifiedMeasurementSheetId: input.measurementSheetId ?? undefined,
         ...(input.file && {
           storageKey: input.file.storageKey,
           fileName: input.file.fileName,
@@ -531,7 +594,9 @@ export class RABillService {
     return { success: true };
   }
 
-  /** Owner approves a certified bill for payment, applying a flat deduction figure. */
+  /** PMC approves a certified bill for payment, applying a flat deduction figure — PMC owns the
+   * whole amount/variance/deduction decision; Client's only remaining action on the bill is
+   * releasing payment afterwards (see releasePayment below). */
   static async approve(
     raBillId: string,
     projectId: string,
@@ -539,8 +604,8 @@ export class RABillService {
     role: Role,
     input: { deductions?: number }
   ): Promise<{ success: boolean; error?: string }> {
-    if (role !== Role.CLIENT && role !== Role.SITE_ENGINEER) {
-      return { success: false, error: 'Only Owner or Site Engineer can approve an RA Bill' };
+    if (role !== Role.PMC) {
+      return { success: false, error: 'Only PMC can approve an RA Bill' };
     }
 
     const raBill = await prisma.rABill.findFirst({ where: { id: raBillId, projectId }, include: { lineItems: true } });
@@ -657,15 +722,22 @@ export class RABillService {
     };
   }
 
-  /** Paginated project-wide RA Bill list, with aggregated totals for the filtered set. */
+  /** Paginated project-wide RA Bill list, with aggregated totals for the filtered set.
+   * `vendorUserId` scopes the result to a single vendor's own bills — a project can have
+   * several Purchase Orders assigned to different vendors, and a vendor should never see
+   * another vendor's figures just because they share a project. */
   static async getForProject(
     projectId: string,
-    options: { orderId?: string; status?: string; limit?: number; offset?: number } = {}
+    options: { orderId?: string; status?: string | string[]; limit?: number; offset?: number; vendorUserId?: string } = {}
   ) {
+    const statusFilter = Array.isArray(options.status)
+      ? (options.status.length > 0 ? { status: { in: options.status } } : {})
+      : (options.status ? { status: options.status } : {});
     const where = {
       projectId,
       ...(options.orderId && { orderId: options.orderId }),
-      ...(options.status && { status: options.status }),
+      ...statusFilter,
+      ...(options.vendorUserId && { order: { vendorUserId: options.vendorUserId } }),
     };
 
     const [raBills, total, all] = await Promise.all([
@@ -706,6 +778,13 @@ export class RABillService {
         certifiedBy: { select: { name: true } },
         approvedBy: { select: { name: true } },
         releasedBy: { select: { name: true } },
+        measurementSheets: {
+          orderBy: { uploadedAt: 'asc' },
+          include: { uploadedBy: { select: { name: true } } },
+        },
+        certifiedMeasurementSheet: {
+          include: { uploadedBy: { select: { name: true } } },
+        },
       },
     });
   }

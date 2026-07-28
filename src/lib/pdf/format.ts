@@ -1,11 +1,13 @@
 export const qtyFormatter = new Intl.NumberFormat('en-IN', { maximumFractionDigits: 2 });
-const inrFormatter = new Intl.NumberFormat('en-IN', { maximumFractionDigits: 0 });
+const amountFormatter = new Intl.NumberFormat('en-IN', { maximumFractionDigits: 0 });
 
-/** The standard 14 PDF fonts (Helvetica) only cover WinAnsiEncoding — the ₹ glyph (U+20B9)
- * falls outside that and renders as a garbled character. "INR " avoids the symbol entirely
- * instead of embedding a custom Unicode font just for one character. */
-export function formatCurrencyForPdf(amount: number): string {
-  return `INR ${inrFormatter.format(Math.round(amount))}`;
+/** The standard 14 PDF fonts (Helvetica) only cover WinAnsiEncoding — currency glyphs like
+ * ₹ (U+20B9) fall outside that and render as a garbled character. Prefixing the ISO code
+ * ("INR ", "AED ", ...) avoids symbols entirely instead of embedding a custom Unicode font.
+ * `currency` should be the project's own `metadata.currency` — defaults to INR to match
+ * pre-existing PDFs for projects that predate per-project currency. */
+export function formatCurrencyForPdf(amount: number, currency: string = 'INR'): string {
+  return `${currency} ${amountFormatter.format(Math.round(amount))}`;
 }
 
 /** Comma-joined display name for every (non-pending-invite) user holding `role` on a project —

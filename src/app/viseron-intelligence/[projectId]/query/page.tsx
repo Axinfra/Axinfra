@@ -20,6 +20,8 @@ const SUGGESTED_QUERIES = [
   'What is project health?',
   'Which milestones are risky?',
   'Which vendor has lowest reliability?',
+  'Which RA bills are pending approval?',
+  'What is the BOQ status?',
 ];
 
 export default function ViseronQueryPage() {
@@ -186,7 +188,7 @@ export default function ViseronQueryPage() {
             </form>
 
             <p className="text-[10px] text-[rgba(var(--ax-text-rgb),0.3)] mt-2 text-center">
-              Viseron analyzes project data to answer your questions. Responses are based on current milestone and vendor data.
+              Viseron has read-only access to this project&rsquo;s schedule, RA Bills &amp; payments, BOQ, Work Orders, DPRs, Checklists, Documents, and Drawings — it can answer questions but never makes changes.
             </p>
           </div>
         </div>
@@ -373,7 +375,7 @@ function EmptyState({ onQuerySelect }: { onQuerySelect: (q: string) => void }) {
       </div>
       <h2 className="text-[18px] font-semibold text-[var(--ax-text)] mb-1">Viseron Query Engine</h2>
       <p className="text-[13px] text-[rgba(var(--ax-text-rgb),0.55)] text-center max-w-sm mb-8">
-        Ask questions about your project in plain English. Viseron will analyze your data and provide insights.
+        Ask questions about your project in plain English — schedule, RA Bills, BOQ, DPRs, checklists, documents, and drawings all included. Read-only, always up to date.
       </p>
 
       <div className="w-full max-w-md space-y-2">
@@ -384,6 +386,7 @@ function EmptyState({ onQuerySelect }: { onQuerySelect: (q: string) => void }) {
           { query: 'What is project health?', icon: '◎' },
           { query: 'Which milestones are risky?', icon: '◆' },
           { query: 'Which vendor has lowest reliability?', icon: '▽' },
+          { query: 'Which RA bills are pending approval?', icon: '⬢' },
           { query: 'Why is vendor X delayed?', icon: '▹' },
         ].map((item) => (
           <button

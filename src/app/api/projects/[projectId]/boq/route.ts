@@ -27,10 +27,14 @@ export async function GET(
     // PMC still drafting some of these — Owner shouldn't see drafts, Vendor/Consultant only
     // ever see the final approved version. See RoleGuard.visibleBOQStatuses for the exact rule.
     const visibleStatuses = RoleGuard.visibleBOQStatuses(auth);
+    // A project can have several Purchase Orders assigned to different vendors — a vendor
+    // only ever sees BOQs under their own orders here, never another vendor's on the same
+    // project (mirrors the same scoping on RA Bills).
     const where = {
       projectId,
       ...(orderId && { orderId }),
       ...(visibleStatuses && { status: { in: visibleStatuses } }),
+      ...(auth.role === 'VENDOR' && { order: { vendorUserId: auth.userId } }),
     };
 
     const [boqs, total] = await Promise.all([

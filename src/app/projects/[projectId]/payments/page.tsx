@@ -162,7 +162,9 @@ export default function PaymentsPage() {
   // single protected API route.
   const hasAccess = ['CLIENT', 'PMC', 'VENDOR'].includes(myRole);
   const isOwner = myRole === 'CLIENT';
-  const canApproveRABill = isOwner;
+  // PMC owns the amount/variance/deduction decision (the "Approve" step); Client's only action
+  // on an RA Bill is releasing payment afterwards, below.
+  const canApproveRABill = myRole === 'PMC';
   const canReleaseRABillPayment = isOwner || myRole === 'PMC';
 
   // ── Tab state ───────────────────────────────────────────────────────────────
@@ -201,7 +203,7 @@ export default function PaymentsPage() {
   // ── Architecture row payment ───────────────────────────────────────────────
   const [rowActionLoading, setRowActionLoading] = useState<string | null>(null);
   const handlePayRow = async (rowId: string, rowName: string, amount: number) => {
-    if (!confirm(`Release payment of ${formatCurrency(amount)} for drawing "${rowName}"?`)) return;
+    if (!confirm(`Release payment of ${formatCurrency(amount, project?.currency)} for drawing "${rowName}"?`)) return;
     setRowActionLoading(rowId);
     try {
       const res = await fetch(`/api/projects/${projectId}/architecture/rows/${rowId}/payment`, { method: 'POST' });
@@ -230,7 +232,7 @@ export default function PaymentsPage() {
     return (
       <Layout>
         <Navbar projectId={projectId} projectName={projectName} role={myRole} />
-        <VendorInvoiceView milestones={milestones} projectName={projectName} />
+        <VendorInvoiceView milestones={milestones} projectName={projectName} currency={project?.currency} />
       </Layout>
     );
   }
@@ -278,29 +280,29 @@ export default function PaymentsPage() {
           <div className="card">
             <div className="card-body py-3">
               <p className="text-[10px] text-[rgba(232,228,220,0.45)] uppercase tracking-wider">RA Bills Ready to Pay</p>
-              <p className="text-xl font-bold text-[#fb923c] mt-0.5">{formatCurrency(totalReadyToPay)}</p>
+              <p className="text-xl font-bold text-[#fb923c] mt-0.5">{formatCurrency(totalReadyToPay, project?.currency)}</p>
               <p className="text-[10px] text-[rgba(232,228,220,0.35)]">{readyToPay.length} awaiting payment</p>
             </div>
           </div>
           <div className="card">
             <div className="card-body py-3">
               <p className="text-[10px] text-[rgba(232,228,220,0.45)] uppercase tracking-wider">RA Bills Paid</p>
-              <p className="text-xl font-bold text-[#5cba80] mt-0.5">{formatCurrency(totalPaidRABills)}</p>
+              <p className="text-xl font-bold text-[#5cba80] mt-0.5">{formatCurrency(totalPaidRABills, project?.currency)}</p>
               <p className="text-[10px] text-[rgba(232,228,220,0.35)]">{paidRABills.length} paid</p>
             </div>
           </div>
           <div className="card">
             <div className="card-body py-3">
               <p className="text-[10px] text-[rgba(232,228,220,0.45)] uppercase tracking-wider">Arch Fees Due</p>
-              <p className="text-xl font-bold text-[#a78bfa] mt-0.5">{formatCurrency(archDueFees)}</p>
+              <p className="text-xl font-bold text-[#a78bfa] mt-0.5">{formatCurrency(archDueFees, project?.currency)}</p>
               <p className="text-[10px] text-[rgba(232,228,220,0.35)]">approved drawings unpaid</p>
             </div>
           </div>
           <div className="card">
             <div className="card-body py-3">
               <p className="text-[10px] text-[rgba(232,228,220,0.45)] uppercase tracking-wider">Arch Fees Paid</p>
-              <p className="text-xl font-bold text-[#5cba80] mt-0.5">{formatCurrency(archPaidFees)}</p>
-              <p className="text-[10px] text-[rgba(232,228,220,0.35)]">of {formatCurrency(totalArchFees)} total</p>
+              <p className="text-xl font-bold text-[#5cba80] mt-0.5">{formatCurrency(archPaidFees, project?.currency)}</p>
+              <p className="text-[10px] text-[rgba(232,228,220,0.35)]">of {formatCurrency(totalArchFees, project?.currency)} total</p>
             </div>
           </div>
         </div>
@@ -364,6 +366,7 @@ export default function PaymentsPage() {
                           canApprove={canApproveRABill}
                           canRelease={canReleaseRABillPayment}
                           onPayNow={() => setPayingBill(bill)}
+                          currency={project?.currency}
                         />
                       ))}
                     </div>
@@ -384,6 +387,7 @@ export default function PaymentsPage() {
                           canApprove={canApproveRABill}
                           canRelease={canReleaseRABillPayment}
                           onPayNow={() => {}}
+                          currency={project?.currency}
                         />
                       ))}
                     </div>
@@ -449,16 +453,16 @@ export default function PaymentsPage() {
                               )}
                             </div>
                             <div className="flex items-center gap-4 mt-1 text-xs text-[rgba(232,228,220,0.4)]">
-                              <span>Total fee: <span className="text-[#e8e4dc] font-medium">{formatCurrency(set.cost)}</span></span>
+                              <span>Total fee: <span className="text-[#e8e4dc] font-medium">{formatCurrency(set.cost, project?.currency)}</span></span>
                               <span>{set.rowStats.total} drawings · {set.rowStats.approved} approved · {set.rowStats.paid} paid</span>
                             </div>
                           </div>
                         </div>
                         <div className="shrink-0 text-right ml-4">
                           <p className="text-xs text-[rgba(232,228,220,0.4)]">Paid so far</p>
-                          <p className="text-sm font-bold text-[#5cba80]">{formatCurrency(paidAmount)}</p>
+                          <p className="text-sm font-bold text-[#5cba80]">{formatCurrency(paidAmount, project?.currency)}</p>
                           {dueAmount > 0 && (
-                            <p className="text-xs text-[#fb923c] font-medium">{formatCurrency(dueAmount)} due</p>
+                            <p className="text-xs text-[#fb923c] font-medium">{formatCurrency(dueAmount, project?.currency)} due</p>
                           )}
                         </div>
                       </div>
@@ -529,7 +533,7 @@ export default function PaymentsPage() {
                                   </p>
                                 </div>
                                 <span className="text-xs font-medium text-[rgba(232,228,220,0.65)] text-right whitespace-nowrap">
-                                  {formatCurrency(perDrawing)}
+                                  {formatCurrency(perDrawing, project?.currency)}
                                 </span>
                                 <div className="text-right">
                                   <DrawingPayBadge status={payStatus} />
@@ -556,14 +560,14 @@ export default function PaymentsPage() {
                         {/* Set total footer */}
                         <div className="px-5 py-3 border-t border-[rgba(255,255,255,0.06)] flex justify-between items-center bg-[rgba(255,255,255,0.01)]">
                           <span className="text-xs text-[rgba(232,228,220,0.4)]">
-                            Set total · {formatCurrency(set.cost)} · {set.rowStats.paid}/{set.rowStats.total} drawings paid
+                            Set total · {formatCurrency(set.cost, project?.currency)} · {set.rowStats.paid}/{set.rowStats.total} drawings paid
                           </span>
                           <div className="flex items-center gap-3">
                             {paidAmount > 0 && (
-                              <span className="text-xs text-[#5cba80] font-medium">Paid: {formatCurrency(paidAmount)}</span>
+                              <span className="text-xs text-[#5cba80] font-medium">Paid: {formatCurrency(paidAmount, project?.currency)}</span>
                             )}
                             {dueAmount > 0 && (
-                              <span className="text-xs text-[#fb923c] font-medium">Due: {formatCurrency(dueAmount)}</span>
+                              <span className="text-xs text-[#fb923c] font-medium">Due: {formatCurrency(dueAmount, project?.currency)}</span>
                             )}
                             {dueAmount === 0 && paidAmount === set.cost && (
                               <span className="text-xs text-[#5cba80] font-semibold flex items-center gap-1">
@@ -598,6 +602,7 @@ export default function PaymentsPage() {
           bill={payingBill}
           onClose={() => setPayingBill(null)}
           onPaid={() => void refetchRABills()}
+          currency={project?.currency}
         />
       )}
     </Layout>
@@ -612,12 +617,14 @@ function RABillPayRow({
   canApprove,
   canRelease,
   onPayNow,
+  currency,
 }: {
   bill: RABill;
   projectId: string;
   canApprove: boolean;
   canRelease: boolean;
   onPayNow: () => void;
+  currency?: string;
 }) {
   const netPayable = raBillNetPayable(bill);
   const canPayNow =
@@ -635,7 +642,7 @@ function RABillPayRow({
         <div className="flex items-center gap-3 mt-1 text-xs text-[rgba(232,228,220,0.4)] flex-wrap">
           <span>{formatDate(bill.periodStart)} – {formatDate(bill.periodEnd)}</span>
           {bill.certifiedAt && <span>Certified {formatDate(bill.certifiedAt)}</span>}
-          <span className="font-medium text-[rgba(232,228,220,0.65)]">{formatCurrency(netPayable)}</span>
+          <span className="font-medium text-[rgba(232,228,220,0.65)]">{formatCurrency(netPayable, currency)}</span>
         </div>
       </div>
 
@@ -654,7 +661,7 @@ function RABillPayRow({
             Pay Now
           </button>
         ) : bill.status === 'CERTIFIED' ? (
-          <span className="text-xs text-[rgba(232,228,220,0.35)] px-1 whitespace-nowrap">Awaiting Client Approval</span>
+          <span className="text-xs text-[rgba(232,228,220,0.35)] px-1 whitespace-nowrap">Awaiting PMC Approval</span>
         ) : bill.status === 'APPROVED' ? (
           <span className="text-xs text-[rgba(232,228,220,0.35)] px-1 whitespace-nowrap">Approved — Awaiting Release</span>
         ) : bill.status === 'PAID' ? (
@@ -666,19 +673,21 @@ function RABillPayRow({
 }
 
 /** One-click "Pay Now" — collapses whatever step(s) remain (Approve, then Release Payment)
- * into a single action so a 300-bill-a-year project doesn't require the Client to separately
- * approve and then release every RA Bill. A CERTIFIED bill gets approved (with the entered
- * deductions) and released in the same click; an already-APPROVED bill just gets released. */
+ * into a single action. Only PMC ever sees this on a CERTIFIED bill (canApproveRABill is
+ * PMC-only) and gets both steps in one click; Client only ever sees it on an already-APPROVED
+ * bill, where it's a pure release with no amount/deduction decision left to make. */
 function PayRABillModal({
   projectId,
   bill,
   onClose,
   onPaid,
+  currency,
 }: {
   projectId: string;
   bill: RABill;
   onClose: () => void;
   onPaid: () => void;
+  currency?: string;
 }) {
   const gross = raBillGross(bill);
   const [deductions, setDeductions] = useState(String(bill.deductions ?? 0));
@@ -742,7 +751,7 @@ function PayRABillModal({
           <div className="rounded-lg bg-[rgba(255,255,255,0.03)] p-3 space-y-1.5 text-sm">
             <div className="flex justify-between">
               <span className="text-[rgba(232,228,220,0.5)]">Certified Value</span>
-              <span className="text-[#e8e4dc] font-medium">{formatCurrency(gross)}</span>
+              <span className="text-[#e8e4dc] font-medium">{formatCurrency(gross, currency)}</span>
             </div>
             {bill.status === 'CERTIFIED' ? (
               <div className="flex justify-between items-center">
@@ -757,12 +766,12 @@ function PayRABillModal({
             ) : (
               <div className="flex justify-between">
                 <span className="text-[rgba(232,228,220,0.5)]">Deductions</span>
-                <span className="text-[#e8e4dc]">{formatCurrency(bill.deductions ?? 0)}</span>
+                <span className="text-[#e8e4dc]">{formatCurrency(bill.deductions ?? 0, currency)}</span>
               </div>
             )}
             <div className="flex justify-between pt-1.5 border-t border-[rgba(255,255,255,0.06)]">
               <span className="text-[#e8e4dc] font-semibold">Net Payable</span>
-              <span className="text-[#5cba80] font-bold">{formatCurrency(netPayable)}</span>
+              <span className="text-[#5cba80] font-bold">{formatCurrency(netPayable, currency)}</span>
             </div>
           </div>
 
@@ -780,7 +789,7 @@ function PayRABillModal({
           <div className="flex justify-end gap-3 pt-2">
             <button onClick={onClose} className="btn btn-secondary">Cancel</button>
             <button onClick={() => void handlePay()} disabled={processing} className="btn btn-success disabled:opacity-50">
-              {processing ? 'Processing…' : `Pay ${formatCurrency(netPayable)}`}
+              {processing ? 'Processing…' : `Pay ${formatCurrency(netPayable, currency)}`}
             </button>
           </div>
         </div>
@@ -791,7 +800,7 @@ function PayRABillModal({
 
 // ── Vendor Invoice View ───────────────────────────────────────────────────────
 
-function VendorInvoiceView({ milestones, projectName }: { milestones: Milestone[]; projectName: string }) {
+function VendorInvoiceView({ milestones, projectName, currency }: { milestones: Milestone[]; projectName: string; currency?: string }) {
   type InvoiceStatus = 'received' | 'due' | 'upcoming' | 'blocked';
 
   function getInvoiceStatus(m: Milestone): InvoiceStatus {
@@ -922,7 +931,7 @@ function VendorInvoiceView({ milestones, projectName }: { milestones: Milestone[
                         m.invoiceStatus === 'blocked'  ? 'text-[#e06050]' :
                                                          'text-[rgba(232,228,220,0.5)]'
                       }`}>
-                        {formatCurrency(amount)}
+                        {formatCurrency(amount, currency)}
                       </p>
                       {m.paymentModel && m.paymentModel !== 'FIXED' && (
                         <p className="text-[10px] text-[rgba(232,228,220,0.3)] mt-0.5">{m.paymentModel}</p>
@@ -951,7 +960,7 @@ function VendorInvoiceView({ milestones, projectName }: { milestones: Milestone[
         </div>
         <div className="text-right">
           <p className="text-[10px] text-[rgba(232,228,220,0.35)] uppercase tracking-wider">Contract Value</p>
-          <p className="text-xl font-bold text-[#e8e4dc]">{formatCurrency(totalContract)}</p>
+          <p className="text-xl font-bold text-[#e8e4dc]">{formatCurrency(totalContract, currency)}</p>
         </div>
       </div>
 
@@ -963,7 +972,7 @@ function VendorInvoiceView({ milestones, projectName }: { milestones: Milestone[
               <CheckCircle2 className="w-3.5 h-3.5 text-[#5cba80]" />
               <p className="text-[10px] text-[rgba(232,228,220,0.45)] uppercase tracking-wider">Received</p>
             </div>
-            <p className="text-xl font-bold text-[#5cba80]">{formatCurrency(totalReceived)}</p>
+            <p className="text-xl font-bold text-[#5cba80]">{formatCurrency(totalReceived, currency)}</p>
             <p className="text-[10px] text-[rgba(232,228,220,0.35)] mt-0.5">{received.length} invoice{received.length !== 1 ? 's' : ''}</p>
           </div>
         </div>
@@ -973,7 +982,7 @@ function VendorInvoiceView({ milestones, projectName }: { milestones: Milestone[
               <TrendingUp className="w-3.5 h-3.5 text-[#fb923c]" />
               <p className="text-[10px] text-[rgba(232,228,220,0.45)] uppercase tracking-wider">Due Now</p>
             </div>
-            <p className="text-xl font-bold text-[#fb923c]">{formatCurrency(totalDue)}</p>
+            <p className="text-xl font-bold text-[#fb923c]">{formatCurrency(totalDue, currency)}</p>
             <p className="text-[10px] text-[rgba(232,228,220,0.35)] mt-0.5">{due.length} pending</p>
           </div>
         </div>
@@ -983,7 +992,7 @@ function VendorInvoiceView({ milestones, projectName }: { milestones: Milestone[
               <Ban className="w-3.5 h-3.5 text-[#e06050]" />
               <p className="text-[10px] text-[rgba(232,228,220,0.45)] uppercase tracking-wider">Blocked</p>
             </div>
-            <p className="text-xl font-bold text-[#e06050]">{formatCurrency(totalBlocked)}</p>
+            <p className="text-xl font-bold text-[#e06050]">{formatCurrency(totalBlocked, currency)}</p>
             <p className="text-[10px] text-[rgba(232,228,220,0.35)] mt-0.5">{blocked.length} on hold</p>
           </div>
         </div>
@@ -1013,9 +1022,9 @@ function VendorInvoiceView({ milestones, projectName }: { milestones: Milestone[
             )}
           </div>
           <div className="flex gap-4 mt-2 text-[10px] text-[rgba(232,228,220,0.4)]">
-            {totalReceived > 0 && <span className="text-[#5cba80]">● Received {formatCurrency(totalReceived)}</span>}
-            {totalDue > 0      && <span className="text-[#fb923c]">● Due {formatCurrency(totalDue)}</span>}
-            {totalBlocked > 0  && <span className="text-[#e06050]">● Blocked {formatCurrency(totalBlocked)}</span>}
+            {totalReceived > 0 && <span className="text-[#5cba80]">● Received {formatCurrency(totalReceived, currency)}</span>}
+            {totalDue > 0      && <span className="text-[#fb923c]">● Due {formatCurrency(totalDue, currency)}</span>}
+            {totalBlocked > 0  && <span className="text-[#e06050]">● Blocked {formatCurrency(totalBlocked, currency)}</span>}
           </div>
         </div>
       )}

@@ -8,11 +8,26 @@ export function cn(...inputs: ClassValue[]) {
 }
 
 // Formatters
-export function formatCurrency(amount: number | string) {
+
+/** Locale to format each supported currency's digit grouping under — INR uses the
+ * lakh/crore grouping via en-IN, everything else gets standard 3-digit grouping. The
+ * currency code itself (not the locale) controls which symbol Intl prints. */
+const CURRENCY_LOCALE: Record<string, string> = {
+  INR: 'en-IN',
+  AED: 'en-AE',
+  USD: 'en-US',
+  EUR: 'en-IE',
+  GBP: 'en-GB',
+};
+
+/** Formats a monetary amount in the given currency (defaults to INR — the historical
+ * default before per-project currency was wired up). Pass the project's own
+ * `metadata.currency` wherever one is known instead of relying on the default. */
+export function formatCurrency(amount: number | string, currency: string = 'INR') {
   const value = typeof amount === 'string' ? parseFloat(amount) : amount;
-  return new Intl.NumberFormat('en-IN', {
+  return new Intl.NumberFormat(CURRENCY_LOCALE[currency] ?? 'en-US', {
     style: 'currency',
-    currency: 'INR',
+    currency,
     minimumFractionDigits: 0,
     maximumFractionDigits: 0,
   }).format(value);

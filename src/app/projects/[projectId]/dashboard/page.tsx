@@ -14,6 +14,7 @@ import { jsonFetcher } from '@/lib/fetcher';
 const ActivityFeed = dynamic(() => import('@/components/dashboard/ActivityFeed'), { loading: () => <Skeleton className='h-48 w-full rounded-lg' /> });
 const MilestoneCompletionChart = dynamic(() => import('@/components/dashboard/MilestoneCompletionChart'), { loading: () => <Skeleton className='h-48 w-full rounded-lg' /> });
 const ProjectTimelineSection = dynamic(() => import('@/components/dashboard/ProjectTimelineSection'), { loading: () => <Skeleton className='h-48 w-full rounded-lg' /> });
+const CostScheduleVarianceCard = dynamic(() => import('@/components/dashboard/CostScheduleVarianceCard'), { loading: () => <Skeleton className='h-48 w-full rounded-lg' /> });
 
 export default function DashboardPage() {
   const params = useParams();
@@ -67,9 +68,9 @@ export default function DashboardPage() {
             components as the EI Gantt page, visible here for every role. */}
         <ProjectTimelineSection projectId={projectId} />
 
-        {myRole === 'CLIENT' && <OwnerDashboard data={dashboard} projectId={projectId} />}
-        {myRole === 'PMC' && <PMCDashboard data={dashboard} projectId={projectId} />}
-        {myRole === 'VENDOR' && <VendorDashboard data={dashboard} projectId={projectId} />}
+        {myRole === 'CLIENT' && <OwnerDashboard data={dashboard} projectId={projectId} currency={project?.currency} />}
+        {myRole === 'PMC' && <PMCDashboard data={dashboard} projectId={projectId} currency={project?.currency} />}
+        {myRole === 'VENDOR' && <VendorDashboard data={dashboard} projectId={projectId} currency={project?.currency} />}
         {myRole === 'VIEWER' && <ViewerDashboard data={dashboard} />}
         {myRole === 'CONSULTANT' && <ArtifactsDashboard data={dashboard} />}
       </div>
@@ -86,6 +87,7 @@ function RABillsSection({
   released,
   pendingCertification,
   pendingApproval,
+  currency,
 }: {
   projectId: string;
   submitted: number;
@@ -93,6 +95,7 @@ function RABillsSection({
   released: number;
   pendingCertification: number;
   pendingApproval: number;
+  currency?: string;
 }) {
   return (
     <section className="space-y-3">
@@ -106,19 +109,19 @@ function RABillsSection({
         <div className="card">
           <div className="card-body">
             <p className="text-sm" style={{ color: 'rgba(var(--ax-text-rgb), 0.6)' }}>Submitted Value</p>
-            <p className="text-xl font-bold" style={{ color: 'var(--ax-text)' }}>{formatCurrency(submitted)}</p>
+            <p className="text-xl font-bold" style={{ color: 'var(--ax-text)' }}>{formatCurrency(submitted, currency)}</p>
           </div>
         </div>
         <div className="card">
           <div className="card-body">
             <p className="text-sm" style={{ color: 'rgba(var(--ax-text-rgb), 0.6)' }}>Approved Value</p>
-            <p className="text-xl font-bold text-green-400">{formatCurrency(approved)}</p>
+            <p className="text-xl font-bold text-green-400">{formatCurrency(approved, currency)}</p>
           </div>
         </div>
         <div className="card">
           <div className="card-body">
             <p className="text-sm" style={{ color: 'rgba(var(--ax-text-rgb), 0.6)' }}>Released Value</p>
-            <p className="text-xl font-bold text-blue-400">{formatCurrency(released)}</p>
+            <p className="text-xl font-bold text-blue-400">{formatCurrency(released, currency)}</p>
           </div>
         </div>
         <div className="card">
@@ -138,7 +141,7 @@ function RABillsSection({
   );
 }
 
-function OwnerDashboard({ data, projectId }: { data: any; projectId: string }) {
+function OwnerDashboard({ data, projectId, currency }: { data: any; projectId: string; currency?: string }) {
   return (
     <div className="space-y-6">
       <RABillsSection
@@ -148,7 +151,11 @@ function OwnerDashboard({ data, projectId }: { data: any; projectId: string }) {
         released={data.summary.totalRABillReleasedValue ?? 0}
         pendingCertification={data.summary.raBillsPendingCertification ?? 0}
         pendingApproval={data.summary.raBillsPendingApproval ?? 0}
+        currency={currency}
       />
+
+      {/* ── Cost & Schedule Variance summary — how the project is tracking vs plan ── */}
+      <CostScheduleVarianceCard projectId={projectId} currency={currency} />
 
       {/* ── Project Overview Charts ── */}
       <section className="space-y-3">
@@ -290,7 +297,7 @@ function ArtifactsDashboard({ data }: { data: any }) {
   );
 }
 
-function PMCDashboard({ data, projectId }: { data: any; projectId: string }) {
+function PMCDashboard({ data, projectId, currency }: { data: any; projectId: string; currency?: string }) {
   return (
     <div className="space-y-6">
       <RABillsSection
@@ -300,6 +307,7 @@ function PMCDashboard({ data, projectId }: { data: any; projectId: string }) {
         released={data.raBills?.totalRABillReleasedValue ?? 0}
         pendingCertification={data.raBills?.raBillsPendingCertification ?? 0}
         pendingApproval={data.raBills?.raBillsPendingApproval ?? 0}
+        currency={currency}
       />
 
       <ArchitectureSection architecture={data.architecture} />
@@ -330,7 +338,7 @@ function PMCDashboard({ data, projectId }: { data: any; projectId: string }) {
   );
 }
 
-function VendorDashboard({ data, projectId }: { data: any; projectId: string }) {
+function VendorDashboard({ data, projectId, currency }: { data: any; projectId: string; currency?: string }) {
   return (
     <div className="space-y-6">
       {/* RA Bills */}
@@ -349,19 +357,19 @@ function VendorDashboard({ data, projectId }: { data: any; projectId: string }) 
           <div className="card">
             <div className="card-body">
               <p className="text-sm" style={{ color: 'rgba(var(--ax-text-rgb), 0.6)' }}>Submitted Value</p>
-              <p className="text-xl font-bold" style={{ color: 'var(--ax-text)' }}>{formatCurrency(data.raBills?.totalSubmittedValue ?? 0)}</p>
+              <p className="text-xl font-bold" style={{ color: 'var(--ax-text)' }}>{formatCurrency(data.raBills?.totalSubmittedValue ?? 0, currency)}</p>
             </div>
           </div>
           <div className="card">
             <div className="card-body">
               <p className="text-sm" style={{ color: 'rgba(var(--ax-text-rgb), 0.6)' }}>Approved Value</p>
-              <p className="text-xl font-bold text-green-400">{formatCurrency(data.raBills?.totalApprovedValue ?? 0)}</p>
+              <p className="text-xl font-bold text-green-400">{formatCurrency(data.raBills?.totalApprovedValue ?? 0, currency)}</p>
             </div>
           </div>
           <div className="card">
             <div className="card-body">
               <p className="text-sm" style={{ color: 'rgba(var(--ax-text-rgb), 0.6)' }}>Released Value</p>
-              <p className="text-xl font-bold text-blue-400">{formatCurrency(data.raBills?.totalReleasedValue ?? 0)}</p>
+              <p className="text-xl font-bold text-blue-400">{formatCurrency(data.raBills?.totalReleasedValue ?? 0, currency)}</p>
             </div>
           </div>
         </div>

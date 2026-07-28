@@ -3,6 +3,7 @@
 import Link from 'next/link';
 import { useRef } from 'react';
 import { usePathname } from 'next/navigation';
+import useSWR from 'swr';
 import { Badge } from '@/components/ui/Badge';
 import {
   LayoutDashboard,
@@ -19,8 +20,10 @@ import {
   ChevronRight,
   FolderOpen,
   CalendarRange,
+  MessageCircle,
 } from 'lucide-react';
 import { cn } from '@/lib/utils';
+import { jsonFetcher } from '@/lib/fetcher';
 
 interface NavbarProps {
   projectId: string;
@@ -54,6 +57,7 @@ export default function Navbar({ projectId, projectName, role }: NavbarProps) {
     { href: `/projects/${projectId}/schedule`, label: 'Schedule', icon: CalendarRange, roles: ['CLIENT', 'PMC', 'VENDOR', 'CONSULTANT', 'SITE_ENGINEER'], prefetchApi: [`/api/projects/${projectId}/schedule`] },
     { href: `/projects/${projectId}/activities`, label: 'Activities', icon: Flag, always: true, prefetchApi: [`/api/projects/${projectId}/milestones`] },
     { href: `/projects/${projectId}/views`, label: 'Views', icon: Layers, always: true, prefetchApi: [`/api/projects/${projectId}/views`] },
+    { href: `/projects/${projectId}/messages`, label: 'Messages', icon: MessageCircle, always: true, prefetchApi: [`/api/projects/${projectId}/messages/conversations`] },
     // Analysis and Payments are deliberately NOT extended to SITE_ENGINEER (read-only PMC
     // variant, but these two stay off-limits per the role's definition).
     { href: `/projects/${projectId}/analysis`, label: 'Analysis', icon: BarChart2, roles: ['CLIENT', 'PMC'], prefetchApi: [`/api/projects/${projectId}/analysis`] },
@@ -72,6 +76,14 @@ export default function Navbar({ projectId, projectName, role }: NavbarProps) {
   const visibleItems = navItems.filter(
     (item) => item.always || (item.roles && item.roles.includes(role))
   );
+
+  // Global unread count (across every project the user belongs to, not just this one) — a user
+  // could have unread messages in a project they aren't currently viewing. Polled rather than
+  // pushed for a "live enough" feel without adding a websocket layer.
+  const { data: unreadResp } = useSWR<{ count: number }>('/api/messages/unread-count', jsonFetcher, {
+    refreshInterval: 15_000,
+  });
+  const unreadCount = unreadResp?.count ?? 0;
 
   // Fire-and-forget warm-up for the destination's API endpoints. Hits are
   // ignored if the response errors; only purpose is to populate the Redis
@@ -112,6 +124,7 @@ export default function Navbar({ projectId, projectName, role }: NavbarProps) {
         <div className="flex gap-1 overflow-x-auto scrollbar-thin pb-0.5">
           {visibleItems.map((item) => {
             const isActive = pathname === item.href;
+            const isMessages = item.href === `/projects/${projectId}/messages`;
             return (
               <Link
                 key={item.href}
@@ -120,12 +133,17 @@ export default function Navbar({ projectId, projectName, role }: NavbarProps) {
                 onMouseEnter={() => warmApi(item.prefetchApi)}
                 onFocus={() => warmApi(item.prefetchApi)}
                 className={cn(
-                  "flex items-center gap-2 whitespace-nowrap px-4 py-3 text-sm font-medium border-b-2 transition-all duration-200 outline-none rounded-t-md",
+                  "relative flex items-center gap-2 whitespace-nowrap px-4 py-3 text-sm font-medium border-b-2 transition-all duration-200 outline-none rounded-t-md",
                   isActive ? "ax-tab-active" : "ax-tab-inactive"
                 )}
               >
                 <item.icon className="h-4 w-4" />
                 {item.label}
+                {isMessages && unreadCount > 0 && (
+                  <span className="inline-flex items-center justify-center min-w-[18px] h-[18px] px-1 rounded-full text-[10px] font-semibold text-white bg-[#e06050] leading-none">
+                    {unreadCount > 99 ? '99+' : unreadCount}
+                  </span>
+                )}
               </Link>
             );
           })}

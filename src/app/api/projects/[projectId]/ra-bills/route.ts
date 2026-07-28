@@ -10,17 +10,23 @@ export async function GET(
 ) {
   try {
     const { projectId } = await params;
-    await requireProjectAuth(projectId);
+    const auth = await requireProjectAuth(projectId);
 
     const { searchParams } = new URL(request.url);
     const orderId = searchParams.get('orderId') || undefined;
-    const status = searchParams.get('status') || undefined;
+    // Repeatable — e.g. ?status=PENDING_VENDOR_REVIEW&status=CERTIFIED for a combined
+    // "waiting on me" queue (PMC's default view) rather than one exact status match.
+    const statusValues = searchParams.getAll('status').filter(Boolean);
+    const status = statusValues.length > 1 ? statusValues : statusValues[0] || undefined;
     const rawLimit = searchParams.get('limit');
     const rawOffset = searchParams.get('offset');
     const limit = rawLimit ? Math.min(Math.max(parseInt(rawLimit, 10), 1), 200) : undefined;
     const offset = rawOffset ? Math.max(parseInt(rawOffset, 10), 0) : 0;
+    // A project can have several Purchase Orders assigned to different vendors — a vendor
+    // only ever sees their own bills here, never another vendor's sharing the same project.
+    const vendorUserId = auth.role === 'VENDOR' ? auth.userId : undefined;
 
-    const { raBills, total, summary } = await RABillService.getForProject(projectId, { orderId, status, limit, offset });
+    const { raBills, total, summary } = await RABillService.getForProject(projectId, { orderId, status, limit, offset, vendorUserId });
 
     return NextResponse.json(
       { success: true, data: { raBills, total, summary } },

@@ -19,6 +19,9 @@ export interface ProjectMeta {
   name: string;
   description?: string | null;
   status?: string;
+  /** ISO currency code from the project's own metadata (e.g. "INR", "AED") — always
+   * present, defaults to "INR" server-side for projects created before this existed. */
+  currency: string;
   myRole: 'CLIENT' | 'PMC' | 'VENDOR' | 'VIEWER' | 'CONSULTANT' | 'SITE_ENGINEER';
   permissions?: Record<string, boolean>;
   // Anything else the API returns; consumers cast as needed.

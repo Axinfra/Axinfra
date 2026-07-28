@@ -1,7 +1,7 @@
 'use client';
 
 import { useEffect, useMemo, useState } from 'react';
-import { X, FileDown } from 'lucide-react';
+import { X, FileDown, Sparkles } from 'lucide-react';
 import useSWR from 'swr';
 import { jsonFetcher } from '@/lib/fetcher';
 import { emptyPdfDetails, type WorkOrderPdfDetails } from '@/lib/pdf/types';
@@ -89,6 +89,37 @@ export default function GenerateWorkOrderPdfModal({
 
   const [generating, setGenerating] = useState(false);
   const [error, setError] = useState('');
+
+  const [aiHint, setAiHint] = useState('');
+  const [aiDrafting, setAiDrafting] = useState(false);
+  const [aiError, setAiError] = useState('');
+  // Briefly true right after a successful AI fill, to flash a "just filled" glow on the fields —
+  // cleared on a timer matching the ax-glow-fill CSS animation's duration (1.6s).
+  const [justAiFilled, setJustAiFilled] = useState(false);
+
+  const handleAiDraft = async () => {
+    setAiDrafting(true);
+    setAiError('');
+    try {
+      const res = await fetch(`/api/projects/${projectId}/orders/${orderId}/work-order/ai-draft`, {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({ briefDescription: aiHint.trim() || undefined }),
+      });
+      const body = await res.json().catch(() => ({ success: false, error: 'AI drafting failed' }));
+      if (!res.ok || !body.success) {
+        setAiError(body.error ?? 'AI drafting failed — please fill the fields manually');
+        return;
+      }
+      setDetails((d) => ({ ...d, ...body.data }));
+      setJustAiFilled(true);
+      setTimeout(() => setJustAiFilled(false), 1600);
+    } catch {
+      setAiError('AI drafting failed — please fill the fields manually');
+    } finally {
+      setAiDrafting(false);
+    }
+  };
 
   // Prefill from the current revision's saved details (if any) once roles/BOQ have loaded, so
   // regenerating reproduces the same document. Only runs once per modal open.
@@ -252,20 +283,44 @@ export default function GenerateWorkOrderPdfModal({
           )}
 
           <Section title="Work Order Details">
-            <div className="grid grid-cols-2 gap-3">
-              <div><label className={label}>Completion Timeline</label><input className={input} placeholder="e.g. 45 days from issue" value={details.completionTimeline} onChange={(e) => set('completionTimeline', e.target.value)} /></div>
-              <div><label className={label}>Payment Terms</label><input className={input} placeholder="e.g. 30% advance, balance on completion" value={details.paymentTerms} onChange={(e) => set('paymentTerms', e.target.value)} /></div>
-              <div className="col-span-2"><label className={label}>Delivery Terms</label><input className={input} placeholder="e.g. FOB site, vendor arranges logistics" value={details.deliveryTerms} onChange={(e) => set('deliveryTerms', e.target.value)} /></div>
-              <div className="col-span-2"><label className={label}>Tax % (optional, applied to BOQ subtotal)</label><input type="number" min={0} max={100} className={input} placeholder="e.g. 18" value={details.taxPercent ?? ''} onChange={(e) => set('taxPercent', e.target.value === '' ? null : Number(e.target.value))} /></div>
+            <div className="flex gap-2 items-start p-3 rounded-lg bg-[rgba(255,255,255,0.03)] border border-[rgba(255,255,255,0.07)]">
+              <input
+                className={`${input} flex-1`}
+                placeholder="Briefly describe the work (optional) — e.g. Supply and install structural steel framing"
+                value={aiHint}
+                onChange={(e) => setAiHint(e.target.value)}
+              />
+              <button
+                type="button"
+                onClick={() => void handleAiDraft()}
+                disabled={aiDrafting}
+                className="relative overflow-hidden btn btn-secondary text-xs whitespace-nowrap inline-flex items-center gap-1.5 disabled:opacity-90"
+              >
+                {aiDrafting && <span className="ax-shimmer-sweep" />}
+                <Sparkles className={`w-3.5 h-3.5 relative ${aiDrafting ? 'ax-pulse-soft' : ''}`} />
+                <span className="relative">{aiDrafting ? 'Drafting…' : 'Generate with AI'}</span>
+              </button>
             </div>
-            <div><label className={label}>Work Description</label><textarea rows={2} className={textarea} placeholder="e.g. Supply and installation of structural steel framing for the podium level." value={details.workDescription} onChange={(e) => set('workDescription', e.target.value)} /></div>
-            <div><label className={label}>Scope of Work</label><textarea rows={2} className={textarea} placeholder="e.g. Fabrication, delivery, and erection per approved shop drawings, including all connections and finishing." value={details.scopeOfWork} onChange={(e) => set('scopeOfWork', e.target.value)} /></div>
-            <div><label className={label}>General Notes</label><textarea rows={2} className={textarea} placeholder="e.g. Coordinate crane and material access with the site team in advance." value={details.generalNotes} onChange={(e) => set('generalNotes', e.target.value)} /></div>
-            <div><label className={label}>Special Instructions</label><textarea rows={2} className={textarea} placeholder="e.g. No high-noise work permitted before 8 AM or after 8 PM." value={details.specialInstructions} onChange={(e) => set('specialInstructions', e.target.value)} /></div>
+            {aiError && <p className="text-xs text-[#e06050]">{aiError}</p>}
+            <p className="text-xs text-[rgba(232,228,220,0.4)] -mt-1">
+              Fills the fields below from the BOQ and vendor already on this purchase order — review and edit before generating the PDF.
+            </p>
+            <div className={`space-y-3 p-1 -m-1 ${justAiFilled ? 'ax-glow-fill' : ''}`}>
+              <div className="grid grid-cols-2 gap-3">
+                <div><label className={label}>Completion Timeline</label><input className={input} placeholder="e.g. 45 days from issue" value={details.completionTimeline} onChange={(e) => set('completionTimeline', e.target.value)} /></div>
+                <div><label className={label}>Payment Terms</label><input className={input} placeholder="e.g. 30% advance, balance on completion" value={details.paymentTerms} onChange={(e) => set('paymentTerms', e.target.value)} /></div>
+                <div className="col-span-2"><label className={label}>Delivery Terms</label><input className={input} placeholder="e.g. FOB site, vendor arranges logistics" value={details.deliveryTerms} onChange={(e) => set('deliveryTerms', e.target.value)} /></div>
+                <div className="col-span-2"><label className={label}>Tax % (optional, applied to BOQ subtotal)</label><input type="number" min={0} max={100} className={input} placeholder="e.g. 18" value={details.taxPercent ?? ''} onChange={(e) => set('taxPercent', e.target.value === '' ? null : Number(e.target.value))} /></div>
+              </div>
+              <div><label className={label}>Work Description</label><textarea rows={2} className={textarea} placeholder="e.g. Supply and installation of structural steel framing for the podium level." value={details.workDescription} onChange={(e) => set('workDescription', e.target.value)} /></div>
+              <div><label className={label}>Scope of Work</label><textarea rows={2} className={textarea} placeholder="e.g. Fabrication, delivery, and erection per approved shop drawings, including all connections and finishing." value={details.scopeOfWork} onChange={(e) => set('scopeOfWork', e.target.value)} /></div>
+              <div><label className={label}>General Notes</label><textarea rows={2} className={textarea} placeholder="e.g. Coordinate crane and material access with the site team in advance." value={details.generalNotes} onChange={(e) => set('generalNotes', e.target.value)} /></div>
+              <div><label className={label}>Special Instructions</label><textarea rows={2} className={textarea} placeholder="e.g. No high-noise work permitted before 8 AM or after 8 PM." value={details.specialInstructions} onChange={(e) => set('specialInstructions', e.target.value)} /></div>
+            </div>
           </Section>
 
           <Section title="Terms & Conditions">
-            <div className="grid grid-cols-2 gap-3">
+            <div className={`grid grid-cols-2 gap-3 p-1 -m-1 ${justAiFilled ? 'ax-glow-fill' : ''}`}>
               <div><label className={label}>Payment Terms</label><textarea rows={2} className={textarea} placeholder="e.g. Net 30 on certified RA bills." value={details.termsAndConditions.payment} onChange={(e) => setTC('payment', e.target.value)} /></div>
               <div><label className={label}>Quality Requirements</label><textarea rows={2} className={textarea} placeholder="e.g. All materials must conform to relevant IS codes and carry mill test certificates." value={details.termsAndConditions.quality} onChange={(e) => setTC('quality', e.target.value)} /></div>
               <div><label className={label}>Safety Requirements</label><textarea rows={2} className={textarea} placeholder="e.g. Mandatory PPE at all times; fall protection above 3m." value={details.termsAndConditions.safety} onChange={(e) => setTC('safety', e.target.value)} /></div>

@@ -415,7 +415,7 @@ export default function ActivitiesPage() {
           <StatCard icon={CheckCircle2} label="Completion" value={`${completionPct}%`} color="#5cba80" sub={`${completedCount} of ${myActivities.length} done`} />
           <StatCard icon={Flag} label={isScopedToMe ? 'My Activities' : 'Activities'} value={String(myActivities.length)} color="var(--ax-accent)" sub={`${grouped.OVERDUE.length + grouped.DUE_TODAY.length} need attention`} />
           <StatCard icon={CalendarDays} label="Days Remaining" value={daysRemaining !== null ? `${daysRemaining}d` : '—'} color={daysRemaining !== null && daysRemaining < 0 ? '#e06050' : '#38bdf8'} sub={endDate ? `Ends ${formatDate(endDate.toISOString())}` : undefined} />
-          <StatCard icon={Wallet} label="Contract Value" value={project?.contractValue ? formatCurrency(project.contractValue as number) : '—'} color="#a78bfa" />
+          <StatCard icon={Wallet} label="Contract Value" value={project?.contractValue ? formatCurrency(project.contractValue as number, project?.currency) : '—'} color="#a78bfa" />
         </div>
 
         {/* ── Tab strip + its content panel, wrapped together with no gap so the active

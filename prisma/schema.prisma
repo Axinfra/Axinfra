@@ -202,6 +202,10 @@ model RABill {
   certifiedAt      DateTime?
   certifiedById    String?
   certifiedRemarks String?
+  /// The Site Engineer-uploaded measurement sheet (see RABillMeasurementSheet below) PMC/
+  /// Consultant picked as the reference when certifying — distinct from the optional fresh
+  /// storageKey/fileName attachment below, which is for a separately-uploaded certificate.
+  certifiedMeasurementSheetId String? @unique
 
   /// Sum of lineItems.thisBillAmount at certification, net of `deductions` — headline #3.
   approvedValue Float?
@@ -238,12 +242,38 @@ model RABill {
   certifiedBy         User?            @relation("RABillCertifier", fields: [certifiedById], references: [id])
   approvedBy          User?            @relation("RABillApprover", fields: [approvedById], references: [id])
   releasedBy          User?            @relation("RABillPaymentReleaser", fields: [releasedById], references: [id])
+  measurementSheets   RABillMeasurementSheet[] @relation("RABillSheets")
+  certifiedMeasurementSheet RABillMeasurementSheet? @relation("RABillCertifiedSheet", fields: [certifiedMeasurementSheetId], references: [id], onDelete: SetNull)
 
   @@unique([orderId, billNumber])
   @@index([projectId])
   @@index([projectId, status])
   @@index([orderId])
   @@index([orderId, billNumber])
+}
+
+/// Site Engineer's supporting measurement-sheet attachments — separate from RABill's own single
+/// storageKey/fileName (the PMC/Consultant certify-time attachment). A bill can carry several of
+/// these (e.g. multiple pages of a measurement book, photos of the measurement), each uploaded
+/// while the Site Engineer has the bill for review. Readable by anyone who can view the bill
+/// (PMC, Consultant, Client, the assigned Vendor); only the Site Engineer can add one.
+model RABillMeasurementSheet {
+  id           String   @id @default(uuid())
+  raBillId     String
+  storageKey   String
+  fileName     String
+  mimeType     String
+  fileSize     Int
+  remarks      String?
+  uploadedAt   DateTime @default(now())
+  uploadedById String
+  raBill       RABill   @relation("RABillSheets", fields: [raBillId], references: [id], onDelete: Cascade)
+  uploadedBy   User     @relation(fields: [uploadedById], references: [id])
+  /// Set on the RA Bill that picked this sheet as its certification reference (RABill.
+  /// certifiedMeasurementSheetId) — null until then, and there can be at most one.
+  certifiedForBill RABill? @relation("RABillCertifiedSheet")
+
+  @@index([raBillId])
 }
 
 /// One BOQ line's progress within an RA Bill — snapshotted at creation so each bill is
@@ -565,6 +595,74 @@ model Project {
   projectDocuments     ProjectDocument[]
   checklists           Checklist[]
   dailyProgressReports DailyProgressReport[]
+  reportInsights       ReportInsight[]
+  messages             Message[]
+}
+
+/// Direct message between two members of the same project — one-on-one only, no role-wide
+/// broadcast (that's what VendorRequest/RFI is for). `readAt` is set once when the recipient
+/// first opens the thread, not per-message-view granularity.
+model Message {
+  id          String    @id @default(uuid())
+  projectId   String
+  senderId    String
+  recipientId String
+  body        String
+  createdAt   DateTime  @default(now())
+  readAt      DateTime?
+
+  project     Project             @relation(fields: [projectId], references: [id], onDelete: Cascade)
+  sender      User                @relation("MessageSender", fields: [senderId], references: [id])
+  recipient   User                @relation("MessageRecipient", fields: [recipientId], references: [id])
+  attachments MessageAttachment[]
+
+  @@index([projectId])
+  @@index([projectId, senderId, recipientId])
+  @@index([projectId, recipientId, readAt])
+}
+
+/// A file attached to a direct message (e.g. a Site Engineer sharing a document with PMC/Client).
+model MessageAttachment {
+  id         String  @id @default(uuid())
+  messageId  String
+  storageKey String
+  fileName   String
+  mimeType   String
+  fileSize   Int
+  message    Message @relation(fields: [messageId], references: [id], onDelete: Cascade)
+
+  @@index([messageId])
+}
+
+/// Persisted AI-generated (Claude) narrative content for a Project Report, keyed by
+/// project+period+a hash of the condensed data actually sent to the model. Re-viewing or
+/// re-downloading the same report reuses this row instead of calling Claude again; a new call
+/// (and a new row via upsert) only happens once `dataHash` changes, i.e. the underlying numbers
+/// actually moved (new bills, progress updates, checklist results, etc.) since it was last generated.
+model ReportInsight {
+  id              String   @id @default(uuid())
+  projectId       String
+  periodType      String // "WEEK" | "MONTH"
+  periodStart     DateTime
+  periodEnd       DateTime
+  dataHash        String
+  summary         String
+  recommendations String
+  scheduleNote    String
+  financialNote   String
+  qualityNote     String
+  resourceNote    String
+  riskNote        String
+  overviewNote    String
+  boqNote         String
+  executionNote   String
+  costRiskNote    String
+  createdAt       DateTime @default(now())
+  updatedAt       DateTime @updatedAt
+  project         Project  @relation(fields: [projectId], references: [id], onDelete: Cascade)
+
+  @@unique([projectId, periodType, periodStart, periodEnd])
+  @@index([projectId])
 }
 
 /// Dependency link between two milestones (CPM / Gantt edges)
@@ -672,12 +770,16 @@ model User {
   raBillsCertified           RABill[]                   @relation("RABillCertifier")
   raBillsApproved            RABill[]                   @relation("RABillApprover")
   raBillsPaymentReleased     RABill[]                   @relation("RABillPaymentReleaser")
+  raBillMeasurementSheetsUploaded RABillMeasurementSheet[]
   // Documents module
   projectDocumentsUploaded   ProjectDocument[]          @relation("ProjectDocumentUploader")
   checklistsCreated          Checklist[]                @relation("ChecklistCreator")
   checklistsSigned           Checklist[]                @relation("ChecklistSigner")
   dprsCreated                DailyProgressReport[]      @relation("DPRCreator")
   dprsSigned                 DailyProgressReport[]      @relation("DPRSigner")
+  // Direct messages
+  messagesSent               Message[]                  @relation("MessageSender")
+  messagesReceived           Message[]                  @relation("MessageRecipient")
 }
 
 model Verification {

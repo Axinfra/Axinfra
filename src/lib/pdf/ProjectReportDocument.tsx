@@ -1,9 +1,120 @@
-import { Document, Page, View, Text, Image } from '@react-pdf/renderer';
-import { sharedPdfStyles as styles, GOLD } from './theme';
+import { Document, Page, View, Text, Image, StyleSheet, Svg, Line, Polyline, Circle } from '@react-pdf/renderer';
+import { sharedPdfStyles as styles, GOLD, INK, MUTED, BORDER } from './theme';
 import { PdfBrandHeader, MetaItem, PanelItem, LabeledBlock, PdfFooter, EmptyTableRow } from './components';
-import type { ProjectReportPdfData, ReportBarDatum, ReportManpowerDayRow, ReportEvidencePhotoGroup } from './types';
+import type { ProjectReportPdfData, ReportBarDatum, ReportManpowerDayRow, ReportEvidencePhotoGroup, ReportSCurvePoint, ReportGanttRow, ReportWbsRow } from './types';
 
 const RAG_LABEL: Record<string, string> = { GREEN: 'Healthy', AMBER: 'Minor Concern', RED: 'Serious Issue' };
+const LIFECYCLE_LABELS: Record<string, string> = {
+  DRAFT: 'Draft', UPCOMING: 'Upcoming', IN_PROGRESS: 'In Progress',
+  DELAYED: 'Delayed', COMPLETE: 'Complete', CLOSED: 'Closed',
+};
+
+// Local (Project-Report-only) styles for the cover page, table of contents, and the accented
+// section header — scoped here rather than in theme.ts's sharedPdfStyles so this visual refresh
+// doesn't ripple into the Work Order / DPR / RA Bill / Checklist PDFs, which weren't part of it.
+const local = StyleSheet.create({
+  sectionTitleRow: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    marginTop: 14,
+    marginBottom: 6,
+    borderBottomWidth: 1,
+    borderBottomColor: GOLD,
+    paddingBottom: 4,
+  },
+  sectionAccent: { width: 3, height: 10, backgroundColor: GOLD, marginRight: 6 },
+  sectionTitleText: { fontSize: 10, fontFamily: 'Helvetica-Bold', color: INK, textTransform: 'uppercase', letterSpacing: 0.75 },
+
+  coverPage: { paddingTop: 90, paddingHorizontal: 48, paddingBottom: 48, fontFamily: 'Helvetica', backgroundColor: '#ffffff' },
+  coverAccentBar: { height: 4, backgroundColor: GOLD, marginBottom: 40 },
+  coverLogo: { width: 170, height: 51, marginBottom: 28 },
+  coverKicker: { fontSize: 10, color: MUTED, textTransform: 'uppercase', letterSpacing: 2, marginBottom: 10 },
+  coverTitle: { fontSize: 30, fontFamily: 'Helvetica-Bold', color: INK, lineHeight: 1.2, marginBottom: 6 },
+  coverSubtitle: { fontSize: 13, color: MUTED, marginBottom: 44 },
+  coverMetaGrid: { flexDirection: 'row', flexWrap: 'wrap', borderTopWidth: 1, borderTopColor: BORDER, paddingTop: 20 },
+  coverMetaItem: { width: '50%', marginBottom: 18, paddingRight: 12 },
+  coverMetaLabel: { fontSize: 8, color: MUTED, textTransform: 'uppercase', letterSpacing: 1, marginBottom: 4 },
+  coverMetaValue: { fontSize: 12, fontFamily: 'Helvetica-Bold', color: INK },
+  coverFooterRow: { position: 'absolute', bottom: 48, left: 48, right: 48, flexDirection: 'row', justifyContent: 'space-between', alignItems: 'flex-end' },
+  coverFooterText: { fontSize: 8, color: MUTED },
+  coverQr: { width: 54, height: 54 },
+
+  tocPage: { paddingTop: 56, paddingHorizontal: 48, paddingBottom: 56, fontFamily: 'Helvetica', backgroundColor: '#ffffff' },
+  tocTitle: { fontSize: 16, fontFamily: 'Helvetica-Bold', color: INK, textTransform: 'uppercase', letterSpacing: 1, marginBottom: 4 },
+  tocRule: { height: 2, backgroundColor: GOLD, width: 60, marginBottom: 24 },
+  tocRow: { flexDirection: 'row', alignItems: 'center', paddingVertical: 8, borderBottomWidth: 0.5, borderBottomColor: BORDER },
+  tocNumber: { width: 28, fontSize: 10, fontFamily: 'Helvetica-Bold', color: GOLD },
+  tocLabel: { flex: 1, fontSize: 10.5, color: INK },
+});
+
+/** Cover / title page — the first thing a client or consultant sees when they open the report. */
+function CoverPage({ data }: { data: ProjectReportPdfData }) {
+  return (
+    <Page size="A4" style={local.coverPage}>
+      <View style={local.coverAccentBar} />
+      <Image src={data.logoDataUri} style={local.coverLogo} />
+      <Text style={local.coverKicker}>{data.periodTypeLabel} Project Status Report</Text>
+      <Text style={local.coverTitle}>{data.projectName}</Text>
+      <Text style={local.coverSubtitle}>Reporting Period: {data.periodLabel}</Text>
+
+      <View style={local.coverMetaGrid}>
+        <View style={local.coverMetaItem}>
+          <Text style={local.coverMetaLabel}>Prepared For</Text>
+          <Text style={local.coverMetaValue}>{data.clientName}</Text>
+        </View>
+        <View style={local.coverMetaItem}>
+          <Text style={local.coverMetaLabel}>Prepared By</Text>
+          <Text style={local.coverMetaValue}>{data.pmcName}</Text>
+        </View>
+        <View style={local.coverMetaItem}>
+          <Text style={local.coverMetaLabel}>Design / Architect Consultant</Text>
+          <Text style={local.coverMetaValue}>{data.consultantName}</Text>
+        </View>
+        <View style={local.coverMetaItem}>
+          <Text style={local.coverMetaLabel}>Overall Schedule Status</Text>
+          <Text style={local.coverMetaValue}>{data.scheduleStatusLabel}</Text>
+        </View>
+      </View>
+
+      <View style={local.coverFooterRow} fixed>
+        <Text style={local.coverFooterText}>Generated by AxInfra · {data.generatedAtFormatted}</Text>
+        <Image src={data.qrDataUri} style={local.coverQr} />
+      </View>
+    </Page>
+  );
+}
+
+const TOC_ENTRIES = (hasAiSummary: boolean) => [
+  { no: '1', label: hasAiSummary ? 'Executive Summary (incl. AI-Generated Overview)' : 'Executive Summary' },
+  { no: '2', label: 'Project Particulars' },
+  { no: '3', label: 'Physical Progress' },
+  { no: '4', label: 'Financial Progress' },
+  { no: '5', label: 'Resource Deployment' },
+  { no: '6', label: 'Quality Management (QA/QC)' },
+  { no: '7', label: 'Key Issues & Risks' },
+  { no: '8', label: 'Progress Photographs' },
+  { no: '9', label: 'Outlook & Recommendations' },
+  { no: '10', label: 'Execution Intelligence (Vendor Scorecard · Delay Analysis · Payment Cycles · Criticality · Escalations · Delay Cost)' },
+  { no: '11', label: 'Annexures (I: WBS/Schedule · II: Drawings · III: Documents · IV: BOQ · V: Measurement Sheets)' },
+];
+
+/** Table of contents page. Section titles only (no page numbers) — react-pdf lays this document
+ * out in a single flowing, auto-paginated Page, so exact page numbers per section aren't known
+ * until render time; a numbered section list is still the standard, useful TOC shape without it. */
+function TableOfContents({ data }: { data: ProjectReportPdfData }) {
+  return (
+    <Page size="A4" style={local.tocPage}>
+      <Text style={local.tocTitle}>Table of Contents</Text>
+      <View style={local.tocRule} />
+      {TOC_ENTRIES(Boolean(data.aiExecutiveSummary)).map((entry) => (
+        <View key={entry.no} style={local.tocRow} wrap={false}>
+          <Text style={local.tocNumber}>{entry.no}</Text>
+          <Text style={local.tocLabel}>{entry.label}</Text>
+        </View>
+      ))}
+    </Page>
+  );
+}
 
 const ORDER_COLS = {
   name: { width: '28%' },
@@ -74,13 +185,51 @@ const DRAWING_COLS = {
   date: { width: '10%' },
 };
 
+const WBS_COLS = {
+  code: { width: '12%' },
+  title: { width: '30%' },
+  status: { width: '14%' },
+  percent: { width: '9%', textAlign: 'right' as const, paddingRight: 8 },
+  start: { width: '13%' },
+  end: { width: '13%' },
+  vendor: { width: '9%' },
+};
+
+const BOQ_COLS = {
+  no: { width: '7%' },
+  description: { width: '43%' },
+  unit: { width: '10%' },
+  qty: { width: '13%', textAlign: 'right' as const, paddingRight: 6 },
+  rate: { width: '13%', textAlign: 'right' as const, paddingRight: 6 },
+  value: { width: '14%', textAlign: 'right' as const },
+};
+
+const VENDOR_SCORECARD_COLS = {
+  rank: { width: '7%' },
+  vendor: { width: '23%' },
+  total: { width: '10%', textAlign: 'right' as const, paddingRight: 6 },
+  onTime: { width: '12%', textAlign: 'right' as const, paddingRight: 6 },
+  late: { width: '10%', textAlign: 'right' as const, paddingRight: 6 },
+  onTimePct: { width: '12%', textAlign: 'right' as const, paddingRight: 6 },
+  avgDelay: { width: '13%', textAlign: 'right' as const, paddingRight: 6 },
+  escalations: { width: '13%', textAlign: 'right' as const },
+};
+
+const CRITICALITY_COLS = {
+  title: { width: '50%' },
+  status: { width: '17%' },
+  float: { width: '17%', textAlign: 'right' as const, paddingRight: 6 },
+  duration: { width: '16%', textAlign: 'right' as const },
+};
+
 const BILL_ROSTER_COLS = {
-  bill: { width: '13%' },
-  order: { width: '27%' },
-  status: { width: '16%' },
-  submitted: { width: '15%', textAlign: 'right' as const, paddingRight: 6 },
-  approved: { width: '15%', textAlign: 'right' as const, paddingRight: 6 },
-  released: { width: '14%', textAlign: 'right' as const },
+  bill: { width: '12%' },
+  order: { width: '22%' },
+  status: { width: '14%' },
+  submitted: { width: '14%', textAlign: 'right' as const, paddingRight: 6 },
+  approved: { width: '14%', textAlign: 'right' as const, paddingRight: 6 },
+  released: { width: '13%', textAlign: 'right' as const },
+  sheets: { width: '11%', textAlign: 'right' as const },
 };
 
 const CHECKLIST_ROSTER_COLS = {
@@ -90,10 +239,21 @@ const CHECKLIST_ROSTER_COLS = {
   filled: { width: '30%', textAlign: 'right' as const },
 };
 
+const MEASUREMENT_SHEET_COLS = {
+  bill: { width: '12%' },
+  order: { width: '23%' },
+  fileName: { width: '30%' },
+  uploadedBy: { width: '17%' },
+  date: { width: '18%' },
+};
+
 function Section({ title, children }: { title: string; children: React.ReactNode }) {
   return (
     <View style={{ marginBottom: 4 }}>
-      <Text style={styles.sectionTitle}>{title}</Text>
+      <View style={local.sectionTitleRow}>
+        <View style={local.sectionAccent} />
+        <Text style={local.sectionTitleText}>{title}</Text>
+      </View>
       {children}
     </View>
   );
@@ -150,6 +310,130 @@ function ManpowerTrendChart({ rows }: { rows: ReportManpowerDayRow[] }) {
   );
 }
 
+const SCURVE_WIDTH = 480;
+const SCURVE_HEIGHT = 130;
+const SCURVE_PAD_LEFT = 26;
+const SCURVE_PAD_TOP = 8;
+const SCURVE_PAD_BOTTOM = 18;
+
+/** Generic planned-vs-actual line chart over time — used for both the S-Curve (cumulative %
+ * complete) and the Burn-Down chart (remaining % of work), computed directly from every
+ * milestone's planned/actual dates (see ReportService's Execution Intelligence block), so it's
+ * populated immediately rather than needing accumulated history. */
+function SCurveChart({ points, plannedLabel = 'Planned (cumulative)', actualLabel = 'Actual (cumulative)' }: { points: ReportSCurvePoint[]; plannedLabel?: string; actualLabel?: string }) {
+  if (points.length === 0) {
+    return <Text style={[styles.td, { color: MUTED }]}>Not enough planned/actual dates on this project's activities to plot a trend yet.</Text>;
+  }
+
+  const chartWidth = SCURVE_WIDTH - SCURVE_PAD_LEFT - 10;
+  const chartHeight = SCURVE_HEIGHT - SCURVE_PAD_TOP - SCURVE_PAD_BOTTOM;
+  const maxPercent = Math.max(100, ...points.map((p) => Math.max(p.plannedPercent, p.actualPercent)));
+  const n = points.length;
+  const xFor = (i: number) => SCURVE_PAD_LEFT + (n === 1 ? chartWidth / 2 : (i / (n - 1)) * chartWidth);
+  const yFor = (val: number) => SCURVE_PAD_TOP + chartHeight - (Math.max(val, 0) / maxPercent) * chartHeight;
+
+  const plannedLine = points.map((p, i) => `${xFor(i)},${yFor(p.plannedPercent)}`).join(' ');
+  const actualLine = points.map((p, i) => `${xFor(i)},${yFor(p.actualPercent)}`).join(' ');
+
+  return (
+    <View>
+      <View style={{ flexDirection: 'row', marginBottom: 4 }}>
+        <View style={{ width: 8, height: 8, backgroundColor: MUTED, marginRight: 4 }} />
+        <Text style={{ fontSize: 8, color: MUTED, marginRight: 10 }}>{plannedLabel}</Text>
+        <View style={{ width: 8, height: 8, backgroundColor: GOLD, marginRight: 4 }} />
+        <Text style={{ fontSize: 8, color: MUTED }}>{actualLabel}</Text>
+      </View>
+      <Svg width={SCURVE_WIDTH} height={SCURVE_HEIGHT}>
+        <Line x1={SCURVE_PAD_LEFT} y1={SCURVE_PAD_TOP} x2={SCURVE_PAD_LEFT} y2={SCURVE_PAD_TOP + chartHeight} stroke={BORDER} strokeWidth={1} />
+        <Line x1={SCURVE_PAD_LEFT} y1={SCURVE_PAD_TOP + chartHeight} x2={SCURVE_PAD_LEFT + chartWidth} y2={SCURVE_PAD_TOP + chartHeight} stroke={BORDER} strokeWidth={1} />
+        {n > 1 && <Polyline points={plannedLine} stroke={MUTED} strokeWidth={1.5} fill="none" />}
+        {n > 1 && <Polyline points={actualLine} stroke={GOLD} strokeWidth={1.5} fill="none" />}
+        {points.flatMap((p, i) => [
+          <Circle key={`pl-${i}`} cx={xFor(i)} cy={yFor(p.plannedPercent)} r={2} fill={MUTED} />,
+          <Circle key={`ac-${i}`} cx={xFor(i)} cy={yFor(p.actualPercent)} r={2} fill={GOLD} />,
+        ])}
+      </Svg>
+      <View style={{ flexDirection: 'row', justifyContent: 'space-between', paddingLeft: SCURVE_PAD_LEFT }}>
+        {points.map((p, i) => (
+          <Text key={i} style={{ fontSize: 6, color: MUTED }}>{p.periodLabel}</Text>
+        ))}
+      </View>
+    </View>
+  );
+}
+
+// Shared status → color mapping used by both the Gantt bars and the WBS table's status column,
+// so the same lifecycle state always reads the same color everywhere in the report.
+const LIFECYCLE_STATUS_COLOR: Record<string, string> = {
+  COMPLETE: '#5cba80', CLOSED: '#5cba80', IN_PROGRESS: GOLD, DELAYED: '#e06050', UPCOMING: '#9ca3af', DRAFT: '#9ca3af',
+};
+const GOLD_TINT_BG = '#f5eeda';
+
+/** Simple horizontal-bar schedule timeline — every bar's left offset/width is pre-computed
+ * (0-100%) by buildProjectReportPdfData.ts relative to the plotted activities' overall date
+ * range, so this component only draws positioned Views, no date math here. */
+const GANTT_LEGEND: Array<[string, string]> = [
+  ['Complete', LIFECYCLE_STATUS_COLOR.COMPLETE], ['In Progress', LIFECYCLE_STATUS_COLOR.IN_PROGRESS],
+  ['Delayed', LIFECYCLE_STATUS_COLOR.DELAYED], ['Upcoming / Draft', LIFECYCLE_STATUS_COLOR.UPCOMING],
+];
+
+/** Phase rows render bold with a tinted track (so a phase's overall span stands out), Milestone
+ * rows render plain and indented underneath their phase — same visual hierarchy as the WBS table
+ * so the two read as one consistent system. */
+function GanttChart({ rows }: { rows: ReportGanttRow[] }) {
+  if (rows.length === 0) {
+    return <Text style={[styles.td, { color: MUTED }]}>No activities with both a planned start and end date to plot.</Text>;
+  }
+  // Derived from the numeric offsets (not the formatted date strings, which don't sort
+  // chronologically) — the row starting earliest and the row ending latest on the timeline.
+  const startRow = rows.reduce((min, r) => (r.startOffsetPercent < min.startOffsetPercent ? r : min), rows[0]);
+  const endRow = rows.reduce((max, r) => (r.startOffsetPercent + r.durationPercent > max.startOffsetPercent + max.durationPercent ? r : max), rows[0]);
+  const overallStart = startRow.plannedStartFormatted;
+  const overallEnd = endRow.plannedEndFormatted;
+
+  return (
+    <View>
+      <View style={{ flexDirection: 'row', justifyContent: 'space-between', marginBottom: 6 }}>
+        <View style={{ flexDirection: 'row', alignItems: 'center' }}>
+          {GANTT_LEGEND.map(([label, color]) => (
+            <View key={label} style={{ flexDirection: 'row', alignItems: 'center', marginRight: 10 }}>
+              <View style={{ width: 7, height: 7, backgroundColor: color, marginRight: 3, borderRadius: 1 }} />
+              <Text style={{ fontSize: 6.5, color: MUTED }}>{label}</Text>
+            </View>
+          ))}
+        </View>
+        <Text style={{ fontSize: 6.5, color: MUTED }}>{overallStart} – {overallEnd}</Text>
+      </View>
+      {rows.map((r, i) => {
+        const isPhase = r.kind === 'PHASE';
+        return (
+          <View key={i} style={{ flexDirection: 'row', alignItems: 'center', marginBottom: 4 }} wrap={false}>
+            <Text
+              style={{ width: '26%', fontSize: 7, paddingLeft: r.indent * 8, fontFamily: isPhase ? 'Helvetica-Bold' : 'Helvetica' }}
+            >
+              {r.title}
+            </Text>
+            <View style={{ width: '52%', height: isPhase ? 9 : 7, backgroundColor: isPhase ? GOLD_TINT_BG : '#efece4', borderRadius: 2 }}>
+              <View
+                style={{
+                  marginLeft: `${r.startOffsetPercent}%`,
+                  width: `${r.durationPercent}%`,
+                  height: isPhase ? 9 : 7,
+                  backgroundColor: LIFECYCLE_STATUS_COLOR[r.lifecycleStatus] ?? GOLD,
+                  borderRadius: 2,
+                }}
+              />
+            </View>
+            <Text style={{ width: '22%', fontSize: 6.5, textAlign: 'right', color: MUTED, paddingLeft: 4 }}>
+              {r.plannedStartFormatted} – {r.plannedEndFormatted}
+            </Text>
+          </View>
+        );
+      })}
+    </View>
+  );
+}
+
 /** One activity's evidence photo submission — header line (who/when/role) then a 3-per-row
  * photo grid, same layout technique as DPRDocument.tsx's PhotoGrid. */
 function EvidencePhotoBlock({ group }: { group: ReportEvidencePhotoGroup }) {
@@ -173,6 +457,8 @@ function EvidencePhotoBlock({ group }: { group: ReportEvidencePhotoGroup }) {
 export default function ProjectReportDocument({ data }: { data: ProjectReportPdfData }) {
   return (
     <Document title={`${data.projectName} - ${data.periodTypeLabel} Report`} author="AxInfra">
+      <CoverPage data={data} />
+      <TableOfContents data={data} />
       <Page size="A4" style={styles.page} wrap>
         <PdfBrandHeader
           logoDataUri={data.logoDataUri}
@@ -190,7 +476,13 @@ export default function ProjectReportDocument({ data }: { data: ProjectReportPdf
         </View>
 
         <Section title="1. Executive Summary">
-          <Text style={[styles.td, { marginBottom: 4, color: '#6b7280' }]}>1.1 Progress Dashboard (at reporting date)</Text>
+          {data.aiExecutiveSummary && (
+            <View style={[styles.panel, { marginBottom: 8 }]} wrap={false}>
+              <Text style={[styles.td, { marginBottom: 4, color: '#6b7280' }]}>1.1 Summary</Text>
+              <Text style={[styles.td, { lineHeight: 1.5 }]}>{data.aiExecutiveSummary}</Text>
+            </View>
+          )}
+          <Text style={[styles.td, { marginBottom: 4, color: '#6b7280' }]}>{data.aiExecutiveSummary ? '1.2' : '1.1'} Progress Dashboard (at reporting date)</Text>
           <View style={styles.table}>
             <View style={styles.tableHeaderRow}>
               <Text style={[styles.th, { width: '34%' }]}>Key Indicator</Text>
@@ -212,7 +504,7 @@ export default function ProjectReportDocument({ data }: { data: ProjectReportPdf
             </View>
           </View>
 
-          <Text style={[styles.td, { marginTop: 8, marginBottom: 4, color: '#6b7280' }]}>1.2 Health Flags</Text>
+          <Text style={[styles.td, { marginTop: 8, marginBottom: 4, color: '#6b7280' }]}>{data.aiExecutiveSummary ? '1.3' : '1.2'} Health Flags</Text>
           <View style={styles.table}>
             <View style={styles.tableHeaderRow}>
               <Text style={[styles.th, { width: '20%' }]}>Area</Text>
@@ -228,7 +520,7 @@ export default function ProjectReportDocument({ data }: { data: ProjectReportPdf
             ))}
           </View>
 
-          <Text style={[styles.td, { marginTop: 8, marginBottom: 4, color: '#6b7280' }]}>1.3 Key Numbers</Text>
+          <Text style={[styles.td, { marginTop: 8, marginBottom: 4, color: '#6b7280' }]}>{data.aiExecutiveSummary ? '1.4' : '1.3'} Key Numbers</Text>
           <View style={styles.panel}>
             <View style={styles.panelGrid}>
               {data.keyStats.map((stat) => (
@@ -262,6 +554,12 @@ export default function ProjectReportDocument({ data }: { data: ProjectReportPdf
               </View>
             ))}
           </View>
+
+          {data.aiOverviewNote && (
+            <View style={[styles.panel, { marginTop: 8 }]} wrap={false}>
+              <Text style={[styles.td, { lineHeight: 1.5 }]}>{data.aiOverviewNote}</Text>
+            </View>
+          )}
         </Section>
 
         <Section title="3. Physical Progress">
@@ -345,6 +643,21 @@ export default function ProjectReportDocument({ data }: { data: ProjectReportPdf
               ))
             )}
           </View>
+
+          <Text style={[styles.td, { marginTop: 8, marginBottom: 4, color: '#6b7280' }]}>3.2 Planned vs. Actual Progress (S-Curve) — cumulative completion %, weighted by activity value</Text>
+          <SCurveChart points={data.sCurve} />
+
+          <Text style={[styles.td, { marginTop: 8, marginBottom: 4, color: '#6b7280' }]}>3.3 Burn-Down Chart — remaining work % over time</Text>
+          <SCurveChart points={data.burndown} plannedLabel="Planned remaining" actualLabel="Actual remaining" />
+
+          <Text style={[styles.td, { marginTop: 8, marginBottom: 4, color: '#6b7280' }]}>3.4 Schedule Timeline (Gantt) — planned start/end by activity</Text>
+          <GanttChart rows={data.gantt} />
+
+          {data.aiScheduleNote && (
+            <View style={[styles.panel, { marginTop: 8 }]} wrap={false}>
+              <Text style={[styles.td, { lineHeight: 1.5 }]}>{data.aiScheduleNote}</Text>
+            </View>
+          )}
         </Section>
 
         <Section title="4. Financial Progress">
@@ -414,6 +727,7 @@ export default function ProjectReportDocument({ data }: { data: ProjectReportPdf
               <Text style={[styles.th, BILL_ROSTER_COLS.submitted]}>Submitted</Text>
               <Text style={[styles.th, BILL_ROSTER_COLS.approved]}>Approved</Text>
               <Text style={[styles.th, BILL_ROSTER_COLS.released]}>Released</Text>
+              <Text style={[styles.th, BILL_ROSTER_COLS.sheets]}>Meas. Sheets</Text>
             </View>
             {data.payments.allBills.length === 0 ? (
               <EmptyTableRow message="No RA Bills on this project." />
@@ -426,10 +740,17 @@ export default function ProjectReportDocument({ data }: { data: ProjectReportPdf
                   <Text style={[styles.td, BILL_ROSTER_COLS.submitted]}>{b.submittedValueFormatted}</Text>
                   <Text style={[styles.td, BILL_ROSTER_COLS.approved]}>{b.approvedValueFormatted}</Text>
                   <Text style={[styles.td, BILL_ROSTER_COLS.released]}>{b.releasedValueFormatted}</Text>
+                  <Text style={[styles.td, BILL_ROSTER_COLS.sheets]}>{b.measurementSheetCount}</Text>
                 </View>
               ))
             )}
           </View>
+
+          {data.aiFinancialNote && (
+            <View style={[styles.panel, { marginTop: 8 }]} wrap={false}>
+              <Text style={[styles.td, { lineHeight: 1.5 }]}>{data.aiFinancialNote}</Text>
+            </View>
+          )}
         </Section>
 
         <Section title="5. Resource Deployment">
@@ -503,6 +824,12 @@ export default function ProjectReportDocument({ data }: { data: ProjectReportPdf
               ))
             )}
           </View>
+
+          {data.aiResourceNote && (
+            <View style={[styles.panel, { marginTop: 8 }]} wrap={false}>
+              <Text style={[styles.td, { lineHeight: 1.5 }]}>{data.aiResourceNote}</Text>
+            </View>
+          )}
         </Section>
 
         <Section title="6. Quality Management (QA/QC)">
@@ -578,6 +905,12 @@ export default function ProjectReportDocument({ data }: { data: ProjectReportPdf
               ))
             )}
           </View>
+
+          {data.aiQualityNote && (
+            <View style={[styles.panel, { marginTop: 8 }]} wrap={false}>
+              <Text style={[styles.td, { lineHeight: 1.5 }]}>{data.aiQualityNote}</Text>
+            </View>
+          )}
         </Section>
 
         <Section title="7. Key Issues &amp; Risks">
@@ -599,6 +932,12 @@ export default function ProjectReportDocument({ data }: { data: ProjectReportPdf
               ))
             )}
           </View>
+
+          {data.aiRiskNote && (
+            <View style={[styles.panel, { marginTop: 8 }]} wrap={false}>
+              <Text style={[styles.td, { lineHeight: 1.5 }]}>{data.aiRiskNote}</Text>
+            </View>
+          )}
         </Section>
 
         <Section title="8. Progress Photographs">
@@ -610,9 +949,162 @@ export default function ProjectReportDocument({ data }: { data: ProjectReportPdf
           )}
         </Section>
 
-        <Section title="9. Annexures — Drawings &amp; Documents">
+        {data.aiRecommendations && (
+          <Section title="9. Outlook &amp; Recommendations">
+            <View style={styles.panel} wrap={false}>
+              <Text style={[styles.td, { lineHeight: 1.5 }]}>{data.aiRecommendations}</Text>
+            </View>
+          </Section>
+        )}
+
+        <Section title="10. Execution Intelligence">
           <Text style={[styles.td, { marginBottom: 4, color: '#6b7280' }]}>
-            9.1 Drawings (this period) — listed for visibility only; Architecture drawings are PDF/URL uploads, not raster images, so there's no thumbnail to embed here the way photos are above.
+            10.1 Vendor Scorecard — On-time: {data.executionKpis.onTimePctFormatted} · Avg approval cycle: {data.executionKpis.avgApprovalCycleDaysFormatted} · Critical activities: {data.executionKpis.criticalMilestoneCount} · Escalations (30d): {data.executionKpis.escalationsLast30Days}
+          </Text>
+          <View style={styles.table}>
+            <View style={styles.tableHeaderRow}>
+              <Text style={[styles.th, VENDOR_SCORECARD_COLS.rank]}>Rank</Text>
+              <Text style={[styles.th, VENDOR_SCORECARD_COLS.vendor]}>Vendor</Text>
+              <Text style={[styles.th, VENDOR_SCORECARD_COLS.total]}>Total</Text>
+              <Text style={[styles.th, VENDOR_SCORECARD_COLS.onTime]}>On Time</Text>
+              <Text style={[styles.th, VENDOR_SCORECARD_COLS.late]}>Late</Text>
+              <Text style={[styles.th, VENDOR_SCORECARD_COLS.onTimePct]}>On-Time %</Text>
+              <Text style={[styles.th, VENDOR_SCORECARD_COLS.avgDelay]}>Avg Delay</Text>
+              <Text style={[styles.th, VENDOR_SCORECARD_COLS.escalations]}>Escalations</Text>
+            </View>
+            {data.vendorScorecards.length === 0 ? (
+              <EmptyTableRow message="No vendor-assigned activities on this project." />
+            ) : (
+              data.vendorScorecards.map((v, i) => (
+                <View key={i} style={[styles.tableRow, ...(i % 2 === 1 ? [styles.tableRowAlt] : [])]} wrap={false}>
+                  <Text style={[styles.td, VENDOR_SCORECARD_COLS.rank]}>{v.rank}</Text>
+                  <Text style={[styles.td, VENDOR_SCORECARD_COLS.vendor]}>{v.vendorName}</Text>
+                  <Text style={[styles.td, VENDOR_SCORECARD_COLS.total]}>{v.totalMilestones}</Text>
+                  <Text style={[styles.td, VENDOR_SCORECARD_COLS.onTime]}>{v.completedOnTime}</Text>
+                  <Text style={[styles.td, VENDOR_SCORECARD_COLS.late]}>{v.completedLate}</Text>
+                  <Text style={[styles.td, VENDOR_SCORECARD_COLS.onTimePct]}>{v.onTimePctFormatted}</Text>
+                  <Text style={[styles.td, VENDOR_SCORECARD_COLS.avgDelay]}>{v.avgDelayDaysFormatted}</Text>
+                  <Text style={[styles.td, VENDOR_SCORECARD_COLS.escalations]}>{v.escalationCount}</Text>
+                </View>
+              ))
+            )}
+          </View>
+
+          <Text style={[styles.td, { marginTop: 8, marginBottom: 4, color: '#6b7280' }]}>
+            10.2 Delay Analysis — Net schedule: {data.executionKpis.netScheduleDaysFormatted} · Total overrun: {data.executionKpis.totalOverrunDaysFormatted} · Total saved: {data.executionKpis.totalSavedDaysFormatted}
+          </Text>
+          <HBarChart data={data.delayHistogram.map((b) => ({ label: b.bucket, value: b.count, maxValue: Math.max(...data.delayHistogram.map((x) => x.count), 1), valueLabel: String(b.count), color: b.bucket.includes('-') || b.bucket === '<-14' ? '#5cba80' : b.bucket.startsWith('0') ? GOLD : '#e06050' }))} />
+
+          {data.aiExecutionNote && (
+            <View style={[styles.panel, { marginTop: 4, marginBottom: 8 }]} wrap={false}>
+              <Text style={[styles.td, { lineHeight: 1.5 }]}>{data.aiExecutionNote}</Text>
+            </View>
+          )}
+
+          <Text style={[styles.td, { marginBottom: 4, color: '#6b7280' }]}>10.3 Payment Cycles — average evidence-submitted to payment-eligible turnaround</Text>
+          <View style={{ flexDirection: 'row', marginBottom: 6 }} wrap={false}>
+            <Text style={[styles.td, { fontFamily: 'Helvetica-Bold' }]}>Project average: {data.paymentCycles.avgDaysFormatted}</Text>
+          </View>
+          {data.paymentCycles.byVendor.length > 0 && (
+            <View style={styles.table}>
+              <View style={styles.tableHeaderRow}>
+                <Text style={[styles.th, { width: '60%' }]}>Vendor</Text>
+                <Text style={[styles.th, { width: '40%', textAlign: 'right' }]}>Avg Days</Text>
+              </View>
+              {data.paymentCycles.byVendor.map((v, i) => (
+                <View key={i} style={[styles.tableRow, ...(i % 2 === 1 ? [styles.tableRowAlt] : [])]} wrap={false}>
+                  <Text style={[styles.td, { width: '60%' }]}>{v.vendorName}</Text>
+                  <Text style={[styles.td, { width: '40%', textAlign: 'right' }]}>{v.avgDaysFormatted}</Text>
+                </View>
+              ))}
+            </View>
+          )}
+
+          <Text style={[styles.td, { marginTop: 8, marginBottom: 4, color: '#6b7280' }]}>10.4 Criticality — Critical Path (tightest float first)</Text>
+          <View style={styles.table}>
+            <View style={styles.tableHeaderRow}>
+              <Text style={[styles.th, CRITICALITY_COLS.title]}>Activity</Text>
+              <Text style={[styles.th, CRITICALITY_COLS.status]}>Status</Text>
+              <Text style={[styles.th, CRITICALITY_COLS.float]}>Float</Text>
+              <Text style={[styles.th, CRITICALITY_COLS.duration]}>Duration</Text>
+            </View>
+            {data.criticality.length === 0 ? (
+              <EmptyTableRow message="No schedule dependencies configured on this project." />
+            ) : (
+              data.criticality.map((c, i) => (
+                <View key={i} style={[styles.tableRow, ...(i % 2 === 1 ? [styles.tableRowAlt] : [])]} wrap={false}>
+                  <Text style={[styles.td, CRITICALITY_COLS.title]}>{c.title}</Text>
+                  <Text style={[styles.td, CRITICALITY_COLS.status, { color: c.isCritical ? '#e06050' : undefined, fontFamily: c.isCritical ? 'Helvetica-Bold' : 'Helvetica' }]}>{c.isCritical ? 'Critical' : 'Has Float'}</Text>
+                  <Text style={[styles.td, CRITICALITY_COLS.float]}>{c.totalFloatDaysFormatted}</Text>
+                  <Text style={[styles.td, CRITICALITY_COLS.duration]}>{c.durationDaysFormatted}</Text>
+                </View>
+              ))
+            )}
+          </View>
+
+          <Text style={[styles.td, { marginTop: 8, marginBottom: 4, color: '#6b7280' }]}>10.5 Escalation Trend — weekly escalations over the last 12 weeks</Text>
+          <HBarChart data={data.escalationTrend.map((w) => ({ label: w.weekLabel, value: w.count, maxValue: Math.max(...data.escalationTrend.map((x) => x.count), 1), valueLabel: String(w.count), color: w.count > 0 ? '#e06050' : '#9ca3af' }))} />
+
+          <Text style={[styles.td, { marginTop: 8, marginBottom: 4, color: '#6b7280' }]}>10.6 Delay Cost Estimate — based on configured project parameters</Text>
+          {!data.delayCost.isConfigured ? (
+            <Text style={[styles.td, { color: MUTED }]}>Delay cost parameters (daily overhead, penalty rate, opportunity factor) aren't configured for this project — set them in Project Settings to see a cost estimate here.</Text>
+          ) : (
+            <View style={styles.panel}>
+              <View style={styles.panelGrid}>
+                <PanelItem label="Overhead Cost" value={data.delayCost.overheadCostFormatted} />
+                <PanelItem label="Penalty Cost" value={data.delayCost.penaltyCostFormatted} />
+                <PanelItem label="Opportunity Cost" value={data.delayCost.opportunityCostFormatted} />
+                <PanelItem label="Total Estimated Cost" value={data.delayCost.totalEstimatedCostFormatted} />
+              </View>
+            </View>
+          )}
+
+          {data.aiCostRiskNote && (
+            <View style={[styles.panel, { marginTop: 8 }]} wrap={false}>
+              <Text style={[styles.td, { lineHeight: 1.5 }]}>{data.aiCostRiskNote}</Text>
+            </View>
+          )}
+        </Section>
+
+        <Section title="11. Annexures">
+          <Text style={[styles.td, { marginBottom: 4, fontFamily: 'Helvetica-Bold' }]}>Annexure I — Work Breakdown Structure / Schedule</Text>
+          <View style={styles.table}>
+            <View style={styles.tableHeaderRow}>
+              <Text style={[styles.th, WBS_COLS.code]}>WBS No.</Text>
+              <Text style={[styles.th, WBS_COLS.title]}>Activity</Text>
+              <Text style={[styles.th, WBS_COLS.status]}>Status</Text>
+              <Text style={[styles.th, WBS_COLS.percent]}>%</Text>
+              <Text style={[styles.th, WBS_COLS.start]}>Planned Start</Text>
+              <Text style={[styles.th, WBS_COLS.end]}>Planned End</Text>
+              <Text style={[styles.th, WBS_COLS.vendor]}>Vendor</Text>
+            </View>
+            {data.wbs.length === 0 ? (
+              <EmptyTableRow message="No activities on this project." />
+            ) : (
+              data.wbs.map((w, i) => {
+                const isPhase = w.kind === 'PHASE';
+                return (
+                  <View
+                    key={i}
+                    style={[styles.tableRow, ...(isPhase ? [{ backgroundColor: GOLD_TINT_BG }] : i % 2 === 1 ? [styles.tableRowAlt] : [])]}
+                    wrap={false}
+                  >
+                    <Text style={[styles.td, WBS_COLS.code, isPhase ? { fontFamily: 'Helvetica-Bold' } : {}]}>{w.wbsCode}</Text>
+                    <Text style={[styles.td, WBS_COLS.title, { paddingLeft: w.indent * 10 }, isPhase ? { fontFamily: 'Helvetica-Bold' } : {}]}>{w.title}</Text>
+                    <Text style={[styles.td, WBS_COLS.status, { color: LIFECYCLE_STATUS_COLOR[w.lifecycleStatus] ?? INK }]}>{LIFECYCLE_LABELS[w.lifecycleStatus] ?? w.lifecycleStatus}</Text>
+                    <Text style={[styles.td, WBS_COLS.percent]}>{w.percentComplete}%</Text>
+                    <Text style={[styles.td, WBS_COLS.start]}>{w.plannedStartFormatted}</Text>
+                    <Text style={[styles.td, WBS_COLS.end]}>{w.plannedEndFormatted}</Text>
+                    <Text style={[styles.td, WBS_COLS.vendor]}>{w.vendorName}</Text>
+                  </View>
+                );
+              })
+            )}
+          </View>
+
+          <Text style={[styles.td, { marginTop: 10, marginBottom: 4, fontFamily: 'Helvetica-Bold' }]}>Annexure II — Drawings</Text>
+          <Text style={[styles.td, { marginBottom: 4, color: '#6b7280' }]}>
+            Drawings uploaded/reviewed this period — listed for visibility only; Architecture drawings are PDF/URL uploads, not raster images, so there's no thumbnail to embed here the way photos are above.
           </Text>
           <View style={styles.table}>
             <View style={styles.tableHeaderRow}>
@@ -639,7 +1131,7 @@ export default function ProjectReportDocument({ data }: { data: ProjectReportPdf
             )}
           </View>
 
-          <Text style={[styles.td, { marginTop: 8, marginBottom: 4, color: '#6b7280' }]}>9.2 Documents</Text>
+          <Text style={[styles.td, { marginTop: 10, marginBottom: 4, fontFamily: 'Helvetica-Bold' }]}>Annexure III — Documents</Text>
           <View style={styles.table}>
             <View style={styles.tableHeaderRow}>
               <Text style={[styles.th, DOC_COLS.title]}>Title</Text>
@@ -656,6 +1148,80 @@ export default function ProjectReportDocument({ data }: { data: ProjectReportPdf
                   <Text style={[styles.td, DOC_COLS.category]}>{d.category === 'SPEC' ? 'Spec' : 'Other'}</Text>
                   <Text style={[styles.td, DOC_COLS.uploadedBy]}>{d.uploadedByName}</Text>
                   <Text style={[styles.td, DOC_COLS.date]}>{d.dateFormatted}</Text>
+                </View>
+              ))
+            )}
+          </View>
+
+          <Text style={[styles.td, { marginTop: 10, marginBottom: 4, fontFamily: 'Helvetica-Bold' }]}>Annexure IV — Bill of Quantities (BOQ)</Text>
+          {data.boq.byOrder.length === 0 ? (
+            <Text style={[styles.td, { color: MUTED }]}>No BOQ items on this project.</Text>
+          ) : (
+            data.boq.byOrder.map((group, gi) => (
+              <View key={gi} style={{ marginBottom: 8 }} wrap={false}>
+                <Text style={[styles.td, { marginBottom: 3, fontFamily: 'Helvetica-Bold' }]}>{group.orderName}</Text>
+                <View style={styles.table}>
+                  <View style={styles.tableHeaderRow}>
+                    <Text style={[styles.th, BOQ_COLS.no]}>No.</Text>
+                    <Text style={[styles.th, BOQ_COLS.description]}>Description</Text>
+                    <Text style={[styles.th, BOQ_COLS.unit]}>Unit</Text>
+                    <Text style={[styles.th, BOQ_COLS.qty]}>Qty</Text>
+                    <Text style={[styles.th, BOQ_COLS.rate]}>Rate</Text>
+                    <Text style={[styles.th, BOQ_COLS.value]}>Value</Text>
+                  </View>
+                  {group.items.map((item, i) => (
+                    <View key={i} style={[styles.tableRow, ...(i % 2 === 1 ? [styles.tableRowAlt] : [])]} wrap={false}>
+                      <Text style={[styles.td, BOQ_COLS.no]}>{item.itemNo}</Text>
+                      <Text style={[styles.td, BOQ_COLS.description]}>{item.description}</Text>
+                      <Text style={[styles.td, BOQ_COLS.unit]}>{item.unit}</Text>
+                      <Text style={[styles.td, BOQ_COLS.qty]}>{item.plannedQtyFormatted}</Text>
+                      <Text style={[styles.td, BOQ_COLS.rate]}>{item.rateFormatted}</Text>
+                      <Text style={[styles.td, BOQ_COLS.value]}>{item.plannedValueFormatted}</Text>
+                    </View>
+                  ))}
+                  <View style={[styles.tableRow, { backgroundColor: '#f3f1ec' }]} wrap={false}>
+                    <Text style={[styles.td, { width: '83%', fontFamily: 'Helvetica-Bold' }]}>Subtotal</Text>
+                    <Text style={[styles.td, BOQ_COLS.value, { fontFamily: 'Helvetica-Bold' }]}>{group.subtotalFormatted}</Text>
+                  </View>
+                </View>
+              </View>
+            ))
+          )}
+          {data.boq.byOrder.length > 0 && (
+            <View style={[styles.tableRow, { backgroundColor: GOLD_TINT_BG, borderRadius: 3 }]} wrap={false}>
+              <Text style={[styles.td, { width: '83%', fontFamily: 'Helvetica-Bold' }]}>Grand Total</Text>
+              <Text style={[styles.td, BOQ_COLS.value, { fontFamily: 'Helvetica-Bold' }]}>{data.boq.grandTotalFormatted}</Text>
+            </View>
+          )}
+
+          {data.aiBoqNote && (
+            <View style={[styles.panel, { marginTop: 8 }]} wrap={false}>
+              <Text style={[styles.td, { lineHeight: 1.5 }]}>{data.aiBoqNote}</Text>
+            </View>
+          )}
+
+          <Text style={[styles.td, { marginTop: 10, marginBottom: 4, fontFamily: 'Helvetica-Bold' }]}>Annexure V — Measurement Sheets</Text>
+          <Text style={[styles.td, { marginBottom: 4, color: '#6b7280' }]}>
+            All measurement sheets uploaded by the Site Engineer across every RA Bill on this project.
+          </Text>
+          <View style={styles.table}>
+            <View style={styles.tableHeaderRow}>
+              <Text style={[styles.th, MEASUREMENT_SHEET_COLS.bill]}>Bill</Text>
+              <Text style={[styles.th, MEASUREMENT_SHEET_COLS.order]}>Order</Text>
+              <Text style={[styles.th, MEASUREMENT_SHEET_COLS.fileName]}>File Name</Text>
+              <Text style={[styles.th, MEASUREMENT_SHEET_COLS.uploadedBy]}>Uploaded By</Text>
+              <Text style={[styles.th, MEASUREMENT_SHEET_COLS.date]}>Date</Text>
+            </View>
+            {data.payments.measurementSheets.length === 0 ? (
+              <EmptyTableRow message="No measurement sheets uploaded on this project." />
+            ) : (
+              data.payments.measurementSheets.map((s, i) => (
+                <View key={i} style={[styles.tableRow, ...(i % 2 === 1 ? [styles.tableRowAlt] : [])]} wrap={false}>
+                  <Text style={[styles.td, MEASUREMENT_SHEET_COLS.bill]}>{s.billLabel}</Text>
+                  <Text style={[styles.td, MEASUREMENT_SHEET_COLS.order]}>{s.orderName}</Text>
+                  <Text style={[styles.td, MEASUREMENT_SHEET_COLS.fileName]}>{s.fileName}</Text>
+                  <Text style={[styles.td, MEASUREMENT_SHEET_COLS.uploadedBy]}>{s.uploadedByName}</Text>
+                  <Text style={[styles.td, MEASUREMENT_SHEET_COLS.date]}>{s.dateFormatted}</Text>
                 </View>
               ))
             )}

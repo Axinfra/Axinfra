@@ -261,10 +261,10 @@ export default function ReportsPage() {
                 <h2 className="font-semibold">Executive Summary</h2>
               </div>
               <div className="card-body grid grid-cols-2 sm:grid-cols-3 lg:grid-cols-5 gap-4">
-                <Stat label="BOQ Planned Value" value={formatCurrency(report.financial.totals.totalPlannedValue)} />
-                <Stat label="Billed to Date" value={formatCurrency(report.financial.totals.totalSubmittedValue)} />
-                <Stat label="Approved to Date" value={formatCurrency(report.financial.totals.totalApprovedValue)} />
-                <Stat label="Released to Date" value={formatCurrency(report.financial.totals.totalReleasedValue)} />
+                <Stat label="BOQ Planned Value" value={formatCurrency(report.financial.totals.totalPlannedValue, project?.currency)} />
+                <Stat label="Billed to Date" value={formatCurrency(report.financial.totals.totalSubmittedValue, project?.currency)} />
+                <Stat label="Approved to Date" value={formatCurrency(report.financial.totals.totalApprovedValue, project?.currency)} />
+                <Stat label="Released to Date" value={formatCurrency(report.financial.totals.totalReleasedValue, project?.currency)} />
                 <Stat label="Activities Updated" value={String(report.activities.updatesThisPeriodCount)} />
                 <Stat label="Activities Completed" value={String(report.activities.completedThisPeriodCount)} />
                 <Stat label="Checklists Signed" value={String(report.checklists.signedCount)} />
@@ -293,10 +293,10 @@ export default function ReportsPage() {
                       report.financial.byOrder.map((o, i) => (
                         <tr key={i} className="border-b" style={{ borderColor: 'var(--ax-border-subtle)' }}>
                           <td className="px-3 py-1.5">{o.orderName}</td>
-                          <td className="px-3 py-1.5">{formatCurrency(o.boqPlannedValue)}</td>
-                          <td className="px-3 py-1.5">{formatCurrency(o.submittedValue)}</td>
-                          <td className="px-3 py-1.5">{formatCurrency(o.approvedValue)}</td>
-                          <td className="px-3 py-1.5">{formatCurrency(o.releasedValue)}</td>
+                          <td className="px-3 py-1.5">{formatCurrency(o.boqPlannedValue, project?.currency)}</td>
+                          <td className="px-3 py-1.5">{formatCurrency(o.submittedValue, project?.currency)}</td>
+                          <td className="px-3 py-1.5">{formatCurrency(o.approvedValue, project?.currency)}</td>
+                          <td className="px-3 py-1.5">{formatCurrency(o.releasedValue, project?.currency)}</td>
                         </tr>
                       ))
                     )}
@@ -450,7 +450,7 @@ export default function ReportsPage() {
                           <td className="px-3 py-1.5">RA-{e.billNumber}</td>
                           <td className="px-3 py-1.5">{e.orderName}</td>
                           <td className="px-3 py-1.5">{e.stage}</td>
-                          <td className="px-3 py-1.5">{formatCurrency(e.amount)}</td>
+                          <td className="px-3 py-1.5">{formatCurrency(e.amount, project?.currency)}</td>
                         </tr>
                       ))
                     )}
@@ -480,9 +480,9 @@ export default function ReportsPage() {
                           <td className="px-3 py-1.5">RA-{b.billNumber}</td>
                           <td className="px-3 py-1.5">{b.orderName}</td>
                           <td className="px-3 py-1.5">{b.status.replace(/_/g, ' ')}</td>
-                          <td className="px-3 py-1.5">{formatCurrency(b.submittedValue)}</td>
-                          <td className="px-3 py-1.5">{formatCurrency(b.approvedValue)}</td>
-                          <td className="px-3 py-1.5">{formatCurrency(b.releasedValue)}</td>
+                          <td className="px-3 py-1.5">{formatCurrency(b.submittedValue, project?.currency)}</td>
+                          <td className="px-3 py-1.5">{formatCurrency(b.approvedValue, project?.currency)}</td>
+                          <td className="px-3 py-1.5">{formatCurrency(b.releasedValue, project?.currency)}</td>
                         </tr>
                       ))
                     )}
@@ -654,7 +654,7 @@ export default function ReportsPage() {
                           <tr key={`b-${i}`} className="border-b" style={{ borderColor: 'var(--ax-border-subtle)' }}>
                             <td className="px-3 py-1.5">RA-{b.billNumber} ({b.orderName}) stuck in {b.stage}</td>
                             <td className="px-3 py-1.5" style={{ color: b.daysInStage > 30 ? '#b3943f' : undefined }}>{b.daysInStage > 30 ? 'Major' : 'Minor'}</td>
-                            <td className="px-3 py-1.5">{b.daysInStage} day(s) in stage · {formatCurrency(b.amount)}</td>
+                            <td className="px-3 py-1.5">{b.daysInStage} day(s) in stage · {formatCurrency(b.amount, project?.currency)}</td>
                           </tr>
                         ))}
                       </>

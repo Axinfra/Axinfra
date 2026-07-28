@@ -3,7 +3,7 @@
 import { useState } from 'react';
 import { useParams } from 'next/navigation';
 import useSWR from 'swr';
-import { Send, AlertTriangle, Save, Download, Check } from 'lucide-react';
+import { Send, AlertTriangle, Save, Download, Check, FileText } from 'lucide-react';
 import Layout from '@/components/Layout';
 import VendorNav from '@/components/vendor/VendorNav';
 import VendorActionButton from '@/components/vendor/VendorActionButton';
@@ -18,6 +18,14 @@ interface LineItem {
   thisBillQty: number;
   rate: number;
   thisBillAmount: number;
+}
+
+interface MeasurementSheet {
+  id: string;
+  fileName: string;
+  remarks: string | null;
+  uploadedAt: string;
+  uploadedBy: { name: string };
 }
 
 interface RABillDetail {
@@ -38,6 +46,8 @@ interface RABillDetail {
   lineItems: LineItem[];
   order: { id: string; name: string };
   project: { id: string; name: string };
+  measurementSheets: MeasurementSheet[];
+  certifiedMeasurementSheet: MeasurementSheet | null;
 }
 
 /** Vendor's own bill — while it's still DRAFT or sent back for revision, quantities are
@@ -251,6 +261,36 @@ export default function VendorRABillDetailPage() {
             </span>
           </div>
         </div>
+
+        {bill.measurementSheets.length > 0 && (
+          <div className="rounded-[28px] p-6 space-y-3" style={{ background: 'var(--ax-card)', ...cardShadow }}>
+            <h2 className="text-xl font-bold" style={{ color: 'var(--ax-text)' }}>Measurement Sheets</h2>
+            {bill.measurementSheets.map((sheet) => (
+              <a
+                key={sheet.id}
+                href={`/api/projects/${bill.project.id}/orders/${bill.order.id}/ra-bills/${raBillId}/measurement-sheets/${sheet.id}/file?download=1`}
+                className="flex items-center gap-3 rounded-2xl px-4 py-3.5"
+                style={{ background: 'var(--ax-overlay)' }}
+              >
+                <FileText className="w-5 h-5 shrink-0" style={{ color: 'rgba(var(--ax-text-rgb),0.45)' }} />
+                <div className="min-w-0 flex-1">
+                  <div className="flex items-center gap-2">
+                    <p className="font-semibold text-base truncate" style={{ color: 'var(--ax-text)' }}>{sheet.fileName}</p>
+                    {bill.certifiedMeasurementSheet?.id === sheet.id && (
+                      <span className="text-[10px] font-medium px-1.5 py-0.5 rounded-full bg-[rgba(56,189,248,0.15)] text-[#38bdf8] shrink-0">
+                        Used for certification
+                      </span>
+                    )}
+                  </div>
+                  <p className="text-sm mt-0.5" style={{ color: 'rgba(var(--ax-text-rgb),0.45)' }}>
+                    {sheet.uploadedBy.name} · {formatDate(sheet.uploadedAt)}{sheet.remarks ? ` · ${sheet.remarks}` : ''}
+                  </p>
+                </div>
+                <Download className="w-4 h-4 shrink-0" style={{ color: 'rgba(var(--ax-text-rgb),0.35)' }} />
+              </a>
+            ))}
+          </div>
+        )}
 
         {canSubmit && (
           <VendorActionButton

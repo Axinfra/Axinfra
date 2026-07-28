@@ -34,7 +34,7 @@ export async function GET(request: NextRequest) {
     // Find vendor's project role(s) — must be VENDOR
     const vendorRoles = await prisma.projectRole.findMany({
       where: { userId: auth.userId, role: Role.VENDOR, project: { deletedAt: null } },
-      include: { project: { select: { id: true, name: true } } },
+      include: { project: { select: { id: true, name: true, metadata: true } } },
     });
 
     if (vendorRoles.length === 0) {
@@ -52,6 +52,7 @@ export async function GET(request: NextRequest) {
       : vendorRoles[0];
     const projectId = projectRole.projectId;
     const projectName = projectRole.project.name;
+    const projectCurrency = projectRole.project.metadata ? (JSON.parse(projectRole.project.metadata).currency || 'INR') : 'INR';
     // Pass all project options to the client so it can render a switcher
     const allProjects = vendorRoles.map(r => ({ id: r.projectId, name: r.project.name }));
 
@@ -185,6 +186,7 @@ export async function GET(request: NextRequest) {
         data: {
           projectId,
           projectName,
+          currency: projectCurrency,
           role: Role.VENDOR,
           view: 'overview',
           kpis: {
@@ -272,6 +274,7 @@ export async function GET(request: NextRequest) {
         data: {
           projectId,
           projectName,
+          currency: projectCurrency,
           role: Role.VENDOR,
           view: 'gantt',
           milestones: ganttMilestones,
@@ -350,6 +353,7 @@ export async function GET(request: NextRequest) {
         data: {
           projectId,
           projectName,
+          currency: projectCurrency,
           role: Role.VENDOR,
           view: 'analytics',
           kpis,
@@ -449,7 +453,7 @@ export async function GET(request: NextRequest) {
         success: true,
         allProjects,
         data: {
-          projectId, projectName, role: Role.VENDOR,
+          projectId, projectName, currency: projectCurrency, role: Role.VENDOR,
           overview: {
             kpis: {
               totalMilestones: rawMilestones.length,
@@ -522,8 +526,18 @@ function buildDelayHistogram(
   return Object.entries(buckets).map(([bucket, count]) => ({ bucket, count }));
 }
 
-async function buildVendorPaymentCycleDays(milestoneIds: string[]): Promise<{ avg: number }> {
-  if (milestoneIds.length === 0) return { avg: 0 };
+interface PaymentCycleMilestone {
+  milestoneId: string;
+  title: string;
+  submittedAt: string;
+  eligibleAt: string;
+  days: number;
+}
+
+async function buildVendorPaymentCycleDays(
+  milestoneIds: string[],
+): Promise<{ avg: number; byMilestone: PaymentCycleMilestone[] }> {
+  if (milestoneIds.length === 0) return { avg: 0, byMilestone: [] };
 
   const eligibilities = await prisma.paymentEligibility.findMany({
     where: { milestoneId: { in: milestoneIds } },
@@ -534,27 +548,38 @@ async function buildVendorPaymentCycleDays(milestoneIds: string[]): Promise<{ av
         take: 1,
       },
       milestone: {
-        include: {
-          evidence: { orderBy: { submittedAt: 'asc' }, take: 1 },
+        select: {
+          id: true,
+          title: true,
+          evidence: { orderBy: { submittedAt: 'asc' }, take: 1, select: { submittedAt: true } },
         },
       },
     },
   });
 
-  const days: number[] = [];
+  // Per-activity breakdown — each completed milestone's own submission-to-eligibility cycle,
+  // not just the project-wide average, so a vendor can see which specific activities are
+  // dragging the number up.
+  const byMilestone: PaymentCycleMilestone[] = [];
   for (const e of eligibilities) {
     const firstEvidence = e.milestone.evidence[0];
     const eligibleEvent = e.events[0];
     if (!firstEvidence || !eligibleEvent) continue;
-    days.push(
-      differenceInDays(
-        startOfDay(eligibleEvent.createdAt),
-        startOfDay(firstEvidence.submittedAt),
-      ),
-    );
+    byMilestone.push({
+      milestoneId: e.milestone.id,
+      title: e.milestone.title,
+      submittedAt: firstEvidence.submittedAt.toISOString(),
+      eligibleAt: eligibleEvent.createdAt.toISOString(),
+      days: differenceInDays(startOfDay(eligibleEvent.createdAt), startOfDay(firstEvidence.submittedAt)),
+    });
   }
+  byMilestone.sort((a, b) => b.days - a.days);
 
-  return { avg: days.length > 0 ? Math.round((days.reduce((s, d) => s + d, 0) / days.length) * 10) / 10 : 0 };
+  const days = byMilestone.map((m) => m.days);
+  return {
+    avg: days.length > 0 ? Math.round((days.reduce((s, d) => s + d, 0) / days.length) * 10) / 10 : 0,
+    byMilestone,
+  };
 }
 
 function buildOnTimeTrend(

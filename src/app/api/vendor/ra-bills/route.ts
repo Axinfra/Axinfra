@@ -38,7 +38,7 @@ export async function GET(request: NextRequest) {
         ...(all ? {} : { status: { in: [RABillStatus.DRAFT, RABillStatus.REVISION_REQUESTED] } }),
       },
       include: {
-        project: { select: { id: true, name: true } },
+        project: { select: { id: true, name: true, metadata: true } },
         order: { select: { id: true, name: true } },
         lineItems: { select: { thisBillAmount: true } },
       },
@@ -53,6 +53,8 @@ export async function GET(request: NextRequest) {
       periodEnd: b.periodEnd,
       projectId: b.project.id,
       projectName: b.project.name,
+      // Vendor bills can span several projects at once — each may be denominated differently.
+      currency: b.project.metadata ? (JSON.parse(b.project.metadata).currency || 'INR') : 'INR',
       orderId: b.order.id,
       orderName: b.order.name,
       draftValue: b.lineItems.reduce((sum, l) => sum + l.thisBillAmount, 0),

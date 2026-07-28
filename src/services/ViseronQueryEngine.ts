@@ -1,12 +1,32 @@
 import { prisma } from '@/lib/db';
+import { generateAiText } from '@/lib/ai/claude';
+import { RABillService } from './RABillService';
+import type { Role } from '@/types';
 
 /**
  * ViseronQueryEngine - Natural language query engine for project intelligence.
  *
- * Pattern-matches user queries against known question types and returns
- * structured answers derived from project data.
+ * Pattern-matches user queries against known question types, computes
+ * deterministic answers from real project data, then (when ANTHROPIC_API_KEY
+ * is configured) asks Claude to rewrite the answer as a natural chat reply
+ * grounded strictly in those computed facts — never inventing numbers/names.
+ * Unrecognized queries fall through to `handleAiFallback`, which grounds
+ * Claude in a full project snapshot (`getProjectFullContext`) spanning
+ * milestones/schedule (gantt), RA Bills & payments, BOQ, Work Orders, DPR,
+ * Checklists, Documents, and Drawings — so the chatbot can answer *any*
+ * question about the project, not just the four hard-coded patterns above.
  *
- * READ-ONLY: Never mutates data.
+ * AI is an enhancement, not a dependency: if no API key is set or a Claude
+ * call fails, callers fall back to the original deterministic summary text.
+ *
+ * READ-ONLY: every code path here only ever reads (prisma `findMany`/
+ * `findUnique`/`count`) — nothing in this file, or in the Claude prompts it
+ * builds, ever writes to the database or claims it can. Financial data (RA
+ * Bills, BOQ, Work Orders) is scoped to the caller's own orders when the
+ * caller is a VENDOR, and Checklists/DPR are omitted for VENDOR entirely —
+ * mirroring the same role checks each of those already applies on their own
+ * list endpoints, so this chatbot never shows a vendor more than the app
+ * already would.
  *
  * Schema notes:
  * - Milestone.vendorUserId -> vendorUser (User relation) for vendor name
@@ -14,6 +34,11 @@ import { prisma } from '@/lib/db';
  * - No "actualEnd" — derive from actualVerification ?? actualSubmission
  * - AuditLog.actionType (not "action")
  */
+
+export interface ViseronAuthContext {
+  role: Role;
+  userId: string;
+}
 
 export interface ViseronAnswer {
   type: 'vendor_delay' | 'risky_milestones' | 'vendor_reliability' | 'project_health' | 'fallback';
@@ -87,6 +112,20 @@ function classifyQuery(query: string): { type: ViseronAnswer['type']; params: Re
     }
   }
   return { type: 'fallback', params: {} };
+}
+
+/** The project's actual configured currency (Project.metadata.currency, set at project
+ * creation) — defaults to INR for projects created before that field existed. Every money
+ * figure Viseron reports, deterministic or AI-generated, must be labeled with this rather
+ * than a hardcoded currency, or it'll silently mislabel non-INR projects. */
+async function getProjectCurrency(projectId: string): Promise<string> {
+  const project = await prisma.project.findUnique({ where: { id: projectId }, select: { metadata: true } });
+  if (!project?.metadata) return 'INR';
+  try {
+    return JSON.parse(project.metadata).currency || 'INR';
+  } catch {
+    return 'INR';
+  }
 }
 
 // ============================================
@@ -198,6 +237,7 @@ async function handleVendorDelay(projectId: string, vendorName: string): Promise
 
 async function handleRiskyMilestones(projectId: string): Promise<ViseronAnswer> {
   const now = new Date();
+  const currency = await getProjectCurrency(projectId);
   const milestones = await prisma.milestone.findMany({
     where: {
       projectId,
@@ -248,7 +288,7 @@ async function handleRiskyMilestones(projectId: string): Promise<ViseronAnswer> 
 
   const summary = risky.length === 0
     ? 'No milestones are currently at risk. All active milestones are on track.'
-    : `${risky.length} milestone(s) at risk: ${critical} critical, ${high} high risk. Total value at risk: ${formatCurrency(risky.reduce((s, r) => s + r.value, 0))}.`;
+    : `${risky.length} milestone(s) at risk: ${critical} critical, ${high} high risk. Total value at risk: ${formatCurrency(risky.reduce((s, r) => s + r.value, 0), currency)}.`;
 
   return {
     type: 'risky_milestones',
@@ -371,7 +411,8 @@ async function handleProjectHealth(projectId: string): Promise<ViseronAnswer> {
     .filter((m) => m.state === 'VERIFIED' || m.state === 'CLOSED')
     .reduce((s, m) => s + (m.value ? Number(m.value) : 0), 0);
 
-  const summary = `Project health: ${healthLabel} (${healthScore}/100). ${completionPct}% milestones complete (${verified}/${total}). ${overdue} overdue, ${blocked} blocked. Value certified: ${formatCurrency(verifiedValue)} of ${formatCurrency(totalValue)}.`;
+  const currency = project.metadata ? (JSON.parse(project.metadata).currency || 'INR') : 'INR';
+  const summary = `Project health: ${healthLabel} (${healthScore}/100). ${completionPct}% milestones complete (${verified}/${total}). ${overdue} overdue, ${blocked} blocked. Value certified: ${formatCurrency(verifiedValue, currency)} of ${formatCurrency(totalValue, currency)}.`;
 
   return {
     type: 'project_health',
@@ -397,32 +438,343 @@ async function handleProjectHealth(projectId: string): Promise<ViseronAnswer> {
 }
 
 // ============================================
+// FULL PROJECT CONTEXT — everything Viseron is allowed to read
+// ============================================
+
+export interface ViseronProjectContext {
+  /** `currency` is the ISO code every monetary figure in this context is denominated in —
+   * always state amounts using this code, never assume INR or infer a currency from `name`/
+   * `description` text. */
+  project: { name: string; status: string; description: string | null; currency: string };
+  health: {
+    healthScore: number;
+    healthLabel: string;
+    completionPct: number;
+    totalMilestones: number;
+    verifiedMilestones: number;
+    overdueMilestones: number;
+    blockedPayments: number;
+    totalValue: number;
+    verifiedValue: number;
+  };
+  schedule: {
+    stateDistribution: Array<{ state: string; count: number }>;
+    upcomingOrOverdue: Array<{
+      title: string;
+      state: string;
+      vendorName: string | null;
+      plannedStart: string | null;
+      plannedEnd: string | null;
+      daysRemaining: number | null;
+    }>;
+  };
+  vendorScores: ViseronDashboardData['vendorScores'];
+  raBills: {
+    total: number;
+    totalSubmittedValue: number;
+    totalApprovedValue: number;
+    totalReleasedValue: number;
+    pendingSiteEngineerReviewCount: number;
+    pendingCertificationCount: number;
+    pendingApprovalCount: number;
+    recent: Array<{
+      orderName: string;
+      billNumber: number;
+      status: string;
+      submittedValue: number | null;
+      approvedValue: number | null;
+      releasedValue: number | null;
+      periodStart: string;
+      periodEnd: string;
+    }>;
+  };
+  boq: {
+    total: number;
+    byStatus: Record<string, number>;
+    recent: Array<{ name: string | null; orderName: string | null; status: string; itemCount: number; plannedValue: number }>;
+  };
+  workOrders: { total: number; byStatus: Record<string, number> };
+  /** null for VENDOR — Checklists are never visible to that role, same as the Documents tab. */
+  checklists: {
+    total: number;
+    byStatus: Record<string, number>;
+    open: Array<{ docRefNo: string; title: string; status: string; referenceDrawingNo: string }>;
+  } | null;
+  /** null for VENDOR — DPRs are never visible to that role, same as the Documents tab. */
+  dpr: {
+    total: number;
+    recent: Array<{ docRefNo: string; reportDate: string; status: string; highlightsCount: number; criticalIssues: string | null }>;
+  } | null;
+  documents: {
+    specsCount: number;
+    otherDocsCount: number;
+    recentTitles: Array<{ title: string; category: string }>;
+  };
+  drawings: { total: number; byStatus: Record<string, number>; byCategory: Record<string, number> };
+  recentActivity: ViseronDashboardData['recentActivity'];
+}
+
+function countBy<T>(rows: T[], key: (row: T) => string): Record<string, number> {
+  const counts: Record<string, number> = {};
+  for (const row of rows) {
+    const k = key(row);
+    counts[k] = (counts[k] ?? 0) + 1;
+  }
+  return counts;
+}
+
+/** Assembles the read-only project snapshot Viseron grounds every free-form answer in.
+ * Scoped exactly like each module's own list endpoint: RA Bills/BOQ/Work Orders narrow to the
+ * caller's own order when they're a VENDOR, Checklists/DPR are omitted entirely for VENDOR, and
+ * Drawings narrow to APPROVED — nothing here is ever visible to a role that couldn't already
+ * see it on the corresponding project page. */
+export async function getProjectFullContext(projectId: string, auth: ViseronAuthContext): Promise<ViseronProjectContext | null> {
+  const project = await prisma.project.findUnique({ where: { id: projectId } });
+  if (!project) return null;
+
+  const currency = project.metadata ? (JSON.parse(project.metadata).currency || 'INR') : 'INR';
+  const isVendor = auth.role === 'VENDOR';
+  const vendorOrderFilter = isVendor ? { order: { vendorUserId: auth.userId } } : {};
+
+  const [dashboard, raBillData, boqRows, workOrderRows, checklistRows, dprRows, specDocs, otherDocs, drawingRows] = await Promise.all([
+    getDashboardData(projectId),
+    RABillService.getForProject(projectId, { vendorUserId: isVendor ? auth.userId : undefined }),
+    prisma.bOQ.findMany({
+      where: { projectId, ...vendorOrderFilter },
+      select: { name: true, boqNumber: true, status: true, order: { select: { name: true } }, items: { select: { plannedValue: true } } },
+      orderBy: { createdAt: 'desc' },
+      take: 20,
+    }),
+    prisma.workOrder.findMany({
+      where: { projectId, ...(isVendor ? { order: { vendorUserId: auth.userId } } : {}) },
+      select: { status: true },
+    }),
+    isVendor
+      ? Promise.resolve(null)
+      : prisma.checklist.findMany({
+          where: { projectId },
+          select: { docRefNo: true, title: true, status: true, referenceDrawingNo: true },
+          orderBy: { createdAt: 'desc' },
+          take: 30,
+        }),
+    isVendor
+      ? Promise.resolve(null)
+      : prisma.dailyProgressReport.findMany({
+          where: { projectId },
+          select: { docRefNo: true, reportDate: true, status: true, criticalIssues: true, highlights: { select: { id: true } } },
+          orderBy: { reportDate: 'desc' },
+          take: 10,
+        }),
+    prisma.projectDocument.count({ where: { projectId, deletedAt: null, category: 'SPEC' } }),
+    prisma.projectDocument.count({ where: { projectId, deletedAt: null, category: 'OTHER' } }),
+    prisma.drawingRow.findMany({
+      where: { projectId, ...(isVendor ? { status: 'APPROVED' } : {}) },
+      select: { status: true, category: true },
+    }),
+  ]);
+
+  const recentDocs = await prisma.projectDocument.findMany({
+    where: { projectId, deletedAt: null },
+    select: { title: true, category: true },
+    orderBy: { createdAt: 'desc' },
+    take: 10,
+  });
+
+  const upcomingOrOverdue = dashboard.riskyMilestones.slice(0, 15).map((m) => ({
+    title: m.title,
+    state: m.state,
+    vendorName: m.vendorName,
+    plannedStart: m.plannedStart,
+    plannedEnd: m.plannedEnd,
+    daysRemaining: m.daysRemaining,
+  }));
+
+  return {
+    project: { name: project.name, status: project.status, description: project.description, currency },
+    health: {
+      healthScore: dashboard.healthScore,
+      healthLabel: dashboard.healthLabel,
+      completionPct: dashboard.completionPct,
+      totalMilestones: dashboard.totalMilestones,
+      verifiedMilestones: dashboard.verifiedMilestones,
+      overdueMilestones: dashboard.overdueMilestones,
+      blockedPayments: dashboard.blockedPayments,
+      totalValue: dashboard.totalValue,
+      verifiedValue: dashboard.verifiedValue,
+    },
+    schedule: { stateDistribution: dashboard.stateDistribution, upcomingOrOverdue },
+    vendorScores: dashboard.vendorScores,
+    raBills: {
+      total: raBillData.total,
+      totalSubmittedValue: raBillData.summary.totalSubmittedValue,
+      totalApprovedValue: raBillData.summary.totalApprovedValue,
+      totalReleasedValue: raBillData.summary.totalReleasedValue,
+      pendingSiteEngineerReviewCount: raBillData.summary.pendingSiteEngineerReviewCount,
+      pendingCertificationCount: raBillData.summary.pendingCertificationCount,
+      pendingApprovalCount: raBillData.summary.pendingApprovalCount,
+      recent: raBillData.raBills.slice(0, 10).map((b) => ({
+        orderName: b.order.name,
+        billNumber: b.billNumber,
+        status: b.status,
+        submittedValue: b.submittedValue,
+        approvedValue: b.approvedValue,
+        releasedValue: b.releasedValue,
+        periodStart: b.periodStart.toISOString().slice(0, 10),
+        periodEnd: b.periodEnd.toISOString().slice(0, 10),
+      })),
+    },
+    boq: {
+      total: boqRows.length,
+      byStatus: countBy(boqRows, (b) => b.status),
+      recent: boqRows.slice(0, 10).map((b) => ({
+        name: b.name ?? b.boqNumber,
+        orderName: b.order?.name ?? null,
+        status: b.status,
+        itemCount: b.items.length,
+        plannedValue: b.items.reduce((s, i) => s + i.plannedValue, 0),
+      })),
+    },
+    workOrders: { total: workOrderRows.length, byStatus: countBy(workOrderRows, (w) => w.status) },
+    checklists: checklistRows === null
+      ? null
+      : {
+          total: checklistRows.length,
+          byStatus: countBy(checklistRows, (c) => c.status),
+          open: checklistRows.filter((c) => c.status !== 'SIGNED').slice(0, 10).map((c) => ({
+            docRefNo: c.docRefNo, title: c.title, status: c.status, referenceDrawingNo: c.referenceDrawingNo,
+          })),
+        },
+    dpr: dprRows === null
+      ? null
+      : {
+          total: dprRows.length,
+          recent: dprRows.map((d) => ({
+            docRefNo: d.docRefNo, reportDate: d.reportDate, status: d.status,
+            highlightsCount: d.highlights.length, criticalIssues: d.criticalIssues,
+          })),
+        },
+    documents: {
+      specsCount: specDocs,
+      otherDocsCount: otherDocs,
+      recentTitles: recentDocs.map((d) => ({ title: d.title, category: d.category })),
+    },
+    drawings: {
+      total: drawingRows.length,
+      byStatus: countBy(drawingRows, (r) => r.status),
+      byCategory: countBy(drawingRows, (r) => r.category),
+    },
+    recentActivity: dashboard.recentActivity,
+  };
+}
+
+// ============================================
+// AI ANSWER GENERATION (Claude)
+// ============================================
+
+const CANNED_FALLBACK =
+  'I can answer questions about this project\'s milestones/schedule, RA Bills and payments, BOQ, ' +
+  'Work Orders, DPRs, Checklists, Documents, and Drawings — e.g. "why is vendor X delayed?", ' +
+  '"which RA bills are pending approval?", "what\'s the BOQ status?", or "what is project health?".';
+
+/** Rewrite a deterministic answer as a natural chat reply, grounded strictly in the
+ * facts already computed — Claude may not add any number, name, or claim not present
+ * in `facts`. Returns the original `deterministicSummary` unchanged if AI is unavailable
+ * or the call fails. */
+async function polishSummary(
+  query: string,
+  deterministicSummary: string,
+  facts: Record<string, unknown>[],
+): Promise<string> {
+  const aiText = await generateAiText({
+    system:
+      'You are Viseron, an AI project-intelligence assistant embedded in a construction ' +
+      'project management platform. Rewrite the given factual summary as a natural, ' +
+      'confident chat answer (2-3 short sentences) to the user\'s exact question. ' +
+      'Use ONLY the facts provided — never invent or alter any number, name, or date ' +
+      'that isn\'t present in them. No markdown, no headers, plain conversational prose.',
+    prompt: `User question: "${query}"\n\nFactual summary: ${deterministicSummary}\n\nSupporting facts (JSON): ${JSON.stringify(facts.slice(0, 10))}`,
+    maxTokens: 220,
+  });
+  return aiText ?? deterministicSummary;
+}
+
+/** Handles queries that don't match one of the four hard-coded patterns by asking Claude to
+ * answer freely, grounded in the full read-only project snapshot (`getProjectFullContext`) —
+ * schedule/gantt, RA Bills & payments, BOQ, Work Orders, DPR, Checklists, Documents, Drawings.
+ * Falls back to the canned "here's what I can answer" message if AI is unavailable, the call
+ * fails, or the context can't be built. */
+async function handleAiFallback(projectId: string, query: string, auth: ViseronAuthContext): Promise<ViseronAnswer> {
+  const fallbackAnswer: ViseronAnswer = {
+    type: 'fallback',
+    query,
+    summary: CANNED_FALLBACK,
+    details: [],
+    confidence: 0,
+    timestamp: new Date().toISOString(),
+  };
+
+  const context = await getProjectFullContext(projectId, auth).catch(() => null);
+  if (!context) return fallbackAnswer;
+
+  const aiText = await generateAiText({
+    system:
+      'You are Viseron, a READ-ONLY AI project-intelligence assistant embedded in a construction ' +
+      'project management platform. You have full read access to this project\'s milestones and ' +
+      'schedule (gantt), RA Bills and payments, BOQ, Work Orders, DPRs, Checklists, Documents, and ' +
+      'Drawings — given to you below as JSON. Answer the user\'s question using ONLY those facts — ' +
+      'never invent a number, name, date, or status not present in them. All monetary figures in ' +
+      'the JSON (submittedValue, approvedValue, releasedValue, totalValue, plannedValue, etc.) are ' +
+      'unitless numbers — always state them using `project.currency`\'s ISO code (e.g. "AED ' +
+      '758,760"), and NEVER assume INR or any other currency, and never infer a currency from the ' +
+      'project name or description text. If the facts don\'t contain enough to answer, say so ' +
+      'plainly rather than guessing. You cannot create, edit, approve, or delete anything — you ' +
+      'only answer questions about existing data; if asked to change something, say you\'re ' +
+      'read-only and point to the relevant page instead. Answer in 2-4 concise, natural sentences. ' +
+      'No markdown.',
+    prompt: `User question: "${query}"\n\nProject facts (JSON):\n${JSON.stringify(context)}`,
+    maxTokens: 320,
+  });
+
+  if (!aiText) return fallbackAnswer;
+
+  return {
+    type: 'fallback',
+    query,
+    summary: aiText,
+    details: [],
+    confidence: 0.6,
+    timestamp: new Date().toISOString(),
+  };
+}
+
+// ============================================
 // MAIN ENTRY POINT
 // ============================================
 
-export async function executeQuery(projectId: string, query: string): Promise<ViseronAnswer> {
-  const { type, params } = classifyQuery(query.trim());
+export async function executeQuery(projectId: string, query: string, auth: ViseronAuthContext): Promise<ViseronAnswer> {
+  const trimmed = query.trim();
+  const { type, params } = classifyQuery(trimmed);
 
+  let answer: ViseronAnswer;
   switch (type) {
     case 'vendor_delay':
-      return handleVendorDelay(projectId, params.vendorName || '');
+      answer = await handleVendorDelay(projectId, params.vendorName || '');
+      break;
     case 'risky_milestones':
-      return handleRiskyMilestones(projectId);
+      answer = await handleRiskyMilestones(projectId);
+      break;
     case 'vendor_reliability':
-      return handleVendorReliability(projectId);
+      answer = await handleVendorReliability(projectId);
+      break;
     case 'project_health':
-      return handleProjectHealth(projectId);
+      answer = await handleProjectHealth(projectId);
+      break;
     default:
-      return {
-        type: 'fallback',
-        query,
-        summary:
-          "I can answer questions like: \"Why is vendor X delayed?\", \"Which milestones are risky?\", \"Which vendor has lowest reliability?\", and \"What is project health?\" — try one of those.",
-        details: [],
-        confidence: 0,
-        timestamp: new Date().toISOString(),
-      };
+      return handleAiFallback(projectId, trimmed, auth);
   }
+
+  const polished = await polishSummary(trimmed, answer.summary, answer.details);
+  return polished === answer.summary ? answer : { ...answer, summary: polished };
 }
 
 // ============================================
@@ -444,6 +796,8 @@ export interface ViseronDashboardData {
     title: string;
     state: string;
     vendorName: string | null;
+    plannedStart: string | null;
+    plannedEnd: string | null;
     daysRemaining: number | null;
     riskLevel: string;
     value: number;
@@ -519,6 +873,8 @@ export async function getDashboardData(projectId: string): Promise<ViseronDashbo
         title: m.title,
         state: m.state,
         vendorName: getVendorName(m),
+        plannedStart: m.plannedStart ? new Date(m.plannedStart).toISOString().slice(0, 10) : null,
+        plannedEnd: m.plannedEnd ? new Date(m.plannedEnd).toISOString().slice(0, 10) : null,
         daysRemaining,
         riskLevel,
         value: m.value ? Number(m.value) : 0,
@@ -598,10 +954,12 @@ export async function getDashboardData(projectId: string): Promise<ViseronDashbo
   };
 }
 
-function formatCurrency(n: number) {
-  return new Intl.NumberFormat('en-IN', {
+const CURRENCY_LOCALE: Record<string, string> = { INR: 'en-IN', AED: 'en-AE', USD: 'en-US', EUR: 'en-IE', GBP: 'en-GB' };
+
+function formatCurrency(n: number, currency: string = 'INR') {
+  return new Intl.NumberFormat(CURRENCY_LOCALE[currency] ?? 'en-US', {
     style: 'currency',
-    currency: 'INR',
+    currency,
     notation: n >= 1_000_000 ? 'compact' : 'standard',
     maximumFractionDigits: n >= 1_000_000 ? 1 : 0,
   }).format(n);

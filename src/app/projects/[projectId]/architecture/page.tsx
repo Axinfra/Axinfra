@@ -697,7 +697,7 @@ export default function ArchitecturePage() {
               {set.description && <p className="text-xs text-[rgba(232,228,220,0.45)] mt-0.5">{set.description}</p>}
             </div>
             <div className="text-right shrink-0">
-              <div className="text-base font-bold text-[var(--ax-accent)]">{formatCurrency(set.cost)}</div>
+              <div className="text-base font-bold text-[var(--ax-accent)]">{formatCurrency(set.cost, project?.currency)}</div>
               <div className="text-xs text-[rgba(232,228,220,0.35)]">{set.currency}</div>
             </div>
           </div>

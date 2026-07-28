@@ -41,14 +41,19 @@ export interface SCurvePoint { date: string; plannedCumulative: number; actualCu
 export interface DelayBucket { bucket: string; count: number; }
 export interface OnTimeTrend  { month: string; onTimePct: number; }
 export interface ProjectOption { id: string; name: string; }
+export interface PaymentCycleMilestone { milestoneId: string; title: string; submittedAt: string; eligibleAt: string; days: number; }
+export interface PaymentCycleDays { avg: number; byMilestone: PaymentCycleMilestone[]; }
 
 export interface VendorPortalData {
   projectId: string;
   projectName: string;
+  /** ISO currency code from the project's own metadata (e.g. "INR", "AED") — defaults to
+   * "INR" server-side for projects created before this existed. */
+  currency: string;
   allProjects: ProjectOption[];
   overview: { kpis: VendorKPIs; milestones: OverviewMilestone[] };
   gantt:    { milestones: GanttMilestone[]; cpm: { projectDuration: number; criticalPath: string[]; hasCycle: boolean }; scheduleConfig: unknown };
-  analytics:{ kpis: AnalyticsKPIs; sCurve: SCurvePoint[]; delayHistogram: DelayBucket[]; paymentCycleDays: { avg: number }; onTimeTrend: OnTimeTrend[] };
+  analytics:{ kpis: AnalyticsKPIs; sCurve: SCurvePoint[]; delayHistogram: DelayBucket[]; paymentCycleDays: PaymentCycleDays; onTimeTrend: OnTimeTrend[] };
 }
 
 interface VendorPortalCtx {
@@ -87,6 +92,7 @@ export function VendorPortalProvider({ children }: { children: React.ReactNode }
       setData({
         projectId:   json.data.projectId,
         projectName: json.data.projectName,
+        currency:    json.data.currency ?? 'INR',
         allProjects: json.allProjects ?? [],
         overview:    json.data.overview,
         gantt:       json.data.gantt,

@@ -1,7 +1,13 @@
+import { differenceInDays, subDays } from 'date-fns';
 import { prisma } from '@/lib/db';
 import { AnalysisService } from '@/services/AnalysisService';
 import { classifyLifecycleStatus, startOfDay } from '@/lib/activityStatus';
 import type { ReportPeriod } from '@/lib/reportPeriod';
+import {
+  computeMilestoneScheduleMetrics, computeProjectScheduleKPIs, computeVendorScorecards, computeSCurve, computeBurndown, estimateDelayCost,
+  type RawMilestone, type VendorMilestone,
+} from '@/lib/scheduleMetrics';
+import { computeCPM, milestonesCpmInputs } from '@/lib/cpm';
 
 const DAY_MS = 86_400_000;
 function computeDuration(startDate: string | null, endDate: string | null, asOf: Date) {
@@ -11,6 +17,185 @@ function computeDuration(startDate: string | null, endDate: string | null, asOf:
   const totalDurationDays = Math.round((end.getTime() - start.getTime()) / DAY_MS);
   const elapsedDays = Math.round((asOf.getTime() - start.getTime()) / DAY_MS);
   return { totalDurationDays, elapsedDays, balanceDays: totalDurationDays - elapsedDays };
+}
+
+interface WbsPhase {
+  id: string;
+  name: string;
+  parentPhaseId: string | null;
+  sortOrder: number;
+  plannedStart: Date | null;
+  plannedEnd: Date | null;
+}
+interface WbsActivity {
+  phaseId: string | null;
+  title: string;
+  lifecycleStatus: string;
+  percentComplete: number;
+  plannedStart: Date | null;
+  plannedEnd: Date | null;
+  vendorName: string | null;
+}
+export interface WbsTreeRow {
+  depth: number;
+  kind: 'PHASE' | 'MILESTONE';
+  code: string;
+  title: string;
+  lifecycleStatus: string;
+  percentComplete: number;
+  plannedStart: Date | null;
+  plannedEnd: Date | null;
+  vendorName: string | null;
+}
+
+/** Real WBS: Phase (Purchase Order / Execution phase, arbitrarily nestable via parentPhaseId)
+ * with its Milestones flattened underneath as indented child rows — a phase-level row's status/%
+ * is a simple rollup (average % / worst-case status) across every milestone under it, direct or
+ * nested, so a glance at the top-level row tells you roughly where that phase stands. */
+function buildWbsTree(phases: WbsPhase[], activities: WbsActivity[]): WbsTreeRow[] {
+  const milestonesByPhase = new Map<string, WbsActivity[]>();
+  const unassigned: WbsActivity[] = [];
+  for (const a of activities) {
+    if (a.phaseId) {
+      const list = milestonesByPhase.get(a.phaseId) ?? [];
+      list.push(a);
+      milestonesByPhase.set(a.phaseId, list);
+    } else {
+      unassigned.push(a);
+    }
+  }
+
+  const childrenByParent = new Map<string, WbsPhase[]>();
+  const roots: WbsPhase[] = [];
+  for (const p of phases) {
+    if (p.parentPhaseId) {
+      const list = childrenByParent.get(p.parentPhaseId) ?? [];
+      list.push(p);
+      childrenByParent.set(p.parentPhaseId, list);
+    } else {
+      roots.push(p);
+    }
+  }
+  const bySortOrder = (a: WbsPhase, b: WbsPhase) => a.sortOrder - b.sortOrder;
+  roots.sort(bySortOrder);
+  for (const list of childrenByParent.values()) list.sort(bySortOrder);
+
+  const rows: WbsTreeRow[] = [];
+
+  const statusForMilestones = (ms: WbsActivity[]): string => {
+    if (ms.length === 0) return 'DRAFT';
+    if (ms.every((m) => m.lifecycleStatus === 'COMPLETE' || m.lifecycleStatus === 'CLOSED')) return 'COMPLETE';
+    if (ms.some((m) => m.lifecycleStatus === 'DELAYED')) return 'DELAYED';
+    if (ms.some((m) => m.lifecycleStatus === 'IN_PROGRESS')) return 'IN_PROGRESS';
+    return 'UPCOMING';
+  };
+  const avgPercent = (ms: WbsActivity[]): number =>
+    ms.length === 0 ? 0 : Math.round(ms.reduce((s, m) => s + m.percentComplete, 0) / ms.length);
+  // Earliest planned start / latest planned end across a set of milestones — used to give a
+  // phase row a date range even when the Phase record itself never got explicit dates, as long
+  // as at least one milestone under it does (otherwise the Gantt/WBS annexure would show a lot
+  // of blank date columns for phases that were never manually dated).
+  const minDate = (ms: WbsActivity[]): Date | null => {
+    const dates = ms.map((m) => m.plannedStart).filter((d): d is Date => d !== null);
+    return dates.length === 0 ? null : new Date(Math.min(...dates.map((d) => d.getTime())));
+  };
+  const maxDate = (ms: WbsActivity[]): Date | null => {
+    const dates = ms.map((m) => m.plannedEnd).filter((d): d is Date => d !== null);
+    return dates.length === 0 ? null : new Date(Math.max(...dates.map((d) => d.getTime())));
+  };
+  const collectDescendantMilestones = (phaseId: string): WbsActivity[] => {
+    let result = [...(milestonesByPhase.get(phaseId) ?? [])];
+    for (const child of childrenByParent.get(phaseId) ?? []) {
+      result = result.concat(collectDescendantMilestones(child.id));
+    }
+    return result;
+  };
+
+  // `code` gives every row a conventional WBS-style number (1, 1.1, 1.2, 2, 2.1...) even for
+  // projects with no MS-Project import — a phase's direct milestones are numbered first, then
+  // its subphases continue the same sibling sequence.
+  const visit = (phase: WbsPhase, depth: number, code: string) => {
+    const descendantMilestones = collectDescendantMilestones(phase.id);
+    rows.push({
+      depth,
+      kind: 'PHASE',
+      code,
+      title: phase.name,
+      lifecycleStatus: statusForMilestones(descendantMilestones),
+      percentComplete: avgPercent(descendantMilestones),
+      plannedStart: phase.plannedStart ?? minDate(descendantMilestones),
+      plannedEnd: phase.plannedEnd ?? maxDate(descendantMilestones),
+      vendorName: null,
+    });
+    const directMilestones = milestonesByPhase.get(phase.id) ?? [];
+    directMilestones.forEach((m, mi) => {
+      rows.push({
+        depth: depth + 1,
+        kind: 'MILESTONE',
+        code: `${code}.${mi + 1}`,
+        title: m.title,
+        lifecycleStatus: m.lifecycleStatus,
+        percentComplete: m.percentComplete,
+        plannedStart: m.plannedStart,
+        plannedEnd: m.plannedEnd,
+        vendorName: m.vendorName,
+      });
+    });
+    const children = childrenByParent.get(phase.id) ?? [];
+    children.forEach((child, ci) => {
+      visit(child, depth + 1, `${code}.${directMilestones.length + ci + 1}`);
+    });
+  };
+
+  roots.forEach((root, i) => visit(root, 0, `${i + 1}`));
+
+  if (unassigned.length > 0) {
+    rows.push({
+      depth: 0,
+      kind: 'PHASE',
+      code: 'U',
+      title: 'Unassigned Activities',
+      lifecycleStatus: statusForMilestones(unassigned),
+      percentComplete: avgPercent(unassigned),
+      plannedStart: null,
+      plannedEnd: null,
+      vendorName: null,
+    });
+    unassigned.forEach((m, mi) => {
+      rows.push({
+        depth: 1,
+        kind: 'MILESTONE',
+        code: `U.${mi + 1}`,
+        title: m.title,
+        lifecycleStatus: m.lifecycleStatus,
+        percentComplete: m.percentComplete,
+        plannedStart: m.plannedStart,
+        plannedEnd: m.plannedEnd,
+        vendorName: m.vendorName,
+      });
+    });
+  }
+
+  return rows;
+}
+
+/** Buckets each milestone's net delay (negative = finished early/ahead, positive = late/overdue)
+ * into the same histogram shape the Execution Intelligence dashboard's Delay Analysis tab uses. */
+function buildDelayHistogram(metrics: Array<{ timeSavedDays: number; overrunDays: number; projectedOverrun: number }>): Array<{ bucket: string; count: number }> {
+  const buckets: Record<string, number> = {
+    '<-14': 0, '-14 to -7': 0, '-7 to 0': 0, '0 (on-time)': 0, '1 to 7': 0, '8 to 14': 0, '>14': 0,
+  };
+  for (const m of metrics) {
+    const delayDays = m.overrunDays + m.projectedOverrun - m.timeSavedDays;
+    if (delayDays < -14) buckets['<-14']++;
+    else if (delayDays < -7) buckets['-14 to -7']++;
+    else if (delayDays < 0) buckets['-7 to 0']++;
+    else if (delayDays === 0) buckets['0 (on-time)']++;
+    else if (delayDays <= 7) buckets['1 to 7']++;
+    else if (delayDays <= 14) buckets['8 to 14']++;
+    else buckets['>14']++;
+  }
+  return Object.entries(buckets).map(([bucket, count]) => ({ bucket, count }));
 }
 
 /**
@@ -46,6 +231,12 @@ export class ReportService {
       allRABills,
       allChecklists,
       drawingVersionsInPeriod,
+      allPhases,
+      allBoqItems,
+      scheduleConfig,
+      escalationsLast30Days,
+      escalationsWindow,
+      paymentEligibilities,
     ] = await Promise.all([
       prisma.project.findUnique({ where: { id: projectId } }),
       prisma.projectRole.findMany({
@@ -97,12 +288,26 @@ export class ReportService {
       }),
       prisma.milestone.findMany({
         where: { projectId },
-        select: { id: true, title: true, state: true, percentComplete: true, plannedStart: true, plannedEnd: true, vendorUser: { select: { name: true } } },
+        select: {
+          id: true, title: true, state: true, percentComplete: true, plannedStart: true, plannedEnd: true,
+          wbsCode: true, outlineLevel: true, phaseId: true, sortOrder: true, value: true,
+          actualVerification: true, actualSubmission: true,
+          vendorUser: { select: { id: true, name: true } },
+          evidence: { orderBy: { submittedAt: 'asc' }, take: 1, select: { submittedAt: true, submittedById: true } },
+          verifications: { orderBy: { verifiedAt: 'asc' }, take: 1, select: { verifiedAt: true } },
+          successorDependencies: { select: { predecessorId: true, lagDays: true } },
+        },
         orderBy: { sortOrder: 'asc' },
       }),
       prisma.rABill.findMany({
         where: { projectId },
-        include: { order: { select: { name: true } } },
+        include: {
+          order: { select: { name: true } },
+          measurementSheets: {
+            orderBy: { uploadedAt: 'asc' },
+            include: { uploadedBy: { select: { name: true } } },
+          },
+        },
         orderBy: [{ order: { name: 'asc' } }, { billNumber: 'asc' }],
       }),
       prisma.checklist.findMany({
@@ -117,6 +322,36 @@ export class ReportService {
         },
         include: { drawingRow: { select: { serialNo: true, name: true, category: true } }, uploadedBy: { select: { name: true } } },
         orderBy: { uploadedAt: 'asc' },
+      }),
+      prisma.phase.findMany({
+        where: { projectId },
+        select: { id: true, name: true, parentPhaseId: true, sortOrder: true, plannedStart: true, plannedEnd: true },
+        orderBy: { sortOrder: 'asc' },
+      }),
+      // Every BOQ line item across every Purchase Order — same "read straight off BOQItem,
+      // don't filter by parent BOQ.status" convention buildWorkOrderPdfData.ts already uses.
+      prisma.bOQItem.findMany({
+        where: { boq: { projectId } },
+        select: {
+          description: true, unit: true, plannedQty: true, rate: true, plannedValue: true,
+          boq: { select: { order: { select: { name: true, sortOrder: true } } } },
+        },
+        orderBy: [{ boq: { order: { sortOrder: 'asc' } } }, { createdAt: 'asc' }],
+      }),
+      prisma.projectScheduleConfig.findUnique({ where: { projectId } }),
+      prisma.followUp.count({
+        where: { projectId, status: 'ESCALATED', createdAt: { gte: subDays(end, 30), lte: end } },
+      }),
+      prisma.followUp.findMany({
+        where: { projectId, status: 'ESCALATED', createdAt: { gte: subDays(end, 11 * 7 + 6), lte: end } },
+        select: { createdAt: true },
+      }),
+      prisma.paymentEligibility.findMany({
+        where: { milestone: { projectId } },
+        include: {
+          events: { where: { toState: 'FULLY_ELIGIBLE' }, orderBy: { createdAt: 'asc' }, take: 1 },
+          milestone: { include: { evidence: { orderBy: { submittedAt: 'asc' }, take: 1, select: { submittedAt: true, submittedById: true, submittedBy: { select: { name: true } } } } } },
+        },
       }),
     ]);
 
@@ -258,9 +493,160 @@ export class ReportService {
       title: m.title,
       lifecycleStatus: classifyLifecycleStatus({ state: m.state, plannedStart: m.plannedStart, plannedEnd: m.plannedEnd }, today),
       percentComplete: m.percentComplete ?? 0,
+      plannedStart: m.plannedStart,
       plannedEnd: m.plannedEnd,
+      wbsCode: m.wbsCode,
+      outlineLevel: m.outlineLevel,
+      phaseId: m.phaseId,
       vendorName: m.vendorUser?.name ?? null,
     }));
+
+    // WBS / Schedule tree — real Phase (Purchase Order / Execution phase) hierarchy with its
+    // Milestones nested underneath, rather than relying on wbsCode/outlineLevel (only populated
+    // for MS-Project-imported schedules — most projects have neither, which would otherwise
+    // render as a flat, un-grouped list). Falls back to an "Unassigned Activities" bucket for any
+    // milestone with no phaseId, so nothing silently disappears from the annexure.
+    const wbsTree = buildWbsTree(allPhases, allActivitiesOut);
+
+    // BOQ line items — every item across every order, for the "Annexure IV — Bill of
+    // Quantities" annexure. Grouping by order happens at format time (buildProjectReportPdfData).
+    const boqItemsOut = allBoqItems.map((item) => ({
+      orderName: item.boq.order?.name ?? 'Unassigned',
+      description: item.description,
+      unit: item.unit,
+      plannedQty: item.plannedQty,
+      rate: item.rate,
+      plannedValue: item.plannedValue,
+    }));
+
+    // ── Execution Intelligence: S-curve, burndown, vendor scorecards, delay/criticality/cost ──
+    // Reuses the exact same pure computation functions (scheduleMetrics.ts, cpm.ts) that power
+    // the Execution Intelligence dashboard, so the report's numbers never disagree with that
+    // page's — "today" here is the report period's end date, not the actual current date, so a
+    // report generated for a past period reflects that period's state, not today's.
+    const rawMilestones: RawMilestone[] = allMilestones.map((m) => ({
+      id: m.id,
+      title: m.title,
+      state: m.state,
+      plannedEnd: m.plannedEnd,
+      actualEnd: m.actualVerification ?? m.actualSubmission ?? null,
+      value: m.value || 1,
+      vendorId: m.vendorUser?.id ?? null,
+      percentComplete: m.percentComplete,
+    }));
+
+    const approvalCycleByMilestone = new Map<string, number | null>();
+    for (const m of allMilestones) {
+      const firstEvidence = m.evidence[0];
+      const firstVerification = m.verifications[0];
+      approvalCycleByMilestone.set(
+        m.id,
+        firstEvidence && firstVerification
+          ? differenceInDays(startOfDay(firstVerification.verifiedAt), startOfDay(firstEvidence.submittedAt))
+          : null,
+      );
+    }
+
+    const projectStartDate = scheduleConfig?.projectStartDate ?? (metadata.startDate ? new Date(metadata.startDate) : start);
+    const cpmInputs = milestonesCpmInputs(
+      allMilestones.map((m) => ({
+        id: m.id, title: m.title, plannedStart: m.plannedStart, plannedEnd: m.plannedEnd, sortOrder: m.sortOrder,
+        predecessorIds: m.successorDependencies.map((d) => d.predecessorId),
+      })),
+      projectStartDate,
+    );
+    const lagMap = new Map<string, number>();
+    for (const m of allMilestones) {
+      for (const dep of m.successorDependencies) lagMap.set(`${dep.predecessorId}→${m.id}`, dep.lagDays);
+    }
+    const cpmResult = computeCPM(cpmInputs, lagMap);
+    const criticalSet = new Set(cpmResult.criticalPath);
+
+    const cycleTimes = Array.from(approvalCycleByMilestone.values()).filter((d): d is number => d !== null && d >= 0);
+    const avgApprovalCycleDays = cycleTimes.length > 0 ? cycleTimes.reduce((s, d) => s + d, 0) / cycleTimes.length : 0;
+
+    const kpis = computeProjectScheduleKPIs(
+      { milestones: rawMilestones, avgApprovalCycleDays, criticalMilestoneCount: criticalSet.size, escalationsLast30Days },
+      end,
+    );
+
+    const vendorMilestones: VendorMilestone[] = allMilestones
+      .filter((m): m is typeof m & { vendorUser: NonNullable<typeof m.vendorUser> } => m.vendorUser !== null)
+      .map((m) => ({
+        id: m.id, title: m.title, state: m.state, plannedEnd: m.plannedEnd,
+        actualEnd: m.actualVerification ?? m.actualSubmission ?? null, value: m.value || 1,
+        percentComplete: m.percentComplete,
+        vendorId: m.vendorUser.id, vendorName: m.vendorUser.name,
+        approvalCycleDays: approvalCycleByMilestone.get(m.id) ?? null,
+        isEscalated: false,
+      }));
+    const vendorScorecards = computeVendorScorecards(vendorMilestones, end);
+
+    const milestonesWithDates = rawMilestones.filter((m) => m.plannedEnd !== null);
+    const allTrendDates = milestonesWithDates.flatMap((m) => [m.plannedEnd, m.actualEnd].filter((d): d is Date => d !== null));
+    const trendFrom = allTrendDates.length > 0 ? new Date(Math.min(...allTrendDates.map((d) => d.getTime()))) : subDays(end, 90);
+    const trendTo = allTrendDates.length > 0 ? new Date(Math.max(...allTrendDates.map((d) => d.getTime()))) : end;
+    const trendMilestones = milestonesWithDates.map((m) => ({ id: m.id, plannedEnd: m.plannedEnd, actualEnd: m.actualEnd, value: m.value }));
+    const sCurveRaw = computeSCurve(trendMilestones, trendFrom, trendTo);
+    const burndownRaw = computeBurndown(trendMilestones, trendFrom, trendTo);
+
+    const delayHistogram = buildDelayHistogram(rawMilestones.map((m) => computeMilestoneScheduleMetrics(m, end)));
+
+    const escalationTrend: Array<{ weekEndDate: Date; count: number }> = [];
+    for (let i = 11; i >= 0; i--) {
+      const weekStart = subDays(end, i * 7 + 6);
+      const weekEnd = subDays(end, i * 7);
+      const count = escalationsWindow.filter((e) => e.createdAt >= weekStart && e.createdAt <= weekEnd).length;
+      escalationTrend.push({ weekEndDate: weekEnd, count });
+    }
+
+    const paymentCycleRows: Array<{ vendorName: string; days: number }> = [];
+    for (const e of paymentEligibilities) {
+      const firstEvidence = e.milestone.evidence[0];
+      const eligibleEvent = e.events[0];
+      if (!firstEvidence || !eligibleEvent) continue;
+      paymentCycleRows.push({
+        vendorName: firstEvidence.submittedBy.name,
+        days: differenceInDays(startOfDay(eligibleEvent.createdAt), startOfDay(firstEvidence.submittedAt)),
+      });
+    }
+    const paymentCycleAvgDays = paymentCycleRows.length > 0 ? paymentCycleRows.reduce((s, r) => s + r.days, 0) / paymentCycleRows.length : 0;
+    const paymentCycleByVendorMap = new Map<string, number[]>();
+    for (const r of paymentCycleRows) {
+      const list = paymentCycleByVendorMap.get(r.vendorName) ?? [];
+      list.push(r.days);
+      paymentCycleByVendorMap.set(r.vendorName, list);
+    }
+    const paymentCycleByVendor = Array.from(paymentCycleByVendorMap.entries()).map(([vendorName, days]) => ({
+      vendorName, avgDays: days.reduce((s, d) => s + d, 0) / days.length,
+    }));
+
+    const totalProjectValue = allMilestones.reduce((s, m) => s + (m.value || 0), 0);
+    const delayCost = estimateDelayCost(kpis.totalOverrunDays, {
+      dailyOverheadCost: scheduleConfig?.dailyOverheadCost ?? 0,
+      penaltyRatePerDay: scheduleConfig?.penaltyRatePerDay ?? 0,
+      opportunityCostFactor: scheduleConfig?.opportunityCostFactor ?? 1.0,
+      totalProjectValue,
+    });
+
+    // Critical + near-critical milestones, tightest float first — capped for a readable report.
+    const criticality = cpmResult.nodes
+      .slice()
+      .sort((a, b) => a.totalFloat - b.totalFloat)
+      .slice(0, 15)
+      .map((n) => ({ title: n.title, isCritical: n.isCritical, totalFloat: n.totalFloat, duration: n.duration }));
+
+    const executionIntelligence = {
+      kpis,
+      vendorScorecards,
+      sCurve: sCurveRaw,
+      burndown: burndownRaw,
+      delayHistogram,
+      escalationTrend,
+      paymentCycles: { avgDays: paymentCycleAvgDays, byVendor: paymentCycleByVendor },
+      delayCost,
+      criticality,
+    };
 
     // Project Stakeholders — Client/PMC/Consultant from ProjectRole (namesByRole above), plus
     // the real vendor names actually assigned to activities (no separate "contractor" concept
@@ -298,7 +684,19 @@ export class ReportService {
       submittedValue: b.submittedValue ?? 0,
       approvedValue: b.approvedValue ?? 0,
       releasedValue: b.releasedValue ?? 0,
+      measurementSheetCount: b.measurementSheets.length,
     }));
+
+    const measurementSheetsOut = allRABills.flatMap((b) =>
+      b.measurementSheets.map((s) => ({
+        billNumber: b.billNumber,
+        orderName: b.order.name,
+        fileName: s.fileName,
+        uploadedByName: s.uploadedBy.name,
+        uploadedAt: s.uploadedAt,
+        remarks: s.remarks,
+      })),
+    );
 
     let allOkCount = 0, allNotOkCount = 0, allNaCount = 0;
     const allChecklistsOut = allChecklists.map((c) => {
@@ -344,6 +742,9 @@ export class ReportService {
       pmcName: namesByRole('PMC'),
       consultantName: namesByRole('CONSULTANT'),
       period,
+      wbsTree,
+      boqItems: boqItemsOut,
+      executionIntelligence,
 
       overview: {
         description: project.description,
@@ -415,6 +816,7 @@ export class ReportService {
         events: billEvents,
         billsTouchedCount: raBillsInPeriod.length,
         allBills: allRABillsOut,
+        measurementSheets: measurementSheetsOut,
       },
 
       checklists: {

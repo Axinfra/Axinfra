@@ -14,7 +14,7 @@ export async function POST(
   { params }: { params: { projectId: string } },
 ) {
   try {
-    await requireProjectAuth(params.projectId);
+    const auth = await requireProjectAuth(params.projectId);
 
     const body = await request.json();
     const query = body?.query;
@@ -33,7 +33,7 @@ export async function POST(
       );
     }
 
-    const result = await executeQuery(params.projectId, query);
+    const result = await executeQuery(params.projectId, query, { role: auth.role, userId: auth.userId });
     return NextResponse.json({ success: true, data: result });
   } catch (err: unknown) {
     const message = err instanceof Error ? err.message : 'Unknown error';

@@ -137,3 +137,18 @@ export const publicFormRateLimiter = new RateLimiter(
     5,
     10 * 60 * 1000
 );
+
+/**
+ * Pre-configured AI-generation rate limiter (Work Order AI draft, and any future AI-drafting
+ * endpoint):
+ *   20 requests per hour per user — every request is a real, billed Claude API call shared
+ *   across every client/tenant on the same Anthropic account (Claude's own rate limits are
+ *   org-wide, not per-tenant), so an unbounded endpoint lets one client's misclick loop or buggy
+ *   retry degrade or exhaust the shared quota for everyone else. 20/hr comfortably covers normal
+ *   PMC usage (a handful of work orders per day) while capping the blast radius of abuse.
+ */
+export const aiGenerationRateLimiter = new RateLimiter(
+    'ai-generate',
+    20,
+    60 * 60 * 1000
+);

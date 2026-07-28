@@ -16,7 +16,7 @@ const PAGE_SIZE = 8;
  * exclusively by the PMC; a vendor's only action here is opening an activity to attach
  * supporting photos/documents on its detail page. */
 export default function VendorWorkPage() {
-  const { data, loading, error } = useVendorPortal();
+  const { data, loading, error, reload } = useVendorPortal();
   const [visibleCount, setVisibleCount] = useState(PAGE_SIZE);
 
   if (loading) return (
@@ -43,7 +43,13 @@ export default function VendorWorkPage() {
   return (
     <Layout>
       <div className="max-w-lg mx-auto space-y-5">
-        <VendorNav title="My Work" projectName={data.projectName} />
+        <VendorNav
+          title="My Work"
+          projectName={data.projectName}
+          allProjects={data.allProjects}
+          currentProjectId={data.projectId}
+          onProjectChange={reload}
+        />
 
         {milestones.length === 0 ? (
           <div className="rounded-[28px] py-16 text-center" style={{ background: 'var(--ax-card)', ...cardShadow }}>

@@ -197,8 +197,8 @@ export default function BOQsListPage() {
                           </td>
                           <td>{item?.unit ?? '—'}</td>
                           <td className="text-right">{item?.plannedQty ?? '—'}</td>
-                          <td className="text-right">{item ? formatCurrency(item.rate) : '—'}</td>
-                          <td className="text-right font-medium">{formatCurrency(totalValue)}</td>
+                          <td className="text-right">{item ? formatCurrency(item.rate, project?.currency) : '—'}</td>
+                          <td className="text-right font-medium">{formatCurrency(totalValue, project?.currency)}</td>
                           <td><StatusBadge status={b.status} /></td>
                           <td>
                             {b.order && b.workOrderStatus ? (

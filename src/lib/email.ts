@@ -568,3 +568,33 @@ export async function sendScheduleUpdatedEmail(
     html,
   });
 }
+
+/** Emails a document/checklist file as a real attachment (not a download link) — used by the
+ * "Share" action on Documents/Checklists. `buffer` is sent as-is; Resend caps attachments at
+ * 40MB total per email, comfortably above this app's existing 10-20MB upload limits. */
+export async function sendShareEmail(
+  to: string,
+  params: { senderName: string; subject: string; note?: string; fileName: string; mimeType: string; buffer: Buffer },
+) {
+  const html = baseTemplate(`
+    <h1 style="margin:0 0 6px;font-size:20px;font-weight:800;color:#e8e4dc;">${escapeHtml(params.subject)}</h1>
+    <p style="margin:0 0 20px;font-size:13.5px;color:rgba(232,228,220,0.55);">${escapeHtml(params.senderName)} shared a file with you via Axinfra.</p>
+
+    ${params.note ? `
+    <div style="background:rgba(255,255,255,0.03);border:1px solid rgba(255,255,255,0.07);border-radius:10px;padding:14px 16px;margin-bottom:16px;">
+      <p style="font-size:13.5px;color:#e8e4dc;margin:0;line-height:1.7;white-space:pre-wrap;">${escapeHtml(params.note)}</p>
+    </div>` : ''}
+
+    <p style="font-size:12px;color:rgba(232,228,220,0.35);margin:0;">
+      Attached: <strong style="color:rgba(232,228,220,0.6);">${escapeHtml(params.fileName)}</strong>
+    </p>
+  `);
+
+  return getResend().emails.send({
+    from: FROM,
+    to,
+    subject: params.subject,
+    html,
+    attachments: [{ filename: params.fileName, content: params.buffer, contentType: params.mimeType }],
+  });
+}

@@ -140,9 +140,9 @@ export default function AnalysisPage() {
           ) : (
             <>
               {activeTab === 'execution' && <ExecutionTab data={tabData.execution} />}
-              {activeTab === 'variance' && <VarianceTab data={tabData.variance} projectId={projectId} />}
-              {activeTab === 'vendor' && <VendorTab data={tabData.vendor} />}
-              {activeTab === 'delay-risk' && <DelayRiskTab data={tabData.delayRisk} />}
+              {activeTab === 'variance' && <VarianceTab data={tabData.variance} projectId={projectId} currency={project?.currency} />}
+              {activeTab === 'vendor' && <VendorTab data={tabData.vendor} currency={project?.currency} />}
+              {activeTab === 'delay-risk' && <DelayRiskTab data={tabData.delayRisk} currency={project?.currency} />}
               {activeTab === 'compliance' && <ComplianceTab data={tabData.compliance} />}
             </>
           )}
@@ -384,7 +384,7 @@ function ExecutionTab({ data }: { data: any }) {
   );
 }
 
-function VarianceTab({ data, projectId }: { data: any; projectId: string }) {
+function VarianceTab({ data, projectId, currency }: { data: any; projectId: string; currency?: string }) {
   if (!data) return <div className="text-center py-8 text-[rgba(232,228,220,0.6)]">No data available</div>;
 
   const router = useRouter();
@@ -438,17 +438,17 @@ function VarianceTab({ data, projectId }: { data: any; projectId: string }) {
         />
         <MetricCard
           label="BOQ Planned Value"
-          value={formatCurrency(bills.totals.totalPlannedValue)}
+          value={formatCurrency(bills.totals.totalPlannedValue, currency)}
           color="gray"
         />
         <MetricCard
           label="Released (Paid) Value"
-          value={formatCurrency(bills.totals.totalReleasedValue)}
+          value={formatCurrency(bills.totals.totalReleasedValue, currency)}
           color="emerald"
         />
         <MetricCard
           label="Bill Variance"
-          value={formatCurrency(bills.totals.totalVariance)}
+          value={formatCurrency(bills.totals.totalVariance, currency)}
           subtext={`${bills.totals.totalVariancePercent > 0 ? '+' : ''}${bills.totals.totalVariancePercent}% of planned`}
           color={Math.abs(bills.totals.totalVariancePercent) > 20 ? 'red' : Math.abs(bills.totals.totalVariancePercent) > 10 ? 'yellow' : 'green'}
         />
@@ -558,12 +558,12 @@ function VarianceTab({ data, projectId }: { data: any; projectId: string }) {
                   {bills.byOrder.map((o: any) => (
                     <tr key={o.orderId} className={rowLinkClass} onClick={() => router.push(`/projects/${projectId}/orders/${o.orderId}`)}>
                       <td className="font-medium">{o.orderName}</td>
-                      <td className="text-right">{formatCurrency(o.boqPlannedValue)}</td>
-                      <td className="text-right text-[rgba(232,228,220,0.6)]">{formatCurrency(o.submittedValue)}</td>
-                      <td className="text-right">{formatCurrency(o.approvedValue)}</td>
-                      <td className="text-right text-green-400">{formatCurrency(o.releasedValue)}</td>
+                      <td className="text-right">{formatCurrency(o.boqPlannedValue, currency)}</td>
+                      <td className="text-right text-[rgba(232,228,220,0.6)]">{formatCurrency(o.submittedValue, currency)}</td>
+                      <td className="text-right">{formatCurrency(o.approvedValue, currency)}</td>
+                      <td className="text-right text-green-400">{formatCurrency(o.releasedValue, currency)}</td>
                       <td className={`text-right font-medium ${Math.abs(o.variancePercent) > 20 ? 'text-red-400' : Math.abs(o.variancePercent) > 10 ? 'text-orange-300' : 'text-[rgba(232,228,220,0.6)]'}`}>
-                        {formatCurrency(o.variance)}
+                        {formatCurrency(o.variance, currency)}
                         <span className="text-xs ml-1">({o.variancePercent > 0 ? '+' : ''}{o.variancePercent}%)</span>
                       </td>
                       <td className="text-right">{o.billCount}</td>
@@ -602,7 +602,7 @@ function VarianceTab({ data, projectId }: { data: any; projectId: string }) {
                     <td>{b.orderName}</td>
                     <td>{b.stage}</td>
                     <td className="text-right text-red-400 font-medium">{b.daysInStage}</td>
-                    <td className="text-right">{formatCurrency(b.amount)}</td>
+                    <td className="text-right">{formatCurrency(b.amount, currency)}</td>
                   </tr>
                 ))}
               </tbody>
@@ -615,7 +615,7 @@ function VarianceTab({ data, projectId }: { data: any; projectId: string }) {
   );
 }
 
-function VendorTab({ data }: { data: any }) {
+function VendorTab({ data, currency }: { data: any; currency?: string }) {
   if (!data) return <div className="text-center py-8 text-[rgba(232,228,220,0.6)]">No data available</div>;
 
   const { vendors, totals } = data;
@@ -645,12 +645,12 @@ function VendorTab({ data }: { data: any }) {
         />
         <MetricCard
           label="Original BOQ Value"
-          value={formatCurrency(totals.totalBoqValue || 0)}
+          value={formatCurrency(totals.totalBoqValue || 0, currency)}
           color="gray"
         />
         <MetricCard
           label="BOQ Overrun"
-          value={formatCurrency(totals.totalOverrunValue || 0)}
+          value={formatCurrency(totals.totalOverrunValue || 0, currency)}
           subtext={totals.totalOverrunValue > 0 ? `+${totals.totalOverrunPercent || 0}%` : '0%'}
           color={totals.totalOverrunValue > 0 ? 'orange' : 'green'}
         />
@@ -697,17 +697,17 @@ function VendorTab({ data }: { data: any }) {
                       {vendor.hasExtras && ' ⚠️'}
                     </span>
                   </td>
-                  <td className="text-right text-[rgba(232,228,220,0.6)]">{formatCurrency(vendor.boqValue || 0)}</td>
-                  <td className="text-right font-medium">{formatCurrency(vendor.contractValue)}</td>
+                  <td className="text-right text-[rgba(232,228,220,0.6)]">{formatCurrency(vendor.boqValue || 0, currency)}</td>
+                  <td className="text-right font-medium">{formatCurrency(vendor.contractValue, currency)}</td>
                   <td className="text-right">
                     {vendor.overrunValue > 0 ? (
                       <span className={vendor.overrunPercent > 10 ? 'text-red-400 font-medium' : 'text-orange-300'}>
-                        +{formatCurrency(vendor.overrunValue)}
+                        +{formatCurrency(vendor.overrunValue, currency)}
                         <span className="text-xs ml-1">({vendor.overrunPercent > 0 ? '+' : ''}{vendor.overrunPercent}%)</span>
                       </span>
                     ) : vendor.overrunValue < 0 ? (
                       <span className="text-green-300">
-                        {formatCurrency(vendor.overrunValue)}
+                        {formatCurrency(vendor.overrunValue, currency)}
                         <span className="text-xs ml-1">({vendor.overrunPercent}%)</span>
                       </span>
                     ) : (
@@ -727,7 +727,7 @@ function VendorTab({ data }: { data: any }) {
         <InsightBox
           text={`${totals.highRiskCount > 0 ? `${totals.highRiskCount} vendor(s) flagged as high risk. ` : ''}${
             totals.totalOverrunPercent > 10
-              ? `Total BOQ overrun of ${totals.totalOverrunPercent}% (${formatCurrency(totals.totalOverrunValue)}) - review contract variations. `
+              ? `Total BOQ overrun of ${totals.totalOverrunPercent}% (${formatCurrency(totals.totalOverrunValue, currency)}) - review contract variations. `
               : ''
           }${
             sortedVendors.some((v: any) => v.hasExtras)
@@ -741,7 +741,7 @@ function VendorTab({ data }: { data: any }) {
   );
 }
 
-function DelayRiskTab({ data }: { data: any }) {
+function DelayRiskTab({ data, currency }: { data: any; currency?: string }) {
   if (!data) return <div className="text-center py-8 text-[rgba(232,228,220,0.6)]">No data available</div>;
 
   const { delayedMilestones, riskBuckets, boqOverruns, overallRiskScore } = data;
@@ -781,7 +781,7 @@ function DelayRiskTab({ data }: { data: any }) {
               <span className="text-2xl font-bold text-green-300">{riskBuckets.safe.count}</span>
             </div>
             <p className="text-sm font-medium text-green-300 mt-2">Safe</p>
-            <p className="text-xs text-[rgba(232,228,220,0.55)]">{formatCurrency(riskBuckets.safe.value)}</p>
+            <p className="text-xs text-[rgba(232,228,220,0.55)]">{formatCurrency(riskBuckets.safe.value, currency)}</p>
           </div>
         </div>
         <div className="card border-[rgba(234,179,8,0.25)]" style={{ backgroundColor: 'rgba(234,179,8,0.06)' }}>
@@ -791,7 +791,7 @@ function DelayRiskTab({ data }: { data: any }) {
               <span className="text-2xl font-bold text-yellow-300">{riskBuckets.attention.count}</span>
             </div>
             <p className="text-sm font-medium text-yellow-300 mt-2">Needs Attention</p>
-            <p className="text-xs text-[rgba(232,228,220,0.55)]">{formatCurrency(riskBuckets.attention.value)}</p>
+            <p className="text-xs text-[rgba(232,228,220,0.55)]">{formatCurrency(riskBuckets.attention.value, currency)}</p>
           </div>
         </div>
         <div className="card border-[rgba(239,68,68,0.25)]" style={{ backgroundColor: 'rgba(239,68,68,0.08)' }}>
@@ -801,7 +801,7 @@ function DelayRiskTab({ data }: { data: any }) {
               <span className="text-2xl font-bold text-red-300">{riskBuckets.immediate.count}</span>
             </div>
             <p className="text-sm font-medium text-red-300 mt-2">Immediate Action</p>
-            <p className="text-xs text-[rgba(232,228,220,0.55)]">{formatCurrency(riskBuckets.immediate.value)}</p>
+            <p className="text-xs text-[rgba(232,228,220,0.55)]">{formatCurrency(riskBuckets.immediate.value, currency)}</p>
           </div>
         </div>
       </div>
@@ -870,8 +870,8 @@ function DelayRiskTab({ data }: { data: any }) {
                 {boqOverruns.map((o: any, i: number) => (
                   <tr key={i}>
                     <td className="font-medium">{o.itemDescription}</td>
-                    <td className="text-right">{formatCurrency(o.plannedValue)}</td>
-                    <td className="text-right">{formatCurrency(o.actualValue)}</td>
+                    <td className="text-right">{formatCurrency(o.plannedValue, currency)}</td>
+                    <td className="text-right">{formatCurrency(o.actualValue, currency)}</td>
                     <td className="text-right text-red-400">+{o.overrunPercent}%</td>
                   </tr>
                 ))}

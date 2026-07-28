@@ -3,7 +3,7 @@
 import { useRouter, usePathname } from 'next/navigation';
 import Link from 'next/link';
 import { useState, useEffect, useRef, FormEvent } from 'react';
-import { Ruler, FileStack, FileBarChart, Contact } from 'lucide-react';
+import { Ruler, FileStack, FileBarChart, Contact, HardHat, MessageCircle } from 'lucide-react';
 import ThemeNavbarPicker from '@/components/ThemeSwitcher';
 import AxinfraLogo from '@/components/AxinfraLogo';
 
@@ -41,8 +41,10 @@ export default function Layout({ children }: LayoutProps) {
   const [user, setUser] = useState<User | null>(null);
   const [sidebarOpen, setSidebarOpen] = useState(false);
   const [isAdminUser, setIsAdminUser] = useState(false);
-  const [isVendorOnly, setIsVendorOnly] = useState(false);
-  const [vendorProjects, setVendorProjects] = useState<ProjectRoleInfo[]>([]);
+  // null = "don't know yet" (session fetch still in flight) — rendering the wrong nav list
+  // (e.g. Documents/Reports meant for PMC/Client) for a vendor-only user during that gap was
+  // the actual bug: it flashed on every refresh before snapping to the correct vendor list.
+  const [isVendorOnly, setIsVendorOnly] = useState<boolean | null>(null);
   const [profileGateOpen, setProfileGateOpen] = useState(false);
 
   // Support modal
@@ -95,9 +97,6 @@ export default function Layout({ children }: LayoutProps) {
           setIsAdminUser(roles.some((r) => r.role === 'CLIENT' || r.role === 'PMC'));
           const vendorOnly = roles.length > 0 && roles.every((r) => r.role === 'VENDOR');
           setIsVendorOnly(vendorOnly);
-          if (vendorOnly) {
-            setVendorProjects(roles.filter((r) => r.role === 'VENDOR'));
-          }
         }
       })
       .catch(console.error);
@@ -128,6 +127,20 @@ export default function Layout({ children }: LayoutProps) {
         .catch(() => {});
     load();
     const id = setInterval(load, 30_000);
+    return () => clearInterval(id);
+  }, []);
+
+  // Unread direct-message count — global (every project the user belongs to), shown as a
+  // header icon so it's reachable from any page on the site, not just from inside a project.
+  const [unreadMessageCount, setUnreadMessageCount] = useState(0);
+  useEffect(() => {
+    const load = () =>
+      fetch('/api/messages/unread-count')
+        .then((r) => r.json())
+        .then((d) => { if (d.success) setUnreadMessageCount(d.data.count); })
+        .catch(() => {});
+    load();
+    const id = setInterval(load, 15_000);
     return () => clearInterval(id);
   }, []);
 
@@ -181,9 +194,13 @@ export default function Layout({ children }: LayoutProps) {
     pathname.match(/^\/viseron-intelligence\/([^/]+)/)?.[1] ??
     null;
 
-  const navItems = isVendorOnly
+  const navItems = isVendorOnly === null
+    ? []
+    : isVendorOnly
     ? [
       { href: '/vendor', label: 'Vendor Portal', icon: VendorIcon },
+      { href: '/vendor/work', label: 'My Work', icon: HardHat },
+      { href: '/vendor/reports', label: 'Reports', icon: FileBarChart },
     ]
     : [
       { href: '/projects', label: 'Projects', icon: FolderIcon },
@@ -253,9 +270,21 @@ export default function Layout({ children }: LayoutProps) {
         <nav className="flex-1 px-3 py-3 overflow-y-auto scrollbar-thin">
           <p className="px-3 mb-2 text-[10px] font-medium uppercase tracking-wider" style={{ color: 'rgba(var(--ax-text-rgb), 0.35)' }}>Menu</p>
           <div className="space-y-0.5">
-            {navItems.map((item) => {
+            {isVendorOnly === null ? (
+              // Session role not resolved yet — a neutral skeleton instead of guessing, so a
+              // vendor-only user never sees the PMC/Client nav list flash before it's replaced.
+              Array.from({ length: 4 }).map((_, i) => (
+                <div key={i} className="h-[34px] mx-3 my-1 rounded-lg animate-pulse" style={{ background: 'var(--ax-overlay)' }} />
+              ))
+            ) : navItems.map((item) => {
               const prefix = 'matchPrefix' in item ? item.matchPrefix : item.href;
-              const isActive = pathname === prefix || pathname.startsWith(prefix + '/');
+              // '/vendor' would otherwise prefix-match '/vendor/work' and '/vendor/reports' too
+              // (both now their own sidebar items) — exclude those subtrees explicitly so only
+              // one item highlights at a time.
+              const isActive =
+                item.href === '/vendor'
+                  ? pathname === '/vendor'
+                  : pathname === prefix || pathname.startsWith(prefix + '/');
               return (
                 <Link
                   key={item.href}
@@ -271,53 +300,6 @@ export default function Layout({ children }: LayoutProps) {
             })}
           </div>
 
-          {/* My Projects – vendor projects grouped by name, each linking to that project's activities */}
-          {isVendorOnly && vendorProjects.length > 0 && (
-            <>
-              <p className="px-3 mt-5 mb-2 text-[10px] font-medium uppercase tracking-wider" style={{ color: 'rgba(var(--ax-text-rgb), 0.35)' }}>My Projects</p>
-              <div className="space-y-0.5">
-                {vendorProjects.map((vp) => {
-                  const milestoneHref = `/projects/${vp.projectId}/activities`;
-                  const isActive = pathname === milestoneHref || pathname.startsWith(milestoneHref + '/');
-                  const architectureHref = `/projects/${vp.projectId}/architecture`;
-                  const isArchitectureActive = pathname === architectureHref || pathname.startsWith(architectureHref + '/');
-                  const documentsHref = `/projects/${vp.projectId}/documents`;
-                  const isDocumentsActive = pathname === documentsHref || pathname.startsWith(documentsHref + '/');
-                  return (
-                    <div key={vp.projectId}>
-                      <Link
-                        href={milestoneHref}
-                        onClick={() => setSidebarOpen(false)}
-                        className={`flex items-center gap-2.5 px-3 py-2 rounded-lg text-[13px] font-medium transition-colors duration-100
-                          ${isActive ? 'ax-nav-active' : 'ax-nav-item'}`}
-                      >
-                        <FlagIcon className="w-[18px] h-[18px] shrink-0" />
-                        {vp.projectName}
-                      </Link>
-                      <Link
-                        href={architectureHref}
-                        onClick={() => setSidebarOpen(false)}
-                        className={`flex items-center gap-2.5 pl-9 pr-3 py-1.5 rounded-lg text-[12px] font-medium transition-colors duration-100
-                          ${isArchitectureActive ? 'ax-nav-active' : 'ax-nav-item'}`}
-                      >
-                        <Ruler className="w-[14px] h-[14px] shrink-0" />
-                        Architecture
-                      </Link>
-                      <Link
-                        href={documentsHref}
-                        onClick={() => setSidebarOpen(false)}
-                        className={`flex items-center gap-2.5 pl-9 pr-3 py-1.5 rounded-lg text-[12px] font-medium transition-colors duration-100
-                          ${isDocumentsActive ? 'ax-nav-active' : 'ax-nav-item'}`}
-                      >
-                        <FileStack className="w-[14px] h-[14px] shrink-0" />
-                        Documents
-                      </Link>
-                    </div>
-                  );
-                })}
-              </div>
-            </>
-          )}
         </nav>
 
         {/* Support button */}
@@ -395,6 +377,25 @@ export default function Layout({ children }: LayoutProps) {
 
             {user && (
               <Link href="/profile" className="text-[13px] hidden sm:block px-2 hover:underline" style={{ color: 'rgba(var(--ax-text-rgb), 0.55)' }}>{user.name}</Link>
+            )}
+
+            {/* Messages — reachable from every page, not just from inside a project. Jumps
+                straight into the current project's thread list if one is selected, otherwise
+                to the project picker (a conversation needs a project context). */}
+            {user && (
+              <Link
+                href={currentProjectId ? `/projects/${currentProjectId}/messages` : '/projects'}
+                className="relative p-2 rounded-lg transition-colors"
+                style={{ color: 'rgba(var(--ax-text-rgb), 0.5)' }}
+                aria-label="Messages"
+              >
+                <MessageCircle className="w-5 h-5" />
+                {unreadMessageCount > 0 && (
+                  <span className="absolute top-1 right-1 w-4 h-4 rounded-full bg-[#e06050] text-white text-[9px] font-bold flex items-center justify-center">
+                    {unreadMessageCount > 9 ? '9+' : unreadMessageCount}
+                  </span>
+                )}
+              </Link>
             )}
 
             {/* Notification bell */}
@@ -663,14 +664,6 @@ function VendorIcon({ className }: { className?: string }) {
   return (
     <svg className={className} fill="none" viewBox="0 0 24 24" strokeWidth={1.5} stroke="currentColor">
       <path strokeLinecap="round" strokeLinejoin="round" d="M13.5 21v-7.5a.75.75 0 01.75-.75h3a.75.75 0 01.75.75V21m-4.5 0H2.36m11.14 0H18m0 0h3.64m-1.39 0V9.349m-16.5 11.65V9.35m0 0a3.001 3.001 0 003.75-.615A2.993 2.993 0 009.75 9.75c.896 0 1.7-.393 2.25-1.016a2.993 2.993 0 002.25 1.016c.896 0 1.7-.393 2.25-1.016a3.001 3.001 0 003.75.614m-16.5 0a3.004 3.004 0 01-.621-4.72L4.318 3.44A1.5 1.5 0 015.378 3h13.243a1.5 1.5 0 011.06.44l1.19 1.189a3 3 0 01-.621 4.72m-13.5 8.65h3.75a.75.75 0 00.75-.75V13.5a.75.75 0 00-.75-.75H6.75a.75.75 0 00-.75.75v3.75c0 .415.336.75.75.75z" />
-    </svg>
-  );
-}
-
-function FlagIcon({ className }: { className?: string }) {
-  return (
-    <svg className={className} fill="none" viewBox="0 0 24 24" strokeWidth={1.5} stroke="currentColor">
-      <path strokeLinecap="round" strokeLinejoin="round" d="M3 3v1.5M3 21v-6m0 0 2.77-.693a9 9 0 0 1 6.208.682l.108.054a9 9 0 0 0 6.086.71l3.114-.732a48.524 48.524 0 0 1-.005-10.499l-3.11.732a9 9 0 0 1-6.085-.711l-.108-.054a9 9 0 0 0-6.208-.682L3 4.5M3 15V4.5" />
     </svg>
   );
 }

@@ -104,10 +104,13 @@ export async function GET(
       );
     }
 
+    const metadata = project.metadata ? JSON.parse(project.metadata) : {};
+
     return NextResponse.json({
       success: true,
       data: {
         ...project,
+        currency: metadata.currency || 'INR',
         myRole: auth.role,
         myUserId: auth.userId,
         permissions: RoleGuard.getPermissions(auth.role),

@@ -1,12 +1,16 @@
 import QRCode from 'qrcode';
 import { ReportService } from '@/services/ReportService';
+import { AIReportSummaryService } from '@/services/AIReportSummaryService';
 import { fileStorage } from '@/lib/file-storage';
 import type { ReportPeriod } from '@/lib/reportPeriod';
 import { formatDate, formatDateTime } from '@/lib/utils';
 import { getLogoDataUri } from './logo';
 import { formatCurrencyForPdf, qtyFormatter } from './format';
 import { GOLD } from './theme';
-import type { ProjectReportPdfData, ReportEvidencePhotoGroup } from './types';
+import type {
+  ProjectReportPdfData, ReportEvidencePhotoGroup, ReportSCurvePoint, ReportGanttRow, ReportWbsRow, ReportBoqOrderGroup,
+  ReportExecutionKpis, ReportVendorScorecardRow, ReportDelayBucket, ReportEscalationWeek, ReportPaymentCycles, ReportDelayCost, ReportCriticalityRow,
+} from './types';
 
 const pct = (n: number) => `${n.toFixed(1)}%`;
 const GREEN = '#5cba80';
@@ -31,6 +35,138 @@ export async function buildProjectReportPdfData(params: { projectId: string; per
 
   const periodTypeLabel = period.type === 'WEEK' ? 'Weekly' : 'Monthly';
 
+  // ── WBS / Schedule (Annexure I) + Gantt timeline — both built from the real Phase→Milestone
+  // hierarchy (data.wbsTree from ReportService), not wbsCode/outlineLevel: those are only ever
+  // populated for MS-Project-imported schedules, so most projects would otherwise render as a
+  // flat, un-grouped list here.
+  const wbs: ReportWbsRow[] = data.wbsTree.map((row) => ({
+    wbsCode: row.code,
+    kind: row.kind,
+    indent: Math.min(row.depth, 4),
+    title: row.title,
+    lifecycleStatus: row.lifecycleStatus,
+    percentComplete: row.percentComplete,
+    plannedStartFormatted: row.plannedStart ? formatDate(row.plannedStart) : '—',
+    plannedEndFormatted: row.plannedEnd ? formatDate(row.plannedEnd) : '—',
+    vendorName: row.vendorName ?? '—',
+  }));
+
+  // Gantt plots PHASE rows (which roll up to a date range even when the phase itself has no
+  // explicit dates, as long as a descendant milestone does — see ReportService.buildWbsTree) plus
+  // any MILESTONE row with its own dates, capped for readability, sorted by start date.
+  const GANTT_MAX_ROWS = 25;
+  const ganttSource = data.wbsTree
+    .filter((row) => row.plannedStart && row.plannedEnd)
+    .sort((a, b) => a.plannedStart!.getTime() - b.plannedStart!.getTime())
+    .slice(0, GANTT_MAX_ROWS);
+  let gantt: ReportGanttRow[] = [];
+  if (ganttSource.length > 0) {
+    const minStart = Math.min(...ganttSource.map((r) => r.plannedStart!.getTime()));
+    const maxEnd = Math.max(...ganttSource.map((r) => r.plannedEnd!.getTime()));
+    const totalSpan = Math.max(maxEnd - minStart, 1);
+    gantt = ganttSource.map((r) => ({
+      kind: r.kind,
+      indent: Math.min(r.depth, 2),
+      title: r.title,
+      lifecycleStatus: r.lifecycleStatus,
+      startOffsetPercent: ((r.plannedStart!.getTime() - minStart) / totalSpan) * 100,
+      durationPercent: Math.max(((r.plannedEnd!.getTime() - r.plannedStart!.getTime()) / totalSpan) * 100, 0.5),
+      plannedStartFormatted: formatDate(r.plannedStart),
+      plannedEndFormatted: formatDate(r.plannedEnd),
+    }));
+  }
+
+  // ── S-Curve & Burndown — computed directly from every milestone's planned/actual dates via
+  // the same Execution Intelligence engine (scheduleMetrics.ts) that powers that dashboard, so
+  // these show real, meaningful data immediately rather than needing weeks of accumulated
+  // snapshots to become a proper curve.
+  const sCurve: ReportSCurvePoint[] = data.executionIntelligence.sCurve.map((p) => ({
+    periodLabel: formatDate(new Date(p.date)),
+    plannedPercent: p.plannedCumulative,
+    actualPercent: p.actualCumulative,
+  }));
+  const burndown: ReportSCurvePoint[] = data.executionIntelligence.burndown.map((p) => ({
+    periodLabel: formatDate(new Date(p.date)),
+    plannedPercent: p.plannedRemaining,
+    actualPercent: p.actualRemaining,
+  }));
+
+  const { kpis, vendorScorecards: rawVendorScorecards, delayHistogram: rawDelayHistogram, escalationTrend: rawEscalationTrend, paymentCycles: rawPaymentCycles, delayCost: rawDelayCost, criticality: rawCriticality } = data.executionIntelligence;
+
+  const executionKpis: ReportExecutionKpis = {
+    netScheduleDaysFormatted: `${kpis.netScheduleDays >= 0 ? '+' : ''}${kpis.netScheduleDays} day(s)`,
+    totalSavedDaysFormatted: `${kpis.totalSavedDays} day(s)`,
+    totalOverrunDaysFormatted: `${kpis.totalOverrunDays} day(s)`,
+    onTimePctFormatted: pct(kpis.onTimePct),
+    avgApprovalCycleDaysFormatted: `${kpis.avgApprovalCycleDays} day(s)`,
+    criticalMilestoneCount: kpis.criticalMilestoneCount,
+    escalationsLast30Days: kpis.escalationsLast30Days,
+    completedMilestones: kpis.completedMilestones,
+    totalMilestones: kpis.totalMilestones,
+  };
+
+  const vendorScorecards: ReportVendorScorecardRow[] = rawVendorScorecards.map((v) => ({
+    vendorName: v.vendorName,
+    totalMilestones: v.totalMilestones,
+    completedOnTime: v.completedOnTime,
+    completedLate: v.completedLate,
+    inProgress: v.inProgress,
+    onTimePctFormatted: pct(v.onTimePct),
+    avgDelayDaysFormatted: `${v.avgDelayDays} day(s)`,
+    avgApprovalCycleDaysFormatted: `${v.avgApprovalCycleDays} day(s)`,
+    escalationCount: v.escalationCount,
+    rank: v.rank,
+  }));
+
+  const delayHistogram: ReportDelayBucket[] = rawDelayHistogram;
+
+  const escalationTrend: ReportEscalationWeek[] = rawEscalationTrend.map((w) => ({
+    weekLabel: formatDate(w.weekEndDate),
+    count: w.count,
+  }));
+
+  const paymentCycles: ReportPaymentCycles = {
+    avgDaysFormatted: `${Math.round(rawPaymentCycles.avgDays * 10) / 10} day(s)`,
+    byVendor: rawPaymentCycles.byVendor.map((v) => ({ vendorName: v.vendorName, avgDaysFormatted: `${Math.round(v.avgDays * 10) / 10} day(s)` })),
+  };
+
+  const delayCost: ReportDelayCost = {
+    isConfigured: rawDelayCost.isConfigured,
+    totalOverrunDays: rawDelayCost.totalOverrunDays,
+    overheadCostFormatted: formatCurrencyForPdf(rawDelayCost.overheadCost),
+    penaltyCostFormatted: formatCurrencyForPdf(rawDelayCost.penaltyCost),
+    opportunityCostFormatted: formatCurrencyForPdf(rawDelayCost.opportunityCost),
+    totalEstimatedCostFormatted: formatCurrencyForPdf(rawDelayCost.totalEstimatedCost),
+  };
+
+  const criticality: ReportCriticalityRow[] = rawCriticality.map((c) => ({
+    title: c.title,
+    isCritical: c.isCritical,
+    totalFloatDaysFormatted: `${c.totalFloat} day(s)`,
+    durationDaysFormatted: `${c.duration} day(s)`,
+  }));
+
+  // BOQ line items grouped by Purchase Order, for Annexure IV.
+  const boqByOrderMap = new Map<string, typeof data.boqItems>();
+  for (const item of data.boqItems) {
+    const list = boqByOrderMap.get(item.orderName) ?? [];
+    list.push(item);
+    boqByOrderMap.set(item.orderName, list);
+  }
+  const boqByOrder: ReportBoqOrderGroup[] = Array.from(boqByOrderMap.entries()).map(([orderName, items]) => ({
+    orderName,
+    items: items.map((item, i) => ({
+      itemNo: i + 1,
+      description: item.description,
+      unit: item.unit,
+      plannedQtyFormatted: qtyFormatter.format(item.plannedQty),
+      rateFormatted: formatCurrencyForPdf(item.rate),
+      plannedValueFormatted: formatCurrencyForPdf(item.plannedValue),
+    })),
+    subtotalFormatted: formatCurrencyForPdf(items.reduce((sum, item) => sum + item.plannedValue, 0)),
+  }));
+  const boqGrandTotal = data.boqItems.reduce((sum, item) => sum + item.plannedValue, 0);
+
   // Evidence photos — read each image's bytes and embed as a data URI, same technique as
   // buildDPRPdfData.ts's photo loop (react-pdf's Image needs a public URL or a data URI, and
   // these live behind private storage).
@@ -53,7 +189,7 @@ export async function buildProjectReportPdfData(params: { projectId: string; per
     });
   }
 
-  return {
+  const pdfData = {
     projectName: data.project.name,
     clientName: data.clientName,
     pmcName: data.pmcName,
@@ -233,6 +369,15 @@ export async function buildProjectReportPdfData(params: { projectId: string; per
         submittedValueFormatted: formatCurrencyForPdf(b.submittedValue),
         approvedValueFormatted: formatCurrencyForPdf(b.approvedValue),
         releasedValueFormatted: formatCurrencyForPdf(b.releasedValue),
+        measurementSheetCount: b.measurementSheetCount,
+      })),
+      measurementSheets: data.payments.measurementSheets.map((s) => ({
+        billLabel: `RA-${s.billNumber}`,
+        orderName: s.orderName,
+        fileName: s.fileName,
+        uploadedByName: s.uploadedByName,
+        dateFormatted: formatDate(s.uploadedAt),
+        remarks: s.remarks || null,
       })),
     },
 
@@ -316,8 +461,44 @@ export async function buildProjectReportPdfData(params: { projectId: string; per
       dateFormatted: formatDate(d.date),
     })),
 
+    wbs,
+    gantt,
+    sCurve,
+    burndown,
+    boq: { byOrder: boqByOrder, grandTotalFormatted: formatCurrencyForPdf(boqGrandTotal) },
+    executionKpis,
+    vendorScorecards,
+    delayHistogram,
+    escalationTrend,
+    paymentCycles,
+    delayCost,
+    criticality,
+
     generatedAtFormatted: formatDateTime(new Date()),
     logoDataUri: getLogoDataUri(),
     qrDataUri,
+  };
+
+  const insights = await AIReportSummaryService.generateExecutiveInsights({
+    projectId,
+    periodType: period.type,
+    periodStart: period.start,
+    periodEnd: period.end,
+    data: pdfData,
+  });
+
+  return {
+    ...pdfData,
+    aiExecutiveSummary: insights?.summary ?? null,
+    aiRecommendations: insights?.recommendations ?? null,
+    aiScheduleNote: insights?.scheduleNote ?? null,
+    aiFinancialNote: insights?.financialNote ?? null,
+    aiQualityNote: insights?.qualityNote ?? null,
+    aiResourceNote: insights?.resourceNote ?? null,
+    aiRiskNote: insights?.riskNote ?? null,
+    aiOverviewNote: insights?.overviewNote ?? null,
+    aiBoqNote: insights?.boqNote ?? null,
+    aiExecutionNote: insights?.executionNote ?? null,
+    aiCostRiskNote: insights?.costRiskNote ?? null,
   };
 }

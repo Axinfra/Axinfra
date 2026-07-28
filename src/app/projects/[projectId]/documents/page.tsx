@@ -1,16 +1,17 @@
 'use client';
 
-import { useState } from 'react';
+import { useEffect, useRef, useState } from 'react';
 import { useParams, useRouter } from 'next/navigation';
 import useSWR from 'swr';
 import Link from 'next/link';
-import { Plus, FileText, ClipboardList, CalendarDays, Trash2, Upload } from 'lucide-react';
+import { Plus, FileText, ClipboardList, CalendarDays, Trash2, Upload, Share2, Search, X, Link as LinkIcon, PenTool, Ruler } from 'lucide-react';
 import Layout from '@/components/Layout';
 import Navbar from '@/components/Navbar';
 import ProjectSwitcher from '@/components/ProjectSwitcher';
+import ShareModal from '@/components/ShareModal';
 import { useProject } from '@/lib/contexts/ProjectContext';
 import { jsonFetcher } from '@/lib/fetcher';
-import { formatDate } from '@/lib/utils';
+import { formatDate, formatDateTime } from '@/lib/utils';
 import { TablePageSkeleton } from '@/components/ui/SkeletonPage';
 import { parseChecklistExcel } from '@/lib/excel/parseChecklistExcel';
 
@@ -59,6 +60,7 @@ export default function DocumentsPage() {
   const [createError, setCreateError] = useState('');
   const [creating, setCreating] = useState(false);
   const [parsingExcel, setParsingExcel] = useState(false);
+  const [shareChecklist, setShareChecklist] = useState<ChecklistSummary | null>(null);
 
   // Drawing picker for "Reference Drawing No." — only fetched while the modal is open. A
   // <datalist> combobox rather than a plain <select> so PMC can still type a drawing that
@@ -153,6 +155,10 @@ export default function DocumentsPage() {
           <p className="text-sm text-[rgba(232,228,220,0.45)] mt-0.5">Specs, checklists, and daily progress reports</p>
         </div>
 
+        {/* Search across every document type tied to this project — drawings, specs/other
+            docs, checklists, DPRs, and RA Bill measurement sheets — without leaving this page */}
+        <DocumentSearchBar projectId={projectId} />
+
         {/* Inner tab bar */}
         <div className="border-b" style={{ borderColor: 'var(--ax-border)' }}>
           <div className="flex gap-1 overflow-x-auto scrollbar-thin pb-0.5">
@@ -201,22 +207,31 @@ export default function DocumentsPage() {
                 <div className="card-body p-0">
                   <div className="divide-y" style={{ borderColor: 'var(--ax-border-subtle)' }}>
                     {checklists.map((c) => (
-                      <Link
-                        key={c.id}
-                        href={`/projects/${projectId}/documents/checklists/${c.id}`}
-                        className="flex items-center justify-between gap-3 px-5 py-3 hover:bg-[rgba(var(--ax-accent-rgb),0.03)] transition-colors"
-                      >
-                        <div className="flex items-center gap-2.5 min-w-0">
-                          <ClipboardList className="w-4 h-4 shrink-0" style={{ color: 'rgba(var(--ax-text-rgb),0.4)' }} />
-                          <div className="min-w-0">
-                            <p className="text-sm truncate" style={{ color: 'var(--ax-text)' }}>{c.docRefNo} · {c.title}</p>
-                            <p className="text-xs mt-0.5" style={{ color: 'rgba(232,228,220,0.35)' }}>
-                              Drawing {c.referenceDrawingNo} · {c.filledCount}/{c.itemCount} filled · by {c.createdByName} on {formatDate(c.createdAt)}
-                            </p>
+                      <div key={c.id} className="flex items-center gap-2 px-5 py-3 hover:bg-[rgba(var(--ax-accent-rgb),0.03)] transition-colors">
+                        <Link
+                          href={`/projects/${projectId}/documents/checklists/${c.id}`}
+                          className="flex-1 flex items-center justify-between gap-3 min-w-0"
+                        >
+                          <div className="flex items-center gap-2.5 min-w-0">
+                            <ClipboardList className="w-4 h-4 shrink-0" style={{ color: 'rgba(var(--ax-text-rgb),0.4)' }} />
+                            <div className="min-w-0">
+                              <p className="text-sm truncate" style={{ color: 'var(--ax-text)' }}>{c.docRefNo} · {c.title}</p>
+                              <p className="text-xs mt-0.5" style={{ color: 'rgba(232,228,220,0.35)' }}>
+                                Drawing {c.referenceDrawingNo} · {c.filledCount}/{c.itemCount} filled · by {c.createdByName} on {formatDate(c.createdAt)}
+                              </p>
+                            </div>
                           </div>
-                        </div>
-                        <span className={`badge ${STATUS_BADGE[c.status] ?? 'badge-draft'} shrink-0`}>{c.status.replace('_', ' ')}</span>
-                      </Link>
+                          <span className={`badge ${STATUS_BADGE[c.status] ?? 'badge-draft'} shrink-0`}>{c.status.replace('_', ' ')}</span>
+                        </Link>
+                        <button
+                          onClick={() => setShareChecklist(c)}
+                          className="p-1.5 rounded transition-colors shrink-0"
+                          style={{ color: 'rgba(232,228,220,0.4)' }}
+                          title="Share via email or message"
+                        >
+                          <Share2 className="w-3.5 h-3.5" />
+                        </button>
+                      </div>
                     ))}
                   </div>
                 </div>
@@ -313,6 +328,15 @@ export default function DocumentsPage() {
           </div>
         </div>
       )}
+
+      {shareChecklist && (
+        <ShareModal
+          projectId={projectId}
+          shareUrl={`/api/projects/${projectId}/checklists/${shareChecklist.id}/share`}
+          itemLabel={`${shareChecklist.docRefNo} · ${shareChecklist.title}`}
+          onClose={() => setShareChecklist(null)}
+        />
+      )}
     </Layout>
   );
 }
@@ -338,6 +362,7 @@ function DocumentLibraryTab({ projectId, category, myRole }: { projectId: string
   const [file, setFile] = useState<File | null>(null);
   const [error, setError] = useState('');
   const [uploading, setUploading] = useState(false);
+  const [shareDoc, setShareDoc] = useState<ProjectDocumentSummary | null>(null);
 
   const canUpload = myRole === 'PMC' || myRole === 'CONSULTANT';
   const label = category === 'SPEC' ? 'Specs' : 'Other Docs';
@@ -418,6 +443,16 @@ function DocumentLibraryTab({ projectId, category, myRole }: { projectId: string
                         Download
                       </a>
                     )}
+                    {d.files[0] && (
+                      <button
+                        onClick={() => setShareDoc(d)}
+                        className="p-1 rounded transition-colors"
+                        style={{ color: 'rgba(232,228,220,0.4)' }}
+                        title="Share via email or message"
+                      >
+                        <Share2 className="w-3.5 h-3.5" />
+                      </button>
+                    )}
                     {canUpload && (
                       <button onClick={() => void handleDelete(d.id)} className="p-1 rounded hover:text-[#e06050] transition-colors" style={{ color: 'rgba(232,228,220,0.3)' }}>
                         <Trash2 className="w-3.5 h-3.5" />
@@ -460,6 +495,15 @@ function DocumentLibraryTab({ projectId, category, myRole }: { projectId: string
             </div>
           </div>
         </div>
+      )}
+
+      {shareDoc && (
+        <ShareModal
+          projectId={projectId}
+          shareUrl={`/api/projects/${projectId}/documents/${shareDoc.id}/share`}
+          itemLabel={shareDoc.title}
+          onClose={() => setShareDoc(null)}
+        />
       )}
     </div>
   );
@@ -550,6 +594,220 @@ function DPRTab({ projectId, myRole }: { projectId: string; myRole: string }) {
           </div>
         </div>
       )}
+    </div>
+  );
+}
+
+// ── Document search — search every doc type for this project (drawings, specs/other docs,
+// checklists, DPRs, measurement sheets) from one bar without leaving Documents ────────────
+interface DrawingVersionSummary {
+  id: string;
+  versionNumber: number;
+  uploadType: string;
+  fileUrl: string;
+  fileName: string | null;
+  reviewStatus: string;
+  uploadedAt: string;
+  uploadedBy: { name: string };
+}
+
+interface DrawingRowSummary {
+  id: string;
+  serialNo: number;
+  name: string;
+  category: string;
+  floor: string;
+  status: string;
+  versions: DrawingVersionSummary[];
+}
+
+type DocSearchResultType = 'DRAWING' | 'SPEC' | 'OTHER' | 'CHECKLIST' | 'DPR' | 'MEASUREMENT_SHEET';
+
+interface DocSearchResult {
+  type: DocSearchResultType;
+  id: string;
+  title: string;
+  subtitle: string;
+  href?: string;
+  drawing?: DrawingRowSummary;
+}
+
+const DOC_SEARCH_TYPE_LABEL: Record<DocSearchResultType, string> = {
+  DRAWING: 'Drawing',
+  SPEC: 'Spec',
+  OTHER: 'Other Doc',
+  CHECKLIST: 'Checklist',
+  DPR: 'DPR',
+  MEASUREMENT_SHEET: 'Measurement Sheet',
+};
+
+const DOC_SEARCH_TYPE_ICON: Record<DocSearchResultType, typeof FileText> = {
+  DRAWING: PenTool,
+  SPEC: FileText,
+  OTHER: FileText,
+  CHECKLIST: ClipboardList,
+  DPR: CalendarDays,
+  MEASUREMENT_SHEET: Ruler,
+};
+
+// Debounced so typing doesn't fire a search request per keystroke.
+function useDebouncedValue<T>(value: T, delayMs: number): T {
+  const [debounced, setDebounced] = useState(value);
+  useEffect(() => {
+    const t = setTimeout(() => setDebounced(value), delayMs);
+    return () => clearTimeout(t);
+  }, [value, delayMs]);
+  return debounced;
+}
+
+function DocumentSearchBar({ projectId }: { projectId: string }) {
+  const router = useRouter();
+  const [query, setQuery] = useState('');
+  const [focused, setFocused] = useState(false);
+  const [previewRow, setPreviewRow] = useState<DrawingRowSummary | null>(null);
+  const containerRef = useRef<HTMLDivElement>(null);
+
+  const q = query.trim();
+  const debouncedQ = useDebouncedValue(q, 250);
+
+  const { data: results, isLoading } = useSWR<DocSearchResult[]>(
+    projectId && debouncedQ.length > 0 ? `/api/projects/${projectId}/documents/search?q=${encodeURIComponent(debouncedQ)}` : null,
+    jsonFetcher,
+  );
+
+  useEffect(() => {
+    const handler = (e: MouseEvent) => {
+      if (containerRef.current && !containerRef.current.contains(e.target as Node)) setFocused(false);
+    };
+    document.addEventListener('mousedown', handler);
+    return () => document.removeEventListener('mousedown', handler);
+  }, []);
+
+  const handleSelect = (r: DocSearchResult) => {
+    setFocused(false);
+    if (r.type === 'DRAWING' && r.drawing) {
+      setPreviewRow(r.drawing);
+    } else if (r.href) {
+      if (r.href.startsWith('/api/')) window.open(r.href, '_blank', 'noopener,noreferrer');
+      else router.push(r.href);
+    }
+  };
+
+  return (
+    <>
+      <div className="relative" ref={containerRef}>
+        <div className="relative max-w-md">
+          <Search className="w-4 h-4 absolute left-3 top-1/2 -translate-y-1/2 pointer-events-none" style={{ color: 'rgba(232,228,220,0.35)' }} />
+          <input
+            type="text"
+            className="input pl-9 pr-8 text-sm w-full"
+            placeholder="Search all project docs — drawings, checklists, DPR, measurement sheets…"
+            value={query}
+            onChange={(e) => setQuery(e.target.value)}
+            onFocus={() => setFocused(true)}
+          />
+          {query && (
+            <button
+              onClick={() => setQuery('')}
+              className="absolute right-2.5 top-1/2 -translate-y-1/2 p-0.5"
+              style={{ color: 'rgba(232,228,220,0.35)' }}
+              aria-label="Clear search"
+            >
+              <X className="w-3.5 h-3.5" />
+            </button>
+          )}
+        </div>
+
+        {focused && q.length > 0 && (
+          <div
+            className="absolute z-40 mt-1 w-full max-w-md rounded-xl border shadow-2xl overflow-hidden"
+            style={{ backgroundColor: 'var(--ax-modal)', borderColor: 'var(--ax-border)' }}
+          >
+            {isLoading && debouncedQ !== q ? (
+              <p className="text-sm px-4 py-4 text-center" style={{ color: 'rgba(232,228,220,0.35)' }}>Searching…</p>
+            ) : !results || results.length === 0 ? (
+              <p className="text-sm px-4 py-4 text-center" style={{ color: 'rgba(232,228,220,0.35)' }}>No documents match &ldquo;{query}&rdquo;.</p>
+            ) : (
+              <div className="max-h-80 overflow-y-auto scrollbar-thin">
+                {results.map((r) => {
+                  const Icon = DOC_SEARCH_TYPE_ICON[r.type];
+                  return (
+                    <button
+                      key={`${r.type}-${r.id}`}
+                      onClick={() => handleSelect(r)}
+                      className="w-full text-left px-4 py-2.5 border-b last:border-b-0 hover:bg-[rgba(255,255,255,0.03)] transition-colors flex items-start gap-2.5"
+                      style={{ borderColor: 'var(--ax-border-subtle)' }}
+                    >
+                      <Icon className="w-3.5 h-3.5 mt-0.5 shrink-0" style={{ color: 'rgba(232,228,220,0.4)' }} />
+                      <div className="min-w-0 flex-1">
+                        <p className="text-sm truncate" style={{ color: 'var(--ax-text)' }}>{r.title}</p>
+                        <p className="text-xs mt-0.5 truncate" style={{ color: 'rgba(232,228,220,0.4)' }}>
+                          {DOC_SEARCH_TYPE_LABEL[r.type]}{r.subtitle ? ` · ${r.subtitle}` : ''}
+                        </p>
+                      </div>
+                    </button>
+                  );
+                })}
+              </div>
+            )}
+          </div>
+        )}
+      </div>
+
+      {previewRow && <DrawingPreviewModal projectId={projectId} row={previewRow} onClose={() => setPreviewRow(null)} />}
+    </>
+  );
+}
+
+function DrawingPreviewModal({ projectId, row, onClose }: { projectId: string; row: DrawingRowSummary; onClose: () => void }) {
+  const current = row.versions[0];
+  const fileHref = current
+    ? current.uploadType === 'PDF'
+      ? `/api/projects/${projectId}/architecture/drawing-files/${current.id}`
+      : current.fileUrl
+    : null;
+
+  return (
+    <div className="fixed inset-0 bg-black/70 flex items-center justify-center z-50 p-4" onClick={onClose}>
+      <div
+        className="rounded-2xl w-full max-w-md border"
+        style={{ backgroundColor: 'var(--ax-modal)', borderColor: 'var(--ax-border)' }}
+        onClick={(e) => e.stopPropagation()}
+      >
+        <div className="px-6 py-4 border-b flex items-center justify-between" style={{ borderColor: 'var(--ax-border)' }}>
+          <h2 className="text-base font-semibold" style={{ color: 'var(--ax-text)' }}>#{row.serialNo} · {row.name}</h2>
+          <button onClick={onClose} className="p-1 rounded-lg ax-hover-overlay" style={{ color: 'rgba(var(--ax-text-rgb), 0.4)' }}>
+            <X className="w-4 h-4" />
+          </button>
+        </div>
+        <div className="p-6 space-y-3 text-sm">
+          <div className="grid grid-cols-2 gap-3">
+            <div><p className="text-xs" style={{ color: 'rgba(232,228,220,0.4)' }}>Category</p><p style={{ color: 'var(--ax-text)' }}>{row.category}</p></div>
+            <div><p className="text-xs" style={{ color: 'rgba(232,228,220,0.4)' }}>Floor</p><p style={{ color: 'var(--ax-text)' }}>{row.floor}</p></div>
+            <div><p className="text-xs" style={{ color: 'rgba(232,228,220,0.4)' }}>Status</p><p style={{ color: 'var(--ax-text)' }}>{row.status}</p></div>
+            {current && (
+              <div><p className="text-xs" style={{ color: 'rgba(232,228,220,0.4)' }}>Version</p><p style={{ color: 'var(--ax-text)' }}>Rev {current.versionNumber} · {current.reviewStatus}</p></div>
+            )}
+          </div>
+          {current ? (
+            <div className="pt-2 border-t" style={{ borderColor: 'var(--ax-border-subtle)' }}>
+              <p className="text-xs" style={{ color: 'rgba(232,228,220,0.4)' }}>
+                Uploaded by {current.uploadedBy.name} on {formatDateTime(current.uploadedAt)}
+              </p>
+              {fileHref && (
+                <a href={fileHref} target="_blank" rel="noopener noreferrer" className="btn btn-secondary text-sm mt-3 inline-flex items-center gap-1.5">
+                  <LinkIcon className="w-3.5 h-3.5" /> Open Drawing
+                </a>
+              )}
+            </div>
+          ) : (
+            <p style={{ color: 'rgba(232,228,220,0.4)' }}>No version uploaded yet.</p>
+          )}
+          <div className="pt-2">
+            <Link href={`/projects/${projectId}/architecture`} className="text-xs hover:underline" style={{ color: 'var(--ax-accent)' }}>Open in Architecture →</Link>
+          </div>
+        </div>
+      </div>
     </div>
   );
 }

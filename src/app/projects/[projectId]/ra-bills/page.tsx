@@ -42,6 +42,10 @@ const PAGE_SIZE = 25;
 
 const STATUS_OPTIONS = [
   ['', 'All Statuses'],
+  // Virtual filter, not a real RABillStatus — expands to PENDING_VENDOR_REVIEW + CERTIFIED
+  // (the certify and approve stages) below. PMC's default view; matches the "Pending
+  // Certification" / "Pending Approval" KPI tiles above, just combined into one queue.
+  ['PENDING_PMC_ACTION', 'Pending PMC Action'],
   ['DRAFT', 'Draft'],
   ['PENDING_SITE_ENGINEER_REVIEW', 'Pending Site Engineer'],
   ['PENDING_VENDOR_REVIEW', 'Pending Certification'],
@@ -50,6 +54,8 @@ const STATUS_OPTIONS = [
   ['APPROVED', 'Approved'],
   ['PAID', 'Paid'],
 ] as const;
+
+const PENDING_PMC_ACTION_STATUSES = ['PENDING_VENDOR_REVIEW', 'CERTIFIED'];
 
 function StatusBadge({ status }: { status: string }) {
   const map: Record<string, string> = {
@@ -95,26 +101,33 @@ export default function RABillsListPage() {
   const [offset, setOffset] = useState(0);
   const [defaultFilterApplied, setDefaultFilterApplied] = useState(false);
 
-  // Site Engineer's queue is their reason for visiting this page — default the filter to their
-  // pending reviews so it reads as a dedicated section, while still letting them clear it.
+  // Site Engineer's and PMC's queues are their reason for visiting this page — default the
+  // filter to what's waiting on them so it reads as a dedicated section, while still letting
+  // them clear it to see everything (including already-Paid bills).
   useEffect(() => {
-    if (!defaultFilterApplied && myRole === 'SITE_ENGINEER') {
+    if (defaultFilterApplied) return;
+    if (myRole === 'SITE_ENGINEER') {
       setStatusFilter('PENDING_SITE_ENGINEER_REVIEW');
+      setDefaultFilterApplied(true);
+    } else if (myRole === 'PMC') {
+      setStatusFilter('PENDING_PMC_ACTION');
       setDefaultFilterApplied(true);
     }
   }, [myRole, defaultFilterApplied]);
 
   const raBillsUrl = useMemo(() => {
     if (!projectId) return null;
-    return (
-      `/api/projects/${projectId}/ra-bills?` +
-      new URLSearchParams({
-        ...(orderFilter && { orderId: orderFilter }),
-        ...(statusFilter && { status: statusFilter }),
-        limit: PAGE_SIZE.toString(),
-        offset: offset.toString(),
-      })
-    );
+    const searchParams = new URLSearchParams({
+      ...(orderFilter && { orderId: orderFilter }),
+      limit: PAGE_SIZE.toString(),
+      offset: offset.toString(),
+    });
+    if (statusFilter === 'PENDING_PMC_ACTION') {
+      for (const s of PENDING_PMC_ACTION_STATUSES) searchParams.append('status', s);
+    } else if (statusFilter) {
+      searchParams.append('status', statusFilter);
+    }
+    return `/api/projects/${projectId}/ra-bills?${searchParams}`;
   }, [projectId, orderFilter, statusFilter, offset]);
 
   const { data: payload, isLoading: billsLoading } = useSWR<{ raBills: RABillRow[]; total: number; summary: Summary }>(
@@ -150,14 +163,14 @@ export default function RABillsListPage() {
 
       <div className="space-y-6">
         <h1 className="text-2xl font-bold text-[#e8e4dc]">
-          {myRole === 'SITE_ENGINEER' ? 'RA Bills — Your Reviews' : 'RA Bills'}
+          {myRole === 'SITE_ENGINEER' ? 'RA Bills — Your Reviews' : myRole === 'PMC' ? 'RA Bills — Pending Your Action' : 'RA Bills'}
         </h1>
 
         {summary && (
           <div className="grid grid-cols-2 sm:grid-cols-6 gap-4">
-            <KPITile label="Total Submitted" value={formatCurrency(summary.totalSubmittedValue)} />
-            <KPITile label="Total Approved" value={formatCurrency(summary.totalApprovedValue)} />
-            <KPITile label="Total Released" value={formatCurrency(summary.totalReleasedValue)} />
+            <KPITile label="Total Submitted" value={formatCurrency(summary.totalSubmittedValue, project?.currency)} />
+            <KPITile label="Total Approved" value={formatCurrency(summary.totalApprovedValue, project?.currency)} />
+            <KPITile label="Total Released" value={formatCurrency(summary.totalReleasedValue, project?.currency)} />
             <KPITile label="Pending Site Engineer" value={String(summary.pendingSiteEngineerReviewCount)} />
             <KPITile label="Pending Certification" value={String(summary.pendingCertificationCount)} />
             <KPITile label="Pending Approval" value={String(summary.pendingApprovalCount)} />
@@ -229,10 +242,10 @@ export default function RABillsListPage() {
                         </td>
                         <td className="whitespace-nowrap text-[rgba(232,228,220,0.65)]">{formatDate(b.periodStart)} – {formatDate(b.periodEnd)}</td>
                         <td><StatusBadge status={b.status} /></td>
-                        <td className="text-right">{b.submittedValue !== null ? formatCurrency(b.submittedValue) : '—'}</td>
+                        <td className="text-right">{b.submittedValue !== null ? formatCurrency(b.submittedValue, project?.currency) : '—'}</td>
                         <td className="whitespace-nowrap">{b.certifiedAt ? formatDate(b.certifiedAt) : '—'}</td>
-                        <td className="text-right">{b.approvedValue !== null ? formatCurrency(b.approvedValue) : '—'}</td>
-                        <td className="text-right">{b.releasedValue !== null ? formatCurrency(b.releasedValue) : '—'}</td>
+                        <td className="text-right">{b.approvedValue !== null ? formatCurrency(b.approvedValue, project?.currency) : '—'}</td>
+                        <td className="text-right">{b.releasedValue !== null ? formatCurrency(b.releasedValue, project?.currency) : '—'}</td>
                       </tr>
                     ))}
                   </tbody>

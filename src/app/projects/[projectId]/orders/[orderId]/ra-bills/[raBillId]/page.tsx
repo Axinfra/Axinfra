@@ -25,6 +25,16 @@ interface LineItem {
   boq: { id: string; boqNumber: string | null; name: string | null };
 }
 
+interface MeasurementSheet {
+  id: string;
+  fileName: string;
+  mimeType: string;
+  fileSize: number;
+  remarks: string | null;
+  uploadedAt: string;
+  uploadedBy: { name: string };
+}
+
 interface RABillDetail {
   id: string;
   billNumber: number;
@@ -58,6 +68,8 @@ interface RABillDetail {
   certifiedBy: { name: string } | null;
   approvedBy: { name: string } | null;
   releasedBy: { name: string } | null;
+  measurementSheets: MeasurementSheet[];
+  certifiedMeasurementSheet: MeasurementSheet | null;
 }
 
 function StatusBadge({ status }: { status: string }) {
@@ -114,6 +126,7 @@ export default function RABillDetailPage() {
   const [showCertifyModal, setShowCertifyModal] = useState(false);
   const [certifyRemarks, setCertifyRemarks] = useState('');
   const [certifyFile, setCertifyFile] = useState<File | null>(null);
+  const [certifyMeasurementSheetId, setCertifyMeasurementSheetId] = useState('');
   const [certifying, setCertifying] = useState(false);
 
   const [showApproveModal, setShowApproveModal] = useState(false);
@@ -130,6 +143,10 @@ export default function RABillDetailPage() {
   const [forwarding, setForwarding] = useState(false);
 
   const [accepting, setAccepting] = useState(false);
+
+  const [measurementSheetFile, setMeasurementSheetFile] = useState<File | null>(null);
+  const [measurementSheetRemarks, setMeasurementSheetRemarks] = useState('');
+  const [uploadingSheet, setUploadingSheet] = useState(false);
 
   const loading = projectLoading || billLoading;
 
@@ -253,12 +270,16 @@ export default function RABillDetailPage() {
         const formData = new FormData();
         formData.append('file', certifyFile);
         if (certifyRemarks.trim()) formData.append('remarks', certifyRemarks.trim());
+        if (certifyMeasurementSheetId) formData.append('measurementSheetId', certifyMeasurementSheetId);
         res = await fetch(`/api/projects/${projectId}/orders/${orderId}/ra-bills/${raBillId}/certify`, { method: 'POST', body: formData });
       } else {
         res = await fetch(`/api/projects/${projectId}/orders/${orderId}/ra-bills/${raBillId}/certify`, {
           method: 'POST',
           headers: { 'Content-Type': 'application/json' },
-          body: JSON.stringify({ remarks: certifyRemarks.trim() || undefined }),
+          body: JSON.stringify({
+            remarks: certifyRemarks.trim() || undefined,
+            measurementSheetId: certifyMeasurementSheetId || undefined,
+          }),
         });
       }
       const data = await res.json();
@@ -266,6 +287,7 @@ export default function RABillDetailPage() {
         setShowCertifyModal(false);
         setCertifyRemarks('');
         setCertifyFile(null);
+        setCertifyMeasurementSheetId('');
         void refetch();
       } else {
         setError(data.error ?? 'Failed to certify');
@@ -316,6 +338,33 @@ export default function RABillDetailPage() {
       setError('Failed to accept');
     } finally {
       setAccepting(false);
+    }
+  };
+
+  const handleUploadMeasurementSheet = async () => {
+    if (!measurementSheetFile) return;
+    setUploadingSheet(true);
+    setError('');
+    try {
+      const formData = new FormData();
+      formData.append('file', measurementSheetFile);
+      if (measurementSheetRemarks.trim()) formData.append('remarks', measurementSheetRemarks.trim());
+      const res = await fetch(`/api/projects/${projectId}/orders/${orderId}/ra-bills/${raBillId}/measurement-sheets`, {
+        method: 'POST',
+        body: formData,
+      });
+      const data = await res.json();
+      if (data.success) {
+        setMeasurementSheetFile(null);
+        setMeasurementSheetRemarks('');
+        void refetch();
+      } else {
+        setError(data.error ?? 'Failed to add measurement sheet');
+      }
+    } catch {
+      setError('Failed to add measurement sheet');
+    } finally {
+      setUploadingSheet(false);
     }
   };
 
@@ -410,13 +459,44 @@ export default function RABillDetailPage() {
         )}
 
         {canSiteEngineerReview && (
-          <div className="flex items-start gap-3 p-4 rounded-lg bg-[rgba(168,85,247,0.08)] border border-[rgba(168,85,247,0.25)]">
-            <span className="text-[#a855f7] text-lg leading-none mt-0.5">✎</span>
-            <div>
-              <p className="text-sm font-medium text-[#a855f7]">Your review — check quantities before PMC sees this bill</p>
-              <p className="text-xs text-[rgba(168,85,247,0.75)] mt-0.5">
-                Edit any incorrect quantities below, then Forward to PMC. The vendor gets a read-only copy of your figures to accept.
-              </p>
+          <div className="flex flex-col gap-3 p-4 rounded-lg bg-[rgba(168,85,247,0.08)] border border-[rgba(168,85,247,0.25)]">
+            <div className="flex items-start gap-3">
+              <span className="text-[#a855f7] text-lg leading-none mt-0.5">✎</span>
+              <div>
+                <p className="text-sm font-medium text-[#a855f7]">Your review — check quantities before PMC sees this bill</p>
+                <p className="text-xs text-[rgba(168,85,247,0.75)] mt-0.5">
+                  Edit any incorrect quantities below, then Forward to PMC. The vendor gets a read-only copy of your figures to accept.
+                  Attach a measurement sheet below if you have one — you can add more than one.
+                </p>
+              </div>
+            </div>
+            <div className="flex flex-col sm:flex-row gap-2 sm:items-end pl-7">
+              <div className="flex-1">
+                <label className="label text-xs">Measurement Sheet</label>
+                <input
+                  type="file"
+                  accept=".pdf,.doc,.docx,.xls,.xlsx,.jpg,.jpeg,.png,.webp"
+                  onChange={(e) => setMeasurementSheetFile(e.target.files?.[0] ?? null)}
+                  className="input text-sm"
+                />
+              </div>
+              <div className="flex-1">
+                <label className="label text-xs">Remarks (optional)</label>
+                <input
+                  type="text"
+                  className="input text-sm"
+                  placeholder="e.g. Page 3 of measurement book"
+                  value={measurementSheetRemarks}
+                  onChange={(e) => setMeasurementSheetRemarks(e.target.value)}
+                />
+              </div>
+              <button
+                onClick={() => void handleUploadMeasurementSheet()}
+                disabled={!measurementSheetFile || uploadingSheet}
+                className="btn btn-secondary text-sm disabled:opacity-50 whitespace-nowrap"
+              >
+                {uploadingSheet ? 'Adding…' : 'Add Sheet'}
+              </button>
             </div>
           </div>
         )}
@@ -433,7 +513,7 @@ export default function RABillDetailPage() {
             <div>
               <p className="text-sm font-medium text-[#5cba80]">
                 Site Engineer{bill.siteEngineerReviewedBy ? ` (${bill.siteEngineerReviewedBy.name})` : ''} reviewed this bill
-                {bill.siteEngineerReviewedValue !== null ? ` — value ${formatCurrency(bill.siteEngineerReviewedValue)}` : ''}.
+                {bill.siteEngineerReviewedValue !== null ? ` — value ${formatCurrency(bill.siteEngineerReviewedValue, project?.currency)}` : ''}.
               </p>
               <p className="text-xs text-[rgba(92,186,128,0.75)] mt-0.5">Accept to make these figures binding.</p>
             </div>
@@ -452,10 +532,10 @@ export default function RABillDetailPage() {
 
         {/* Headline KPIs */}
         <div className="grid grid-cols-2 sm:grid-cols-4 gap-4">
-          <KPITile label="Submitted Value" value={bill.submittedValue !== null ? formatCurrency(bill.submittedValue) : '—'} />
+          <KPITile label="Submitted Value" value={bill.submittedValue !== null ? formatCurrency(bill.submittedValue, project?.currency) : '—'} />
           <KPITile label="Finished When" value={bill.certifiedAt ? formatDate(bill.certifiedAt) : '—'} />
-          <KPITile label="Approved Value" value={bill.approvedValue !== null ? formatCurrency(bill.approvedValue) : '—'} />
-          <KPITile label="Released Value" value={bill.releasedValue !== null ? formatCurrency(bill.releasedValue) : '—'} />
+          <KPITile label="Approved Value" value={bill.approvedValue !== null ? formatCurrency(bill.approvedValue, project?.currency) : '—'} />
+          <KPITile label="Released Value" value={bill.releasedValue !== null ? formatCurrency(bill.releasedValue, project?.currency) : '—'} />
         </div>
 
         {/* Line items */}
@@ -501,22 +581,22 @@ export default function RABillDetailPage() {
                         li.thisBillQty
                       )}
                     </td>
-                    <td className="text-right">{formatCurrency(li.rate)}</td>
-                    <td className="text-right font-medium">{formatCurrency(li.thisBillAmount)}</td>
-                    <td className="text-right">{formatCurrency(li.cumulativeAmount)}</td>
+                    <td className="text-right">{formatCurrency(li.rate, project?.currency)}</td>
+                    <td className="text-right font-medium">{formatCurrency(li.thisBillAmount, project?.currency)}</td>
+                    <td className="text-right">{formatCurrency(li.cumulativeAmount, project?.currency)}</td>
                   </tr>
                 ))}
               </tbody>
               <tfoot>
                 <tr className="bg-[rgba(255,255,255,0.03)] font-semibold">
                   <td colSpan={6} className="text-right">Gross Value</td>
-                  <td className="text-right">{formatCurrency(grossValue)}</td>
+                  <td className="text-right">{formatCurrency(grossValue, project?.currency)}</td>
                   <td />
                 </tr>
                 {bill.status !== 'DRAFT' && bill.status !== 'PENDING_VENDOR_REVIEW' && bill.status !== 'REVISION_REQUESTED' && (
                   <tr className="bg-[rgba(255,255,255,0.03)] text-[rgba(232,228,220,0.65)]">
                     <td colSpan={6} className="text-right">Deductions</td>
-                    <td className="text-right">– {formatCurrency(bill.deductions)}</td>
+                    <td className="text-right">– {formatCurrency(bill.deductions, project?.currency)}</td>
                     <td />
                   </tr>
                 )}
@@ -524,6 +604,37 @@ export default function RABillDetailPage() {
             </table>
           </div>
         </div>
+
+        {bill.measurementSheets.length > 0 && (
+          <div className="card">
+            <div className="card-header"><h2 className="text-lg font-semibold">Measurement Sheets</h2></div>
+            <div className="card-body divide-y divide-[rgba(255,255,255,0.06)]">
+              {bill.measurementSheets.map((sheet) => (
+                <div key={sheet.id} className="py-2.5 first:pt-0 last:pb-0 flex items-center justify-between gap-3 flex-wrap">
+                  <div className="min-w-0">
+                    <div className="flex items-center gap-2">
+                      <p className="text-sm text-[#e8e4dc] truncate">{sheet.fileName}</p>
+                      {bill.certifiedMeasurementSheet?.id === sheet.id && (
+                        <span className="text-[10px] font-medium px-1.5 py-0.5 rounded-full bg-[rgba(56,189,248,0.15)] text-[#38bdf8] shrink-0">
+                          Used for certification
+                        </span>
+                      )}
+                    </div>
+                    <p className="text-xs text-[rgba(232,228,220,0.4)] mt-0.5">
+                      {sheet.uploadedBy.name} · {formatDate(sheet.uploadedAt)}{sheet.remarks ? ` · ${sheet.remarks}` : ''}
+                    </p>
+                  </div>
+                  <a
+                    href={`/api/projects/${projectId}/orders/${orderId}/ra-bills/${raBillId}/measurement-sheets/${sheet.id}/file?download=1`}
+                    className="text-xs font-medium px-3 py-1.5 rounded-lg border border-[rgba(255,255,255,0.1)] text-[rgba(232,228,220,0.6)] hover:text-[#e8e4dc] transition-colors inline-flex items-center gap-1.5 shrink-0"
+                  >
+                    <Download className="w-3.5 h-3.5" /> Download
+                  </a>
+                </div>
+              ))}
+            </div>
+          </div>
+        )}
 
         {(bill.certifiedRemarks || bill.remarks || bill.paymentReference) && (
           <div className="card">
@@ -645,10 +756,32 @@ export default function RABillDetailPage() {
             <div className="p-6 space-y-4">
               <h2 className="text-lg font-semibold text-[#e8e4dc]">Certify Measured Quantities</h2>
               <p className="text-sm text-[rgba(232,228,220,0.55)]">
-                Confirms the this-period quantities are measured/executed as billed. Optionally attach a signed measurement sheet.
+                Confirms the this-period quantities are measured/executed as billed. Optionally reference a measurement sheet.
               </p>
+              {bill.measurementSheets.length > 0 && (
+                <div>
+                  <label className="label text-xs">Reference Measurement Sheet (optional)</label>
+                  <select
+                    className="input text-sm"
+                    value={certifyMeasurementSheetId}
+                    onChange={(e) => setCertifyMeasurementSheetId(e.target.value)}
+                  >
+                    <option value="">— None selected —</option>
+                    {bill.measurementSheets.map((s) => (
+                      <option key={s.id} value={s.id}>
+                        {s.fileName} · {formatDate(s.uploadedAt)} by {s.uploadedBy.name}
+                      </option>
+                    ))}
+                  </select>
+                  <p className="text-xs text-[rgba(232,228,220,0.4)] mt-1">
+                    Uploaded by the Site Engineer while this bill was with them for review.
+                  </p>
+                </div>
+              )}
               <div>
-                <label className="label text-xs">Measurement Sheet (optional)</label>
+                <label className="label text-xs">
+                  {bill.measurementSheets.length > 0 ? 'Or attach a different file (optional)' : 'Attach a signed measurement sheet (optional)'}
+                </label>
                 <input type="file" accept=".pdf,.doc,.docx,.xls,.xlsx,.jpg,.jpeg,.png,.webp" onChange={(e) => setCertifyFile(e.target.files?.[0] ?? null)} className="input text-sm" />
               </div>
               <div>
@@ -656,7 +789,7 @@ export default function RABillDetailPage() {
                 <textarea rows={2} className="input text-sm resize-none" placeholder="e.g. Measured on site against as-built survey — matches claim." value={certifyRemarks} onChange={(e) => setCertifyRemarks(e.target.value)} />
               </div>
               <div className="flex justify-end gap-3 pt-2 border-t border-[rgba(255,255,255,0.07)]">
-                <button onClick={() => setShowCertifyModal(false)} className="btn btn-secondary">Cancel</button>
+                <button onClick={() => { setShowCertifyModal(false); setCertifyMeasurementSheetId(''); setCertifyFile(null); setCertifyRemarks(''); }} className="btn btn-secondary">Cancel</button>
                 <button onClick={() => void handleCertify()} disabled={certifying} className="btn btn-primary disabled:opacity-50">
                   {certifying ? 'Certifying…' : 'Certify'}
                 </button>
@@ -672,13 +805,13 @@ export default function RABillDetailPage() {
           <div className="bg-[#13151a] border border-[rgba(255,255,255,0.1)] rounded-xl max-w-sm w-full">
             <div className="p-6 space-y-4">
               <h2 className="text-base font-semibold text-[#e8e4dc]">Approve RA-{bill.billNumber} for Payment</h2>
-              <p className="text-sm text-[rgba(232,228,220,0.55)]">Gross value: {formatCurrency(grossValue)}</p>
+              <p className="text-sm text-[rgba(232,228,220,0.55)]">Gross value: {formatCurrency(grossValue, project?.currency)}</p>
               <div>
                 <label className="label text-xs">Deductions (retention / TDS / advance recovery)</label>
                 <input type="number" className="input text-sm" placeholder="0" value={deductionsInput} onChange={(e) => setDeductionsInput(e.target.value)} />
               </div>
               <p className="text-sm text-[#5cba80] font-medium">
-                Net payable: {formatCurrency(grossValue - (parseFloat(deductionsInput) || 0))}
+                Net payable: {formatCurrency(grossValue - (parseFloat(deductionsInput) || 0), project?.currency)}
               </p>
               <div className="flex justify-end gap-3">
                 <button onClick={() => setShowApproveModal(false)} className="btn btn-secondary">Cancel</button>

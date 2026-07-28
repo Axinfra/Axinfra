@@ -1,0 +1,5 @@
+-- AlterTable
+ALTER TABLE "ReportInsight" ADD COLUMN     "boqNote" TEXT NOT NULL DEFAULT '',
+ADD COLUMN     "overviewNote" TEXT NOT NULL DEFAULT '',
+ALTER COLUMN "resourceNote" DROP DEFAULT,
+ALTER COLUMN "riskNote" DROP DEFAULT;
