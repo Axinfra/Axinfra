@@ -48,6 +48,7 @@ export async function GET(
       sortOrder: p.sortOrder,
       plannedStart: p.plannedStart?.toISOString() ?? null,
       plannedEnd:   p.plannedEnd?.toISOString()   ?? null,
+      estimatedCost: p.estimatedCost,
       createdAt: p.createdAt,
       vendorUserId: p.vendorUserId,
       boqs: p.boqs.map((b) => ({ id: b.id, status: b.status, itemsCount: b._count.items })),
@@ -94,6 +95,14 @@ export async function POST(
       return NextResponse.json({ success: false, error: 'Start date must be before end date' }, { status: 400 });
     }
 
+    let estimatedCost: number | null = null;
+    if (body.estimatedCost !== undefined && body.estimatedCost !== null && body.estimatedCost !== '') {
+      estimatedCost = Number(body.estimatedCost);
+      if (isNaN(estimatedCost) || estimatedCost < 0) {
+        return NextResponse.json({ success: false, error: 'Estimated cost must be a non-negative number' }, { status: 400 });
+      }
+    }
+
     let { sortOrder } = body;
     if (sortOrder === undefined || sortOrder === null) {
       const last = await prisma.phase.findFirst({
@@ -106,7 +115,7 @@ export async function POST(
 
     const [phase, actor, project, allRoles] = await Promise.all([
       prisma.phase.create({
-        data: { projectId, name, sortOrder, plannedStart, plannedEnd },
+        data: { projectId, name, sortOrder, plannedStart, plannedEnd, estimatedCost },
       }),
       prisma.user.findUnique({
         where: { id: auth.userId },
@@ -136,6 +145,7 @@ export async function POST(
         sortOrder: phase.sortOrder,
         plannedStart: phase.plannedStart,
         plannedEnd: phase.plannedEnd,
+        estimatedCost: phase.estimatedCost,
       },
     });
 

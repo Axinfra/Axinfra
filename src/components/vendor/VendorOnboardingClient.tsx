@@ -25,6 +25,12 @@ interface VendorRow {
   isPendingInvite: boolean;
 }
 
+interface PurchaseOrderOption {
+  id: string;
+  name: string;
+  vendorUserId: string | null;
+}
+
 interface Props {
   projects: ProjectOption[];
   initialProjectId: string;
@@ -43,6 +49,16 @@ export default function VendorOnboardingClient({
   const [formError, setFormError] = useState('');
   const [formSuccess, setFormSuccess] = useState('');
   const [conflictData, setConflictData] = useState<{ userPreferredRole: string; message: string } | null>(null);
+
+  // Onboarding option — assign straight to a Purchase Order (richer email, vendor lands
+  // pre-assigned) or a plain project-wide email invite (this page's original, only behavior).
+  const [onboardMode, setOnboardMode] = useState<'EMAIL' | 'PO'>('EMAIL');
+  const [selectedPhaseId, setSelectedPhaseId] = useState('');
+  const { data: allPhases = [] } = useSWR<PurchaseOrderOption[]>(
+    selectedProject ? `/api/projects/${selectedProject}/phases` : null,
+    jsonFetcher,
+  );
+  const unassignedPhases = allPhases.filter((p) => !p.vendorUserId);
 
   const ROLE_LABELS: Record<string, string> = {
     CLIENT: 'Project Owner', PMC: 'PMC', VENDOR: 'Vendor', CONSULTANT: 'Consultant', VIEWER: 'Viewer',
@@ -70,7 +86,12 @@ export default function VendorOnboardingClient({
       const res = await fetch('/api/admin/vendors', {
         method: 'POST',
         headers: { 'Content-Type': 'application/json' },
-        body: JSON.stringify({ email, projectId: selectedProject, force }),
+        body: JSON.stringify({
+          email,
+          projectId: selectedProject,
+          force,
+          phaseId: onboardMode === 'PO' ? selectedPhaseId || undefined : undefined,
+        }),
       });
       const body = await res.json();
       if (body.success) {
@@ -81,6 +102,7 @@ export default function VendorOnboardingClient({
           setFormSuccess(`Vendor "${body.data.name}" added to the project.`);
         }
         setEmail('');
+        setSelectedPhaseId('');
         mutate();
       } else if (body.conflict) {
         setConflictData({ userPreferredRole: body.userPreferredRole, message: body.error });
@@ -96,6 +118,10 @@ export default function VendorOnboardingClient({
 
   const handleSubmit = (e: React.FormEvent) => {
     e.preventDefault();
+    if (onboardMode === 'PO' && !selectedPhaseId) {
+      setFormError('Pick a Purchase Order to assign, or switch to Email Invite.');
+      return;
+    }
     setConflictData(null);
     void submitVendor(false);
   };
@@ -134,6 +160,8 @@ export default function VendorOnboardingClient({
               setFormError('');
               setFormSuccess('');
               setConflictData(null);
+              setOnboardMode('EMAIL');
+              setSelectedPhaseId('');
             }}
           >
             {projects.map((p) => (
@@ -225,6 +253,50 @@ export default function VendorOnboardingClient({
                   <p className="text-xs text-[rgba(var(--ax-text-rgb),0.35)] mt-1">
                     If they&apos;re not on Axinfra yet, they&apos;ll receive an invitation link.
                   </p>
+                </div>
+
+                <div>
+                  <label className="block text-sm font-medium text-[var(--ax-text)] mb-1.5">Onboarding</label>
+                  <div className="inline-flex items-center bg-[rgba(255,255,255,0.05)] rounded-lg p-0.5 gap-0.5 mb-2">
+                    {(['PO', 'EMAIL'] as const).map((mode) => (
+                      <button
+                        key={mode}
+                        type="button"
+                        onClick={() => setOnboardMode(mode)}
+                        className={`px-3 py-1.5 rounded-md text-[12px] font-medium transition-colors ${
+                          onboardMode === mode
+                            ? 'bg-[rgba(var(--ax-accent-rgb),0.15)] text-[var(--ax-accent)]'
+                            : 'text-[rgba(var(--ax-text-rgb),0.55)] hover:text-[var(--ax-text)]'
+                        }`}
+                      >
+                        {mode === 'PO' ? 'Assign to Purchase Order' : 'Email Invite Only'}
+                      </button>
+                    ))}
+                  </div>
+                  {onboardMode === 'PO' && (
+                    <div>
+                      <select
+                        className="w-full h-10 rounded-[10px] border border-[var(--ax-border)] bg-[var(--ax-card)] px-3 text-sm
+                          focus:outline-none focus:ring-4 focus:ring-[rgba(var(--ax-accent-rgb),0.3)]/10 focus:border-[var(--ax-accent)]
+                          transition-all duration-200"
+                        value={selectedPhaseId}
+                        onChange={(e) => setSelectedPhaseId(e.target.value)}
+                      >
+                        <option value="">Select a Purchase Order…</option>
+                        {unassignedPhases.map((p) => (
+                          <option key={p.id} value={p.id}>{p.name}</option>
+                        ))}
+                      </select>
+                      {unassignedPhases.length === 0 && (
+                        <p className="text-xs text-[rgba(var(--ax-text-rgb),0.4)] mt-1.5">
+                          No unassigned Purchase Orders in {currentProjectName} — create one first, or use Email Invite.
+                        </p>
+                      )}
+                      <p className="text-xs text-[rgba(var(--ax-text-rgb),0.35)] mt-1.5">
+                        The vendor&apos;s email will show this Purchase Order&apos;s dates, estimated cost, Work Order status, and Orders — and they&apos;ll be assigned to it as soon as they accept.
+                      </p>
+                    </div>
+                  )}
                 </div>
 
                 <div className="pt-1">

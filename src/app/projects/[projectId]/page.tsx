@@ -476,7 +476,7 @@ function OverviewTab({ project, projectId }: { project: ProjectData; projectId: 
       </div>
 
       <div id="purchase-orders">
-        <OrderList projectId={projectId} userRole={project.myRole} />
+        <OrderList projectId={projectId} userRole={project.myRole} currency={project?.currency} />
       </div>
 
       <div className="card">

@@ -11,6 +11,12 @@ import { useProject } from '@/lib/contexts/ProjectContext';
 import { jsonFetcher } from '@/lib/fetcher';
 import { AlertTriangle, Clock, Mail } from 'lucide-react';
 
+interface PurchaseOrderOption {
+  id: string;
+  name: string;
+  vendorUserId: string | null;
+}
+
 interface RoleEntry {
   userId: string | null;
   inviteId?: string;
@@ -51,6 +57,16 @@ export default function RolesPage() {
   const [confirmRemoveUserId, setConfirmRemoveUserId] = useState<string | null>(null);
   const [confirmCancelInviteId, setConfirmCancelInviteId] = useState<string | null>(null);
 
+  // Vendor onboarding — two options: assign straight to a Purchase Order (richer email,
+  // vendor lands pre-assigned) or a plain project-wide email invite (today's original flow).
+  const [onboardMode, setOnboardMode] = useState<'EMAIL' | 'PO'>('EMAIL');
+  const [selectedPhaseId, setSelectedPhaseId] = useState('');
+  const { data: allPhases = [] } = useSWR<PurchaseOrderOption[]>(
+    showAddModal && newRole === 'VENDOR' ? `/api/projects/${projectId}/phases` : null,
+    jsonFetcher,
+  );
+  const unassignedPhases = allPhases.filter((p) => !p.vendorUserId);
+
   const ROLE_LABELS: Record<string, string> = {
     CLIENT: 'Project Owner', PMC: 'PMC', VENDOR: 'Vendor', CONSULTANT: 'Consultant', VIEWER: 'Viewer',
     SITE_ENGINEER: 'Site Engineer',
@@ -65,7 +81,12 @@ export default function RolesPage() {
       const res = await fetch(`/api/projects/${projectId}/roles`, {
         method: 'POST',
         headers: { 'Content-Type': 'application/json' },
-        body: JSON.stringify({ email: newEmail, role: newRole, force }),
+        body: JSON.stringify({
+          email: newEmail,
+          role: newRole,
+          force,
+          phaseId: newRole === 'VENDOR' && onboardMode === 'PO' ? selectedPhaseId || undefined : undefined,
+        }),
       });
 
       const data = await res.json();
@@ -94,6 +115,10 @@ export default function RolesPage() {
 
   const handleAddRole = (e: React.FormEvent) => {
     e.preventDefault();
+    if (newRole === 'VENDOR' && onboardMode === 'PO' && !selectedPhaseId) {
+      setAddError('Pick a Purchase Order to assign, or switch to Email Invite.');
+      return;
+    }
     setConflictData(null);
     void submitRole(false);
   };
@@ -156,7 +181,7 @@ export default function RolesPage() {
         <div className="flex justify-between items-center">
           <h1 className="text-2xl font-bold text-[#e8e4dc]">Project Roles</h1>
           {myRole === 'CLIENT' && (
-            <button onClick={() => { setShowAddModal(true); setAddSuccess(''); setAddError(''); setConflictData(null); }} className="btn btn-primary">
+            <button onClick={() => { setShowAddModal(true); setAddSuccess(''); setAddError(''); setConflictData(null); setOnboardMode('EMAIL'); setSelectedPhaseId(''); }} className="btn btn-primary">
               Add User
             </button>
           )}
@@ -388,13 +413,13 @@ export default function RolesPage() {
                   </div>
                   <div className="flex justify-end gap-3">
                     <button
-                      onClick={() => { setShowAddModal(false); setNewEmail(''); setNewRole('PMC'); setAddSuccess(''); }}
+                      onClick={() => { setShowAddModal(false); setNewEmail(''); setNewRole('PMC'); setAddSuccess(''); setOnboardMode('EMAIL'); setSelectedPhaseId(''); }}
                       className="btn btn-secondary"
                     >
                       Done
                     </button>
                     <button
-                      onClick={() => { setAddSuccess(''); setNewEmail(''); }}
+                      onClick={() => { setAddSuccess(''); setNewEmail(''); setSelectedPhaseId(''); }}
                       className="btn btn-primary"
                     >
                       Invite Another
@@ -470,10 +495,54 @@ export default function RolesPage() {
                     </select>
                   </div>
 
+                  {newRole === 'VENDOR' && (
+                    <div>
+                      <label className="label">Onboarding</label>
+                      <div className="inline-flex items-center bg-[rgba(255,255,255,0.05)] rounded-lg p-0.5 gap-0.5 mb-2">
+                        {(['PO', 'EMAIL'] as const).map((mode) => (
+                          <button
+                            key={mode}
+                            type="button"
+                            onClick={() => setOnboardMode(mode)}
+                            className={`px-3 py-1.5 rounded-md text-[12px] font-medium transition-colors ${
+                              onboardMode === mode
+                                ? 'bg-[rgba(var(--ax-accent-rgb),0.15)] text-[var(--ax-accent)]'
+                                : 'text-[rgba(232,228,220,0.55)] hover:text-[#e8e4dc]'
+                            }`}
+                          >
+                            {mode === 'PO' ? 'Assign to Purchase Order' : 'Email Invite Only'}
+                          </button>
+                        ))}
+                      </div>
+                      {onboardMode === 'PO' && (
+                        <div>
+                          <select
+                            className="input"
+                            value={selectedPhaseId}
+                            onChange={(e) => setSelectedPhaseId(e.target.value)}
+                          >
+                            <option value="">Select a Purchase Order…</option>
+                            {unassignedPhases.map((p) => (
+                              <option key={p.id} value={p.id}>{p.name}</option>
+                            ))}
+                          </select>
+                          {unassignedPhases.length === 0 && (
+                            <p className="text-xs text-[rgba(232,228,220,0.4)] mt-1.5">
+                              No unassigned Purchase Orders in this project — create one first, or use Email Invite.
+                            </p>
+                          )}
+                          <p className="text-xs text-[rgba(232,228,220,0.35)] mt-1.5">
+                            The vendor's email will show this Purchase Order's dates, estimated cost, Work Order status, and Orders — and they'll be assigned to it as soon as they accept.
+                          </p>
+                        </div>
+                      )}
+                    </div>
+                  )}
+
                   <div className="flex justify-end space-x-3 pt-4">
                     <button
                       type="button"
-                      onClick={() => { setShowAddModal(false); setAddError(''); setConflictData(null); }}
+                      onClick={() => { setShowAddModal(false); setAddError(''); setConflictData(null); setOnboardMode('EMAIL'); setSelectedPhaseId(''); }}
                       className="btn btn-secondary"
                     >
                       Cancel

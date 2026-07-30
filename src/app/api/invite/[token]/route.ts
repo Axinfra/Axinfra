@@ -3,6 +3,7 @@ import { prisma } from '@/lib/db';
 import { getSession } from '@/lib/auth';
 import { invalidateProjectAndMemberCaches } from '@/lib/cache-invalidation';
 import { Role } from '@/types';
+import { getOverviewRollup } from '@/services/BOQService';
 
 // GET /api/invite/[token] — fetch invite details (public, no auth required)
 export async function GET(
@@ -12,31 +13,19 @@ export async function GET(
   try {
     const { token } = await params;
 
-    const rows = await prisma.$queryRaw<Array<{
-      id: string;
-      email: string;
-      role: string;
-      status: string;
-      expiresAt: Date;
-      projectName: string;
-      inviterName: string;
-    }>>`
-      SELECT
-        pi.id,
-        pi.email,
-        pi.role,
-        pi.status,
-        pi."expiresAt",
-        p.name AS "projectName",
-        u.name AS "inviterName"
-      FROM "ProjectInvite" pi
-      JOIN "Project" p ON p.id = pi."projectId"
-      JOIN "User" u ON u.id = pi."invitedById"
-      WHERE pi.token = ${token}
-      LIMIT 1
-    `;
-
-    const invite = rows[0];
+    const invite = await prisma.projectInvite.findUnique({
+      where: { token },
+      include: {
+        project: { select: { name: true, metadata: true } },
+        invitedBy: { select: { name: true } },
+        phase: {
+          include: {
+            workOrder: { select: { number: true, status: true } },
+            boqs: { include: { items: { select: { plannedQty: true, unit: true, rate: true, plannedValue: true } } } },
+          },
+        },
+      },
+    });
 
     if (!invite) {
       return NextResponse.json({ success: false, error: 'Invite not found or already used.' }, { status: 404 });
@@ -46,9 +35,11 @@ export async function GET(
       return NextResponse.json({ success: false, error: 'This invite has already been accepted.' }, { status: 410 });
     }
 
-    if (new Date(invite.expiresAt) < new Date()) {
+    if (invite.expiresAt < new Date()) {
       return NextResponse.json({ success: false, error: 'This invite link has expired.' }, { status: 410 });
     }
+
+    const currency = invite.project.metadata ? (JSON.parse(invite.project.metadata).currency || 'INR') : 'INR';
 
     return NextResponse.json({
       success: true,
@@ -56,8 +47,27 @@ export async function GET(
         id: invite.id,
         email: invite.email,
         role: invite.role,
-        projectName: invite.projectName,
-        inviterName: invite.inviterName,
+        projectName: invite.project.name,
+        inviterName: invite.invitedBy.name,
+        currency,
+        purchaseOrder: invite.phase
+          ? {
+              id: invite.phase.id,
+              name: invite.phase.name,
+              plannedStart: invite.phase.plannedStart,
+              plannedEnd: invite.phase.plannedEnd,
+              estimatedCost: invite.phase.estimatedCost,
+              workOrder: invite.phase.workOrder,
+              boqs: invite.phase.boqs.map((b) => ({
+                id: b.id,
+                boqNumber: b.boqNumber,
+                name: b.name,
+                plannedStart: b.plannedStart,
+                plannedEnd: b.plannedEnd,
+                value: getOverviewRollup(b.items).totalValue,
+              })),
+            }
+          : null,
       },
     });
   } catch (error) {
@@ -79,21 +89,7 @@ export async function POST(
       return NextResponse.json({ success: false, error: 'Authentication required' }, { status: 401 });
     }
 
-    const rows = await prisma.$queryRaw<Array<{
-      id: string;
-      projectId: string;
-      email: string;
-      role: string;
-      status: string;
-      expiresAt: Date;
-    }>>`
-      SELECT id, "projectId", email, role, status, "expiresAt"
-      FROM "ProjectInvite"
-      WHERE token = ${token}
-      LIMIT 1
-    `;
-
-    const invite = rows[0];
+    const invite = await prisma.projectInvite.findUnique({ where: { token } });
 
     if (!invite) {
       return NextResponse.json({ success: false, error: 'Invite not found.' }, { status: 404 });
@@ -103,7 +99,7 @@ export async function POST(
       return NextResponse.json({ success: false, error: 'This invite has already been accepted.' }, { status: 410 });
     }
 
-    if (new Date(invite.expiresAt) < new Date()) {
+    if (invite.expiresAt < new Date()) {
       return NextResponse.json({ success: false, error: 'This invite link has expired.' }, { status: 410 });
     }
 
@@ -122,13 +118,19 @@ export async function POST(
 
     if (existing) {
       // Mark invite accepted and return success so they can navigate to the project
-      await prisma.$executeRaw`
-        UPDATE "ProjectInvite" SET status = 'ACCEPTED' WHERE id = ${invite.id}
-      `;
-      return NextResponse.json({ success: true, projectId: invite.projectId });
+      await prisma.projectInvite.update({ where: { id: invite.id }, data: { status: 'ACCEPTED' } });
+      return NextResponse.json({ success: true, projectId: invite.projectId, phaseId: null });
     }
 
-    // Create project role + mark invite accepted in a transaction
+    // A Purchase Order-linked invite only actually assigns the vendor if the PO is still
+    // unassigned by the time they accept — someone else may have been assigned in the
+    // meantime. Either way the invite itself still grants the project role.
+    let assignedPhaseId: string | null = null;
+    if (invite.phaseId) {
+      const phase = await prisma.phase.findUnique({ where: { id: invite.phaseId }, select: { vendorUserId: true } });
+      if (phase && !phase.vendorUserId) assignedPhaseId = invite.phaseId;
+    }
+
     await prisma.$transaction([
       prisma.projectRole.create({
         data: {
@@ -137,14 +139,15 @@ export async function POST(
           role: invite.role as Role,
         },
       }),
-      prisma.$executeRaw`
-        UPDATE "ProjectInvite" SET status = 'ACCEPTED' WHERE id = ${invite.id}
-      `,
+      prisma.projectInvite.update({ where: { id: invite.id }, data: { status: 'ACCEPTED' } }),
+      ...(assignedPhaseId
+        ? [prisma.phase.update({ where: { id: assignedPhaseId }, data: { vendorUserId: session.userId } })]
+        : []),
     ]);
 
     await invalidateProjectAndMemberCaches(invite.projectId);
 
-    return NextResponse.json({ success: true, projectId: invite.projectId });
+    return NextResponse.json({ success: true, projectId: invite.projectId, phaseId: assignedPhaseId });
   } catch (error) {
     console.error('Invite accept error:', error);
     return NextResponse.json({ success: false, error: 'Internal server error' }, { status: 500 });

@@ -9,14 +9,18 @@ import { RoleGuard } from '@/services/RoleGuard';
 import { AuditLogger } from '@/services/AuditLogger';
 import { AuditActionTypes, Role } from '@/types';
 import { z } from 'zod';
-import { sendProjectAssignedEmail, sendProjectInviteEmail, sendRoleConflictInviteEmail } from '@/lib/email';
+import { sendProjectAssignedEmail, sendProjectInviteEmail, sendRoleConflictInviteEmail, sendVendorPOAssignmentEmail } from '@/lib/email';
 import { isDemoEmail } from '@/lib/invite-utils';
 import { randomBytes } from 'crypto';
+import { loadAssignablePhase } from '@/lib/vendor-po-assignment';
 
 const assignRoleSchema = z.object({
   email: z.string().email(),
   role: z.enum(['CLIENT', 'PMC', 'VENDOR', 'VIEWER', 'CONSULTANT', 'SITE_ENGINEER']),
   force: z.boolean().optional().default(false),
+  // Only meaningful when role === 'VENDOR' — the "Assign to Purchase Order" onboarding
+  // option. A plain "Email Invite" leaves this unset, same as before this field existed.
+  phaseId: z.string().uuid().optional(),
 });
 
 const removeRoleSchema = z.object({
@@ -101,16 +105,29 @@ export async function POST(
     RoleGuard.requireRole(auth, ['CLIENT']);
 
     const body = await request.json();
-    const { email, role, force } = assignRoleSchema.parse(body);
+    const { email, role, force, phaseId } = assignRoleSchema.parse(body);
 
     // $queryRaw used for user so we can read preferredRole (Prisma client predates that column)
-    const [userRows, project] = await Promise.all([
+    const [userRows, project, projectMeta] = await Promise.all([
       prisma.$queryRaw<Array<{ id: string; name: string; email: string; preferredRole: string | null }>>`
         SELECT id, name, email, "preferredRole" FROM "User" WHERE email = ${email} LIMIT 1
       `,
       prisma.project.findUnique({ where: { id: projectId }, select: { name: true } }),
+      prisma.project.findUnique({ where: { id: projectId }, select: { metadata: true } }),
     ]);
     const user = userRows[0] ?? null;
+    const currency = projectMeta?.metadata ? (JSON.parse(projectMeta.metadata).currency || 'INR') : 'INR';
+
+    // "Assign to Purchase Order" onboarding option — only valid for a VENDOR invite, and only
+    // onto a Purchase Order that doesn't already have a vendor.
+    let poAssignment: Extract<Awaited<ReturnType<typeof loadAssignablePhase>>, { ok: true }> | null = null;
+    if (phaseId && role === 'VENDOR') {
+      const result = await loadAssignablePhase(projectId, phaseId);
+      if (!result.ok) {
+        return NextResponse.json({ success: false, error: result.error }, { status: 400 });
+      }
+      poAssignment = result;
+    }
 
     // ── User not in DB → create a pending invite ─────────────────────────────
     if (!user) {
@@ -124,12 +141,13 @@ export async function POST(
       const expiresAt = new Date(Date.now() + 30 * 24 * 60 * 60 * 1000); // 30 days
 
       await prisma.$executeRaw`
-        INSERT INTO "ProjectInvite" (id, "projectId", email, role, token, status, "invitedById", "expiresAt", "createdAt")
+        INSERT INTO "ProjectInvite" (id, "projectId", email, role, "phaseId", token, status, "invitedById", "expiresAt", "createdAt")
         VALUES (
           gen_random_uuid(),
           ${projectId},
           ${email},
           ${role},
+          ${poAssignment?.phase.id ?? null},
           ${token},
           'PENDING',
           ${auth.userId},
@@ -141,9 +159,22 @@ export async function POST(
       // Skip sending email for demo/placeholder addresses (@example.com).
       // Those users get auto-accepted when they register — no email needed.
       if (project && !isDemoEmail(email)) {
-        sendProjectInviteEmail(email, auth.name, project.name, role, token).catch((e) =>
-          console.error('[email] project-invite failed:', e)
-        );
+        if (poAssignment) {
+          sendVendorPOAssignmentEmail({
+            to: email,
+            vendorName: 'there',
+            actorName: auth.name,
+            projectName: project.name,
+            currency,
+            acceptUrl: `${process.env.NEXT_PUBLIC_APP_URL ?? 'https://axinfra.in'}/invite/${token}`,
+            isNewUser: true,
+            ...poAssignment.emailPayload,
+          }).catch((e) => console.error('[email] vendor-po-assignment failed:', e));
+        } else {
+          sendProjectInviteEmail(email, auth.name, project.name, role, token).catch((e) =>
+            console.error('[email] project-invite failed:', e)
+          );
+        }
       }
 
       const isDemo = isDemoEmail(email);
@@ -181,12 +212,13 @@ export async function POST(
       const expiresAt = new Date(Date.now() + 30 * 24 * 60 * 60 * 1000);
 
       await prisma.$executeRaw`
-        INSERT INTO "ProjectInvite" (id, "projectId", email, role, token, status, "invitedById", "expiresAt", "createdAt")
+        INSERT INTO "ProjectInvite" (id, "projectId", email, role, "phaseId", token, status, "invitedById", "expiresAt", "createdAt")
         VALUES (
           gen_random_uuid(),
           ${projectId},
           ${email},
           ${role},
+          ${poAssignment?.phase.id ?? null},
           ${token},
           'PENDING',
           ${auth.userId},
@@ -196,9 +228,22 @@ export async function POST(
       `;
 
       if (project) {
-        sendRoleConflictInviteEmail(email, user.name, auth.name, project.name, role, user.preferredRole, token).catch((e) =>
-          console.error('[email] role-conflict-invite failed:', e)
-        );
+        if (poAssignment) {
+          sendVendorPOAssignmentEmail({
+            to: email,
+            vendorName: user.name,
+            actorName: auth.name,
+            projectName: project.name,
+            currency,
+            acceptUrl: `${process.env.NEXT_PUBLIC_APP_URL ?? 'https://axinfra.in'}/invite/${token}`,
+            isNewUser: true,
+            ...poAssignment.emailPayload,
+          }).catch((e) => console.error('[email] vendor-po-assignment failed:', e));
+        } else {
+          sendRoleConflictInviteEmail(email, user.name, auth.name, project.name, role, user.preferredRole, token).catch((e) =>
+            console.error('[email] role-conflict-invite failed:', e)
+          );
+        }
       }
 
       return NextResponse.json({
@@ -220,17 +265,37 @@ export async function POST(
       );
     }
 
-    await prisma.projectRole.create({
-      data: { projectId, userId: user.id, role: role as Role },
-    });
+    if (poAssignment) {
+      await prisma.$transaction([
+        prisma.projectRole.create({ data: { projectId, userId: user.id, role: role as Role } }),
+        prisma.phase.update({ where: { id: poAssignment.phase.id }, data: { vendorUserId: user.id } }),
+      ]);
+    } else {
+      await prisma.projectRole.create({
+        data: { projectId, userId: user.id, role: role as Role },
+      });
+    }
 
     await invalidateProjectAuth(projectId, user.id);
     await invalidateProjectAndMemberCaches(projectId);
 
     if (project) {
-      sendProjectAssignedEmail(user.email, user.name, project.name, role, projectId).catch((e) =>
-        console.error('[email] project-assigned notification failed:', e)
-      );
+      if (poAssignment) {
+        sendVendorPOAssignmentEmail({
+          to: user.email,
+          vendorName: user.name,
+          actorName: auth.name,
+          projectName: project.name,
+          currency,
+          acceptUrl: `${process.env.NEXT_PUBLIC_APP_URL ?? 'https://axinfra.in'}/projects/${projectId}`,
+          isNewUser: false,
+          ...poAssignment.emailPayload,
+        }).catch((e) => console.error('[email] vendor-po-assignment failed:', e));
+      } else {
+        sendProjectAssignedEmail(user.email, user.name, project.name, role, projectId).catch((e) =>
+          console.error('[email] project-assigned notification failed:', e)
+        );
+      }
     }
 
     await AuditLogger.log({
@@ -240,7 +305,7 @@ export async function POST(
       actionType: AuditActionTypes.ROLE_ASSIGN,
       entityType: 'ProjectRole',
       entityId: `${projectId}-${user.id}`,
-      afterJson: { userId: user.id, email, role },
+      afterJson: { userId: user.id, email, role, phaseId: poAssignment?.phase.id ?? null },
     });
 
     return NextResponse.json({

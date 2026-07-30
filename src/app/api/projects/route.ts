@@ -14,7 +14,10 @@ const createProjectSchema = z.object({
   description: z.string().optional(),
   location: z.string().max(200).optional(),
   contractValue: z.number().positive('Contract value must be positive').optional(),
-  currency: z.string().default('AED').optional(),
+  // The create-project form doesn't expose a currency picker, so this default applies to
+  // every project created through the normal UI — was 'AED', which mislabeled every
+  // INR-denominated project until someone noticed and fixed it by hand (twice).
+  currency: z.string().default('INR').optional(),
   startDate: z.string().optional(),
   endDate: z.string().optional(),
 }).refine(
@@ -105,7 +108,7 @@ export async function POST(request: NextRequest) {
 
     // Build metadata from optional fields
     const metadata = (location || contractValue || currency || startDate || endDate)
-      ? JSON.stringify({ location, contractValue, currency: currency || 'AED', startDate, endDate })
+      ? JSON.stringify({ location, contractValue, currency: currency || 'INR', startDate, endDate })
       : undefined;
 
     // Create project and assign creator as owner

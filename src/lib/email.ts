@@ -419,6 +419,94 @@ export async function sendRoleConflictInviteEmail(
   });
 }
 
+/** Sent when a vendor is assigned to a specific Purchase Order via Roles > "Assign to
+ * Purchase Order" (as opposed to a plain project-wide invite). Shows the PO's dates and
+ * estimated cost, the Work Order status if one's been issued, and every Order (BOQ) already
+ * recorded under it — so the vendor sees the actual scope of work before accepting, not just
+ * a generic "you've been invited" notice. `acceptUrl` is either the invite-accept link (new
+ * user, no account yet) or a direct project link (existing user, assigned immediately). */
+export async function sendVendorPOAssignmentEmail(params: {
+  to: string;
+  vendorName: string;
+  actorName: string;
+  projectName: string;
+  currency: string;
+  acceptUrl: string;
+  isNewUser: boolean;
+  phase: {
+    name: string;
+    plannedStart: string | null;
+    plannedEnd: string | null;
+    estimatedCost: number | null;
+  };
+  workOrder: { number: string; status: string } | null;
+  boqs: Array<{
+    boqNumber: string | null;
+    name: string | null;
+    plannedStart: string | null;
+    plannedEnd: string | null;
+    value: number;
+  }>;
+}) {
+  const { to, vendorName, actorName, projectName, currency, acceptUrl, isNewUser, phase, workOrder, boqs } = params;
+
+  const fmtDate = (d: string | null) =>
+    d ? new Date(d).toLocaleDateString('en-IN', { day: 'numeric', month: 'short', year: 'numeric' }) : '—';
+  const fmtMoney = (n: number | null) =>
+    n == null
+      ? '—'
+      : new Intl.NumberFormat('en-IN', { style: 'currency', currency, maximumFractionDigits: 0 }).format(n);
+
+  const workOrderStatusLabel: Record<string, string> = {
+    DRAFT: 'Being drafted', ISSUED: 'Issued', PENDING_VENDOR_ACCEPTANCE: 'Awaiting your acceptance', ACCEPTED: 'Accepted',
+  };
+
+  const boqRows = boqs.length > 0
+    ? boqs.map((b) => `
+      <tr>
+        <td style="padding:8px 14px;border-bottom:1px solid rgba(255,255,255,0.05);font-size:12.5px;color:#e8e4dc;">${escapeHtml(b.boqNumber ?? '—')} ${b.name ? `· ${escapeHtml(b.name)}` : ''}</td>
+        <td style="padding:8px 14px;border-bottom:1px solid rgba(255,255,255,0.05);font-size:12px;color:rgba(232,228,220,0.55);white-space:nowrap;">${fmtDate(b.plannedStart)} → ${fmtDate(b.plannedEnd)}</td>
+        <td style="padding:8px 14px;border-bottom:1px solid rgba(255,255,255,0.05);font-size:12.5px;color:#e8e4dc;text-align:right;white-space:nowrap;">${fmtMoney(b.value)}</td>
+      </tr>`).join('')
+    : `<tr><td colspan="3" style="padding:12px 14px;font-size:12.5px;color:rgba(232,228,220,0.4);">No Orders recorded under this Purchase Order yet.</td></tr>`;
+
+  const html = baseTemplate(`
+    <h1 style="margin:0 0 6px;font-size:20px;font-weight:800;color:#e8e4dc;">You've been assigned to a Purchase Order</h1>
+    <p style="margin:0 0 24px;font-size:13.5px;color:rgba(232,228,220,0.55);">
+      Hi ${escapeHtml(vendorName)}, <strong style="color:#e8e4dc;">${escapeHtml(actorName)}</strong> has assigned you to a Purchase Order on
+      <strong style="color:#e8e4dc;">${escapeHtml(projectName)}</strong>.
+    </p>
+
+    <table width="100%" cellpadding="0" cellspacing="0" style="background:rgba(255,255,255,0.03);border:1px solid rgba(255,255,255,0.07);border-radius:10px;margin-bottom:16px;">
+      ${credential('Purchase Order', phase.name)}
+      ${credential('Start Date', fmtDate(phase.plannedStart))}
+      ${credential('End Date', fmtDate(phase.plannedEnd))}
+      ${credential('Estimated Value', fmtMoney(phase.estimatedCost))}
+      ${workOrder ? credential('Work Order', `${workOrder.number} — ${workOrderStatusLabel[workOrder.status] ?? workOrder.status}`) : ''}
+    </table>
+
+    <p style="font-size:11.5px;color:rgba(232,228,220,0.45);margin:0 0 8px;font-weight:600;text-transform:uppercase;letter-spacing:0.07em;">Orders under this Purchase Order</p>
+    <table width="100%" cellpadding="0" cellspacing="0" style="background:rgba(255,255,255,0.03);border:1px solid rgba(255,255,255,0.07);border-radius:10px;margin-bottom:20px;">
+      ${boqRows}
+    </table>
+
+    <p style="font-size:12px;color:rgba(232,228,220,0.35);margin:0 0 0;">
+      ${isNewUser
+        ? 'Create your account to accept this assignment and get started. The link expires in 30 days.'
+        : 'Sign in to view the full details and get started.'}
+    </p>
+
+    ${btn(isNewUser ? 'Accept & Create Account' : 'View Purchase Order', acceptUrl)}
+  `);
+
+  return getResend().emails.send({
+    from: FROM,
+    to,
+    subject: `${escapeHtml(actorName)} assigned you to "${phase.name}" on ${projectName}`,
+    html,
+  });
+}
+
 export async function sendProjectAssignedEmail(
   to: string,
   name: string,

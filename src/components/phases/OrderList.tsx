@@ -6,7 +6,7 @@ import useSWR from 'swr';
 import { ChevronDown, ChevronRight, CheckCircle2, Calendar, GripVertical, Plus } from 'lucide-react';
 import { Skeleton } from '@/components/ui/Skeleton';
 import { jsonFetcher } from '@/lib/fetcher';
-import { formatDate } from '@/lib/utils';
+import { formatDate, formatCurrency } from '@/lib/utils';
 import ImportBOQModal from '@/components/orders/ImportBOQModal';
 
 interface OrderBOQ {
@@ -21,6 +21,7 @@ interface Order {
   sortOrder: number;
   plannedStart: string | null;
   plannedEnd: string | null;
+  estimatedCost: number | null;
   createdAt: string;
   boqs: OrderBOQ[];
 }
@@ -28,6 +29,7 @@ interface Order {
 interface Props {
   projectId: string;
   userRole: 'CLIENT' | 'PMC' | 'VENDOR' | 'VIEWER' | string;
+  currency?: string;
 }
 
 const PAGE_SIZE = 8;
@@ -61,7 +63,7 @@ function BOQStatusBadge({ status, count }: { status: string; count: number }) {
   return <span className="badge badge-draft text-xs">{label('Draft')}</span>;
 }
 
-export default function OrderList({ projectId, userRole }: Props) {
+export default function OrderList({ projectId, userRole, currency }: Props) {
   const router = useRouter();
 
   const canEdit   = userRole === 'CLIENT' || userRole === 'PMC';
@@ -91,6 +93,7 @@ export default function OrderList({ projectId, userRole }: Props) {
   const [newName, setNewName]           = useState('');
   const [newStart, setNewStart]         = useState('');
   const [newEnd, setNewEnd]             = useState('');
+  const [newEstimatedCost, setNewEstimatedCost] = useState('');
   const [adding, setAdding]             = useState(false);
   // null = append at end; a number = insert at that gap index between orders
   const [insertGapIndex, setInsertGapIndex] = useState<number | null>(null);
@@ -103,6 +106,7 @@ export default function OrderList({ projectId, userRole }: Props) {
   // Inline edit
   const [editingId, setEditingId]       = useState<string | null>(null);
   const [editName, setEditName]         = useState('');
+  const [editEstimatedCost, setEditEstimatedCost] = useState('');
   const [saving, setSaving]             = useState(false);
 
   // Delete confirm
@@ -198,6 +202,10 @@ export default function OrderList({ projectId, userRole }: Props) {
       setApiError('Start date must be before end date');
       return;
     }
+    if (newEstimatedCost && (isNaN(Number(newEstimatedCost)) || Number(newEstimatedCost) < 0)) {
+      setApiError('Estimated cost must be a non-negative number');
+      return;
+    }
     setAdding(true);
     setApiError('');
 
@@ -211,6 +219,7 @@ export default function OrderList({ projectId, userRole }: Props) {
           sortOrder: gapIndex ?? (current[current.length - 1]?.sortOrder ?? 0) + 1,
           plannedStart: newStart || null,
           plannedEnd: newEnd || null,
+          estimatedCost: newEstimatedCost ? Number(newEstimatedCost) : null,
           createdAt: new Date().toISOString(),
           boqs: [],
         };
@@ -226,6 +235,7 @@ export default function OrderList({ projectId, userRole }: Props) {
     setNewName('');
     setNewStart('');
     setNewEnd('');
+    setNewEstimatedCost('');
 
     try {
       const res = await fetch(`/api/projects/${projectId}/phases`, {
@@ -235,6 +245,7 @@ export default function OrderList({ projectId, userRole }: Props) {
           name,
           plannedStart: newStart || undefined,
           plannedEnd:   newEnd   || undefined,
+          estimatedCost: newEstimatedCost || undefined,
         }),
       });
       const json = await res.json();
@@ -272,13 +283,17 @@ export default function OrderList({ projectId, userRole }: Props) {
   const handleRename = async (orderId: string) => {
     const name = editName.trim();
     if (!name) return;
+    if (editEstimatedCost && (isNaN(Number(editEstimatedCost)) || Number(editEstimatedCost) < 0)) {
+      setApiError('Estimated cost must be a non-negative number');
+      return;
+    }
     setSaving(true);
     setApiError('');
     try {
       const res = await fetch(`/api/projects/${projectId}/phases/${orderId}`, {
         method: 'PATCH',
         headers: { 'Content-Type': 'application/json' },
-        body: JSON.stringify({ name }),
+        body: JSON.stringify({ name, estimatedCost: editEstimatedCost || null }),
       });
       const json = await res.json();
       if (json.success) {
@@ -443,13 +458,26 @@ export default function OrderList({ projectId, userRole }: Props) {
                 </button>
 
                 {isEditing ? (
-                  <div className="flex items-center gap-2 flex-1">
+                  <div className="flex items-center gap-2 flex-1 flex-wrap">
                     <input
                       autoFocus
                       type="text"
-                      className="input py-1 text-sm flex-1"
+                      className="input py-1 text-sm flex-1 min-w-[140px]"
                       value={editName}
                       onChange={(e) => setEditName(e.target.value)}
+                      onKeyDown={(e) => {
+                        if (e.key === 'Enter') void handleRename(order.id);
+                        if (e.key === 'Escape') setEditingId(null);
+                      }}
+                    />
+                    <input
+                      type="number"
+                      min={0}
+                      step="0.01"
+                      placeholder="Estimated cost"
+                      className="input py-1 text-sm w-36"
+                      value={editEstimatedCost}
+                      onChange={(e) => setEditEstimatedCost(e.target.value)}
                       onKeyDown={(e) => {
                         if (e.key === 'Enter') void handleRename(order.id);
                         if (e.key === 'Escape') setEditingId(null);
@@ -474,12 +502,15 @@ export default function OrderList({ projectId, userRole }: Props) {
                     <span className="font-medium text-[#e8e4dc] truncate block">
                       {order.name}
                     </span>
-                    {(order.plannedStart || order.plannedEnd) && (
-                      <span className="flex items-center gap-1 text-[11px] text-[rgba(232,228,220,0.38)] mt-0.5">
+                    {(order.plannedStart || order.plannedEnd || order.estimatedCost != null) && (
+                      <span className="flex items-center gap-1 text-[11px] text-[rgba(232,228,220,0.38)] mt-0.5 flex-wrap">
                         <Calendar className="w-3 h-3 shrink-0" />
                         {order.plannedStart ? formatDate(order.plannedStart) : '—'}
                         {' → '}
                         {order.plannedEnd ? formatDate(order.plannedEnd) : '—'}
+                        {order.estimatedCost != null && (
+                          <span className="ml-1">· Est. {formatCurrency(order.estimatedCost, currency)}</span>
+                        )}
                       </span>
                     )}
                   </div>
@@ -487,7 +518,7 @@ export default function OrderList({ projectId, userRole }: Props) {
 
                 {!isEditing && canEdit && (
                   <button
-                    onClick={() => { setEditingId(order.id); setEditName(order.name); setApiError(''); }}
+                    onClick={() => { setEditingId(order.id); setEditName(order.name); setEditEstimatedCost(order.estimatedCost != null ? String(order.estimatedCost) : ''); setApiError(''); }}
                     className="text-xs text-[rgba(232,228,220,0.45)] hover:text-[var(--ax-accent)] transition-colors"
                   >
                     Edit
@@ -656,15 +687,27 @@ export default function OrderList({ projectId, userRole }: Props) {
                     />
                   </div>
                 </div>
+                <div>
+                  <label className="label">Estimated Cost</label>
+                  <input
+                    type="number"
+                    min={0}
+                    step="0.01"
+                    className="input text-sm"
+                    placeholder="e.g. 500000"
+                    value={newEstimatedCost}
+                    onChange={(e) => setNewEstimatedCost(e.target.value)}
+                  />
+                </div>
                 <p className="text-xs text-[rgba(232,228,220,0.35)]">
-                  Dates are optional. All team members will be notified when the order is created.
+                  Dates and estimated cost are optional. All team members will be notified when the order is created.
                 </p>
                 {apiError && (
                   <p className="text-sm text-[#e06050]">{apiError}</p>
                 )}
                 <div className="flex justify-end gap-3 pt-1">
                   <button
-                    onClick={() => { setShowAdd(false); setNewName(''); setNewStart(''); setNewEnd(''); setApiError(''); setInsertGapIndex(null); }}
+                    onClick={() => { setShowAdd(false); setNewName(''); setNewStart(''); setNewEnd(''); setNewEstimatedCost(''); setApiError(''); setInsertGapIndex(null); }}
                     className="btn btn-secondary"
                   >
                     Cancel

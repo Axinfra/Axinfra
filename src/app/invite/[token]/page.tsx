@@ -3,7 +3,7 @@
 import { useEffect, useState } from 'react';
 import { useParams, useRouter } from 'next/navigation';
 import Link from 'next/link';
-import { Loader2, CheckCircle2, XCircle, Mail, Building2, UserCheck } from 'lucide-react';
+import { Loader2, CheckCircle2, XCircle, Mail, Building2, UserCheck, Briefcase, CalendarDays, FileSignature } from 'lucide-react';
 
 const ROLE_LABELS: Record<string, string> = {
   CLIENT: 'Project Owner',
@@ -27,12 +27,46 @@ const ROLE_ICONS: Record<string, string> = {
   CLIENT: '🏢', PMC: '📋', VENDOR: '🔧', CONSULTANT: '💡', VIEWER: '👁', SITE_ENGINEER: '👷',
 };
 
+interface PurchaseOrderBOQ {
+  id: string;
+  boqNumber: string | null;
+  name: string | null;
+  plannedStart: string | null;
+  plannedEnd: string | null;
+  value: number;
+}
+
+interface PurchaseOrderSummary {
+  id: string;
+  name: string;
+  plannedStart: string | null;
+  plannedEnd: string | null;
+  estimatedCost: number | null;
+  workOrder: { number: string; status: string } | null;
+  boqs: PurchaseOrderBOQ[];
+}
+
 interface InviteData {
   id: string;
   email: string;
   role: string;
   projectName: string;
   inviterName: string;
+  currency: string;
+  purchaseOrder: PurchaseOrderSummary | null;
+}
+
+const WORK_ORDER_STATUS_LABEL: Record<string, string> = {
+  DRAFT: 'Being drafted', ISSUED: 'Issued', PENDING_VENDOR_ACCEPTANCE: 'Awaiting your acceptance', ACCEPTED: 'Accepted',
+};
+
+function fmtDate(d: string | null): string {
+  return d ? new Date(d).toLocaleDateString('en-IN', { day: 'numeric', month: 'short', year: 'numeric' }) : '—';
+}
+
+function fmtMoney(n: number | null, currency: string): string {
+  if (n == null) return '—';
+  return new Intl.NumberFormat('en-IN', { style: 'currency', currency, maximumFractionDigits: 0 }).format(n);
 }
 
 type PageState = 'loading' | 'ready' | 'accepting' | 'accepted' | 'error';
@@ -84,7 +118,12 @@ export default function InvitePage() {
       const data = await res.json();
       if (data.success) {
         setState('accepted');
-        setTimeout(() => router.push(`/projects/${data.projectId}`), 2000);
+        // A Purchase-Order assignment means "add your details before you start work" —
+        // otherwise straight to the project, same as any other invite.
+        const destination = data.phaseId
+          ? `/vendor/complete-profile?projectId=${data.projectId}`
+          : `/projects/${data.projectId}`;
+        setTimeout(() => router.push(destination), 2000);
       } else {
         setErrorMsg(data.error || 'Failed to accept invite.');
         setState('error');
@@ -202,6 +241,52 @@ export default function InvitePage() {
                   <p className="text-sm font-medium text-[#e8e4dc]">{invite.email}</p>
                 </div>
               </div>
+
+              {/* Purchase Order assignment — only present for the "Assign to Purchase Order"
+                  onboarding option, not a plain email invite */}
+              {invite.purchaseOrder && (
+                <div className="rounded-xl border border-[rgba(var(--ax-accent-rgb),0.2)] bg-[rgba(var(--ax-accent-rgb),0.04)] p-4 space-y-3">
+                  <div className="flex items-center gap-2">
+                    <Briefcase className="w-4 h-4 text-[var(--ax-accent)] shrink-0" />
+                    <p className="text-sm font-semibold text-[#e8e4dc]">{invite.purchaseOrder.name}</p>
+                  </div>
+                  <div className="grid grid-cols-2 gap-3 text-xs">
+                    <div>
+                      <p className="text-[rgba(232,228,220,0.4)] mb-0.5">Dates</p>
+                      <p className="text-[#e8e4dc] flex items-center gap-1">
+                        <CalendarDays className="w-3 h-3 shrink-0" />
+                        {fmtDate(invite.purchaseOrder.plannedStart)} → {fmtDate(invite.purchaseOrder.plannedEnd)}
+                      </p>
+                    </div>
+                    <div>
+                      <p className="text-[rgba(232,228,220,0.4)] mb-0.5">Estimated Value</p>
+                      <p className="text-[#e8e4dc]">{fmtMoney(invite.purchaseOrder.estimatedCost, invite.currency)}</p>
+                    </div>
+                    {invite.purchaseOrder.workOrder && (
+                      <div className="col-span-2">
+                        <p className="text-[rgba(232,228,220,0.4)] mb-0.5">Work Order</p>
+                        <p className="text-[#e8e4dc] flex items-center gap-1">
+                          <FileSignature className="w-3 h-3 shrink-0" />
+                          {invite.purchaseOrder.workOrder.number} — {WORK_ORDER_STATUS_LABEL[invite.purchaseOrder.workOrder.status] ?? invite.purchaseOrder.workOrder.status}
+                        </p>
+                      </div>
+                    )}
+                  </div>
+                  {invite.purchaseOrder.boqs.length > 0 && (
+                    <div className="pt-2 border-t border-[rgba(255,255,255,0.06)] space-y-1.5">
+                      <p className="text-[10px] text-[rgba(232,228,220,0.35)] font-medium uppercase tracking-wider">Orders</p>
+                      {invite.purchaseOrder.boqs.map((b) => (
+                        <div key={b.id} className="flex items-center justify-between text-xs">
+                          <span className="text-[rgba(232,228,220,0.65)] truncate">
+                            {b.boqNumber ?? '—'}{b.name ? ` · ${b.name}` : ''}
+                          </span>
+                          <span className="text-[#e8e4dc] shrink-0 ml-2">{fmtMoney(b.value, invite.currency)}</span>
+                        </div>
+                      ))}
+                    </div>
+                  )}
+                </div>
+              )}
             </div>
 
             {/* Action */}

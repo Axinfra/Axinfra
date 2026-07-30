@@ -40,6 +40,7 @@ export async function GET(
         description: phase.description,
         plannedStart: phase.plannedStart,
         plannedEnd: phase.plannedEnd,
+        estimatedCost: phase.estimatedCost,
         vendorUserId: phase.vendorUserId,
         vendor: phase.vendorUser,
         boqs: phase.boqs.map((b) => ({ id: b.id, status: b.status, itemsCount: b._count.items })),
@@ -106,6 +107,18 @@ export async function PATCH(
       return NextResponse.json({ success: false, error: 'Start date must be before end date' }, { status: 400 });
     }
 
+    let estimatedCost: number | null | undefined = undefined;
+    if (body.estimatedCost !== undefined) {
+      if (body.estimatedCost === null || body.estimatedCost === '') {
+        estimatedCost = null;
+      } else {
+        estimatedCost = Number(body.estimatedCost);
+        if (isNaN(estimatedCost) || estimatedCost < 0) {
+          return NextResponse.json({ success: false, error: 'Estimated cost must be a non-negative number' }, { status: 400 });
+        }
+      }
+    }
+
     if (body.vendorUserId) {
       const vendorRole = await prisma.projectRole.findUnique({
         where: { projectId_userId: { projectId, userId: body.vendorUserId as string } },
@@ -123,6 +136,7 @@ export async function PATCH(
         ...(body.sortOrder !== undefined && { sortOrder: body.sortOrder as number }),
         ...(plannedStart !== undefined && { plannedStart }),
         ...(plannedEnd   !== undefined && { plannedEnd }),
+        ...(estimatedCost !== undefined && { estimatedCost }),
         ...(body.vendorUserId !== undefined && { vendorUserId: (body.vendorUserId as string) || null }),
       },
     });
@@ -156,6 +170,10 @@ export async function PATCH(
     if (body.vendorUserId !== undefined && updated.vendorUserId !== phase.vendorUserId) {
       before.vendorUserId = phase.vendorUserId;
       after.vendorUserId = updated.vendorUserId;
+    }
+    if (estimatedCost !== undefined && updated.estimatedCost !== phase.estimatedCost) {
+      before.estimatedCost = phase.estimatedCost;
+      after.estimatedCost = updated.estimatedCost;
     }
     if (Object.keys(after).length > 0) {
       await AuditLogger.log({
