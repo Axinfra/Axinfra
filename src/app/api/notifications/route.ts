@@ -27,7 +27,10 @@ export async function GET() {
 
     // Map role → which event types to show
     const eventTypesByRole: Record<string, string[]> = {
-      VENDOR: ['MILESTONE_VERIFIED', 'REVISION_REQUESTED', 'MILESTONE_COMMENT', 'PAYMENT_DONE', 'PAYMENT_NOT_DONE', 'SCHEDULE_UPDATED'],
+      // MILESTONE_REJECTED is the actual event name a milestone getting sent back for
+      // revision fires (see MilestoneStateMachine/progress-update route) — this list
+      // previously said 'REVISION_REQUESTED', which nothing ever emits.
+      VENDOR: ['MILESTONE_VERIFIED', 'MILESTONE_REJECTED', 'MILESTONE_COMMENT', 'PAYMENT_DONE', 'PAYMENT_NOT_DONE', 'SCHEDULE_UPDATED'],
       PMC: [
         'EVIDENCE_SUBMITTED', 'WORK_STARTED', 'PAYMENT_DONE', 'PAYMENT_NOT_DONE',
         'BOQ_APPROVED', 'BOQ_REVISION_REQUESTED',

@@ -235,6 +235,23 @@ export class PaymentEligibilityEngine {
         eventType,
       });
 
+      // Client-facing notification: a milestone just became payable. Guarded on the
+      // transition itself (not just "is currently eligible") so this fires once, not on
+      // every recalculation while it stays eligible.
+      if (previousState !== EligibilityState.FULLY_ELIGIBLE && newState === EligibilityState.FULLY_ELIGIBLE) {
+        void prisma.systemEvent.create({
+          data: {
+            projectId: milestone.projectId,
+            eventType: 'PAYMENT_REQUIRED',
+            severity: 'INFO',
+            message: 'A milestone is now eligible for payment.',
+            entityType: 'Milestone',
+            entityId: milestoneId,
+            actorId,
+          },
+        }).catch((e) => console.error('[PaymentEligibilityEngine] PAYMENT_REQUIRED event write failed:', e));
+      }
+
       return {
         success: true,
         eligibility: { ...calculation, state: newState },

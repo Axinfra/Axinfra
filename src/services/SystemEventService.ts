@@ -6,10 +6,31 @@
  * core logic. Events feed the analytics and risk engines.
  *
  * DESIGN:
- * - In-memory ring buffer (no DB writes) for real-time streaming
- * - Fire-and-forget: emit() never throws, never blocks callers
- * - Events are ephemeral per-process; durable history lives in AuditLog
+ * - In-memory ring buffer for real-time streaming within a process — fast,
+ *   but ephemeral (lost on restart, not shared across serverless instances).
+ * - ALSO persisted to the SystemEvent table (fire-and-forget, best-effort)
+ *   so durable consumers — right now, the /api/notifications bell — can read
+ *   these events regardless of which process/instance produced them. Before
+ *   this, MILESTONE_VERIFIED/MILESTONE_REJECTED only ever reached the
+ *   in-memory buffer, so the notification bell could never show them.
+ * - emit() never throws, never blocks callers — the DB write is not awaited.
  */
+
+import { prisma } from '@/lib/db';
+
+const EVENT_MESSAGES: Record<string, string> = {
+  MILESTONE_TRANSITIONED: 'Milestone status was updated.',
+  MILESTONE_SUBMITTED: 'Milestone submitted for verification.',
+  MILESTONE_VERIFIED: 'Milestone verified.',
+  MILESTONE_REJECTED: 'Milestone sent back for revision.',
+  EVIDENCE_SUBMITTED: 'Evidence submitted.',
+  EVIDENCE_APPROVED: 'Evidence approved.',
+  EVIDENCE_REJECTED: 'Evidence rejected.',
+  ELIGIBILITY_RECALCULATED: 'Payment eligibility recalculated.',
+  PAYMENT_BLOCKED: 'Payment blocked.',
+  PAYMENT_UNBLOCKED: 'Payment unblocked.',
+  PAYMENT_MARKED_PAID: 'Payment marked as paid.',
+};
 
 export const SystemEventType = {
   // Milestone events
@@ -78,6 +99,22 @@ export class SystemEventService {
       if (buffer.length > MAX_BUFFER_SIZE) {
         buffer.splice(0, buffer.length - MAX_BUFFER_SIZE);
       }
+
+      // Not awaited — persistence is best-effort and must never slow down or
+      // break the caller. A failure here just means this one event doesn't
+      // show up in the notification bell; the in-memory buffer above (used
+      // by the analytics/risk engines) is unaffected either way.
+      void prisma.systemEvent.create({
+        data: {
+          projectId,
+          eventType: type,
+          severity: 'INFO',
+          message: EVENT_MESSAGES[type] ?? type,
+          entityType,
+          entityId,
+          actorId,
+        },
+      }).catch((e) => console.error('[SystemEventService] DB persist failed:', e));
     } catch {
       // Fire-and-forget: never let event emission break callers
     }

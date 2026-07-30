@@ -5,6 +5,7 @@ import { RoleGuard } from '@/services/RoleGuard';
 import { invalidateProjectAndMemberCaches } from '@/lib/cache-invalidation';
 import { AuditLogger } from '@/services/AuditLogger';
 import { AuditActionTypes } from '@/types';
+import { sendScheduleUpdatedEmail } from '@/lib/email';
 
 const dateEq = (a: Date | null, b: Date | null) => (a?.getTime() ?? null) === (b?.getTime() ?? null);
 
@@ -186,6 +187,46 @@ export async function PATCH(
         beforeJson: before,
         afterJson: after,
       });
+    }
+
+    // Notify the project — in-app (SCHEDULE_UPDATED) and by email — when the actual dates
+    // moved. Mirrors sendPhaseCreatedEmail's recipient pattern in the sibling POST route;
+    // this was the only trigger point sendScheduleUpdatedEmail had, so it was dead code
+    // (defined, never called) until now.
+    if ('plannedStart' in after || 'plannedEnd' in after) {
+      void prisma.systemEvent.create({
+        data: {
+          projectId,
+          eventType: 'SCHEDULE_UPDATED',
+          severity: 'INFO',
+          message: `"${updated.name}" schedule was updated.`,
+          entityType: 'Phase',
+          entityId: phaseId,
+          actorId: auth.userId,
+        },
+      }).catch((e) => console.error('[system-event] SCHEDULE_UPDATED write failed:', e));
+
+      if (updated.plannedEnd) {
+        void (async () => {
+          const [actor, project, allRoles] = await Promise.all([
+            prisma.user.findUnique({ where: { id: auth.userId }, select: { name: true } }),
+            prisma.project.findUnique({ where: { id: projectId }, select: { name: true } }),
+            prisma.projectRole.findMany({ where: { projectId }, include: { user: { select: { id: true, name: true, email: true } } } }),
+          ]);
+          if (!actor || !project) return;
+          const recipients = allRoles.map((r) => r.user).filter((u) => u.id !== auth.userId);
+          await Promise.allSettled(
+            recipients.map((r) =>
+              sendScheduleUpdatedEmail(
+                r.email, r.name, project.name, updated.name,
+                updated.plannedEnd!.toISOString(),
+                projectId, actor.name, auth.role,
+                updated.plannedStart?.toISOString(),
+              ),
+            ),
+          );
+        })().catch((e) => console.error('[email] schedule-updated failed:', e));
+      }
     }
 
     return NextResponse.json({ success: true, data: updated });

@@ -182,8 +182,31 @@ export async function POST(
     // Viseron Intelligence: emit system event for analytics pipeline (payment eligibility is
     // deliberately NOT recalculated here — Activities no longer carry a payment concept).
     if (toState !== fromState) {
-      const sysEventType = toState === MilestoneState.VERIFIED ? SystemEventType.MILESTONE_VERIFIED : SystemEventType.MILESTONE_TRANSITIONED;
+      // A milestone walked back down from VERIFIED is this simplified percentComplete-driven
+      // model's equivalent of "sent back for revision" — there's no separate REJECTED state
+      // to transition through, PMC/Site Engineer just lowers the percentage after finding an
+      // issue. Notifies the vendor the same way an explicit rejection would.
+      const sysEventType =
+        toState === MilestoneState.VERIFIED ? SystemEventType.MILESTONE_VERIFIED
+        : fromState === MilestoneState.VERIFIED ? SystemEventType.MILESTONE_REJECTED
+        : SystemEventType.MILESTONE_TRANSITIONED;
       SystemEventService.emit(sysEventType, projectId, 'Milestone', milestoneId, auth.userId, { fromState, toState, percentComplete });
+    }
+
+    // PMC-facing notification: Site Engineer (or PMC themselves) just moved this milestone
+    // off zero for the first time — the vendor's work is now underway.
+    if (isStarting) {
+      void prisma.systemEvent.create({
+        data: {
+          projectId,
+          eventType: 'WORK_STARTED',
+          severity: 'INFO',
+          message: 'Work has started on a milestone.',
+          entityType: 'Milestone',
+          entityId: milestoneId,
+          actorId: auth.userId,
+        },
+      }).catch((e) => console.error('[system-event] WORK_STARTED write failed:', e));
     }
 
     return NextResponse.json({ success: true, data: { evidenceId: evidence.id, percentComplete, state: toState } });
