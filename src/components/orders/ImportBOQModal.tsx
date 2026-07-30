@@ -171,7 +171,7 @@ export default function ImportBOQModal({
       <div className="bg-[#13151a] border border-[rgba(255,255,255,0.1)] rounded-xl w-full max-w-2xl">
         <div className="p-6 space-y-5">
           <div className="flex justify-between items-center">
-            <h2 className="text-lg font-semibold text-[#e8e4dc]">Import BOQ from Excel</h2>
+            <h2 className="text-lg font-semibold text-[#e8e4dc]">Import Order from Excel</h2>
             <button onClick={onClose} className="text-[rgba(232,228,220,0.4)] hover:text-[#e8e4dc] text-xl leading-none">✕</button>
           </div>
 
@@ -191,7 +191,7 @@ export default function ImportBOQModal({
                       {importResult.created > 0
                         ? `✓ ${importResult.created} items imported successfully`
                         : allDuplicates
-                        ? 'No new items — everything in this sheet was already in the BOQ'
+                        ? 'No new items — everything in this sheet was already in the Order'
                         : 'No items were imported'}
                       {importResult.skipped > 0 && ` · ${importResult.skipped} skipped`}
                       {importResult.duplicates > 0 && !allDuplicates && ` · ${importResult.duplicates} duplicate${importResult.duplicates > 1 ? 's' : ''} left as-is`}
@@ -287,7 +287,7 @@ export default function ImportBOQModal({
                   </div>
                   {unmatchedCount > 0 && (
                     <p className="text-xs text-[rgba(232,228,220,0.45)] bg-[rgba(255,255,255,0.03)] border border-[rgba(255,255,255,0.07)] rounded-lg px-3 py-2">
-                      {unmatchedCount} purchase order{unmatchedCount > 1 ? 's' : ''} not found in this project. Check the box to create {unmatchedCount > 1 ? 'them' : 'it'} automatically along with the BOQ — leave unchecked to skip.
+                      {unmatchedCount} purchase order{unmatchedCount > 1 ? 's' : ''} not found in this project. Check the box to create {unmatchedCount > 1 ? 'them' : 'it'} automatically along with the Order — leave unchecked to skip.
                     </p>
                   )}
                   {importParseError && <p className="text-xs text-[#e06050]">{importParseError}</p>}

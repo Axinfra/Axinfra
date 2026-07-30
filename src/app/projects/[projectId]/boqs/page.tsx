@@ -108,7 +108,7 @@ export default function BOQsListPage() {
 
       <div className="space-y-6">
         <div className="flex justify-between items-center flex-wrap gap-3">
-          <h1 className="text-2xl font-bold text-[#e8e4dc]">BOQs</h1>
+          <h1 className="text-2xl font-bold text-[#e8e4dc]">Orders</h1>
           {canImport && (
             <button onClick={() => setShowImport(true)} className="btn btn-sm btn-secondary">
               ↑ Import Excel
@@ -141,21 +141,21 @@ export default function BOQsListPage() {
 
         <div className="card">
           <div className="card-header">
-            <h2 className="text-lg font-semibold">{total} BOQ{total === 1 ? '' : 's'}</h2>
+            <h2 className="text-lg font-semibold">{total} Order{total === 1 ? '' : 's'}</h2>
           </div>
           <div className="card-body">
             {boqsLoading ? (
               <p className="text-sm text-[rgba(232,228,220,0.45)] py-6 text-center">Loading…</p>
             ) : boqs.length === 0 ? (
               <p className="text-sm text-[rgba(232,228,220,0.55)] py-6 text-center">
-                No BOQs {orderFilter ? 'for this purchase order' : 'yet'}
+                No Orders {orderFilter ? 'for this purchase order' : 'yet'}
               </p>
             ) : (
               <div className="overflow-x-auto">
                 <table className="table text-sm">
                   <thead>
                     <tr>
-                      <th>BOQ No.</th>
+                      <th>Order No.</th>
                       <th>Description</th>
                       <th>Purchase Order</th>
                       <th>Unit</th>

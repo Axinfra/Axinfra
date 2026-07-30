@@ -66,7 +66,7 @@ const SYSTEM_PROMPT =
   'and by roughly how much.\n' +
   '5. "financialNote" — 2-3 lines explaining the billing/payment variance numbers in plain ' +
   'language: how much of the contract value has actually been paid out vs planned, and whether that gap is normal or a concern.\n' +
-  '6. "boqNote" — 2-3 lines on how the BOQ value is split across purchase orders — which order(s) ' +
+  '6. "boqNote" — 2-3 lines on how the Order value is split across purchase orders — which order(s) ' +
   'carry the most value, and anything unusual about the split.\n' +
   '7. "qualityNote" — 2-3 lines explaining the checklist/inspection results in plain language ' +
   '(is quality on track or are there recurring problems), ending with one concrete corrective step ' +

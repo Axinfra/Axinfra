@@ -47,7 +47,7 @@ export default function ReportsLandingPage() {
             </h1>
           </div>
           <p className="text-[15px] leading-relaxed" style={{ color: 'rgba(var(--ax-text-rgb),0.55)' }}>
-            Weekly and monthly project rollups — BOQ, activities, payments, checklists, DPR, and documents in one PDF.
+            Weekly and monthly project rollups — Orders, activities, payments, checklists, DPR, and documents in one PDF.
           </p>
         </div>
 

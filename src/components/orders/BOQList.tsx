@@ -135,10 +135,10 @@ export default function BOQList({
       if (data.success) {
         void mutate();
       } else {
-        setError(data.error ?? 'Failed to submit BOQs for approval');
+        setError(data.error ?? 'Failed to submit Orders for approval');
       }
     } catch {
-      setError('Failed to submit BOQs for approval. Please try again.');
+      setError('Failed to submit Orders for approval. Please try again.');
     } finally {
       setSubmittingAll(false);
     }
@@ -154,10 +154,10 @@ export default function BOQList({
       if (data.success) {
         void mutate();
       } else {
-        setError(data.error ?? 'Failed to approve BOQs');
+        setError(data.error ?? 'Failed to approve Orders');
       }
     } catch {
-      setError('Failed to approve BOQs. Please try again.');
+      setError('Failed to approve Orders. Please try again.');
     } finally {
       setApprovingAll(false);
     }
@@ -179,10 +179,10 @@ export default function BOQList({
         setReviseAllReason('');
         void mutate();
       } else {
-        setError(data.error ?? 'Failed to send BOQs back for revision');
+        setError(data.error ?? 'Failed to send Orders back for revision');
       }
     } catch {
-      setError('Failed to send BOQs back for revision. Please try again.');
+      setError('Failed to send Orders back for revision. Please try again.');
     } finally {
       setRevisingAll(false);
     }
@@ -193,7 +193,7 @@ export default function BOQList({
   return (
     <div className="card">
       <div className="card-header flex justify-between items-center flex-wrap gap-2">
-        <h2 className="text-lg font-semibold">BOQs ({total})</h2>
+        <h2 className="text-lg font-semibold">Orders ({total})</h2>
         <div className="flex items-center gap-2">
           {canCreate && submittableCount > 0 && (
             <button onClick={() => void handleSubmitAll()} disabled={submittingAll} className="btn btn-sm btn-secondary text-xs disabled:opacity-50">
@@ -227,14 +227,14 @@ export default function BOQList({
           <p className="text-sm text-[rgba(232,228,220,0.45)]">Loading…</p>
         ) : boqs.length === 0 ? (
           <p className="text-sm text-[rgba(232,228,220,0.55)] py-6 text-center">
-            No BOQs yet{canCreate ? ' — click "+ Add Item" to get started' : ''}
+            No Orders yet{canCreate ? ' — click "+ Add Item" to get started' : ''}
           </p>
         ) : (
           <div className="overflow-x-auto">
             <table className="table text-sm">
               <thead>
                 <tr>
-                  <th>BOQ No.</th>
+                  <th>Order No.</th>
                   <th>Description</th>
                   <th>Unit</th>
                   <th className="text-right">Qty</th>
@@ -327,7 +327,7 @@ export default function BOQList({
         <div className="fixed inset-0 bg-black/70 flex items-center justify-center z-50">
           <div className="bg-[#13151a] border border-[rgba(255,255,255,0.1)] rounded-xl max-w-md w-full mx-4">
             <div className="p-6">
-              <h2 className="text-lg font-semibold mb-4">Add BOQ Item</h2>
+              <h2 className="text-lg font-semibold mb-4">Add Order Item</h2>
               {error && <div className="alert alert-error text-sm mb-3">{error}</div>}
               <div className="space-y-4">
                 <div>
@@ -368,8 +368,8 @@ export default function BOQList({
         <div className="fixed inset-0 bg-black/70 flex items-center justify-center z-50 p-4">
           <div className="bg-[#13151a] border border-[rgba(255,255,255,0.1)] rounded-xl max-w-md w-full">
             <div className="p-6 space-y-4">
-              <h2 className="text-lg font-semibold text-[#e8e4dc]">Send {approvableCount} BOQ{approvableCount === 1 ? '' : 's'} Back for Revision</h2>
-              <p className="text-xs text-[rgba(232,228,220,0.5)]">One reason will be applied to every pending BOQ under this Purchase Order. PMC will need to fix and resend each one.</p>
+              <h2 className="text-lg font-semibold text-[#e8e4dc]">Send {approvableCount} Order{approvableCount === 1 ? '' : 's'} Back for Revision</h2>
+              <p className="text-xs text-[rgba(232,228,220,0.5)]">One reason will be applied to every pending Order on this Purchase Order. PMC will need to fix and resend each one.</p>
               {error && <div className="alert alert-error text-sm">{error}</div>}
               <textarea
                 autoFocus
@@ -397,8 +397,8 @@ export default function BOQList({
       {confirmApproveAll && (
         <div className="fixed inset-0 bg-black/70 flex items-center justify-center z-50 p-4">
           <div className="bg-[#13151a] border border-[rgba(255,255,255,0.1)] rounded-xl max-w-sm w-full shadow-2xl p-6 space-y-4">
-            <h2 className="text-base font-semibold text-[#e8e4dc]">Approve {approvableCount} BOQ{approvableCount === 1 ? '' : 's'}?</h2>
-            <p className="text-sm text-[rgba(232,228,220,0.55)]">Every pending BOQ under this Purchase Order will be locked and PMC will no longer be able to edit them.</p>
+            <h2 className="text-base font-semibold text-[#e8e4dc]">Approve {approvableCount} Order{approvableCount === 1 ? '' : 's'}?</h2>
+            <p className="text-sm text-[rgba(232,228,220,0.55)]">Every pending Order on this Purchase Order will be locked and PMC will no longer be able to edit them.</p>
             <div className="flex justify-end gap-3">
               <button onClick={() => setConfirmApproveAll(false)} className="btn btn-secondary">Cancel</button>
               <button onClick={() => void handleApproveAll()} className="btn btn-success">Approve All</button>

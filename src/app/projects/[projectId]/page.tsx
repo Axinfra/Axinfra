@@ -248,7 +248,7 @@ function VendorOverviewTab({ project, projectId, onOpenReports }: { project: Pro
       <div className="card">
         <div className="card-header"><h2 className="text-lg font-semibold">Quick Actions</h2></div>
         <div className="card-body flex flex-wrap gap-3">
-          <Link href={`/projects/${projectId}/boqs`} className="btn btn-secondary">View BOQ</Link>
+          <Link href={`/projects/${projectId}/boqs`} className="btn btn-secondary">View Orders</Link>
           <button onClick={onOpenReports} className="btn btn-secondary">Schedule &amp; Performance</button>
           <Link href={`/projects/${projectId}/payments`} className="btn btn-secondary">My Invoices</Link>
           <Link href={`/projects/${projectId}/dashboard`} className="btn btn-primary">View Dashboard</Link>
@@ -444,7 +444,7 @@ function OverviewTab({ project, projectId }: { project: ProjectData; projectId: 
     <div className="space-y-6">
       <div className="grid gap-4 md:grid-cols-4">
         <div className="card"><div className="card-body">
-          <p className="text-sm font-medium" style={{ color: 'rgba(var(--ax-text-rgb),0.6)' }}>Total BOQ Value</p>
+          <p className="text-sm font-medium" style={{ color: 'rgba(var(--ax-text-rgb),0.6)' }}>Total Order Value</p>
           <p className="text-2xl font-bold" style={{ color: 'var(--ax-text)' }}>{formatCurrency(totalBOQValue, project?.currency)}</p>
         </div></div>
         <div className="card"><div className="card-body">
@@ -469,7 +469,7 @@ function OverviewTab({ project, projectId }: { project: ProjectData; projectId: 
       <div className="card">
         <div className="card-header"><h2 className="text-lg font-semibold">Quick Actions</h2></div>
         <div className="card-body flex flex-wrap gap-3">
-          {project.permissions?.canEditBOQ && <Link href={`/projects/${projectId}/boqs`} className="btn btn-secondary">Manage BOQ</Link>}
+          {project.permissions?.canEditBOQ && <Link href={`/projects/${projectId}/boqs`} className="btn btn-secondary">Manage Orders</Link>}
           {project.permissions?.canEditMilestones && <Link href={`/projects/${projectId}/activities`} className="btn btn-secondary">Manage Activities</Link>}
           <Link href={`/projects/${projectId}/dashboard`} className="btn btn-primary">View Dashboard</Link>
         </div>

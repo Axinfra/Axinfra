@@ -335,7 +335,7 @@ export default function ActivitiesPage() {
   }, [workOrders, myRole, myUserId]);
 
   const approvalItems: ApprovalItem[] = useMemo(() => [
-    ...pendingBOQs.map((b) => ({ id: b.id, title: `BOQ ${b.boqNumber ?? ''} · ${b.order?.name ?? 'Unassigned order'}`, status: APPROVAL_STATUS_LABEL[b.status] ?? b.status, href: `/projects/${projectId}/boq/${b.id}` })),
+    ...pendingBOQs.map((b) => ({ id: b.id, title: `Order ${b.boqNumber ?? ''} · ${b.order?.name ?? 'Unassigned order'}`, status: APPROVAL_STATUS_LABEL[b.status] ?? b.status, href: `/projects/${projectId}/boq/${b.id}` })),
     ...pendingRABills.map((b) => ({ id: b.id, title: `RA-${b.billNumber} · ${b.order.name}`, status: APPROVAL_STATUS_LABEL[b.status] ?? b.status, href: `/projects/${projectId}/orders/${b.order.id}/ra-bills/${b.id}` })),
     ...pendingWorkOrdersList.map((wo) => ({ id: wo.id, title: `${wo.number} · ${wo.order.name}`, status: APPROVAL_STATUS_LABEL[wo.status] ?? wo.status, href: `/projects/${projectId}/orders/${wo.order.id}` })),
   ], [pendingBOQs, pendingRABills, pendingWorkOrdersList, projectId]);
@@ -733,7 +733,7 @@ export default function ActivitiesPage() {
                     className="flex items-center justify-between gap-3 px-5 py-3 hover:bg-[rgba(var(--ax-accent-rgb),0.03)] transition-colors"
                   >
                     <div className="flex items-center gap-2.5 min-w-0">
-                      {item.title.startsWith('BOQ') ? <FileText className="w-4 h-4 shrink-0" style={{ color: 'rgba(var(--ax-text-rgb),0.4)' }} />
+                      {item.title.startsWith('Order') ? <FileText className="w-4 h-4 shrink-0" style={{ color: 'rgba(var(--ax-text-rgb),0.4)' }} />
                         : item.title.startsWith('RA-') ? <Receipt className="w-4 h-4 shrink-0" style={{ color: 'rgba(var(--ax-text-rgb),0.4)' }} />
                         : <FileSignature className="w-4 h-4 shrink-0" style={{ color: 'rgba(var(--ax-text-rgb),0.4)' }} />}
                       <span className="text-sm truncate" style={{ color: 'var(--ax-text)' }}>{item.title}</span>

@@ -307,7 +307,7 @@ export class FollowUpScheduler {
         type: FollowUpType.BOQ_OVERRUN,
         targetEntity: 'BOQItem',
         targetEntityId: overrun.boqItemId,
-        description: `BOQ item "${overrun.description}" overrun: ${overrun.verifiedQty} verified vs ${overrun.plannedQty} planned`,
+        description: `Order item "${overrun.description}" overrun: ${overrun.verifiedQty} verified vs ${overrun.plannedQty} planned`,
         status: FollowUpStatus.OPEN,
       }));
 

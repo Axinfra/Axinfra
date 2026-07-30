@@ -246,13 +246,13 @@ function FlowDiagram() {
       <Connector d="M180 100 L220 100" stroke={GOLD} dur={1.2} />
       <Node x={220} y={76} w={160} h={48} stroke={ARCH} roleColor={ARCH} role="CONSULTANT" label="Designs plans"  pulse />
       <Connector d="M380 100 L420 100" stroke={ARCH} dur={1.4} />
-      <Node x={420} y={76} w={160} h={48} stroke={GOLD} roleColor={GOLD} role="PMC"        label="Creates BOQ" />
+      <Node x={420} y={76} w={160} h={48} stroke={GOLD} roleColor={GOLD} role="PMC"        label="Creates Order" />
 
       {/* BOQ routes back to Client for approval */}
       <Connector d="M500 124 L500 160 L100 160 L100 188" stroke={GOLD} dur={2.2} />
 
       {/* ── row 2: Client approves BOQ ── */}
-      <Diamond cx={100} cy={232} size={44} stroke={GOLD} roleColor={GOLD} role="CLIENT" label="Approve BOQ?" pulse />
+      <Diamond cx={100} cy={232} size={44} stroke={GOLD} roleColor={GOLD} role="CLIENT" label="Approve Order?" pulse />
       <text x={156} y={228} fill={GREEN} fontSize="10" fontFamily="Instrument Sans,sans-serif" fontWeight="600">✓ Approve</text>
       <text x={0}   y={302} fill={RED}  fontSize="10" fontFamily="Instrument Sans,sans-serif" fontWeight="600">✗ Reject</text>
 
@@ -260,7 +260,7 @@ function FlowDiagram() {
       <path d="M100 276 L100 308 L500 308 L500 124" fill="none" stroke={RED} strokeWidth="1" strokeDasharray="4 6" opacity=".6" markerEnd="url(#ar)" />
       <circle r="2.5" fill={RED}><animateMotion dur="4.2s" repeatCount="indefinite" path="M100,276 L100,308 L500,308 L500,124" calcMode="paced" /></circle>
       <rect x={220} y={297} width={162} height={20} rx="5" fill={rejectBoxBg} />
-      <text x={301} y={311} textAnchor="middle" fill={RED} fontSize="9" fontFamily="JetBrains Mono,monospace">BOQ Revised — re-submit</text>
+      <text x={301} y={311} textAnchor="middle" fill={RED} fontSize="9" fontFamily="JetBrains Mono,monospace">Order Revised — re-submit</text>
 
       {/* Approve → PMC milestones → Vendor starts work (spans past Site Engineer's lane) */}
       <Connector d="M144 232 L420 232" stroke={GREEN} dur={1.6} />
@@ -297,17 +297,17 @@ function FlowDiagram() {
 /* ─── Data ───────────────────────────────────────────────────────────────── */
 const GANTT_TASKS = [
   { name: 'Project kickoff', role: 'CLIENT', color: 'gold', start: 0, len: 0.8 },
-  { name: 'BOQ — Phase 0 Foundation', role: 'PMC', color: 'gold', start: 0.6, len: 1.4 },
-  { name: 'BOQ Approval', role: 'CLIENT', color: 'gold', start: 2, len: 0.5 },
+  { name: 'Order — Phase 0 Foundation', role: 'PMC', color: 'gold', start: 0.6, len: 1.4 },
+  { name: 'Order Approval', role: 'CLIENT', color: 'gold', start: 2, len: 0.5 },
   { name: 'Foundation milestones', role: 'PMC', color: 'green', start: 2.4, len: 1.2 },
   { name: 'Foundation work', role: 'VENDOR', color: 'green', start: 2.8, len: 1.8 },
   { name: 'Milestone review — Phase 0', role: 'PMC', color: 'gold', start: 4.6, len: 0.5 },
   { name: 'Payment release — Phase 0', role: 'CLIENT', color: 'green', start: 5.1, len: 0.5 },
-  { name: 'BOQ — Structural Works', role: 'PMC', color: 'gold', start: 2, len: 1.2 },
+  { name: 'Order — Structural Works', role: 'PMC', color: 'gold', start: 2, len: 1.2 },
   { name: 'Structural milestones', role: 'PMC', color: 'green', start: 3, len: 0.6 },
   { name: 'Structural work', role: 'VENDOR', color: 'green', start: 3.4, len: 2.8 },
   { name: 'Submission — Structural', role: 'VENDOR', color: 'gold', start: 6.2, len: 0.5 },
-  { name: 'Phase 3 BOQ (Draft)', role: 'PMC', color: 'gray', start: 5, len: 2 },
+  { name: 'Phase 3 Order (Draft)', role: 'PMC', color: 'gray', start: 5, len: 2 },
   { name: 'Facade & MEP (at risk)', role: 'VENDOR', color: 'red', start: 5.8, len: 2.2 },
 ];
 const MONTHS = ['Jan', 'Feb', 'Mar', 'Apr', 'May', 'Jun', 'Jul', 'Aug'];
@@ -318,7 +318,7 @@ const FEATURES = [
   { icon: '👥', title: 'Six roles, zero information leakage', desc: 'Owner, PMC, Consultant, Vendor, Viewer, and Site Engineer each see exactly what they need — from full financials down to a single day’s checklist.' },
   { icon: '📋', title: 'Immutable audit trail', desc: 'Every action is timestamped and attributed. Disputes are resolved in minutes with data, not weeks with screenshots. 100% traceable from day one.' },
   { icon: '📸', title: 'Digital checklists & daily site reports', desc: 'Site Engineers file inspection checklists and Daily Progress Reports with photo evidence, manpower counts, and critical issues — straight from site.' },
-  { icon: '📑', title: 'Board-ready progress reports', desc: 'Weekly or monthly reports generate automatically in a professional MPR format — BOQ progress, RA Bills, manpower, QA/QC, risks, drawings, and site photos, one PDF.' },
+  { icon: '📑', title: 'Board-ready progress reports', desc: 'Weekly or monthly reports generate automatically in a professional MPR format — Order progress, RA Bills, manpower, QA/QC, risks, drawings, and site photos, one PDF.' },
   { icon: '🤝', title: 'Vendor & consultant directory', desc: 'Every vendor and consultant on the platform, searchable with contact details and full project history — built for onboarding your next hire fast.' },
   { icon: '⚡', title: 'Viseron AI risk detection', desc: 'Predictive intelligence flags delays, budget overruns, and compliance gaps before they escalate. Built into the intelligence tier — no extra setup.' },
   { icon: '📊', title: 'Execution intelligence & analytics', desc: 'S-curves, burn-down charts, vendor scorecards, delay cost estimates, and payment cycle analysis — all derived from live project data.' },
@@ -335,7 +335,7 @@ const AUDIT_LOG = [
   { time: '2026-05-25 19:12', actor: 'Priya Mehta (PMC)', action: 'verified Milestone 3 — Marina Tower Phase 2', badge: 'badge-green', label: 'Verified' },
   { time: '2026-05-25 14:03', actor: 'BuildCo Vendors', action: 'submitted Milestone 3 for verification', badge: 'badge-gold', label: 'Submitted' },
   { time: '2026-05-24 11:30', actor: 'Priya Mehta (PMC)', action: 'requested revision for Phase 3 — incomplete rebar work', badge: 'badge-red', label: 'Not Satisfied' },
-  { time: '2026-05-23 09:15', actor: 'Ravi Kumar (Owner)', action: 'approved BOQ for Phase 2 — Facade & MEP (₹28.4L)', badge: 'badge-green', label: 'BOQ Approved' },
+  { time: '2026-05-23 09:15', actor: 'Ravi Kumar (Owner)', action: 'approved Order for Phase 2 — Facade & MEP (₹28.4L)', badge: 'badge-green', label: 'Order Approved' },
   { time: '2026-05-22 16:44', actor: 'Priya Mehta (PMC)', action: 'created 4 milestones for Phase 2 — Marina Tower', badge: 'badge-gray', label: 'Milestones Created' },
   { time: '2026-05-21 10:00', actor: 'Ravi Kumar (Owner)', action: 'created project — Downtown Office Building', badge: 'badge-gold', label: 'Project Created' },
 ];
@@ -576,7 +576,7 @@ export default function HomePage() {
             <div className="sec-tag">How it works</div>
             <h2 className="sec-title">Five roles.<br /><em>One governed flow.</em></h2>
           </div>
-          <p className="sec-sub">Client creates the project. Consultant designs the plans. PMC writes the BOQ, governs milestones, and verifies completed work. Site Engineer inspects daily on-site — checklists, photos, manpower — feeding directly into PMC&apos;s verification. Vendor executes and submits for verification. Every approval on record — nothing moves without a paper trail.</p>
+          <p className="sec-sub">Client creates the project. Consultant designs the plans. PMC writes the Order, governs milestones, and verifies completed work. Site Engineer inspects daily on-site — checklists, photos, manpower — feeding directly into PMC&apos;s verification. Vendor executes and submits for verification. Every approval on record — nothing moves without a paper trail.</p>
         </Section>
         <Section className="flow-wrap">
           <FlowDiagram />
@@ -672,7 +672,7 @@ export default function HomePage() {
           </div>
           <div className="dash-body">
             <div className="dash-metrics">
-              {([['Verified Value', '₹3,06,60,000', ''], ['Paid Value', '₹96,60,000', 'green'], ['Unpaid Value', '₹2,10,00,000', 'gold'], ['Blocked Value', '₹0', 'red'], ['Advance Exposure', '₹0', 'purple'], ['BOQ Overruns', '0', 'gold']] as const).map(([l, v, c]) => (
+              {([['Verified Value', '₹3,06,60,000', ''], ['Paid Value', '₹96,60,000', 'green'], ['Unpaid Value', '₹2,10,00,000', 'gold'], ['Blocked Value', '₹0', 'red'], ['Advance Exposure', '₹0', 'purple'], ['Order Overruns', '0', 'gold']] as const).map(([l, v, c]) => (
                 <div className="m-card" key={l}><div className="m-label">{l}</div><div className={`m-val ${c}`}>{v}</div></div>
               ))}
             </div>
@@ -693,7 +693,7 @@ export default function HomePage() {
               </div>
               <div className="c-card">
                 <div className="c-title">Budget vs actual spend</div>
-                <div className="c-sub">BOQ planned vs amount paid</div>
+                <div className="c-sub">Order planned vs amount paid</div>
                 <div className="bars">
                   {[['38%', '18%', 'Downtown'], ['100%', '10%', 'Prestige'], ['22%', '8%', 'Residential'], ['18%', '6%', 'Industrial']].map(([b, a, l]) => (
                     <div className="bar-col" key={l}>

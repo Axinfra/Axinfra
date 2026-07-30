@@ -147,30 +147,30 @@ function describeAction(e: AuditEntryInput): { fragment: string; standalone: boo
         const n = e.afterJson.boqsCreated as number;
         const p = e.afterJson.phasesCreated as number;
         return {
-          fragment: `created ${n} BOQ${n === 1 ? '' : 's'}${p > 0 ? ` and ${p} new phase${p === 1 ? '' : 's'}` : ''} via Excel import`,
+          fragment: `created ${n} Order${n === 1 ? '' : 's'}${p > 0 ? ` and ${p} new phase${p === 1 ? '' : 's'}` : ''} via Excel import`,
           standalone: false,
         };
       }
-      return { fragment: `created a BOQ${ctx ? ` for phase "${ctx}"` : ''}`, standalone: false };
+      return { fragment: `created an Order${ctx ? ` for phase "${ctx}"` : ''}`, standalone: false };
     }
     case 'BOQ_SUBMIT':
-      return { fragment: `sent the BOQ${ctx ? ` for "${ctx}"` : ''} for approval`, standalone: false };
+      return { fragment: `sent the Order${ctx ? ` for "${ctx}"` : ''} for approval`, standalone: false };
     case 'BOQ_APPROVE':
-      return { fragment: `approved the BOQ${ctx ? ` for "${ctx}"` : ''}`, standalone: false };
+      return { fragment: `approved the Order${ctx ? ` for "${ctx}"` : ''}`, standalone: false };
     case 'BOQ_REVISE':
-      return { fragment: `requested a revision on the BOQ${ctx ? ` for "${ctx}"` : ''}`, standalone: false };
+      return { fragment: `requested a revision on the Order${ctx ? ` for "${ctx}"` : ''}`, standalone: false };
     case 'BOQ_ITEM_ADD':
-      return { fragment: `added ${ctx ? `"${ctx}"` : 'an item'} to the BOQ`, standalone: false };
+      return { fragment: `added ${ctx ? `"${ctx}"` : 'an item'} to the Order`, standalone: false };
     case 'BOQ_ITEM_UPDATE':
-      return { fragment: `updated ${ctx ? `"${ctx}"` : 'an item'} in the BOQ`, standalone: false };
+      return { fragment: `updated ${ctx ? `"${ctx}"` : 'an item'} in the Order`, standalone: false };
     case 'BOQ_ITEM_REMOVE': {
       // The item row is already gone by the time this is read, so the entity-lookup
       // context label never resolves — fall back to the description captured in beforeJson.
       const label = ctx || str(e.beforeJson?.description);
-      return { fragment: `removed ${label ? `"${label}"` : 'an item'} from the BOQ`, standalone: false };
+      return { fragment: `removed ${label ? `"${label}"` : 'an item'} from the Order`, standalone: false };
     }
     case 'BOQ_HEADER_UPDATE':
-      return { fragment: `updated BOQ details${ctx ? ` for "${ctx}"` : ''}`, standalone: false };
+      return { fragment: `updated Order details${ctx ? ` for "${ctx}"` : ''}`, standalone: false };
 
     // ── Phases ──────────────────────────────────────────
     // Falls back to the name captured in before/afterJson at the time of the action —
@@ -261,7 +261,7 @@ function describeAction(e: AuditEntryInput): { fragment: string; standalone: boo
         standalone: false,
       };
     case 'MILESTONE_BOQ_LINK':
-      return { fragment: `linked BOQ items to milestone${ctx ? ` "${ctx}"` : ''}`, standalone: false };
+      return { fragment: `linked Order items to milestone${ctx ? ` "${ctx}"` : ''}`, standalone: false };
 
     // ── Evidence ────────────────────────────────────────
     case 'EVIDENCE_SUBMIT':

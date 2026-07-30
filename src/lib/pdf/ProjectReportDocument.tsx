@@ -95,7 +95,7 @@ const TOC_ENTRIES = (hasAiSummary: boolean) => [
   { no: '8', label: 'Progress Photographs' },
   { no: '9', label: 'Outlook & Recommendations' },
   { no: '10', label: 'Execution Intelligence (Vendor Scorecard · Delay Analysis · Payment Cycles · Criticality · Escalations · Delay Cost)' },
-  { no: '11', label: 'Annexures (I: WBS/Schedule · II: Drawings · III: Documents · IV: BOQ · V: Measurement Sheets)' },
+  { no: '11', label: 'Annexures (I: WBS/Schedule · II: Drawings · III: Documents · IV: Order · V: Measurement Sheets)' },
 ];
 
 /** Table of contents page. Section titles only (no page numbers) — react-pdf lays this document
@@ -1153,9 +1153,9 @@ export default function ProjectReportDocument({ data }: { data: ProjectReportPdf
             )}
           </View>
 
-          <Text style={[styles.td, { marginTop: 10, marginBottom: 4, fontFamily: 'Helvetica-Bold' }]}>Annexure IV — Bill of Quantities (BOQ)</Text>
+          <Text style={[styles.td, { marginTop: 10, marginBottom: 4, fontFamily: 'Helvetica-Bold' }]}>Annexure IV — Bill of Quantities (Order)</Text>
           {data.boq.byOrder.length === 0 ? (
-            <Text style={[styles.td, { color: MUTED }]}>No BOQ items on this project.</Text>
+            <Text style={[styles.td, { color: MUTED }]}>No Order items on this project.</Text>
           ) : (
             data.boq.byOrder.map((group, gi) => (
               <View key={gi} style={{ marginBottom: 8 }} wrap={false}>

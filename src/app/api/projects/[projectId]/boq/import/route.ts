@@ -130,7 +130,7 @@ export async function POST(
                   projectId,
                   orderId: g.orderId,
                   status: 'DRAFT',
-                  boqNumber: `BOQ-${String(nextBoqSeq).padStart(3, '0')}`,
+                  boqNumber: `ORD-${String(nextBoqSeq).padStart(3, '0')}`,
                   name: item.description,
                 },
               });

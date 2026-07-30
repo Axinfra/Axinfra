@@ -257,7 +257,7 @@ export default function GenerateWorkOrderPdfModal({
             <div><p className="text-[rgba(232,228,220,0.4)]">Consultant</p><p className="text-[#e8e4dc] mt-0.5">{roleNames(roles, 'CONSULTANT') || '—'}</p></div>
             <div><p className="text-[rgba(232,228,220,0.4)]">PMC</p><p className="text-[#e8e4dc] mt-0.5">{roleNames(roles, 'PMC') || '—'}</p></div>
             <div className="col-span-2 sm:col-span-3">
-              <p className="text-[rgba(232,228,220,0.4)]">BOQ items ({boqItems.length})</p>
+              <p className="text-[rgba(232,228,220,0.4)]">Order items ({boqItems.length})</p>
               <p className="text-[#e8e4dc] mt-0.5">Subtotal {currencyFormatter.format(boqSubtotal)}</p>
             </div>
           </div>
@@ -303,14 +303,14 @@ export default function GenerateWorkOrderPdfModal({
             </div>
             {aiError && <p className="text-xs text-[#e06050]">{aiError}</p>}
             <p className="text-xs text-[rgba(232,228,220,0.4)] -mt-1">
-              Fills the fields below from the BOQ and vendor already on this purchase order — review and edit before generating the PDF.
+              Fills the fields below from the Order and vendor already on this purchase order — review and edit before generating the PDF.
             </p>
             <div className={`space-y-3 p-1 -m-1 ${justAiFilled ? 'ax-glow-fill' : ''}`}>
               <div className="grid grid-cols-2 gap-3">
                 <div><label className={label}>Completion Timeline</label><input className={input} placeholder="e.g. 45 days from issue" value={details.completionTimeline} onChange={(e) => set('completionTimeline', e.target.value)} /></div>
                 <div><label className={label}>Payment Terms</label><input className={input} placeholder="e.g. 30% advance, balance on completion" value={details.paymentTerms} onChange={(e) => set('paymentTerms', e.target.value)} /></div>
                 <div className="col-span-2"><label className={label}>Delivery Terms</label><input className={input} placeholder="e.g. FOB site, vendor arranges logistics" value={details.deliveryTerms} onChange={(e) => set('deliveryTerms', e.target.value)} /></div>
-                <div className="col-span-2"><label className={label}>Tax % (optional, applied to BOQ subtotal)</label><input type="number" min={0} max={100} className={input} placeholder="e.g. 18" value={details.taxPercent ?? ''} onChange={(e) => set('taxPercent', e.target.value === '' ? null : Number(e.target.value))} /></div>
+                <div className="col-span-2"><label className={label}>Tax % (optional, applied to Order subtotal)</label><input type="number" min={0} max={100} className={input} placeholder="e.g. 18" value={details.taxPercent ?? ''} onChange={(e) => set('taxPercent', e.target.value === '' ? null : Number(e.target.value))} /></div>
               </div>
               <div><label className={label}>Work Description</label><textarea rows={2} className={textarea} placeholder="e.g. Supply and installation of structural steel framing for the podium level." value={details.workDescription} onChange={(e) => set('workDescription', e.target.value)} /></div>
               <div><label className={label}>Scope of Work</label><textarea rows={2} className={textarea} placeholder="e.g. Fabrication, delivery, and erection per approved shop drawings, including all connections and finishing." value={details.scopeOfWork} onChange={(e) => set('scopeOfWork', e.target.value)} /></div>

@@ -146,7 +146,7 @@ export default function VendorPerformanceCharts({
                 <div className="sm:col-span-3 space-y-3 flex flex-col justify-center">
                   {[
                     {icon:'📄',label:'Milestone submitted',sub:'Vendor marks work complete'},
-                    {icon:'✅',label:'PMC verification',sub:'Checked against BOQ'},
+                    {icon:'✅',label:'PMC verification',sub:'Checked against Order'},
                     {icon:'💳',label:'Payment released',sub:'Eligible amount unlocked'},
                   ].map((s,i) => (
                     <div key={i} className="flex items-center gap-3">

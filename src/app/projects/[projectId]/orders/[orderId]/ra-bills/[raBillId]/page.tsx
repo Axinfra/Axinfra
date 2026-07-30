@@ -541,7 +541,7 @@ export default function RABillDetailPage() {
         {/* Line items */}
         <div className="card">
           <div className="card-header flex justify-between items-center">
-            <h2 className="text-lg font-semibold">BOQ-wise Progress</h2>
+            <h2 className="text-lg font-semibold">Order-wise Progress</h2>
             {canEditQty && Object.keys(qtyDraft).length > 0 && (
               <button onClick={() => void handleSaveQty()} disabled={savingQty} className="btn btn-sm btn-primary text-xs disabled:opacity-50">
                 {savingQty ? 'Saving…' : 'Save Quantities'}

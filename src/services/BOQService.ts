@@ -90,7 +90,9 @@ export class BOQService {
     }
 
     // A Purchase Order's items ARE its BOQs (1:1) — number them sequentially per-order.
-    const boqNumber = `BOQ-${String(order._count.boqs + 1).padStart(3, '0')}`;
+    // "ORD-" prefix matches the "Order No." label shown in the UI (RA-/WO-/CHK-/DPR- follow
+    // the same per-doc-type prefix convention elsewhere).
+    const boqNumber = `ORD-${String(order._count.boqs + 1).padStart(3, '0')}`;
     const item = header?.item;
 
     const boq = await prisma.$transaction(async (tx) => {

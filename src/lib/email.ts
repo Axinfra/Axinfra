@@ -261,8 +261,8 @@ export async function sendProjectInviteEmail(
     VIEWER: 'Viewer',
   };
   const roleDescriptions: Record<string, string> = {
-    CLIENT: 'Full oversight of payments, BOQ approvals, and project financials.',
-    PMC: 'Create BOQ, govern milestones, verify work, and manage vendors.',
+    CLIENT: 'Full oversight of payments, Order approvals, and project financials.',
+    PMC: 'Create Orders, govern milestones, verify work, and manage vendors.',
     VENDOR: 'Execute work on-site, submit milestones for verification and receive payments.',
     CONSULTANT: 'Upload documents, review submissions, and export audit logs.',
     VIEWER: 'Read-only access to project status, milestones, and reports.',

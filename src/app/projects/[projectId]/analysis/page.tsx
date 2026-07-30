@@ -437,7 +437,7 @@ function VarianceTab({ data, projectId, currency }: { data: any; projectId: stri
           color={schedule.overdueCount > 0 ? 'orange' : 'green'}
         />
         <MetricCard
-          label="BOQ Planned Value"
+          label="Order Planned Value"
           value={formatCurrency(bills.totals.totalPlannedValue, currency)}
           color="gray"
         />
@@ -534,19 +534,19 @@ function VarianceTab({ data, projectId, currency }: { data: any; projectId: stri
         <div className="card-header">
           <h3 className="font-semibold">Bill Variance by Purchase Order</h3>
           <p className="text-xs mt-0.5" style={{ color: 'rgba(232,228,220,0.4)' }}>
-            BOQ planned value vs submitted / approved / released RA Bill amounts
+            Order planned value vs submitted / approved / released RA Bill amounts
           </p>
         </div>
         <div className="card-body">
           {bills.byOrder.length === 0 ? (
-            <p className="text-sm text-[rgba(232,228,220,0.5)] text-center py-4">No Purchase Orders with BOQ or RA Bill data yet.</p>
+            <p className="text-sm text-[rgba(232,228,220,0.5)] text-center py-4">No Purchase Orders with Order or RA Bill data yet.</p>
           ) : (
             <div className="overflow-x-auto">
               <table className="table text-sm min-w-[800px]">
                 <thead>
                   <tr>
                     <th>Purchase Order</th>
-                    <th className="text-right">BOQ Planned</th>
+                    <th className="text-right">Order Planned</th>
                     <th className="text-right">Submitted</th>
                     <th className="text-right">Approved</th>
                     <th className="text-right">Released</th>
@@ -644,12 +644,12 @@ function VendorTab({ data, currency }: { data: any; currency?: string }) {
           color={totals.highRiskCount > 0 ? 'red' : 'green'}
         />
         <MetricCard
-          label="Original BOQ Value"
+          label="Original Order Value"
           value={formatCurrency(totals.totalBoqValue || 0, currency)}
           color="gray"
         />
         <MetricCard
-          label="BOQ Overrun"
+          label="Order Overrun"
           value={formatCurrency(totals.totalOverrunValue || 0, currency)}
           subtext={totals.totalOverrunValue > 0 ? `+${totals.totalOverrunPercent || 0}%` : '0%'}
           color={totals.totalOverrunValue > 0 ? 'orange' : 'green'}
@@ -657,7 +657,7 @@ function VendorTab({ data, currency }: { data: any; currency?: string }) {
         <MetricCard
           label="Overrun %"
           value={`${totals.totalOverrunPercent || 0}%`}
-          subtext="vs original BOQ"
+          subtext="vs original Order"
           color={totals.totalOverrunPercent > 10 ? 'red' : totals.totalOverrunPercent > 0 ? 'orange' : 'green'}
         />
       </div>
@@ -670,7 +670,7 @@ function VendorTab({ data, currency }: { data: any; currency?: string }) {
               <tr>
                 <th>Vendor</th>
                 <th>Risk</th>
-                <th className="text-right">BOQ Value</th>
+                <th className="text-right">Order Value</th>
                 <th className="text-right">Contract</th>
                 <th className="text-right">Overrun</th>
                 <th className="text-right">Milestones</th>
@@ -727,11 +727,11 @@ function VendorTab({ data, currency }: { data: any; currency?: string }) {
         <InsightBox
           text={`${totals.highRiskCount > 0 ? `${totals.highRiskCount} vendor(s) flagged as high risk. ` : ''}${
             totals.totalOverrunPercent > 10
-              ? `Total BOQ overrun of ${totals.totalOverrunPercent}% (${formatCurrency(totals.totalOverrunValue, currency)}) - review contract variations. `
+              ? `Total Order overrun of ${totals.totalOverrunPercent}% (${formatCurrency(totals.totalOverrunValue, currency)}) - review contract variations. `
               : ''
           }${
             sortedVendors.some((v: any) => v.hasExtras)
-              ? 'Includes vendors with Extras (outside BOQ) - review these claims carefully.'
+              ? 'Includes vendors with Extras (outside Order) - review these claims carefully.'
               : 'Review exposure and payment schedules.'
           }`}
           type="warning"
@@ -853,7 +853,7 @@ function DelayRiskTab({ data, currency }: { data: any; currency?: string }) {
       {boqOverruns.length > 0 && (
         <div className="card" style={{ borderColor: 'rgba(168,85,247,0.25)' }}>
           <div className="card-header" style={{ backgroundColor: 'rgba(168,85,247,0.08)' }}>
-            <h3 className="font-semibold text-purple-300">BOQ Overruns ({boqOverruns.length})</h3>
+            <h3 className="font-semibold text-purple-300">Order Overruns ({boqOverruns.length})</h3>
           </div>
           <div className="card-body">
             <div className="overflow-x-auto">

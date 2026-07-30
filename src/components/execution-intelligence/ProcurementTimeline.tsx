@@ -40,7 +40,7 @@ const STATUS_LABELS: Record<string, string> = {
   PENDING_APPROVAL: 'Pending Approval',
   REVISED: 'Needs Revision',
   DRAFT: 'Draft',
-  NONE: 'No BOQ',
+  NONE: 'No Order',
 };
 
 function toDate(s: string | null | undefined): Date | null {
@@ -118,7 +118,7 @@ export default function ProcurementTimeline({ projectId }: { projectId: string }
     <div className="flex flex-col bg-[#0b0b0f] border border-[rgba(255,255,255,0.08)] rounded-xl overflow-hidden">
       <div className="flex items-center justify-between gap-3 px-4 py-2.5 border-b border-[rgba(255,255,255,0.07)] bg-[rgba(255,255,255,0.02)] flex-wrap">
         <span className="text-[11.5px] text-[rgba(232,228,220,0.5)] font-medium">
-          Purchase order timeline, colored by BOQ approval status
+          Purchase order timeline, colored by Order approval status
         </span>
         <span className="text-[11px] text-[rgba(232,228,220,0.35)]">{sorted.length} purchase orders</span>
       </div>
@@ -141,7 +141,7 @@ export default function ProcurementTimeline({ projectId }: { projectId: string }
                   style={{ background: `${color}22`, color }}>
                   {status === 'APPROVED' && <CheckCircle2 className="w-2.5 h-2.5" />}
                   {STATUS_LABELS[status] ?? status}
-                  {o.boqs.length > 0 && ` · ${o.boqs.length} BOQ${o.boqs.length > 1 ? 's' : ''} · ${itemsCount} items`}
+                  {o.boqs.length > 0 && ` · ${o.boqs.length} Order${o.boqs.length > 1 ? 's' : ''} · ${itemsCount} items`}
                 </span>
               </div>
             );

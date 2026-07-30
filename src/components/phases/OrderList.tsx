@@ -534,13 +534,13 @@ export default function OrderList({ projectId, userRole }: Props) {
                         <span className="w-1 h-1 rounded-full bg-[rgba(232,228,220,0.3)]" />
                         {boqsWithItems.length > 0 ? (
                           <>
-                            <span>{boqsWithItems.length} BOQ{boqsWithItems.length > 1 ? 's' : ''}:</span>
+                            <span>{boqsWithItems.length} Order{boqsWithItems.length > 1 ? 's' : ''}:</span>
                             {presentStatuses.map((status) => (
                               <BOQStatusBadge key={status} status={status} count={counts.get(status)!} />
                             ))}
                           </>
                         ) : (
-                          <span>No BOQs yet</span>
+                          <span>No Orders yet</span>
                         )}
                       </div>
                       <button
@@ -693,7 +693,7 @@ export default function OrderList({ projectId, userRole }: Props) {
                 Are you sure? This cannot be undone.
                 {(orders.find((p) => p.id === deleteId)?.boqs.length ?? 0) > 0 && (
                   <span className="block mt-1 text-[rgba(var(--ax-accent-rgb),0.8)] text-sm">
-                    The BOQ(s) linked to this order will also be deleted.
+                    The linked Order(s) will also be deleted.
                   </span>
                 )}
               </p>

@@ -26,7 +26,7 @@ const typeLabels: Record<string, string> = {
   PAYMENT_DUE_SOON: 'Payment Due Soon',
   PAYMENT_BLOCKED_TOO_LONG: 'Payment Blocked Too Long',
   HIGH_VENDOR_EXPOSURE: 'High Vendor Exposure',
-  BOQ_OVERRUN: 'BOQ Overrun',
+  BOQ_OVERRUN: 'Order Overrun',
 };
 
 const typeColors: Record<string, string> = {

@@ -73,10 +73,10 @@ function VarianceBody({ data, currency }: { data: VarianceData; currency?: strin
   const scheduleColor = schedule.overdueCount > 0 ? (schedule.onTimePercent < 60 ? 'text-red-400' : 'text-yellow-300') : 'text-green-300';
 
   const costSentence = totalPlannedValue === 0
-    ? 'No BOQ planned value recorded yet.'
+    ? 'No Order planned value recorded yet.'
     : totalVariance >= 0
       ? `${formatCurrency(totalVariance, currency)} (${absPercent}% of planned value) not yet released.`
-      : `${formatCurrency(Math.abs(totalVariance), currency)} (${absPercent}% of planned value) released over the BOQ plan.`;
+      : `${formatCurrency(Math.abs(totalVariance), currency)} (${absPercent}% of planned value) released over the Order plan.`;
 
   const scheduleSentence = schedule.totalActivities === 0
     ? 'No scheduled activities yet.'

@@ -267,7 +267,7 @@ export default function ProjectSettingsPage() {
               <p className="text-[rgba(232,228,220,0.55)] mb-4">
                 This action <strong>cannot be undone</strong>. This will permanently delete the
                 project <strong>{project?.name}</strong> and all associated data including
-                milestones, BOQs, evidence, and audit logs.
+                milestones, Orders, evidence, and audit logs.
               </p>
               <div className="mb-4">
                 <label className="label">

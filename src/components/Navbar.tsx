@@ -53,7 +53,7 @@ export default function Navbar({ projectId, projectName, role }: NavbarProps) {
   // so the click feels instant.
   const navItems = [
     { href: `/projects/${projectId}`, label: 'Overview', icon: LayoutDashboard, always: true, prefetchApi: [`/api/projects/${projectId}`] },
-    { href: `/projects/${projectId}/boqs`, label: role === 'CLIENT' ? 'View BOQ' : 'BOQ', icon: FileText, roles: ['CLIENT', 'PMC', 'CONSULTANT', 'VIEWER', 'VENDOR', 'SITE_ENGINEER'], prefetchApi: [`/api/projects/${projectId}/boq`] },
+    { href: `/projects/${projectId}/boqs`, label: role === 'CLIENT' ? 'View Orders' : 'Orders', icon: FileText, roles: ['CLIENT', 'PMC', 'CONSULTANT', 'VIEWER', 'VENDOR', 'SITE_ENGINEER'], prefetchApi: [`/api/projects/${projectId}/boq`] },
     { href: `/projects/${projectId}/schedule`, label: 'Schedule', icon: CalendarRange, roles: ['CLIENT', 'PMC', 'VENDOR', 'CONSULTANT', 'SITE_ENGINEER'], prefetchApi: [`/api/projects/${projectId}/schedule`] },
     { href: `/projects/${projectId}/activities`, label: 'Activities', icon: Flag, always: true, prefetchApi: [`/api/projects/${projectId}/milestones`] },
     { href: `/projects/${projectId}/views`, label: 'Views', icon: Layers, always: true, prefetchApi: [`/api/projects/${projectId}/views`] },

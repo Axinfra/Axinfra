@@ -64,7 +64,7 @@ export default function RABillDocument({ data }: { data: RABillPdfData }) {
         </View>
 
         {/* BOQ progress */}
-        <Text style={styles.sectionTitle}>BOQ-wise Progress</Text>
+        <Text style={styles.sectionTitle}>Order-wise Progress</Text>
         <View style={styles.table}>
           <View style={styles.tableHeaderRow}>
             <Text style={[styles.th, COLS.no]}>No.</Text>
@@ -78,7 +78,7 @@ export default function RABillDocument({ data }: { data: RABillPdfData }) {
             <Text style={[styles.th, COLS.amount]}>Amount</Text>
           </View>
           {data.lineItems.length === 0 ? (
-            <EmptyTableRow message="No BOQ line items on this bill." />
+            <EmptyTableRow message="No Order line items on this bill." />
           ) : (
             data.lineItems.map((item, i) => <LineItemRow key={item.itemNo} item={item} index={i} />)
           )}

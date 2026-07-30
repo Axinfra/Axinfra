@@ -80,7 +80,7 @@ export default function WorkOrderDocument({ data }: { data: WorkOrderPdfData }) 
             <Text style={[styles.th, { width: '17%', textAlign: 'right' }]}>Amount</Text>
           </View>
           {data.boqItems.length === 0 ? (
-            <EmptyTableRow message="No BOQ items are linked to this Purchase Order." />
+            <EmptyTableRow message="No Order items are linked to this Purchase Order." />
           ) : (
             data.boqItems.map((item, i) => <BoqRow key={item.itemNo} item={item} index={i} />)
           )}

@@ -255,7 +255,7 @@ export default function RolesPage() {
                 <ul className="text-sm text-[rgba(232,228,220,0.55)] space-y-1">
                   <li>Full project access</li>
                   <li>Manage roles &amp; assign team</li>
-                  <li>Approve BOQ (cannot create)</li>
+                  <li>Approve Orders (cannot create)</li>
                   <li>Verify milestones</li>
                   <li>Block/Unblock payments</li>
                 </ul>
@@ -263,7 +263,7 @@ export default function RolesPage() {
               <div>
                 <h3 className="font-medium text-[#e8e4dc] mb-2">PMC</h3>
                 <ul className="text-sm text-[rgba(232,228,220,0.55)] space-y-1">
-                  <li>Create &amp; edit BOQ (cannot approve)</li>
+                  <li>Create &amp; edit Orders (cannot approve)</li>
                   <li>Verify milestones</li>
                   <li>Block payments</li>
                   <li>Manage project architect deliverables</li>
@@ -275,7 +275,7 @@ export default function RolesPage() {
                   <li>Upload &amp; manage project documents</li>
                   <li>Export audit log</li>
                   <li>View milestones &amp; phases (read-only)</li>
-                  <li>No payment or BOQ control</li>
+                  <li>No payment or Order control</li>
                 </ul>
               </div>
               <div>
@@ -296,7 +296,7 @@ export default function RolesPage() {
               <div>
                 <h3 className="font-medium text-[#e8e4dc] mb-2">SITE ENGINEER</h3>
                 <ul className="text-sm text-[rgba(232,228,220,0.55)] space-y-1">
-                  <li>Same view as PMC: BOQ, Schedule, Activities, RA Bills</li>
+                  <li>Same view as PMC: Orders, Schedule, Activities, RA Bills</li>
                   <li>No Analysis, Payments, or Audit Log access</li>
                   <li>Read-only — no edit, approve, or create actions</li>
                 </ul>

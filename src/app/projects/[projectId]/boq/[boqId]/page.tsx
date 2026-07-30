@@ -112,7 +112,7 @@ export default function BOQDetailPage() {
         <Navbar projectId={projectId} projectName={projectName} role={myRole} />
         <div className="card">
           <div className="card-body py-10 text-center">
-            <p className="text-[rgba(232,228,220,0.55)]">BOQ not found</p>
+            <p className="text-[rgba(232,228,220,0.55)]">Order not found</p>
           </div>
         </div>
       </Layout>
@@ -275,7 +275,7 @@ export default function BOQDetailPage() {
               ← Back to {boq.order?.name ?? 'Purchase Order'}
             </button>
             <div className="flex items-center gap-3 flex-wrap">
-              <h1 className="text-2xl font-bold text-[#e8e4dc]">{boq.name || boq.boqNumber || 'BOQ'}</h1>
+              <h1 className="text-2xl font-bold text-[#e8e4dc]">{boq.name || boq.boqNumber || 'Order'}</h1>
               {boq.status === 'APPROVED' ? (
                 <span className="badge badge-verified flex items-center gap-1.5">
                   <CheckCircle2 className="w-3.5 h-3.5" /> Approved
@@ -361,8 +361,8 @@ export default function BOQDetailPage() {
                   )}
                 </div>
                 {[
-                  ['BOQ Number', boq.boqNumber || '—'],
-                  ['BOQ Name', boq.name || '—'],
+                  ['Order Number', boq.boqNumber || '—'],
+                  ['Order Name', boq.name || '—'],
                   ['Category', boq.category || '—'],
                   ['Quantity', boq.rollup.quantity ?? boq.rollup.summary],
                   ['Unit', boq.rollup.unit ?? '—'],
@@ -405,7 +405,7 @@ export default function BOQDetailPage() {
               <div className="flex items-start gap-3 p-4 rounded-lg bg-[rgba(234,179,8,0.07)] border border-[rgba(234,179,8,0.25)]">
                 <span className="text-[#eab308] text-lg leading-none mt-0.5">👁</span>
                 <div>
-                  <p className="text-sm font-medium text-[#eab308]">BOQ Submitted for Your Approval</p>
+                  <p className="text-sm font-medium text-[#eab308]">Order Submitted for Your Approval</p>
                   <p className="text-xs text-[rgba(234,179,8,0.7)] mt-0.5">Review the item above, then approve or request revisions.</p>
                 </div>
               </div>
@@ -416,8 +416,8 @@ export default function BOQDetailPage() {
               <div className="flex items-center gap-3 p-4 rounded-lg bg-[rgba(92,186,128,0.08)] border border-[rgba(92,186,128,0.2)]">
                 <CheckCircle2 className="w-5 h-5 text-[#5cba80] shrink-0" />
                 <div>
-                  <p className="text-sm font-medium text-[#5cba80]">BOQ Approved</p>
-                  <p className="text-xs text-[rgba(92,186,128,0.7)] mt-0.5">This BOQ is locked.</p>
+                  <p className="text-sm font-medium text-[#5cba80]">Order Approved</p>
+                  <p className="text-xs text-[rgba(92,186,128,0.7)] mt-0.5">This Order is locked.</p>
                 </div>
                 {permissions.canApproveBOQ && (
                   <button onClick={() => setRevisionModal(true)} className="btn btn-secondary ml-auto">Request Revision</button>
@@ -426,7 +426,7 @@ export default function BOQDetailPage() {
             ) : canOwnerReview ? (
               <div className="flex justify-end gap-3">
                 <button onClick={() => setRevisionModal(true)} className="btn btn-secondary">Request Revision</button>
-                <button onClick={() => setConfirmApprove(true)} className="btn btn-success">Approve BOQ</button>
+                <button onClick={() => setConfirmApprove(true)} className="btn btn-success">Approve Order</button>
               </div>
             ) : canSendForApproval ? (
               <div className="flex justify-end">
@@ -437,7 +437,7 @@ export default function BOQDetailPage() {
             {/* BOQ Revisions (approval revisions, distinct from Work Order revisions) */}
             {boq.revisions.length > 0 && (
               <div className="card">
-                <div className="card-header"><h2 className="text-lg font-semibold">BOQ Revision History</h2></div>
+                <div className="card-header"><h2 className="text-lg font-semibold">Order Revision History</h2></div>
                 <div className="card-body">
                   <ul className="space-y-2">
                     {boq.revisions.map((rev) => (
@@ -456,7 +456,7 @@ export default function BOQDetailPage() {
         {tab === 'workorder' && boq.order && (
           <>
             <p className="text-xs text-[rgba(232,228,220,0.4)]">
-              Work Orders are issued once per Purchase Order and shared by every BOQ under it.
+              One Work Order is issued per Purchase Order and applies to every Order under that Purchase Order.
             </p>
             <WorkOrderCard
               projectId={projectId}
@@ -473,7 +473,7 @@ export default function BOQDetailPage() {
         {tab === 'rabills' && boq.order && (
           <>
             <p className="text-xs text-[rgba(232,228,220,0.4)]">
-              RA Bills are drafted per Purchase Order and shared by every BOQ under it.
+              RA Bills are drafted per Purchase Order and shared by every Order under that Purchase Order.
             </p>
             <RABillList projectId={projectId} orderId={boq.order.id} />
           </>
@@ -486,9 +486,9 @@ export default function BOQDetailPage() {
         <div className="fixed inset-0 bg-black/70 flex items-center justify-center z-50 p-4">
           <div className="bg-[#13151a] border border-[rgba(255,255,255,0.1)] rounded-xl max-w-lg w-full max-h-[90vh] overflow-y-auto">
             <div className="p-6 space-y-4">
-              <h2 className="text-lg font-semibold text-[#e8e4dc]">Edit BOQ Details</h2>
+              <h2 className="text-lg font-semibold text-[#e8e4dc]">Edit Order Details</h2>
               <div>
-                <label className="label text-xs">BOQ Name</label>
+                <label className="label text-xs">Order Name</label>
                 <input type="text" className="input text-sm" value={detailsDraft.name} onChange={(e) => setDetailsDraft({ ...detailsDraft, name: e.target.value })} />
               </div>
               <div>
@@ -597,8 +597,8 @@ export default function BOQDetailPage() {
       {confirmApprove && (
         <div className="fixed inset-0 bg-black/70 flex items-center justify-center z-50 p-4">
           <div className="bg-[#13151a] border border-[rgba(255,255,255,0.1)] rounded-xl max-w-sm w-full shadow-2xl p-6 space-y-4">
-            <h2 className="text-base font-semibold text-[#e8e4dc]">Approve BOQ?</h2>
-            <p className="text-sm text-[rgba(232,228,220,0.55)]">The BOQ will be locked and PMC will no longer be able to edit it.</p>
+            <h2 className="text-base font-semibold text-[#e8e4dc]">Approve Order?</h2>
+            <p className="text-sm text-[rgba(232,228,220,0.55)]">The Order will be locked and PMC will no longer be able to edit it.</p>
             <div className="flex justify-end gap-3">
               <button onClick={() => setConfirmApprove(false)} className="btn btn-secondary">Cancel</button>
               <button onClick={() => void handleApprove()} className="btn btn-success">Approve</button>

@@ -125,7 +125,7 @@ export default function ReportsPage() {
             <ProjectSwitcher currentProjectId={projectId} currentProjectName={projectName} buildHref={(id) => `/projects/${id}/reports`} />
           </div>
           <h1 className="text-2xl font-bold text-[#e8e4dc]">Project Report</h1>
-          <p className="text-sm text-[rgba(232,228,220,0.45)] mt-0.5">Weekly or monthly rollup across BOQ, activities, payments, checklists, DPR, and documents.</p>
+          <p className="text-sm text-[rgba(232,228,220,0.45)] mt-0.5">Weekly or monthly rollup across Orders, activities, payments, checklists, DPR, and documents.</p>
         </div>
 
         {/* Period controls */}
@@ -261,7 +261,7 @@ export default function ReportsPage() {
                 <h2 className="font-semibold">Executive Summary</h2>
               </div>
               <div className="card-body grid grid-cols-2 sm:grid-cols-3 lg:grid-cols-5 gap-4">
-                <Stat label="BOQ Planned Value" value={formatCurrency(report.financial.totals.totalPlannedValue, project?.currency)} />
+                <Stat label="Order Planned Value" value={formatCurrency(report.financial.totals.totalPlannedValue, project?.currency)} />
                 <Stat label="Billed to Date" value={formatCurrency(report.financial.totals.totalSubmittedValue, project?.currency)} />
                 <Stat label="Approved to Date" value={formatCurrency(report.financial.totals.totalApprovedValue, project?.currency)} />
                 <Stat label="Released to Date" value={formatCurrency(report.financial.totals.totalReleasedValue, project?.currency)} />
@@ -276,7 +276,7 @@ export default function ReportsPage() {
 
             {/* BOQ / Financial */}
             <div className="card">
-              <div className="card-header"><h2 className="font-semibold">BOQ &amp; Financial Progress (as of period end)</h2></div>
+              <div className="card-header"><h2 className="font-semibold">Order &amp; Financial Progress (as of period end)</h2></div>
               <div className="card-body p-0 overflow-x-auto">
                 <table className="w-full text-sm">
                   <thead>
