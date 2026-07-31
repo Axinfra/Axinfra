@@ -16,7 +16,7 @@ const nextConfig = {
     // file tracer can't follow statically — without this the .mpp import route
     // deploys without the binary and fails at runtime with "binary not found".
     outputFileTracingIncludes: {
-      '**/schedule/import': [
+      '**/schedule/import/**': [
         './node_modules/@byteink/mppjs-linux-x64/**',
       ],
       // lib/pdf/logo.ts reads public/light.png via fs.readFileSync to embed it in generated
