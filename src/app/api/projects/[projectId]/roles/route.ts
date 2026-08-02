@@ -21,12 +21,29 @@ const assignRoleSchema = z.object({
   // Only meaningful when role === 'VENDOR' — the "Assign to Purchase Order" onboarding
   // option. A plain "Email Invite" leaves this unset, same as before this field existed.
   phaseId: z.string().uuid().optional(),
+  // Required when role === 'CONSULTANT' — the fee must be set before the consultant is
+  // added to the project (see the role === 'CONSULTANT' check below), so PMC never sees
+  // a consultant with no fee attached.
+  fee: z.number().positive().optional(),
+  // Optional display label for a CONSULTANT invite — only meaningful pre-acceptance, since
+  // an already-registered user's name comes from their own account.
+  name: z.string().trim().min(1).max(200).optional(),
 });
 
 const removeRoleSchema = z.object({
   userId: z.string().uuid().optional(),
   inviteId: z.string().uuid().optional(),
 });
+
+const updateConsultantSchema = z.object({
+  // Exactly one of these — userId for an already-accepted Consultant, inviteId for one
+  // still sitting as a Pending Invite (both name and fee need to stay editable pre-acceptance;
+  // only fee is editable once they've accepted, since name then belongs to their own account).
+  userId: z.string().uuid().optional(),
+  inviteId: z.string().uuid().optional(),
+  name: z.string().trim().min(1).max(200).optional(),
+  fee: z.number().positive().optional(),
+}).refine((v) => v.name !== undefined || v.fee !== undefined, { message: 'name or fee required' });
 
 const ROLE_LABELS: Record<string, string> = {
   CLIENT: 'Project Owner',
@@ -52,8 +69,8 @@ export async function GET(
           user: { select: { id: true, name: true, email: true } },
         },
       }),
-      prisma.$queryRaw<Array<{ id: string; email: string; role: string; createdAt: Date }>>`
-        SELECT id, email, role, "createdAt"
+      prisma.$queryRaw<Array<{ id: string; email: string; role: string; fee: number | null; name: string | null; createdAt: Date }>>`
+        SELECT id, email, role, fee, name, "createdAt"
         FROM "ProjectInvite"
         WHERE "projectId" = ${projectId}
           AND status = 'PENDING'
@@ -66,6 +83,7 @@ export async function GET(
       name: r.user.name,
       email: r.user.email,
       role: r.role,
+      fee: r.fee,
       createdAt: r.createdAt,
       isPendingInvite: false,
     }));
@@ -73,9 +91,10 @@ export async function GET(
     const inviteEntries = invites.map((inv) => ({
       userId: null,
       inviteId: inv.id,
-      name: 'Pending Invite',
+      name: inv.name || 'Pending Invite',
       email: inv.email,
       role: inv.role,
+      fee: inv.fee,
       createdAt: inv.createdAt,
       isPendingInvite: true,
     }));
@@ -105,7 +124,13 @@ export async function POST(
     RoleGuard.requireRole(auth, ['CLIENT']);
 
     const body = await request.json();
-    const { email, role, force, phaseId } = assignRoleSchema.parse(body);
+    const { email, role, force, phaseId, fee, name } = assignRoleSchema.parse(body);
+
+    // Consultants must have a fee set before they're added to the project — there's no
+    // separate "assign fee" step for PMC to chase down afterward.
+    if (role === 'CONSULTANT' && !fee) {
+      return NextResponse.json({ success: false, error: 'Consultant fee is required.' }, { status: 400 });
+    }
 
     // $queryRaw used for user so we can read preferredRole (Prisma client predates that column)
     const [userRows, project, projectMeta] = await Promise.all([
@@ -141,13 +166,15 @@ export async function POST(
       const expiresAt = new Date(Date.now() + 30 * 24 * 60 * 60 * 1000); // 30 days
 
       await prisma.$executeRaw`
-        INSERT INTO "ProjectInvite" (id, "projectId", email, role, "phaseId", token, status, "invitedById", "expiresAt", "createdAt")
+        INSERT INTO "ProjectInvite" (id, "projectId", email, role, "phaseId", fee, name, token, status, "invitedById", "expiresAt", "createdAt")
         VALUES (
           gen_random_uuid(),
           ${projectId},
           ${email},
           ${role},
           ${poAssignment?.phase.id ?? null},
+          ${role === 'CONSULTANT' ? fee : null},
+          ${role === 'CONSULTANT' ? (name ?? null) : null},
           ${token},
           'PENDING',
           ${auth.userId},
@@ -212,13 +239,15 @@ export async function POST(
       const expiresAt = new Date(Date.now() + 30 * 24 * 60 * 60 * 1000);
 
       await prisma.$executeRaw`
-        INSERT INTO "ProjectInvite" (id, "projectId", email, role, "phaseId", token, status, "invitedById", "expiresAt", "createdAt")
+        INSERT INTO "ProjectInvite" (id, "projectId", email, role, "phaseId", fee, name, token, status, "invitedById", "expiresAt", "createdAt")
         VALUES (
           gen_random_uuid(),
           ${projectId},
           ${email},
           ${role},
           ${poAssignment?.phase.id ?? null},
+          ${role === 'CONSULTANT' ? fee : null},
+          ${role === 'CONSULTANT' ? (name ?? null) : null},
           ${token},
           'PENDING',
           ${auth.userId},
@@ -265,15 +294,14 @@ export async function POST(
       );
     }
 
+    const roleData = { projectId, userId: user.id, role: role as Role, fee: role === 'CONSULTANT' ? fee : null };
     if (poAssignment) {
       await prisma.$transaction([
-        prisma.projectRole.create({ data: { projectId, userId: user.id, role: role as Role } }),
+        prisma.projectRole.create({ data: roleData }),
         prisma.phase.update({ where: { id: poAssignment.phase.id }, data: { vendorUserId: user.id } }),
       ]);
     } else {
-      await prisma.projectRole.create({
-        data: { projectId, userId: user.id, role: role as Role },
-      });
+      await prisma.projectRole.create({ data: roleData });
     }
 
     await invalidateProjectAuth(projectId, user.id);
@@ -305,12 +333,12 @@ export async function POST(
       actionType: AuditActionTypes.ROLE_ASSIGN,
       entityType: 'ProjectRole',
       entityId: `${projectId}-${user.id}`,
-      afterJson: { userId: user.id, email, role, phaseId: poAssignment?.phase.id ?? null },
+      afterJson: { userId: user.id, email, role, phaseId: poAssignment?.phase.id ?? null, fee: roleData.fee },
     });
 
     return NextResponse.json({
       success: true,
-      data: { userId: user.id, name: user.name, email: user.email, role },
+      data: { userId: user.id, name: user.name, email: user.email, role, fee: roleData.fee },
     });
   } catch (error) {
     if (error instanceof Error && error.message === 'UNAUTHORIZED') {
@@ -323,6 +351,103 @@ export async function POST(
       return NextResponse.json({ success: false, error: 'Invalid input' }, { status: 400 });
     }
     console.error('Role assign error:', error);
+    return NextResponse.json({ success: false, error: 'Internal server error' }, { status: 500 });
+  }
+}
+
+// PATCH /api/projects/[projectId]/roles - Edit a consultant's name and/or fee
+export async function PATCH(
+  request: NextRequest,
+  { params }: { params: Promise<{ projectId: string }> }
+) {
+  try {
+    const { projectId } = await params;
+    const auth = await requireProjectAuth(projectId);
+
+    RoleGuard.requireRole(auth, ['CLIENT']);
+
+    const body = await request.json();
+    const { userId, inviteId, fee, name } = updateConsultantSchema.parse(body);
+
+    if (!userId && !inviteId) {
+      return NextResponse.json({ success: false, error: 'userId or inviteId required' }, { status: 400 });
+    }
+
+    // ── Editing name/fee on a still-pending invite ──────────────────────────
+    if (inviteId) {
+      const invite = await prisma.projectInvite.findFirst({ where: { id: inviteId, projectId } });
+      if (!invite) {
+        return NextResponse.json({ success: false, error: 'Invite not found' }, { status: 404 });
+      }
+      if (invite.role !== 'CONSULTANT') {
+        return NextResponse.json({ success: false, error: 'Only Consultants can be edited here' }, { status: 400 });
+      }
+
+      const before = { fee: invite.fee, name: invite.name };
+      const data: { fee?: number; name?: string } = {};
+      if (fee !== undefined) data.fee = fee;
+      if (name !== undefined) data.name = name;
+      await prisma.projectInvite.update({ where: { id: inviteId }, data });
+
+      await AuditLogger.log({
+        projectId,
+        actorId: auth.userId,
+        role: auth.role,
+        actionType: AuditActionTypes.ROLE_ASSIGN,
+        entityType: 'ProjectInvite',
+        entityId: inviteId,
+        beforeJson: before,
+        afterJson: { fee: data.fee ?? before.fee, name: data.name ?? before.name },
+      });
+
+      return NextResponse.json({ success: true, data: { inviteId, fee: data.fee ?? before.fee, name: data.name ?? before.name } });
+    }
+
+    // ── Editing fee on an already-accepted Consultant — name isn't editable here, it
+    // belongs to their own User account ──────────────────────────────────────
+    if (fee === undefined) {
+      return NextResponse.json({ success: false, error: 'Fee is required' }, { status: 400 });
+    }
+
+    const existingRole = await prisma.projectRole.findUnique({
+      where: { projectId_userId: { projectId, userId: userId! } },
+    });
+
+    if (!existingRole) {
+      return NextResponse.json({ success: false, error: 'Role not found' }, { status: 404 });
+    }
+    if (existingRole.role !== 'CONSULTANT') {
+      return NextResponse.json({ success: false, error: 'Fee only applies to Consultants' }, { status: 400 });
+    }
+
+    const before = existingRole.fee;
+    await prisma.projectRole.update({ where: { projectId_userId: { projectId, userId: userId! } }, data: { fee } });
+
+    await invalidateProjectAndMemberCaches(projectId);
+
+    await AuditLogger.log({
+      projectId,
+      actorId: auth.userId,
+      role: auth.role,
+      actionType: AuditActionTypes.ROLE_ASSIGN,
+      entityType: 'ProjectRole',
+      entityId: `${projectId}-${userId}`,
+      beforeJson: { fee: before },
+      afterJson: { fee },
+    });
+
+    return NextResponse.json({ success: true, data: { userId, fee } });
+  } catch (error) {
+    if (error instanceof Error && error.message === 'UNAUTHORIZED') {
+      return NextResponse.json({ success: false, error: 'Unauthorized' }, { status: 401 });
+    }
+    if (error instanceof Error && error.message.startsWith('FORBIDDEN')) {
+      return NextResponse.json({ success: false, error: error.message }, { status: 403 });
+    }
+    if (error instanceof z.ZodError) {
+      return NextResponse.json({ success: false, error: 'Invalid input' }, { status: 400 });
+    }
+    console.error('Role fee update error:', error);
     return NextResponse.json({ success: false, error: 'Internal server error' }, { status: 500 });
   }
 }

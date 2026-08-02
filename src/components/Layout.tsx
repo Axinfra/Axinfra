@@ -3,7 +3,7 @@
 import { useRouter, usePathname } from 'next/navigation';
 import Link from 'next/link';
 import { useState, useEffect, useRef, FormEvent } from 'react';
-import { Ruler, FileStack, FileBarChart, Contact, HardHat, MessageCircle } from 'lucide-react';
+import { Ruler, FileStack, FileBarChart, Contact, HardHat, MessageCircle, Truck } from 'lucide-react';
 import ThemeNavbarPicker from '@/components/ThemeSwitcher';
 import AxinfraLogo from '@/components/AxinfraLogo';
 
@@ -45,6 +45,7 @@ export default function Layout({ children }: LayoutProps) {
   // (e.g. Documents/Reports meant for PMC/Client) for a vendor-only user during that gap was
   // the actual bug: it flashed on every refresh before snapping to the correct vendor list.
   const [isVendorOnly, setIsVendorOnly] = useState<boolean | null>(null);
+  const [projectRoles, setProjectRoles] = useState<ProjectRoleInfo[]>([]);
   const [profileGateOpen, setProfileGateOpen] = useState(false);
 
   // Support modal
@@ -94,6 +95,7 @@ export default function Layout({ children }: LayoutProps) {
         if (data.success) {
           setUser(data.data.user);
           const roles: ProjectRoleInfo[] = data.data.projectRoles || [];
+          setProjectRoles(roles);
           setIsAdminUser(roles.some((r) => r.role === 'CLIENT' || r.role === 'PMC'));
           const vendorOnly = roles.length > 0 && roles.every((r) => r.role === 'VENDOR');
           setIsVendorOnly(vendorOnly);
@@ -194,12 +196,23 @@ export default function Layout({ children }: LayoutProps) {
     pathname.match(/^\/viseron-intelligence\/([^/]+)/)?.[1] ??
     null;
 
+  // Direct Orders is PMC/Vendor only — Client, Consultant, and Site Engineer must never see the
+  // link, in any context. Inside a specific project, go by that project's role; outside one
+  // (e.g. on /projects), fall back to whether the user is PMC on ANY project — a user who is
+  // never PMC anywhere (pure Client/Consultant/Site Engineer) never sees it at all.
+  const currentProjectRole = currentProjectId
+    ? projectRoles.find((r) => r.projectId === currentProjectId)?.role ?? null
+    : null;
+  const hasPmcRole = projectRoles.some((r) => r.role === 'PMC');
+  const showDirectOrders = currentProjectId ? currentProjectRole === 'PMC' : hasPmcRole;
+
   const navItems = isVendorOnly === null
     ? []
     : isVendorOnly
     ? [
       { href: '/vendor', label: 'Vendor Portal', icon: VendorIcon },
       { href: '/vendor/work', label: 'My Work', icon: HardHat },
+      { href: '/vendor/direct-orders', label: 'Direct Orders', icon: Truck },
       { href: '/vendor/reports', label: 'Reports', icon: FileBarChart },
     ]
     : [
@@ -226,6 +239,13 @@ export default function Layout({ children }: LayoutProps) {
         matchPrefix: currentProjectId ? `/projects/${currentProjectId}/architecture` : '/architecture',
         label: 'Architecture', icon: Ruler,
       },
+      ...(showDirectOrders
+        ? [{
+            href: currentProjectId ? `/projects/${currentProjectId}/direct-orders` : '/direct-orders',
+            matchPrefix: currentProjectId ? `/projects/${currentProjectId}/direct-orders` : '/direct-orders',
+            label: 'Direct Orders', icon: Truck,
+          }]
+        : []),
       {
         href: currentProjectId ? `/projects/${currentProjectId}/documents` : '/documents',
         matchPrefix: currentProjectId ? `/projects/${currentProjectId}/documents` : '/documents',

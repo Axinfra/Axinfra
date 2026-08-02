@@ -15,7 +15,7 @@ import {
   Plus, Download, History, AlertCircle, Zap, FileUp, Globe, X,
   ArrowRight, Layers, Check, SlidersHorizontal, LayoutGrid, List,
   ChevronDown, ChevronRight as ChevronRightIcon, Tag, Minus, Calendar,
-  Eye, Trash2,
+  Eye, Trash2, Pencil,
 } from 'lucide-react';
 
 // ── Types ──────────────────────────────────────────────────────────────────────
@@ -487,6 +487,11 @@ export default function ArchitecturePage() {
   const [requestForm, setRequestForm] = useState({ dueDate: '', note: '' });
   const [requestError, setRequestError] = useState('');
 
+  // Edit a Draft set's name/price — only while it hasn't been submitted to PMC yet.
+  const [editSetModal, setEditSetModal] = useState<{ setId: string } | null>(null);
+  const [editSetForm, setEditSetForm] = useState({ name: '', cost: '' });
+  const [editSetError, setEditSetError] = useState('');
+
   const doSetAction = useCallback(async (setId: string, endpoint: string, body?: Record<string, unknown>) => {
     setActionLoading(setId);
     try {
@@ -545,6 +550,40 @@ export default function ArchitecturePage() {
       }
     } catch {
       setRequestError('Request failed');
+    } finally {
+      setActionLoading(null);
+    }
+  };
+
+  const openEditSetModal = (set: DrawingSet) => {
+    setEditSetModal({ setId: set.id });
+    setEditSetForm({ name: set.name, cost: String(set.cost) });
+    setEditSetError('');
+  };
+
+  const handleSaveSetEdit = async () => {
+    if (!editSetModal) return;
+    const name = editSetForm.name.trim();
+    const cost = Number(editSetForm.cost);
+    if (!name) { setEditSetError('Name is required'); return; }
+    if (!(cost >= 0)) { setEditSetError('Enter a valid price'); return; }
+    setActionLoading(editSetModal.setId);
+    setEditSetError('');
+    try {
+      const res = await fetch(`/api/projects/${projectId}/architecture/sets/${editSetModal.setId}`, {
+        method: 'PATCH',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({ name, cost }),
+      });
+      const data = await res.json();
+      if (data.success) {
+        setEditSetModal(null);
+        void refetchSets();
+      } else {
+        setEditSetError(data.error ?? 'Save failed');
+      }
+    } catch {
+      setEditSetError('Save failed');
     } finally {
       setActionLoading(null);
     }
@@ -724,6 +763,13 @@ export default function ArchitecturePage() {
             {set.approvedAt && <span>Approved {formatDate(set.approvedAt)}</span>}
           </div>
           <div className="flex flex-wrap gap-2 pt-1">
+            {myRole === 'CONSULTANT' && set.status === 'DRAFT' && (
+              <button onClick={(e) => { e.stopPropagation(); openEditSetModal(set); }} disabled={isLoading}
+                title="Edit name or price" aria-label="Edit set"
+                className="btn btn-sm border border-[rgba(255,255,255,0.12)] text-[rgba(232,228,220,0.7)] hover:bg-[rgba(255,255,255,0.05)] flex items-center gap-1.5 disabled:opacity-50">
+                <Pencil className="w-3 h-3" />Edit
+              </button>
+            )}
             {myRole === 'CONSULTANT' && set.status === 'DRAFT' && (
               <button onClick={(e) => { e.stopPropagation(); void doSetAction(set.id, 'submit'); }} disabled={isLoading}
                 className="btn btn-sm btn-primary disabled:opacity-50">{isLoading ? '…' : 'Submit to PMC →'}</button>
@@ -1635,6 +1681,52 @@ export default function ArchitecturePage() {
                 className="btn btn-primary disabled:opacity-50 flex items-center gap-2"
               >
                 {actionLoading === requestModal.setId ? 'Requesting…' : <><Calendar className="w-3.5 h-3.5" />Request Set</>}
+              </button>
+            </div>
+          </div>
+        </div>
+      )}
+
+      {/* ── Edit Set Modal ───────────────────────────────────────────────── */}
+      {editSetModal && (
+        <div className="fixed inset-0 bg-black/70 flex items-center justify-center z-50 p-4" onClick={(e) => e.target === e.currentTarget && setEditSetModal(null)}>
+          <div className="bg-[#13151a] border border-[rgba(255,255,255,0.1)] rounded-xl max-w-md w-full p-6 space-y-4">
+            <div className="flex items-start justify-between">
+              <h2 className="text-lg font-semibold text-[#e8e4dc]">Edit Set</h2>
+              <button onClick={() => setEditSetModal(null)} className="text-[rgba(232,228,220,0.3)] hover:text-[rgba(232,228,220,0.7)]"><X className="w-5 h-5" /></button>
+            </div>
+            {editSetError && <div className="alert alert-error">{editSetError}</div>}
+            <div>
+              <label className="label">Set Name</label>
+              <input
+                className="input"
+                type="text"
+                value={editSetForm.name}
+                onChange={(e) => setEditSetForm({ ...editSetForm, name: e.target.value })}
+                placeholder="e.g. Flooring Plans"
+                maxLength={200}
+              />
+            </div>
+            <div>
+              <label className="label">Price ({project?.currency ?? 'INR'})</label>
+              <input
+                className="input"
+                type="number"
+                min="0"
+                step="0.01"
+                value={editSetForm.cost}
+                onChange={(e) => setEditSetForm({ ...editSetForm, cost: e.target.value })}
+                placeholder="e.g. 50000"
+              />
+            </div>
+            <div className="flex justify-end gap-3 pt-1">
+              <button onClick={() => setEditSetModal(null)} className="btn btn-secondary">Cancel</button>
+              <button
+                onClick={() => void handleSaveSetEdit()}
+                disabled={actionLoading === editSetModal.setId}
+                className="btn btn-primary disabled:opacity-50"
+              >
+                {actionLoading === editSetModal.setId ? 'Saving…' : 'Save Changes'}
               </button>
             </div>
           </div>

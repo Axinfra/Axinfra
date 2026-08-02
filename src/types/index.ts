@@ -530,6 +530,9 @@ export const AuditActionTypes = {
   DPR_SIGNED: 'DPR_SIGNED',
   DPR_PHOTO_UPLOAD: 'DPR_PHOTO_UPLOAD',
   DPR_PHOTO_DELETE: 'DPR_PHOTO_DELETE',
+  DIRECT_ORDER_CREATE: 'DIRECT_ORDER_CREATE',
+  DIRECT_ORDER_UPDATE: 'DIRECT_ORDER_UPDATE',
+  DIRECT_ORDER_DELETE: 'DIRECT_ORDER_DELETE',
 } as const;
 
 export type AuditActionType = (typeof AuditActionTypes)[keyof typeof AuditActionTypes];

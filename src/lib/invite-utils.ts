@@ -17,8 +17,9 @@ export async function autoAcceptPendingInvites(
     id: string;
     projectId: string;
     role: string;
+    fee: number | null;
   }>>`
-    SELECT id, "projectId", role
+    SELECT id, "projectId", role, fee
     FROM "ProjectInvite"
     WHERE lower(email) = lower(${email})
       AND status = 'PENDING'
@@ -37,6 +38,7 @@ export async function autoAcceptPendingInvites(
             projectId: invite.projectId,
             userId,
             role: invite.role as Role,
+            fee: invite.fee,
           },
           update: {},
         }),

@@ -1,6 +1,6 @@
 import { AlertTriangle, CheckCircle2, Circle, Clock, XCircle } from 'lucide-react';
 
-type Kind = 'workOrder' | 'boq' | 'raBill' | 'milestone';
+type Kind = 'workOrder' | 'boq' | 'raBill' | 'milestone' | 'directOrder';
 
 interface StatusMeta {
   label: string;
@@ -46,6 +46,14 @@ const MAP: Record<Kind, Record<string, StatusMeta>> = {
     SUBMITTED: { label: 'In Progress', icon: Clock, ...ORANGE },
     VERIFIED: { label: 'Done', icon: CheckCircle2, ...GREEN },
     CLOSED: { label: 'Done', icon: CheckCircle2, ...GREEN },
+  },
+  directOrder: {
+    ORDERED: { label: 'Ordered', icon: Circle, ...GRAY },
+    IN_PROGRESS: { label: 'In Progress', icon: Clock, ...ORANGE },
+    IN_DELIVERY: { label: 'In Delivery', icon: Clock, ...BLUE },
+    DELIVERED: { label: 'Awaiting Payment', icon: AlertTriangle, ...ORANGE },
+    QTY_VARIANCE: { label: 'Qty Variance', icon: AlertTriangle, ...RED },
+    PAID: { label: 'Paid', icon: CheckCircle2, ...GREEN },
   },
 };
 

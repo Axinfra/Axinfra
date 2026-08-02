@@ -780,6 +780,9 @@ export class ReportService {
       financial: {
         totals: variance.bills.totals,
         byOrder: variance.bills.byOrder,
+        // Already folded into `totals` above (ordered value counts as planned spend, paid value
+        // as released spend) — broken out separately here so the report can show the split.
+        directOrders: variance.directOrders,
       },
 
       keyRisks: {

@@ -2,6 +2,7 @@ import { prisma } from '@/lib/db';
 import { MilestoneState, EligibilityState, Role } from '@/types';
 import { computeScheduleVariance, type ActivityHealth } from '@/lib/scheduleVariance';
 import { classifyLifecycleStatus, startOfDay, type LifecycleStatus } from '@/lib/activityStatus';
+import { DirectOrderService } from '@/services/DirectOrderService';
 
 /**
  * AnalysisService - READ-ONLY intelligence layer for Axinfra.
@@ -198,6 +199,17 @@ export interface VarianceAnalysis {
       totalVariance: number;
       totalVariancePercent: number;
     };
+  };
+  /** Direct Orders (one-off vendor purchases outside the BOQ/Work-Order flow) — value is
+   * already folded into `bills.totals.totalPlannedValue`/`totalReleasedValue` above so the
+   * headline variance/cost figures used across Analysis and Reports include them automatically;
+   * this breakdown is for displaying the Direct Order contribution on its own. */
+  directOrders: {
+    totalOrdered: number;
+    totalDeliveredValue: number;
+    paid: number;
+    outstanding: number;
+    totalVariance: number;
   };
   overdueBills: Array<{
     raBillId: string;
@@ -945,7 +957,7 @@ export class AnalysisService {
   static async getVarianceAnalysis(projectId: string): Promise<VarianceAnalysis> {
     const now = new Date();
 
-    const [milestones, orders] = await Promise.all([
+    const [milestones, orders, directOrders] = await Promise.all([
       prisma.milestone.findMany({
         where: { projectId },
         select: {
@@ -975,6 +987,7 @@ export class AnalysisService {
           },
         },
       }),
+      DirectOrderService.getSummary(projectId),
     ]);
 
     // ── Schedule variance ───────────────────────────────────────────────
@@ -1083,7 +1096,7 @@ export class AnalysisService {
       }
     }
 
-    const totals = byOrder.reduce(
+    const boqTotals = byOrder.reduce(
       (acc, o) => ({
         totalPlannedValue: acc.totalPlannedValue + o.boqPlannedValue,
         totalSubmittedValue: acc.totalSubmittedValue + o.submittedValue,
@@ -1092,6 +1105,15 @@ export class AnalysisService {
       }),
       { totalPlannedValue: 0, totalSubmittedValue: 0, totalApprovedValue: 0, totalReleasedValue: 0 },
     );
+    // Direct Orders (one-off vendor purchases outside the BOQ flow) count toward the same
+    // project cost total — ordered value is "planned" spend, paid value is "released" spend —
+    // so the headline variance/cost figures used by Reports include them without a second tab.
+    const totals = {
+      totalPlannedValue: boqTotals.totalPlannedValue + directOrders.totalOrdered,
+      totalSubmittedValue: boqTotals.totalSubmittedValue,
+      totalApprovedValue: boqTotals.totalApprovedValue,
+      totalReleasedValue: boqTotals.totalReleasedValue + directOrders.paid,
+    };
     const totalVariance = totals.totalPlannedValue - totals.totalReleasedValue;
     const totalVariancePercent = totals.totalPlannedValue > 0
       ? Math.round((totalVariance / totals.totalPlannedValue) * 100)
@@ -1123,6 +1145,7 @@ export class AnalysisService {
       },
       overdueBills: overdueBills.sort((a, b) => b.daysInStage - a.daysInStage),
       overallVarianceScore,
+      directOrders,
     };
   }
 

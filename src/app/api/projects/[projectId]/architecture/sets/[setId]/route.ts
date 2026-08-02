@@ -72,10 +72,14 @@ export async function PATCH(
     const set = await prisma.drawingSet.findFirst({ where: { id: setId, projectId } });
     if (!set) return NextResponse.json({ success: false, error: 'Not found' }, { status: 404 });
 
-    // Consultant can edit their own sets in DRAFT only; Owner can edit anytime
+    // Consultant can edit their own sets in DRAFT only (once submitted to PMC it's out of
+    // their hands); Owner can edit anytime
     if (auth.role === 'CONSULTANT') {
       if (set.createdById !== auth.userId) {
         return NextResponse.json({ success: false, error: 'Can only edit your own sets' }, { status: 403 });
+      }
+      if (set.status !== 'DRAFT') {
+        return NextResponse.json({ success: false, error: 'Can only edit sets while still in Draft' }, { status: 400 });
       }
     } else if (auth.role !== 'CLIENT') {
       return NextResponse.json({ success: false, error: 'Forbidden' }, { status: 403 });

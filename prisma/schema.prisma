@@ -597,6 +597,8 @@ model Project {
   dailyProgressReports DailyProgressReport[]
   reportInsights       ReportInsight[]
   messages             Message[]
+  // Direct Orders module
+  directOrders         DirectOrder[]
 }
 
 /// Direct message between two members of the same project — one-on-one only, no role-wide
@@ -704,6 +706,9 @@ model ProjectRole {
   projectId String
   userId    String
   role      String
+  /// Consultancy fee for this project engagement (project currency). Only meaningful for
+  /// role === CONSULTANT — required at assignment time, editable afterward from Project Roles.
+  fee       Float?
   createdAt DateTime @default(now())
   project   Project  @relation(fields: [projectId], references: [id], onDelete: Cascade)
   user      User     @relation(fields: [userId], references: [id], onDelete: Cascade)
@@ -780,6 +785,10 @@ model User {
   // Direct messages
   messagesSent               Message[]                  @relation("MessageSender")
   messagesReceived           Message[]                  @relation("MessageRecipient")
+  // Direct Orders module
+  directOrdersAsVendor       DirectOrder[]               @relation("DirectOrderVendor")
+  directOrdersCreated        DirectOrder[]               @relation("DirectOrderCreator")
+  directOrdersBilled         DirectOrder[]               @relation("DirectOrderBillGenerator")
 }
 
 model Verification {
@@ -978,6 +987,43 @@ model DrawingSet {
   @@index([projectId, status])
 }
 
+// ── Direct Orders Module ──────────────────────────────────────────────────────
+
+/// A one-off order PMC places directly with a vendor for a single item/value — outside the
+/// formal BOQ/Purchase-Order/Work-Order/RA-Bill milestone-gated flow. Tracked through delivery
+/// and payment with a single status field rather than a multi-stage approval chain.
+model DirectOrder {
+  id              String    @id @default(uuid())
+  projectId       String
+  /// Sequential per-project label, e.g. "DO-001"
+  doNumber        String
+  vendorUserId    String
+  itemDescription String
+  value           Float
+  /// ORDERED | IN_PROGRESS | IN_DELIVERY | DELIVERED | QTY_VARIANCE | PAID
+  status          String    @default("ORDERED")
+  remarks         String?
+  /// The actual bill amount PMC or the Vendor records once delivered — may differ from `value`
+  /// (the original ordered estimate), e.g. on a quantity variance. Null until a bill is
+  /// generated. `value - billedValue` is the order's variance.
+  billedValue     Float?
+  billGeneratedAt DateTime?
+  billGeneratedById String?
+  createdById     String
+  createdAt       DateTime  @default(now())
+  updatedAt       DateTime  @updatedAt
+
+  project         Project @relation(fields: [projectId], references: [id], onDelete: Cascade)
+  vendorUser      User    @relation("DirectOrderVendor", fields: [vendorUserId], references: [id])
+  createdBy       User    @relation("DirectOrderCreator", fields: [createdById], references: [id])
+  billGeneratedBy User?   @relation("DirectOrderBillGenerator", fields: [billGeneratedById], references: [id])
+
+  @@unique([projectId, doNumber])
+  @@index([projectId])
+  @@index([vendorUserId])
+  @@index([projectId, status])
+}
+
 /// A single drawing row — one entry in the master drawing register
 model DrawingRow {
   id          String    @id @default(uuid())
@@ -1110,6 +1156,12 @@ model ProjectInvite {
   /// that grants their ProjectRole, so they land already assigned instead of needing a
   /// separate PMC step afterward. Null for a plain email invite (today's only option pre-this).
   phaseId     String?
+  /// Set only for a CONSULTANT invite — carried over to ProjectRole.fee on acceptance.
+  fee         Float?
+  /// Client-supplied display label for a CONSULTANT invite, shown in place of "Pending
+  /// Invite" until they accept and their real account name takes over. Purely a label —
+  /// never written to the User record.
+  name        String?
   token       String   @unique
   status      String   @default("PENDING") // PENDING | ACCEPTED | EXPIRED
   invitedById String

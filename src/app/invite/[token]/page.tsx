@@ -50,6 +50,7 @@ interface InviteData {
   id: string;
   email: string;
   role: string;
+  fee: number | null;
   projectName: string;
   inviterName: string;
   currency: string;
@@ -241,6 +242,14 @@ export default function InvitePage() {
                   <p className="text-sm font-medium text-[#e8e4dc]">{invite.email}</p>
                 </div>
               </div>
+
+              {/* Consultant fee — only present for a CONSULTANT invite */}
+              {invite.role === 'CONSULTANT' && invite.fee != null && (
+                <div className="rounded-xl border border-[rgba(var(--ax-accent-rgb),0.2)] bg-[rgba(var(--ax-accent-rgb),0.04)] p-4">
+                  <p className="text-xs text-[rgba(232,228,220,0.4)] mb-0.5">Consultancy Fee</p>
+                  <p className="text-sm font-semibold text-[#e8e4dc]">{fmtMoney(invite.fee, invite.currency)}</p>
+                </div>
+              )}
 
               {/* Purchase Order assignment — only present for the "Assign to Purchase Order"
                   onboarding option, not a plain email invite */}

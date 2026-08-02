@@ -248,6 +248,42 @@ export interface RABillPdfData {
   qrDataUri: string;
 }
 
+/** A Direct Order has no line items or multi-stage approval trail the way an RA Bill does —
+ * one item, one ordered value, and (once generated) one billed value — so this is deliberately
+ * a single-panel document rather than a line-item table. */
+export interface DirectOrderBillPdfData {
+  doNumber: string;
+  statusLabel: string;
+  projectName: string;
+  clientName: string;
+  pmcName: string;
+
+  vendor: {
+    name: string;
+    companyName: string;
+    contactPerson: string;
+    email: string;
+    phone: string;
+    address: string;
+    gstNumber: string;
+  };
+
+  itemDescription: string;
+  orderedValueFormatted: string;
+  billedValueFormatted: string | null;
+  varianceFormatted: string | null;
+  remarks: string;
+
+  orderedAtFormatted: string;
+  billGeneratedAtFormatted: string | null;
+
+  signatories: { preparedBy: SignatoryInfo; vendor: SignatoryInfo; pmc: SignatoryInfo };
+
+  generatedAtFormatted: string;
+  logoDataUri: string;
+  qrDataUri: string;
+}
+
 export interface ReportKeyStat {
   label: string;
   value: string;

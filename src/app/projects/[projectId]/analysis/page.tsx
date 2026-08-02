@@ -576,6 +576,34 @@ function VarianceTab({ data, projectId, currency }: { data: any; projectId: stri
         </div>
       </div>
 
+      {/* Direct Orders — one-off vendor purchases outside the BOQ flow. Their ordered value is
+          already folded into "Order Planned Value" above and paid value into "Released (Paid)
+          Value", so the headline cards stay accurate; this breaks that contribution out. */}
+      {data.directOrders && data.directOrders.totalOrdered > 0 && (
+        <div className="card">
+          <div className="card-header flex items-center justify-between">
+            <div>
+              <h3 className="font-semibold">Direct Orders</h3>
+              <p className="text-xs mt-0.5" style={{ color: 'rgba(232,228,220,0.4)' }}>
+                One-off vendor purchases outside the BOQ flow — included in the totals above
+              </p>
+            </div>
+            <button
+              onClick={() => router.push(`/projects/${projectId}/direct-orders`)}
+              className="text-xs font-medium text-[var(--ax-accent)] hover:opacity-80"
+            >
+              View Direct Orders →
+            </button>
+          </div>
+          <div className="card-body grid grid-cols-2 md:grid-cols-4 gap-4">
+            <MetricCard label="Total Ordered" value={formatCurrency(data.directOrders.totalOrdered, currency)} color="gray" />
+            <MetricCard label="Delivered Value" value={formatCurrency(data.directOrders.totalDeliveredValue, currency)} color="emerald" />
+            <MetricCard label="Paid" value={formatCurrency(data.directOrders.paid, currency)} color="emerald" />
+            <MetricCard label="Outstanding" value={formatCurrency(data.directOrders.outstanding, currency)} color={data.directOrders.outstanding > 0 ? 'orange' : 'green'} />
+          </div>
+        </div>
+      )}
+
       {/* Overdue Bills — stuck in a lifecycle stage too long */}
       {overdueBills.length > 0 && (
         <div className="card" style={{ borderColor: 'rgba(239,68,68,0.25)' }}>

@@ -6,10 +6,10 @@ import { useParams } from 'next/navigation';
 import useSWR from 'swr';
 import Layout from '@/components/Layout';
 import Navbar from '@/components/Navbar';
-import { formatDate } from '@/lib/utils';
+import { formatDate, formatCurrency } from '@/lib/utils';
 import { useProject } from '@/lib/contexts/ProjectContext';
 import { jsonFetcher } from '@/lib/fetcher';
-import { AlertTriangle, Clock, Mail } from 'lucide-react';
+import { AlertTriangle, Clock, Mail, Pencil } from 'lucide-react';
 
 interface PurchaseOrderOption {
   id: string;
@@ -23,6 +23,7 @@ interface RoleEntry {
   name: string;
   email: string;
   role: string;
+  fee: number | null;
   createdAt: string;
   isPendingInvite: boolean;
 }
@@ -35,6 +36,7 @@ export default function RolesPage() {
   const { project, isLoading: projectLoading } = useProject();
   const projectName = project?.name ?? '';
   const myRole = project?.myRole ?? '';
+  const currency = project?.currency ?? 'INR';
 
   const {
     data: roles = [],
@@ -56,6 +58,17 @@ export default function RolesPage() {
   const [conflictData, setConflictData] = useState<{ userPreferredRole: string; message: string } | null>(null);
   const [confirmRemoveUserId, setConfirmRemoveUserId] = useState<string | null>(null);
   const [confirmCancelInviteId, setConfirmCancelInviteId] = useState<string | null>(null);
+
+  // Consultant name + fee — fee is required before a consultant is added to the project;
+  // name is an optional display label (only meaningful pre-acceptance). Both stay editable
+  // afterward, whether they're an accepted role (userId) or still a pending invite (inviteId).
+  const [newFee, setNewFee] = useState('');
+  const [newConsultantName, setNewConsultantName] = useState('');
+  const [editTarget, setEditTarget] = useState<{ userId?: string; inviteId?: string; displayName: string } | null>(null);
+  const [editNameValue, setEditNameValue] = useState('');
+  const [editFeeValue, setEditFeeValue] = useState('');
+  const [editFeeError, setEditFeeError] = useState('');
+  const [savingFee, setSavingFee] = useState(false);
 
   // Vendor onboarding — two options: assign straight to a Purchase Order (richer email,
   // vendor lands pre-assigned) or a plain project-wide email invite (today's original flow).
@@ -86,6 +99,8 @@ export default function RolesPage() {
           role: newRole,
           force,
           phaseId: newRole === 'VENDOR' && onboardMode === 'PO' ? selectedPhaseId || undefined : undefined,
+          fee: newRole === 'CONSULTANT' ? Number(newFee) : undefined,
+          name: newRole === 'CONSULTANT' ? newConsultantName.trim() || undefined : undefined,
         }),
       });
 
@@ -99,6 +114,8 @@ export default function RolesPage() {
           setShowAddModal(false);
           setNewEmail('');
           setNewRole('PMC');
+          setNewFee('');
+          setNewConsultantName('');
         }
         void refetchRoles();
       } else if (data.conflict) {
@@ -119,8 +136,48 @@ export default function RolesPage() {
       setAddError('Pick a Purchase Order to assign, or switch to Email Invite.');
       return;
     }
+    if (newRole === 'CONSULTANT' && !(Number(newFee) > 0)) {
+      setAddError('Set the consultant fee before adding them to the project.');
+      return;
+    }
     setConflictData(null);
     void submitRole(false);
+  };
+
+  const handleSaveEdit = async () => {
+    if (!editTarget) return;
+    const fee = Number(editFeeValue);
+    if (!(fee > 0)) {
+      setEditFeeError('Enter a fee greater than 0.');
+      return;
+    }
+    setEditFeeError('');
+    setSavingFee(true);
+    try {
+      const res = await fetch(`/api/projects/${projectId}/roles`, {
+        method: 'PATCH',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({
+          userId: editTarget.userId,
+          inviteId: editTarget.inviteId,
+          fee,
+          // Name is only editable for a still-pending invite — an accepted consultant's
+          // name comes from their own account.
+          name: editTarget.inviteId ? (editNameValue.trim() || undefined) : undefined,
+        }),
+      });
+      const data = await res.json();
+      if (data.success) {
+        setEditTarget(null);
+        void refetchRoles();
+      } else {
+        setEditFeeError(data.error ?? 'Failed to save changes');
+      }
+    } catch {
+      setEditFeeError('Failed to save changes');
+    } finally {
+      setSavingFee(false);
+    }
   };
 
   const handleConfirmConflict = () => {
@@ -181,7 +238,7 @@ export default function RolesPage() {
         <div className="flex justify-between items-center">
           <h1 className="text-2xl font-bold text-[#e8e4dc]">Project Roles</h1>
           {myRole === 'CLIENT' && (
-            <button onClick={() => { setShowAddModal(true); setAddSuccess(''); setAddError(''); setConflictData(null); setOnboardMode('EMAIL'); setSelectedPhaseId(''); }} className="btn btn-primary">
+            <button onClick={() => { setShowAddModal(true); setAddSuccess(''); setAddError(''); setConflictData(null); setOnboardMode('EMAIL'); setSelectedPhaseId(''); setNewFee(''); setNewConsultantName(''); }} className="btn btn-primary">
               Add User
             </button>
           )}
@@ -197,13 +254,14 @@ export default function RolesPage() {
                   <th>Name</th>
                   <th>Email</th>
                   <th>Role</th>
+                  <th>Fee</th>
                   <th>Added</th>
                   {myRole === 'CLIENT' && <th>Actions</th>}
                 </tr>
               </thead>
               <tbody>
                 {roles.length === 0 && (
-                  <tr><td colSpan={5} className="text-center py-8 text-[rgba(232,228,220,0.4)]">No team members yet</td></tr>
+                  <tr><td colSpan={6} className="text-center py-8 text-[rgba(232,228,220,0.4)]">No team members yet</td></tr>
                 )}
                 {roles.map((entry) => (
                   <tr key={entry.isPendingInvite ? `invite-${entry.inviteId}` : entry.userId!}>
@@ -211,7 +269,7 @@ export default function RolesPage() {
                       {entry.isPendingInvite ? (
                         <span className="flex items-center gap-2 text-[rgba(232,228,220,0.45)]">
                           <Clock className="w-3.5 h-3.5 text-[var(--ax-accent)] shrink-0" />
-                          Pending Invite
+                          {entry.name}
                         </span>
                       ) : (
                         entry.name
@@ -241,24 +299,50 @@ export default function RolesPage() {
                         )}
                       </div>
                     </td>
+                    <td className="text-[rgba(232,228,220,0.55)]">
+                      {entry.role === 'CONSULTANT'
+                        ? (entry.fee != null ? formatCurrency(entry.fee, currency) : <span className="text-[#e09840]">Not set</span>)
+                        : '—'}
+                    </td>
                     <td className="text-[rgba(232,228,220,0.55)]">{formatDate(entry.createdAt)}</td>
                     {myRole === 'CLIENT' && (
                       <td>
-                        {entry.isPendingInvite ? (
-                          <button
-                            onClick={() => setConfirmCancelInviteId(entry.inviteId!)}
-                            className="text-[rgba(232,228,220,0.4)] hover:text-[#e06050] text-sm transition-colors"
-                          >
-                            Cancel Invite
-                          </button>
-                        ) : (
-                          <button
-                            onClick={() => setConfirmRemoveUserId(entry.userId!)}
-                            className="text-[#e06050] hover:text-[#c8503f] text-sm"
-                          >
-                            Remove
-                          </button>
-                        )}
+                        <div className="flex items-center gap-3">
+                          {entry.role === 'CONSULTANT' && (
+                            <button
+                              onClick={() => {
+                                setEditTarget(
+                                  entry.isPendingInvite
+                                    ? { inviteId: entry.inviteId!, displayName: entry.email }
+                                    : { userId: entry.userId!, displayName: entry.name }
+                                );
+                                setEditNameValue(entry.isPendingInvite && entry.name !== 'Pending Invite' ? entry.name : '');
+                                setEditFeeValue(entry.fee != null ? String(entry.fee) : '');
+                                setEditFeeError('');
+                              }}
+                              className="inline-flex items-center gap-1 text-[var(--ax-accent)] hover:opacity-80 text-sm"
+                              title="Edit consultant"
+                            >
+                              <Pencil className="w-3.5 h-3.5" />
+                              Edit
+                            </button>
+                          )}
+                          {entry.isPendingInvite ? (
+                            <button
+                              onClick={() => setConfirmCancelInviteId(entry.inviteId!)}
+                              className="text-[rgba(232,228,220,0.4)] hover:text-[#e06050] text-sm transition-colors"
+                            >
+                              Cancel Invite
+                            </button>
+                          ) : (
+                            <button
+                              onClick={() => setConfirmRemoveUserId(entry.userId!)}
+                              className="text-[#e06050] hover:text-[#c8503f] text-sm"
+                            >
+                              Remove
+                            </button>
+                          )}
+                        </div>
                       </td>
                     )}
                   </tr>
@@ -390,6 +474,68 @@ export default function RolesPage() {
         </div>
       )}
 
+      {/* Edit Consultant modal — works for an already-accepted Consultant (userId, fee only)
+          or one still sitting as a Pending Invite (inviteId, name + fee) */}
+      {editTarget && (
+        <div className="fixed inset-0 bg-black/70 flex items-center justify-center z-50">
+          <div className="bg-[#13151a] border border-[rgba(255,255,255,0.1)] rounded-xl max-w-sm w-full mx-4">
+            <div className="p-6">
+              <h2 className="text-lg font-semibold mb-2">Edit Consultant</h2>
+              <p className="text-xs text-[rgba(232,228,220,0.4)] mb-4">
+                <span className="font-medium text-[#e8e4dc]">{editTarget.displayName}</span>
+              </p>
+              {editFeeError && <div className="alert alert-error mb-3 text-sm">{editFeeError}</div>}
+              <div className="space-y-4">
+                {editTarget.inviteId && (
+                  <div>
+                    <label htmlFor="editName" className="label">Name (optional)</label>
+                    <input
+                      id="editName"
+                      type="text"
+                      className="input"
+                      value={editNameValue}
+                      onChange={(e) => setEditNameValue(e.target.value)}
+                      placeholder="e.g. Structural Consultants Pvt Ltd"
+                      maxLength={200}
+                      autoFocus
+                    />
+                    <p className="text-xs text-[rgba(232,228,220,0.35)] mt-1.5">
+                      Shown until they accept the invite — their real name takes over after that.
+                    </p>
+                  </div>
+                )}
+                <div>
+                  <label htmlFor="editFee" className="label">Fee ({currency})</label>
+                  <input
+                    id="editFee"
+                    type="number"
+                    min="0"
+                    step="0.01"
+                    className="input"
+                    value={editFeeValue}
+                    onChange={(e) => setEditFeeValue(e.target.value)}
+                    placeholder="e.g. 50000"
+                    autoFocus={!editTarget.inviteId}
+                  />
+                </div>
+              </div>
+              <div className="flex justify-end gap-3 mt-4">
+                <button onClick={() => setEditTarget(null)} className="btn btn-secondary">
+                  Cancel
+                </button>
+                <button
+                  onClick={() => void handleSaveEdit()}
+                  disabled={savingFee}
+                  className="btn btn-primary"
+                >
+                  {savingFee ? 'Saving…' : 'Save Changes'}
+                </button>
+              </div>
+            </div>
+          </div>
+        </div>
+      )}
+
       {/* Add User Modal */}
       {showAddModal && (
         <div className="fixed inset-0 bg-black/70 flex items-center justify-center z-50">
@@ -495,6 +641,43 @@ export default function RolesPage() {
                     </select>
                   </div>
 
+                  {newRole === 'CONSULTANT' && (
+                    <div className="space-y-4">
+                      <div>
+                        <label htmlFor="consultantName" className="label">Consultant Name (optional)</label>
+                        <input
+                          id="consultantName"
+                          type="text"
+                          className="input"
+                          value={newConsultantName}
+                          onChange={(e) => setNewConsultantName(e.target.value)}
+                          placeholder="e.g. Structural Consultants Pvt Ltd"
+                          maxLength={200}
+                        />
+                        <p className="text-xs text-[rgba(232,228,220,0.35)] mt-1.5">
+                          Shown until they accept the invite — editable anytime before or after.
+                        </p>
+                      </div>
+                      <div>
+                        <label htmlFor="consultantFee" className="label">Consultant Fee ({currency})</label>
+                        <input
+                          id="consultantFee"
+                          type="number"
+                          min="0"
+                          step="0.01"
+                          required
+                          className="input"
+                          value={newFee}
+                          onChange={(e) => setNewFee(e.target.value)}
+                          placeholder="e.g. 50000"
+                        />
+                        <p className="text-xs text-[rgba(232,228,220,0.35)] mt-1.5">
+                          Required before this consultant is added to the project — PMC will see this fee on the roles list.
+                        </p>
+                      </div>
+                    </div>
+                  )}
+
                   {newRole === 'VENDOR' && (
                     <div>
                       <label className="label">Onboarding</label>
@@ -542,7 +725,7 @@ export default function RolesPage() {
                   <div className="flex justify-end space-x-3 pt-4">
                     <button
                       type="button"
-                      onClick={() => { setShowAddModal(false); setAddError(''); setConflictData(null); setOnboardMode('EMAIL'); setSelectedPhaseId(''); }}
+                      onClick={() => { setShowAddModal(false); setAddError(''); setConflictData(null); setOnboardMode('EMAIL'); setSelectedPhaseId(''); setNewFee(''); setNewConsultantName(''); }}
                       className="btn btn-secondary"
                     >
                       Cancel
