@@ -309,6 +309,7 @@ export default function ImportBOQModal({
             (() => {
               const groups = importGroups;
               const unmatchedCount = groups.filter((g) => !g.matched).length;
+              const matchedCount = groups.filter((g) => g.matched).length;
               const selectedGroups = groups.filter((g) => includedOrders.has(g.name));
               const selectedItemCount = selectedGroups.reduce((s, g) => s + g.rows.length, 0);
               const allChecked = groups.length > 0 && groups.every((g) => includedOrders.has(g.name));
@@ -353,7 +354,7 @@ export default function ImportBOQModal({
                               </td>
                               <td className="px-3 py-2.5 text-center">
                                 {g.matched ? (
-                                  <span className="text-xs text-[#5cba80]">✓ Matched</span>
+                                  <span className="text-xs text-[#e09840]" title="This Purchase Order already exists — these items will be added into it, not create a new one">⚠ Already exists</span>
                                 ) : included ? (
                                   <span className="text-xs text-[var(--ax-accent)]">+ New purchase order</span>
                                 ) : (
@@ -369,6 +370,11 @@ export default function ImportBOQModal({
                     </table>
                     </div>
                   </div>
+                  {matchedCount > 0 && (
+                    <p className="text-xs text-[#e09840] bg-[rgba(224,152,64,0.07)] border border-[rgba(224,152,64,0.22)] rounded-lg px-3 py-2">
+                      ⚠ {matchedCount} purchase order{matchedCount > 1 ? 's' : ''} already exist{matchedCount > 1 ? '' : 's'} in this project — matching items will be added into {matchedCount > 1 ? 'them' : 'it'}, not create a duplicate. Any item whose description already exists on that Order's BOQ is skipped automatically.
+                    </p>
+                  )}
                   {unmatchedCount > 0 && (
                     <p className="text-xs text-[rgba(232,228,220,0.45)] bg-[rgba(255,255,255,0.03)] border border-[rgba(255,255,255,0.07)] rounded-lg px-3 py-2">
                       {unmatchedCount} purchase order{unmatchedCount > 1 ? 's' : ''} not found in this project. Check the box to create {unmatchedCount > 1 ? 'them' : 'it'} automatically along with the Order — leave unchecked to skip.
