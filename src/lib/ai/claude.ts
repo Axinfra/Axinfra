@@ -138,3 +138,63 @@ export async function generateAiJson<T>(params: {
     return null;
   }
 }
+
+type ImageMediaType = 'image/jpeg' | 'image/png' | 'image/gif' | 'image/webp';
+
+/** Generate a JSON object matching `schema` from a single image or PDF document — vision/
+ * document extraction (e.g. reading a scanned or handwritten BOQ). Same guaranteed-structured-
+ * output contract as generateAiJson, just with a file attached to the one user turn instead of
+ * a plain text prompt. One file per call by design: callers extracting from several documents
+ * make one call per file so a bad/unreadable file never sinks the rest of the batch. */
+export async function generateAiJsonFromFile<T>(params: {
+  system: string;
+  prompt: string;
+  file: { kind: 'image'; mediaType: ImageMediaType; base64: string } | { kind: 'document'; mediaType: 'application/pdf'; base64: string };
+  schema: Record<string, unknown>;
+  maxTokens?: number;
+}): Promise<T | null> {
+  const anthropic = getClient();
+  if (!anthropic) return null;
+
+  const fileBlock: Anthropic.ImageBlockParam | Anthropic.DocumentBlockParam =
+    params.file.kind === 'image'
+      ? { type: 'image', source: { type: 'base64', media_type: params.file.mediaType, data: params.file.base64 } }
+      : { type: 'document', source: { type: 'base64', media_type: params.file.mediaType, data: params.file.base64 } };
+
+  try {
+    const response = await anthropic.messages.create(
+      {
+        model: MODEL,
+        max_tokens: params.maxTokens ?? 2000,
+        system: params.system,
+        output_config: {
+          effort: 'low',
+          format: { type: 'json_schema', schema: params.schema },
+        },
+        messages: [{
+          role: 'user',
+          content: [fileBlock, { type: 'text', text: params.prompt }],
+        }],
+      },
+      // Vision/document extraction is slower than a text-only call — give it more room than
+      // the 20s text default before failing fast.
+      { timeout: 60_000 },
+    );
+
+    if (response.stop_reason === 'refusal') {
+      logger.warn('Claude refused AI file extraction request', { model: MODEL });
+      return null;
+    }
+    if (response.stop_reason === 'max_tokens') {
+      logger.warn('Claude AI file extraction hit max_tokens — output truncated', { model: MODEL, maxTokens: params.maxTokens ?? 2000 });
+      return null;
+    }
+
+    const textBlock = response.content.find((b) => b.type === 'text');
+    if (!textBlock || textBlock.type !== 'text') return null;
+    return JSON.parse(textBlock.text) as T;
+  } catch (err) {
+    logger.error('Claude AI file extraction failed', { model: MODEL }, err instanceof Error ? err : undefined);
+    return null;
+  }
+}
