@@ -100,6 +100,9 @@ export async function generateAiJson<T>(params: {
   prompt: string;
   schema: Record<string, unknown>;
   maxTokens?: number;
+  /** Overrides the 20s default — only for callers reading a genuinely large input (e.g. a
+   * multi-page document transcript) where the 20s "hot path" budget isn't realistic. */
+  timeoutMs?: number;
 }): Promise<T | null> {
   const anthropic = getClient();
   if (!anthropic) return null;
@@ -116,7 +119,7 @@ export async function generateAiJson<T>(params: {
         },
         messages: [{ role: 'user', content: params.prompt }],
       },
-      { timeout: REQUEST_TIMEOUT_MS },
+      { timeout: params.timeoutMs ?? REQUEST_TIMEOUT_MS },
     );
 
     if (response.stop_reason === 'refusal') {
@@ -152,6 +155,10 @@ export async function generateAiJsonFromFile<T>(params: {
   file: { kind: 'image'; mediaType: ImageMediaType; base64: string } | { kind: 'document'; mediaType: 'application/pdf'; base64: string };
   schema: Record<string, unknown>;
   maxTokens?: number;
+  /** Overrides the 150s default — a dense multi-page PDF (e.g. a 100+ line item BOQ) has been
+   * measured taking ~90-100s end to end; a short-document caller can pass a smaller value to
+   * fail faster instead. */
+  timeoutMs?: number;
 }): Promise<T | null> {
   const anthropic = getClient();
   if (!anthropic) return null;
@@ -176,9 +183,10 @@ export async function generateAiJsonFromFile<T>(params: {
           content: [fileBlock, { type: 'text', text: params.prompt }],
         }],
       },
-      // Vision/document extraction is slower than a text-only call — give it more room than
-      // the 20s text default before failing fast.
-      { timeout: 60_000 },
+      // Vision/document extraction is slower than a text-only call — a dense multi-page PDF has
+      // measured at ~90-100s end to end, so the default here needs real headroom beyond the 20s
+      // text-call budget.
+      { timeout: params.timeoutMs ?? 150_000 },
     );
 
     if (response.stop_reason === 'refusal') {

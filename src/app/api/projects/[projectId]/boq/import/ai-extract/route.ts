@@ -7,6 +7,10 @@ import { aiGenerationRateLimiter } from '@/lib/rate-limiter';
 import { BOQDocumentExtractionService } from '@/services/BOQDocumentExtractionService';
 
 export const dynamic = 'force-dynamic';
+// A dense multi-page document can take ~90-100s to extract (measured); files in the batch run
+// in parallel (see below) so this only needs to cover the single slowest file, not the sum of
+// all of them. Vercel clamps this to whatever the actual plan's ceiling is.
+export const maxDuration = 280;
 
 const MAX_FILES = 5;
 const MAX_PDF_BYTES = 20 * 1024 * 1024;
@@ -73,30 +77,29 @@ export async function POST(
       return NextResponse.json({ success: false, error: `Upload at most ${MAX_FILES} files at a time` }, { status: 400 });
     }
 
-    const items: Array<{ orderName: string; description: string; unit: string; plannedQty: number; rate: number; sourceFile: string }> = [];
-    const fileResults: FileResult[] = [];
+    type ExtractedRow = { orderName: string; description: string; unit: string; plannedQty: number; rate: number; sourceFile: string };
 
-    for (const file of files) {
+    // Files run in parallel — a batch's wall-clock time is bounded by the single slowest file
+    // (up to ~100s for a dense multi-page document) instead of the sum of every file's time,
+    // which matters a lot now that a single file alone can take most of a duration budget.
+    const perFile = await Promise.all(files.map(async (file): Promise<{ fileResult: FileResult; rows: ExtractedRow[] }> => {
       const isPdf = file.type === PDF_TYPE;
       const isImage = IMAGE_TYPES.has(file.type);
       const isSpreadsheet = SPREADSHEET_TYPES.has(file.type) || SPREADSHEET_EXTENSIONS.test(file.name);
 
       if (!isPdf && !isImage && !isSpreadsheet) {
-        fileResults.push({ fileName: file.name, error: 'Unsupported file type — use PDF, JPG, PNG, GIF, WEBP, XLSX, XLS, or CSV' });
-        continue;
+        return { fileResult: { fileName: file.name, error: 'Unsupported file type — use PDF, JPG, PNG, GIF, WEBP, XLSX, XLS, or CSV' }, rows: [] };
       }
       const maxBytes = isPdf ? MAX_PDF_BYTES : isSpreadsheet ? MAX_SPREADSHEET_BYTES : MAX_IMAGE_BYTES;
       if (file.size > maxBytes) {
-        fileResults.push({ fileName: file.name, error: `File too large — max ${Math.round(maxBytes / (1024 * 1024))}MB` });
-        continue;
+        return { fileResult: { fileName: file.name, error: `File too large — max ${Math.round(maxBytes / (1024 * 1024))}MB` }, rows: [] };
       }
 
       // Every file here is a real, billed Claude call — cap per-user usage the same way the
       // Work Order AI draft endpoint does, shared across every AI-generation feature.
       const rateCheck = await aiGenerationRateLimiter.check(auth.userId);
       if (!rateCheck.allowed) {
-        fileResults.push({ fileName: file.name, error: 'Too many AI import requests — please try again later' });
-        continue;
+        return { fileResult: { fileName: file.name, error: 'Too many AI import requests — please try again later' }, rows: [] };
       }
 
       try {
@@ -116,17 +119,17 @@ export async function POST(
         }
 
         if (!extracted) {
-          fileResults.push({ fileName: file.name, error: 'Could not read any line items from this file' });
-          continue;
+          return { fileResult: { fileName: file.name, error: 'Could not read any line items from this file' }, rows: [] };
         }
 
         // The prompt instructs the model to always invent a title when the document has no
         // project/client name of its own — the filename is only a fallback for the rare case
         // it still comes back empty.
         const orderName = extracted.orderName.trim() || file.name.replace(/\.[^.]+$/, '');
+        const rows: ExtractedRow[] = [];
         for (const item of extracted.items) {
           if (!item.description.trim() || !item.unit.trim() || !(item.quantity > 0) || !(item.rate > 0)) continue;
-          items.push({
+          rows.push({
             orderName,
             description: item.description.trim(),
             unit: item.unit.trim(),
@@ -135,12 +138,15 @@ export async function POST(
             sourceFile: file.name,
           });
         }
-        fileResults.push({ fileName: file.name, orderName, itemsExtracted: extracted.items.length });
+        return { fileResult: { fileName: file.name, orderName, itemsExtracted: extracted.items.length }, rows };
       } catch (err) {
         console.error('AI BOQ extraction failed for file', file.name, err);
-        fileResults.push({ fileName: file.name, error: 'Extraction failed' });
+        return { fileResult: { fileName: file.name, error: 'Extraction failed' }, rows: [] };
       }
-    }
+    }));
+
+    const items = perFile.flatMap((r) => r.rows);
+    const fileResults = perFile.map((r) => r.fileResult);
 
     return NextResponse.json({ success: true, data: { items, fileResults } });
   } catch (error) {

@@ -97,9 +97,9 @@ const TEXT_PROMPT_PREFIX =
 // with one of these is almost never a real purchasable line item, so it's dropped unconditionally
 // rather than trusted to the schema/prompt alone.
 const NON_ITEM_DESCRIPTION_PREFIXES = [
-  'total', 'sub total', 'subtotal', 'grand total', 'net amount', 'net payable', 'amount payable',
+  'total', 'sub total', 'subtotal', 'sub amount', 'grand total', 'net amount', 'net payable', 'amount payable',
   'gst', 'vat', 'tax', 'igst', 'cgst', 'sgst',
-  'freight', 'delivery charge', 'transportation charge', 'packing charge', 'installation charge',
+  'freight', 'delivery charge', 'transportation charge', 'packing charge', 'installation charge', 'installation charges',
   'discount', 'less discount', 'special discount',
   'advance', 'balance payment', 'terms & conditions', 'terms and conditions',
   'bank details', 'bank name', 'account no', 'ifsc', 'signature', 'authorised signatory', 'authorized signatory',
@@ -137,9 +137,12 @@ export const BOQDocumentExtractionService = {
       prompt: FILE_PROMPT,
       file,
       schema: EXTRACT_SCHEMA,
-      // A dense BOQ page can run to 60-80 line items — 4000 tokens gives comfortable headroom
-      // without paying for a much larger default on every call.
-      maxTokens: 4000,
+      // A multi-page estimate can run to 100+ line items — measured a real 13-page, 129-item
+      // document using ~11,400 output tokens and ~93s end to end; 4000/60s (the old values) both
+      // silently failed on it (max_tokens truncation, then a timeout) with no partial result.
+      // 20000/150s leaves real headroom above that measured case.
+      maxTokens: 20000,
+      timeoutMs: 150_000,
     });
     return sanitize(result);
   },
@@ -156,7 +159,11 @@ export const BOQDocumentExtractionService = {
       system: SYSTEM_PROMPT,
       prompt: TEXT_PROMPT_PREFIX + sheetText,
       schema: EXTRACT_SCHEMA,
-      maxTokens: 4000,
+      // Same headroom as extractFromFile — a large sheet can carry as many rows as a dense
+      // multi-page PDF, and generateAiJson's default 20s timeout is tuned for a much smaller
+      // hot-path call, not this.
+      maxTokens: 20000,
+      timeoutMs: 150_000,
     });
     return sanitize(result);
   },

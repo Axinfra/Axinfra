@@ -436,7 +436,10 @@ export default function ImportBOQModal({
                   className="w-full border-2 border-dashed border-[rgba(255,255,255,0.1)] rounded-xl py-8 px-4 text-center hover:border-[rgba(var(--ax-accent-rgb),0.4)] hover:bg-[rgba(var(--ax-accent-rgb),0.03)] transition-all group disabled:opacity-60"
                 >
                   {aiExtracting ? (
-                    <p className="text-[var(--ax-accent)] text-sm">Reading documents with AI…</p>
+                    <div>
+                      <p className="text-[var(--ax-accent)] text-sm">Reading documents with AI…</p>
+                      <p className="text-xs text-[rgba(232,228,220,0.3)] mt-1">A large, multi-page document can take a couple of minutes — keep this open</p>
+                    </div>
                   ) : (
                     <>
                       <p className="text-[rgba(232,228,220,0.55)] group-hover:text-[rgba(232,228,220,0.8)] text-sm">Click to browse or drop files here — you can select several at once</p>
