@@ -1,7 +1,20 @@
 import { generateAiJson, generateAiJsonFromFile } from '@/lib/ai/claude';
 
+const NONE = 'NONE';
+
 export interface ExtractedRABillItem {
+  /** The item description as literally read off the document — shown to the vendor for
+   * review, never used for matching itself. */
   description: string;
+  /** One of the order's known BOQ item descriptions, copied verbatim, or null if this row
+   * doesn't clearly correspond to exactly one of them. Matching happens inside the model call
+   * (constrained to a real enum of this order's actual item names) rather than via client-side
+   * string similarity — construction/paint item names vary too much in word order and
+   * punctuation ("P.U Colour Matt" vs "PU Matt Colour", "Jotun (Tex-Ultra)" vs "Tex-Ultra
+   * (Jotun)") for a substring/token matcher to be reliable, and the model can use real
+   * vocabulary knowledge (e.g. spelling drift like "Satten" for "Satin") that a string matcher
+   * can't. */
+  matchedItem: string | null;
   unit: string;
   quantity: number;
   rate: number;
@@ -11,27 +24,44 @@ export interface ExtractedRABillDocument {
   items: ExtractedRABillItem[];
 }
 
-const EXTRACT_SCHEMA = {
-  type: 'object',
-  properties: {
-    items: {
-      type: 'array',
+interface RawExtractedItem {
+  description: string;
+  matchedItem: string;
+  unit: string;
+  quantity: number;
+  rate: number;
+}
+interface RawExtractedDocument {
+  items: RawExtractedItem[];
+}
+
+/** Builds a schema whose matchedItem enum is exactly this order's known BOQ item descriptions
+ * plus NONE — the model is structurally unable to return anything else, so a returned
+ * matchedItem is always either NONE or a string we can look up by exact equality. */
+function buildSchema(knownItems: string[]) {
+  return {
+    type: 'object',
+    properties: {
       items: {
-        type: 'object',
-        properties: {
-          description: { type: 'string' },
-          unit: { type: 'string' },
-          quantity: { type: 'number' },
-          rate: { type: 'number' },
+        type: 'array',
+        items: {
+          type: 'object',
+          properties: {
+            description: { type: 'string' },
+            matchedItem: { type: 'string', enum: [...knownItems, NONE] },
+            unit: { type: 'string' },
+            quantity: { type: 'number' },
+            rate: { type: 'number' },
+          },
+          required: ['description', 'matchedItem', 'unit', 'quantity', 'rate'],
+          additionalProperties: false,
         },
-        required: ['description', 'unit', 'quantity', 'rate'],
-        additionalProperties: false,
       },
     },
-  },
-  required: ['items'],
-  additionalProperties: false,
-} as const;
+    required: ['items'],
+    additionalProperties: false,
+  } as const;
+}
 
 // Distinct from BOQDocumentExtractionService's prompt on purpose: a BOQ/quotation document
 // states a PLANNED quantity being ordered, while an RA (Running Account) Bill document states
@@ -84,7 +114,19 @@ const SYSTEM_PROMPT =
   'Some documents also have descriptive spec rows with no quantity or rate of their own — e.g. a note ' +
   'about material/finish/location grouped under one measured item above it. Fold that supporting detail ' +
   'into the nearest measured item\'s description if it is clearly part of the same item, or omit it — ' +
-  'never invent a fake quantity/rate to turn a note into its own line item.';
+  'never invent a fake quantity/rate to turn a note into its own line item.\n\n' +
+
+  'MATCHING — for every real line item, also set matchedItem to whichever entry in KNOWN ITEMS (given ' +
+  'below) is unmistakably the same item as this row, copied EXACTLY as it appears in that list ' +
+  '(character-for-character — do not paraphrase, reorder, or fix its punctuation). The document\'s own ' +
+  'wording will often differ from KNOWN ITEMS — different word order ("Tex-Ultra (Jotun)" vs "Jotun ' +
+  '(Tex-Ultra)"), punctuation ("PU Matt Colour" vs "P.U Colour Matt"), or minor spelling drift ("Satten ' +
+  'Paint" vs "Satin Paint") — treat those as the same item, not a non-match. Set matchedItem to the ' +
+  'literal string "NONE" instead when: nothing in KNOWN ITEMS is clearly the same item, OR the row\'s ' +
+  'own wording is too generic/short to tell which of several similar KNOWN ITEMS entries it means (e.g. ' +
+  'a bare "PU Polish" row when KNOWN ITEMS lists several different PU Polish variants) — guessing one of ' +
+  'several plausible candidates is worse than admitting no confident match, since this drives what the ' +
+  'contractor gets billed for.';
 
 const FILE_PROMPT =
   'Extract every real, this-period line item (not totals, tax, deductions, or note-only rows) from the ' +
@@ -102,20 +144,19 @@ const TEXT_PROMPT_PREFIX =
  * uploaded file/sheet is frequently a bundle covering several purchase orders, several
  * projects, or a measurement sheet interleaved with unrelated notes on the same page/workbook.
  * Naming this order and listing its known BOQ item descriptions lets the model scope extraction
- * to just this order's rows instead of pulling in everything on the page. */
-function scopingInstruction(context?: { orderName: string; knownItems: string[] }): string {
-  if (!context) return '';
-  const items = context.knownItems.slice(0, 100);
+ * to just this order's rows, and is also the exact list matchedItem is constrained to (see
+ * buildSchema) — this text explains the *scoping* rule; matching itself is explained in
+ * SYSTEM_PROMPT. */
+function scopingInstruction(context: RABillExtractionContext): string {
+  const items = context.knownItems;
   const itemsList = items.length > 0 ? items.map((d) => `- ${d}`).join('\n') : '(none on file)';
   return (
     `\n\nSCOPE — this file may cover more than one purchase order, project, or vendor, or mix a ` +
     `measurement sheet in with unrelated notes/other trades on the same page or workbook. Only extract ` +
-    `rows that belong to THIS purchase order: "${context.orderName}". Its known item descriptions are:\n` +
+    `rows that belong to THIS purchase order: "${context.orderName}". Its KNOWN ITEMS are:\n` +
     `${itemsList}\n\n` +
-    `Use that list to recognize matching rows even when the wording on the document differs slightly ` +
-    `(abbreviations, reordered words, a supplier's own phrasing). If a section of the document is clearly ` +
-    `a different purchase order, project, or vendor's bill, skip that section entirely — do not extract ` +
-    `its rows even if they look like well-formed line items.`
+    `If a section of the document is clearly a different purchase order, project, or vendor's bill, skip ` +
+    `that section entirely — do not extract its rows even if they look like well-formed line items.`
   );
 }
 
@@ -135,18 +176,41 @@ function looksLikeRealLineItem(description: string): boolean {
   return !NON_ITEM_DESCRIPTION_PREFIXES.some((p) => key.startsWith(p));
 }
 
-function sanitize(result: ExtractedRABillDocument | null): ExtractedRABillDocument | null {
+/** Converts the raw model output (matchedItem always a real string, "NONE" included) into the
+ * public shape (matchedItem: string | null), and drops rows that don't look like a real item. */
+function sanitize(result: RawExtractedDocument | null): ExtractedRABillDocument | null {
   if (!result) return null;
-  const items = result.items.filter((item) => looksLikeRealLineItem(item.description));
+  const items: ExtractedRABillItem[] = result.items
+    .filter((item) => looksLikeRealLineItem(item.description))
+    .map((item) => ({ ...item, matchedItem: item.matchedItem === NONE ? null : item.matchedItem }));
   if (items.length === 0) return null;
-  return { ...result, items };
+  return { items };
+}
+
+export interface RABillExtractionContext {
+  orderName: string;
+  /** This order's known BOQ item descriptions — matchedItem is hard-constrained to exactly
+   * this list (plus NONE) via the schema's enum, so this must be the real, current list. */
+  knownItems: string[];
+}
+
+// Bounds both the enum size and the prompt's item list to the same set — an order with an
+// unusually large number of BOQ items shouldn't blow up the schema, and the two must stay in
+// sync (the model reads the list in the prompt but is mechanically constrained by the enum).
+const MAX_KNOWN_ITEMS = 150;
+
+/** Dedupes and caps knownItems once, so buildSchema's enum and scopingInstruction's prompt text
+ * are always built from the exact same bounded list. */
+function boundContext(context: RABillExtractionContext): RABillExtractionContext {
+  return { orderName: context.orderName, knownItems: [...new Set(context.knownItems)].slice(0, MAX_KNOWN_ITEMS) };
 }
 
 export const RABillDocumentExtractionService = {
   /** Extracts RA Bill / measurement-sheet line items from a single PDF or image, including
-   * handwritten/scanned/photographed pages — one Claude call per file, so a batch caller can
-   * let one unreadable file fail without losing the rest. Returns null if AI isn't configured,
-   * the call fails, or nothing usable came back. */
+   * handwritten/scanned/photographed pages, AND matches each row to one of this order's known
+   * BOQ items in the same call — one Claude call per file, so a batch caller can let one
+   * unreadable file fail without losing the rest. Returns null if AI isn't configured, the call
+   * fails, or nothing usable came back. */
   async extractFromFile(file: {
     kind: 'image';
     mediaType: 'image/jpeg' | 'image/png' | 'image/gif' | 'image/webp';
@@ -155,12 +219,13 @@ export const RABillDocumentExtractionService = {
     kind: 'document';
     mediaType: 'application/pdf';
     base64: string;
-  }, context?: { orderName: string; knownItems: string[] }): Promise<ExtractedRABillDocument | null> {
-    const result = await generateAiJsonFromFile<ExtractedRABillDocument>({
+  }, rawContext: RABillExtractionContext): Promise<ExtractedRABillDocument | null> {
+    const context = boundContext(rawContext);
+    const result = await generateAiJsonFromFile<RawExtractedDocument>({
       system: SYSTEM_PROMPT,
       prompt: FILE_PROMPT + scopingInstruction(context),
       file,
-      schema: EXTRACT_SCHEMA,
+      schema: buildSchema(context.knownItems),
       // Same headroom as BOQ file extraction — a multi-page measurement sheet can run long.
       maxTokens: 20000,
       timeoutMs: 150_000,
@@ -172,11 +237,12 @@ export const RABillDocumentExtractionService = {
    * or a word-processed document (.docx, via mammoth). Used whenever the source isn't an
    * image/PDF, so it never pays for a vision call on a file that's already machine-readable
    * text. */
-  async extractFromText(sourceText: string, context?: { orderName: string; knownItems: string[] }): Promise<ExtractedRABillDocument | null> {
-    const result = await generateAiJson<ExtractedRABillDocument>({
+  async extractFromText(sourceText: string, rawContext: RABillExtractionContext): Promise<ExtractedRABillDocument | null> {
+    const context = boundContext(rawContext);
+    const result = await generateAiJson<RawExtractedDocument>({
       system: SYSTEM_PROMPT,
       prompt: TEXT_PROMPT_PREFIX + scopingInstruction(context) + '\n\n' + sourceText,
-      schema: EXTRACT_SCHEMA,
+      schema: buildSchema(context.knownItems),
       maxTokens: 20000,
       timeoutMs: 150_000,
     });

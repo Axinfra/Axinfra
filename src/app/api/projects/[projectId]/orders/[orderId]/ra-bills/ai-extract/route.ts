@@ -60,7 +60,14 @@ interface FileResult {
 }
 
 export interface RaBillAiExtractedItem {
+  /** As literally read off the document — shown to the vendor for review. */
   description: string;
+  /** One of this order's approved BOQ item descriptions, copied verbatim, or null if Claude
+   * couldn't confidently match this row to exactly one of them. Matching is done inside the
+   * Claude call itself (schema-constrained to this order's real item list — see
+   * RABillDocumentExtractionService), not by client-side string similarity, so
+   * VendorCreateRABillModal only needs an exact lookup by this value, never fuzzy matching. */
+  matchedItem: string | null;
   unit: string;
   quantity: number;
   rate: number;
@@ -70,9 +77,10 @@ export interface RaBillAiExtractedItem {
 // POST /api/projects/[projectId]/orders/[orderId]/ra-bills/ai-extract
 // Vendor "AI mode" for drafting an RA Bill: reads a batch of photos, scans, PDFs, or
 // spreadsheets (a measurement sheet, a supplier bill, anything with item/qty/rate rows) with
-// Claude and returns raw extracted rows. Matching those rows to this order's APPROVED BOQs and
-// filling in quantities is done client-side by VendorCreateRABillModal, reusing the exact same
-// fuzzy matcher already used for its Excel-import path — this route only does extraction.
+// Claude, which both extracts each row AND matches it to one of this order's APPROVED BOQ items
+// in the same call (see RABillDocumentExtractionService) — construction/paint item names vary
+// too much in word order, punctuation, and spelling for a client-side string matcher to be
+// reliable, so matching rides on the same model call instead.
 //
 // Gated to a project allowlist (see ra-bill-ai-mode.ts) — not a general-availability feature yet.
 export async function POST(
@@ -105,10 +113,11 @@ export async function POST(
       return NextResponse.json({ success: false, error: 'You are not the vendor assigned to this purchase order' }, { status: 403 });
     }
 
-    const scopeContext = {
-      orderName: order.name,
-      knownItems: order.boqs.flatMap((b) => b.items.map((i) => i.description)),
-    };
+    const knownItems = order.boqs.flatMap((b) => b.items.map((i) => i.description));
+    if (knownItems.length === 0) {
+      return NextResponse.json({ success: false, error: 'This purchase order has no approved BOQ items to match against yet' }, { status: 400 });
+    }
+    const scopeContext = { orderName: order.name, knownItems };
 
     const formData = await request.formData();
     const files = formData.getAll('files').filter((f): f is File => f instanceof File && f.size > 0);
@@ -166,6 +175,7 @@ export async function POST(
           .filter((item): boolean => Boolean(item.description.trim()) && item.quantity > 0)
           .map((item): RaBillAiExtractedItem => ({
             description: item.description.trim(),
+            matchedItem: item.matchedItem,
             unit: item.unit.trim(),
             quantity: item.quantity,
             rate: item.rate,

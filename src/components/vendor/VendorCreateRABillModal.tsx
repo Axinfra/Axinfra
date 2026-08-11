@@ -196,13 +196,21 @@ export default function VendorCreateRABillModal({
         return;
       }
 
+      // AI mode matches server-side (Claude picks matchedItem from this order's real BOQ item
+      // list, schema-constrained — see RABillDocumentExtractionService), so this is an exact
+      // lookup, not the fuzzy matchBoq() used by the Excel-import path below: construction/paint
+      // item names vary too much in word order and punctuation ("PU Matt Colour" vs "P.U Colour
+      // Matt") for substring matching to be reliable, which is exactly what AI mode exists to
+      // fix.
+      const boqByDescription = new Map(approvedBoqs.map((b) => [b.items[0]?.description ?? b.name ?? '', b]));
+
       const nextQtyByBoq: Record<string, string> = {};
       const unmatched: string[] = [];
       const rateMismatches: string[] = [];
       let matchedCount = 0;
 
       for (const item of items) {
-        const boq = matchBoq(item.description, approvedBoqs);
+        const boq = item.matchedItem ? boqByDescription.get(item.matchedItem) : undefined;
         if (!boq) {
           unmatched.push(item.description);
           continue;
