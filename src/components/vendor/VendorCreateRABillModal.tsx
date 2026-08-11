@@ -3,11 +3,13 @@
 import { useRef, useState } from 'react';
 import { useRouter } from 'next/navigation';
 import useSWR from 'swr';
-import { X, Wallet, FileSpreadsheet, Download } from 'lucide-react';
+import { X, Wallet, FileSpreadsheet, Download, Sparkles } from 'lucide-react';
 import { jsonFetcher } from '@/lib/fetcher';
 import { formatCurrency } from '@/lib/utils';
 import { cardShadow, iconBadge } from './vendorTheme';
 import VendorActionButton from './VendorActionButton';
+import { isRaBillAiModeEnabled } from '@/lib/ra-bill-ai-mode';
+import type { RaBillAiExtractedItem } from '@/app/api/projects/[projectId]/orders/[orderId]/ra-bills/ai-extract/route';
 
 interface BOQOption {
   id: string;
@@ -56,6 +58,7 @@ export default function VendorCreateRABillModal({
 }) {
   const router = useRouter();
   const fileInputRef = useRef<HTMLInputElement>(null);
+  const aiFileInputRef = useRef<HTMLInputElement>(null);
   const { data: boqsPayload } = useSWR<{ boqs: BOQOption[] }>(
     `/api/projects/${projectId}/orders/${orderId}/boqs`,
     jsonFetcher,
@@ -63,6 +66,7 @@ export default function VendorCreateRABillModal({
   // The BOQ list API already restricts a vendor to APPROVED items only (see
   // RoleGuard.visibleBOQStatuses) — no client-side status filter needed here.
   const approvedBoqs = boqsPayload?.boqs ?? [];
+  const aiModeEnabled = isRaBillAiModeEnabled(projectId);
 
   const [periodStart, setPeriodStart] = useState('');
   const [periodEnd, setPeriodEnd] = useState('');
@@ -73,6 +77,10 @@ export default function VendorCreateRABillModal({
   const [importing, setImporting] = useState(false);
   const [importNote, setImportNote] = useState('');
   const [unmatchedRows, setUnmatchedRows] = useState<string[]>([]);
+
+  const [aiExtracting, setAiExtracting] = useState(false);
+  const [aiNote, setAiNote] = useState('');
+  const [aiRateMismatches, setAiRateMismatches] = useState<string[]>([]);
 
   const total = approvedBoqs.reduce((sum, b) => {
     const item = b.items[0];
@@ -157,6 +165,74 @@ export default function VendorCreateRABillModal({
     }
   };
 
+  /** AI mode: send photo(s)/PDF(s)/sheet(s) to the ai-extract route, then run the extracted
+   * rows through the same fuzzy `matchBoq` matcher the Excel-import path uses above — one
+   * matcher, two extraction sources. The extracted rate is only used to flag a mismatch against
+   * the item's approved contract rate; the amount actually billed always uses the BOQ's own
+   * rate, never a rate read off an uploaded file. */
+  const handleAiExtractFiles = async (files: FileList) => {
+    setAiExtracting(true);
+    setError('');
+    setAiNote('');
+    setAiRateMismatches([]);
+    setUnmatchedRows([]);
+    try {
+      const formData = new FormData();
+      Array.from(files).forEach((f) => formData.append('files', f));
+
+      const res = await fetch(`/api/projects/${projectId}/orders/${orderId}/ra-bills/ai-extract`, {
+        method: 'POST',
+        body: formData,
+      });
+      const data = await res.json();
+      if (!data.success) {
+        setError(data.error ?? 'Could not read that file. Try a clearer photo or a PDF.');
+        return;
+      }
+
+      const items: RaBillAiExtractedItem[] = data.data.items;
+      if (items.length === 0) {
+        setError('No line items were found in the uploaded file(s).');
+        return;
+      }
+
+      const nextQtyByBoq: Record<string, string> = {};
+      const unmatched: string[] = [];
+      const rateMismatches: string[] = [];
+      let matchedCount = 0;
+
+      for (const item of items) {
+        const boq = matchBoq(item.description, approvedBoqs);
+        if (!boq) {
+          unmatched.push(item.description);
+          continue;
+        }
+        nextQtyByBoq[boq.id] = String(item.quantity);
+        matchedCount++;
+
+        const contractRate = boq.items[0]?.rate ?? 0;
+        if (item.rate > 0 && contractRate > 0 && Math.abs(item.rate - contractRate) / contractRate > 0.01) {
+          rateMismatches.push(`${boq.items[0]?.description ?? boq.name} — sheet shows ${formatCurrency(item.rate)}, approved rate is ${formatCurrency(contractRate)}`);
+        }
+      }
+
+      if (matchedCount === 0) {
+        setError('None of the extracted items matched an approved BOQ on this order.');
+        return;
+      }
+
+      setQtyByBoq((prev) => ({ ...prev, ...nextQtyByBoq }));
+      setAiNote(`${matchedCount} item${matchedCount === 1 ? '' : 's'} matched and filled in from AI — review before creating.`);
+      setUnmatchedRows(unmatched);
+      setAiRateMismatches(rateMismatches);
+    } catch {
+      setError('Could not read that file. Try a clearer photo or a PDF.');
+    } finally {
+      setAiExtracting(false);
+      if (aiFileInputRef.current) aiFileInputRef.current.value = '';
+    }
+  };
+
   const handleCreate = async () => {
     const lineItems = Object.entries(qtyByBoq)
       .filter(([, qty]) => qty && parseFloat(qty) > 0)
@@ -204,6 +280,19 @@ export default function VendorCreateRABillModal({
           if (file) void handleImportFile(file);
         }}
       />
+      {aiModeEnabled && (
+        <input
+          ref={aiFileInputRef}
+          type="file"
+          accept="image/jpeg,image/png,image/gif,image/webp,.pdf,.xlsx,.xls,.csv"
+          multiple
+          className="hidden"
+          onChange={(e) => {
+            const files = e.target.files;
+            if (files && files.length > 0) void handleAiExtractFiles(files);
+          }}
+        />
+      )}
       <div className="w-full sm:max-w-lg rounded-t-[28px] sm:rounded-[28px] flex flex-col max-h-[90vh]" style={{ background: 'var(--ax-base)', ...cardShadow }}>
         <div className="flex items-center gap-3 p-5 shrink-0">
           <div className="w-11 h-11 rounded-full flex items-center justify-center shrink-0" style={iconBadge('#22c55e')}>
@@ -233,11 +322,34 @@ export default function VendorCreateRABillModal({
               >
                 <FileSpreadsheet className="w-4 h-4" strokeWidth={2.5} /> {importing ? 'Reading…' : 'Import Excel'}
               </button>
+              {aiModeEnabled && (
+                <button
+                  onClick={() => aiFileInputRef.current?.click()}
+                  disabled={aiExtracting}
+                  className="col-span-2 flex items-center justify-center gap-2 rounded-2xl py-3 font-bold text-sm disabled:opacity-50"
+                  style={{ background: 'rgba(168,85,247,0.12)', color: '#a855f7' }}
+                >
+                  <Sparkles className="w-4 h-4" strokeWidth={2.5} />
+                  {aiExtracting ? 'Reading with AI…' : 'AI Mode — Upload Photo or PDF'}
+                </button>
+              )}
             </div>
           )}
 
           {importNote && (
             <p className="text-sm font-semibold rounded-2xl px-4 py-3" style={{ color: '#22c55e', background: 'rgba(34,197,94,0.1)' }}>{importNote}</p>
+          )}
+          {aiNote && (
+            <p className="text-sm font-semibold rounded-2xl px-4 py-3" style={{ color: '#a855f7', background: 'rgba(168,85,247,0.1)' }}>{aiNote}</p>
+          )}
+          {aiRateMismatches.length > 0 && (
+            <div className="text-sm rounded-2xl px-4 py-3" style={{ color: '#eab308', background: 'rgba(234,179,8,0.1)' }}>
+              <p className="font-semibold">Rate on the uploaded sheet doesn&apos;t match the approved rate — the bill still uses the approved rate:</p>
+              <ul className="mt-1 list-disc list-inside space-y-0.5 opacity-80">
+                {aiRateMismatches.slice(0, 5).map((d, i) => <li key={i}>{d}</li>)}
+                {aiRateMismatches.length > 5 && <li>+{aiRateMismatches.length - 5} more</li>}
+              </ul>
+            </div>
           )}
           {unmatchedRows.length > 0 && (
             <div className="text-sm rounded-2xl px-4 py-3" style={{ color: '#eab308', background: 'rgba(234,179,8,0.1)' }}>
