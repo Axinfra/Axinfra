@@ -284,7 +284,7 @@ export default function VendorCreateRABillModal({
         <input
           ref={aiFileInputRef}
           type="file"
-          accept="image/jpeg,image/png,image/gif,image/webp,.pdf,.xlsx,.xls,.csv"
+          accept="image/jpeg,image/png,image/gif,image/webp,.pdf,.docx,.xlsx,.xls,.csv"
           multiple
           className="hidden"
           onChange={(e) => {
@@ -330,7 +330,7 @@ export default function VendorCreateRABillModal({
                   style={{ background: 'rgba(168,85,247,0.12)', color: '#a855f7' }}
                 >
                   <Sparkles className="w-4 h-4" strokeWidth={2.5} />
-                  {aiExtracting ? 'Reading with AI…' : 'AI Mode — Upload Photo or PDF'}
+                  {aiExtracting ? 'Reading with AI…' : 'AI Mode — Upload Photo, PDF, DOCX or Excel'}
                 </button>
               )}
             </div>

@@ -1,11 +1,12 @@
 import { NextRequest, NextResponse } from 'next/server';
 import * as XLSX from 'xlsx';
+import mammoth from 'mammoth';
 import { prisma } from '@/lib/db';
 import { requireProjectAuth } from '@/lib/auth';
 import { RoleGuard } from '@/services/RoleGuard';
 import { isAiEnabled } from '@/lib/ai/claude';
 import { aiGenerationRateLimiter } from '@/lib/rate-limiter';
-import { BOQDocumentExtractionService } from '@/services/BOQDocumentExtractionService';
+import { RABillDocumentExtractionService } from '@/services/RABillDocumentExtractionService';
 import { isRaBillAiModeEnabled } from '@/lib/ra-bill-ai-mode';
 
 export const dynamic = 'force-dynamic';
@@ -18,7 +19,11 @@ const MAX_FILES = 3;
 const MAX_PDF_BYTES = 20 * 1024 * 1024;
 const MAX_IMAGE_BYTES = 8 * 1024 * 1024;
 const MAX_SPREADSHEET_BYTES = 10 * 1024 * 1024;
+const MAX_DOCX_BYTES = 10 * 1024 * 1024;
 const MAX_SPREADSHEET_ROWS = 400;
+// Docx text has no row structure to bound by count, so bound by characters instead — well past
+// any real RA bill / measurement sheet written in Word.
+const MAX_DOCX_CHARS = 60_000;
 
 const PDF_TYPE = 'application/pdf';
 const IMAGE_TYPES = new Set(['image/jpeg', 'image/png', 'image/gif', 'image/webp']);
@@ -28,6 +33,8 @@ const SPREADSHEET_TYPES = new Set([
   'text/csv',
 ]);
 const SPREADSHEET_EXTENSIONS = /\.(xlsx|xls|csv)$/i;
+const DOCX_TYPE = 'application/vnd.openxmlformats-officedocument.wordprocessingml.document';
+const DOCX_EXTENSION = /\.docx$/i;
 
 /** Same cell-to-text flattening as the BOQ AI-import route — reads a sheet whose columns don't
  * match a fixed template into a compact table Claude can parse positionally. */
@@ -36,6 +43,14 @@ function sheetToText(buffer: Buffer): string {
   const ws = wb.Sheets[wb.SheetNames[0]];
   const raw = XLSX.utils.sheet_to_json<(string | number)[]>(ws, { header: 1, defval: '', blankrows: false }) as (string | number)[][];
   return raw.slice(0, MAX_SPREADSHEET_ROWS).map((row) => row.map((cell) => String(cell ?? '').trim()).join(' | ')).join('\n');
+}
+
+/** Reads a .docx's raw text (mammoth strips the OOXML markup down to plain paragraphs/table
+ * cells) for a vendor's own Word-drafted running bill — same downstream text-extraction path a
+ * spreadsheet uses, just a different source format. */
+async function docxToText(buffer: Buffer): Promise<string> {
+  const { value } = await mammoth.extractRawText({ buffer });
+  return value.slice(0, MAX_DOCX_CHARS);
 }
 
 interface FileResult {
@@ -77,14 +92,23 @@ export async function POST(
     }
 
     // Ownership check — only the vendor actually assigned to this order may draft against it,
-    // same rule RABillService.createDraft enforces.
-    const order = await prisma.phase.findFirst({ where: { id: orderId, projectId } });
+    // same rule RABillService.createDraft enforces. Also pulls this order's own APPROVED BOQ
+    // item descriptions, so extraction can be scoped to just this order below.
+    const order = await prisma.phase.findFirst({
+      where: { id: orderId, projectId },
+      include: { boqs: { where: { status: 'APPROVED' }, include: { items: { select: { description: true } } } } },
+    });
     if (!order) {
       return NextResponse.json({ success: false, error: 'Purchase order not found in this project' }, { status: 404 });
     }
     if (order.vendorUserId !== auth.userId) {
       return NextResponse.json({ success: false, error: 'You are not the vendor assigned to this purchase order' }, { status: 403 });
     }
+
+    const scopeContext = {
+      orderName: order.name,
+      knownItems: order.boqs.flatMap((b) => b.items.map((i) => i.description)),
+    };
 
     const formData = await request.formData();
     const files = formData.getAll('files').filter((f): f is File => f instanceof File && f.size > 0);
@@ -100,11 +124,12 @@ export async function POST(
       const isPdf = file.type === PDF_TYPE;
       const isImage = IMAGE_TYPES.has(file.type);
       const isSpreadsheet = SPREADSHEET_TYPES.has(file.type) || SPREADSHEET_EXTENSIONS.test(file.name);
+      const isDocx = file.type === DOCX_TYPE || DOCX_EXTENSION.test(file.name);
 
-      if (!isPdf && !isImage && !isSpreadsheet) {
-        return { fileResult: { fileName: file.name, error: 'Unsupported file type — use a photo, PDF, XLSX, XLS, or CSV' }, rows: [] };
+      if (!isPdf && !isImage && !isSpreadsheet && !isDocx) {
+        return { fileResult: { fileName: file.name, error: 'Unsupported file type — use a photo, PDF, DOCX, XLSX, XLS, or CSV' }, rows: [] };
       }
-      const maxBytes = isPdf ? MAX_PDF_BYTES : isSpreadsheet ? MAX_SPREADSHEET_BYTES : MAX_IMAGE_BYTES;
+      const maxBytes = isPdf ? MAX_PDF_BYTES : isSpreadsheet ? MAX_SPREADSHEET_BYTES : isDocx ? MAX_DOCX_BYTES : MAX_IMAGE_BYTES;
       if (file.size > maxBytes) {
         return { fileResult: { fileName: file.name, error: `File too large — max ${Math.round(maxBytes / (1024 * 1024))}MB` }, rows: [] };
       }
@@ -122,12 +147,15 @@ export async function POST(
         let extracted;
         if (isSpreadsheet) {
           const sheetText = sheetToText(buffer);
-          extracted = sheetText.trim() ? await BOQDocumentExtractionService.extractFromText(sheetText) : null;
+          extracted = sheetText.trim() ? await RABillDocumentExtractionService.extractFromText(sheetText, scopeContext) : null;
+        } else if (isDocx) {
+          const docText = await docxToText(buffer);
+          extracted = docText.trim() ? await RABillDocumentExtractionService.extractFromText(docText, scopeContext) : null;
         } else {
           const base64 = buffer.toString('base64');
           extracted = isPdf
-            ? await BOQDocumentExtractionService.extractFromFile({ kind: 'document', mediaType: 'application/pdf', base64 })
-            : await BOQDocumentExtractionService.extractFromFile({ kind: 'image', mediaType: file.type as 'image/jpeg' | 'image/png' | 'image/gif' | 'image/webp', base64 });
+            ? await RABillDocumentExtractionService.extractFromFile({ kind: 'document', mediaType: 'application/pdf', base64 }, scopeContext)
+            : await RABillDocumentExtractionService.extractFromFile({ kind: 'image', mediaType: file.type as 'image/jpeg' | 'image/png' | 'image/gif' | 'image/webp', base64 }, scopeContext);
         }
 
         if (!extracted) {
@@ -135,8 +163,8 @@ export async function POST(
         }
 
         const rows: RaBillAiExtractedItem[] = extracted.items
-          .filter((item) => item.description.trim() && item.quantity > 0)
-          .map((item) => ({
+          .filter((item): boolean => Boolean(item.description.trim()) && item.quantity > 0)
+          .map((item): RaBillAiExtractedItem => ({
             description: item.description.trim(),
             unit: item.unit.trim(),
             quantity: item.quantity,
