@@ -3,6 +3,7 @@
 import { useRef, useState } from 'react';
 import { useRouter } from 'next/navigation';
 import useSWR from 'swr';
+import { upload } from '@vercel/blob/client';
 import { X, Wallet, FileSpreadsheet, Download, Sparkles } from 'lucide-react';
 import { jsonFetcher } from '@/lib/fetcher';
 import { formatCurrency } from '@/lib/utils';
@@ -177,17 +178,41 @@ export default function VendorCreateRABillModal({
     setAiRateMismatches([]);
     setUnmatchedRows([]);
     try {
-      const formData = new FormData();
-      Array.from(files).forEach((f) => formData.append('files', f));
+      // Upload straight to Blob storage from the browser first — Vercel Serverless Functions
+      // cap inbound request bodies well under a real scanned multi-page PDF or phone photo, so
+      // proxying the raw bytes through our own route (the original design) 413'd in practice.
+      // The ai-extract route below takes the resulting blob URLs and fetches them server-side
+      // instead, which isn't subject to that same inbound cap.
+      const uploadResults = await Promise.allSettled(
+        Array.from(files).map((f) =>
+          upload(f.name, f, {
+            access: 'private',
+            handleUploadUrl: `/api/projects/${projectId}/orders/${orderId}/ra-bills/ai-extract/upload`,
+          }),
+        ),
+      );
+      const uploaded = uploadResults
+        .filter((r): r is PromiseFulfilledResult<Awaited<ReturnType<typeof upload>>> => r.status === 'fulfilled')
+        .map((r) => ({ url: r.value.url, name: r.value.pathname, type: r.value.contentType }));
+      const failedUploadCount = uploadResults.length - uploaded.length;
+
+      if (uploaded.length === 0) {
+        setError('Could not upload that file. Try a clearer photo or a smaller PDF.');
+        return;
+      }
 
       const res = await fetch(`/api/projects/${projectId}/orders/${orderId}/ra-bills/ai-extract`, {
         method: 'POST',
-        body: formData,
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({ files: uploaded }),
       });
       const data = await res.json();
       if (!data.success) {
         setError(data.error ?? 'Could not read that file. Try a clearer photo or a PDF.');
         return;
+      }
+      if (failedUploadCount > 0) {
+        setError(`${failedUploadCount} file${failedUploadCount === 1 ? '' : 's'} failed to upload and ${failedUploadCount === 1 ? 'was' : 'were'} skipped.`);
       }
 
       const items: RaBillAiExtractedItem[] = data.data.items;

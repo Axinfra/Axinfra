@@ -1,6 +1,7 @@
 import { NextRequest, NextResponse } from 'next/server';
 import * as XLSX from 'xlsx';
 import mammoth from 'mammoth';
+import { get, del } from '@vercel/blob';
 import { prisma } from '@/lib/db';
 import { requireProjectAuth } from '@/lib/auth';
 import { RoleGuard } from '@/services/RoleGuard';
@@ -74,6 +75,15 @@ export interface RaBillAiExtractedItem {
   sourceFile: string;
 }
 
+/** A file the client already uploaded directly to Blob storage (see the sibling `upload` route)
+ * — `url` is the private blob URL to fetch and process, never raw bytes in this request body.
+ * See the module doc comment below for why. */
+interface UploadedFileRef {
+  url: string;
+  name: string;
+  type: string;
+}
+
 // POST /api/projects/[projectId]/orders/[orderId]/ra-bills/ai-extract
 // Vendor "AI mode" for drafting an RA Bill: reads a batch of photos, scans, PDFs, or
 // spreadsheets (a measurement sheet, a supplier bill, anything with item/qty/rate rows) with
@@ -81,6 +91,13 @@ export interface RaBillAiExtractedItem {
 // in the same call (see RABillDocumentExtractionService) — construction/paint item names vary
 // too much in word order, punctuation, and spelling for a client-side string matcher to be
 // reliable, so matching rides on the same model call instead.
+//
+// Takes Blob URLs, not raw file bytes: the client uploads directly to Blob storage first (via
+// the sibling `upload` route + @vercel/blob/client), because Vercel Serverless Functions cap
+// inbound request bodies at ~4.5MB — well under a real scanned multi-page document or phone
+// photo — so proxying raw multipart file bytes through this route 413'd in practice. Each blob
+// is fetched server-side (an outbound request, not subject to that inbound cap) and deleted
+// again once processed, since it's only ever a transient extraction input, never stored.
 //
 // Gated to a project allowlist (see ra-bill-ai-mode.ts) — not a general-availability feature yet.
 export async function POST(
@@ -119,8 +136,10 @@ export async function POST(
     }
     const scopeContext = { orderName: order.name, knownItems };
 
-    const formData = await request.formData();
-    const files = formData.getAll('files').filter((f): f is File => f instanceof File && f.size > 0);
+    const body = (await request.json().catch(() => null)) as { files?: unknown } | null;
+    const files = Array.isArray(body?.files)
+      ? (body.files as UploadedFileRef[]).filter((f) => f && typeof f.url === 'string' && f.url.startsWith('https://'))
+      : [];
 
     if (files.length === 0) {
       return NextResponse.json({ success: false, error: 'No files provided' }, { status: 400 });
@@ -130,28 +149,35 @@ export async function POST(
     }
 
     const perFile = await Promise.all(files.map(async (file): Promise<{ fileResult: FileResult; rows: RaBillAiExtractedItem[] }> => {
+      const fileName = file.name || 'upload';
       const isPdf = file.type === PDF_TYPE;
       const isImage = IMAGE_TYPES.has(file.type);
-      const isSpreadsheet = SPREADSHEET_TYPES.has(file.type) || SPREADSHEET_EXTENSIONS.test(file.name);
-      const isDocx = file.type === DOCX_TYPE || DOCX_EXTENSION.test(file.name);
+      const isSpreadsheet = SPREADSHEET_TYPES.has(file.type) || SPREADSHEET_EXTENSIONS.test(fileName);
+      const isDocx = file.type === DOCX_TYPE || DOCX_EXTENSION.test(fileName);
 
       if (!isPdf && !isImage && !isSpreadsheet && !isDocx) {
-        return { fileResult: { fileName: file.name, error: 'Unsupported file type — use a photo, PDF, DOCX, XLSX, XLS, or CSV' }, rows: [] };
-      }
-      const maxBytes = isPdf ? MAX_PDF_BYTES : isSpreadsheet ? MAX_SPREADSHEET_BYTES : isDocx ? MAX_DOCX_BYTES : MAX_IMAGE_BYTES;
-      if (file.size > maxBytes) {
-        return { fileResult: { fileName: file.name, error: `File too large — max ${Math.round(maxBytes / (1024 * 1024))}MB` }, rows: [] };
+        return { fileResult: { fileName, error: 'Unsupported file type — use a photo, PDF, DOCX, XLSX, XLS, or CSV' }, rows: [] };
       }
 
       // Every file here is a real, billed Claude call — same shared cap as the other AI-generation
       // endpoints (work order draft, BOQ import).
       const rateCheck = await aiGenerationRateLimiter.check(auth.userId);
       if (!rateCheck.allowed) {
-        return { fileResult: { fileName: file.name, error: 'Too many AI requests — please try again later' }, rows: [] };
+        return { fileResult: { fileName, error: 'Too many AI requests — please try again later' }, rows: [] };
       }
 
       try {
-        const buffer = Buffer.from(await file.arrayBuffer());
+        const blob = await get(file.url, { access: 'private' });
+        if (!blob || blob.statusCode !== 200) {
+          return { fileResult: { fileName, error: 'Could not read the uploaded file — please try again' }, rows: [] };
+        }
+
+        const maxBytes = isPdf ? MAX_PDF_BYTES : isSpreadsheet ? MAX_SPREADSHEET_BYTES : isDocx ? MAX_DOCX_BYTES : MAX_IMAGE_BYTES;
+        if (blob.blob.size > maxBytes) {
+          return { fileResult: { fileName, error: `File too large — max ${Math.round(maxBytes / (1024 * 1024))}MB` }, rows: [] };
+        }
+
+        const buffer = Buffer.from(await new Response(blob.stream).arrayBuffer());
 
         let extracted;
         if (isSpreadsheet) {
@@ -168,7 +194,7 @@ export async function POST(
         }
 
         if (!extracted) {
-          return { fileResult: { fileName: file.name, error: 'Could not read any line items from this file' }, rows: [] };
+          return { fileResult: { fileName, error: 'Could not read any line items from this file' }, rows: [] };
         }
 
         const rows: RaBillAiExtractedItem[] = extracted.items
@@ -179,13 +205,17 @@ export async function POST(
             unit: item.unit.trim(),
             quantity: item.quantity,
             rate: item.rate,
-            sourceFile: file.name,
+            sourceFile: fileName,
           }));
 
-        return { fileResult: { fileName: file.name, itemsExtracted: rows.length }, rows };
+        return { fileResult: { fileName, itemsExtracted: rows.length }, rows };
       } catch (err) {
-        console.error('RA Bill AI extraction failed for file', file.name, err);
-        return { fileResult: { fileName: file.name, error: 'Extraction failed' }, rows: [] };
+        console.error('RA Bill AI extraction failed for file', fileName, err);
+        return { fileResult: { fileName, error: 'Extraction failed' }, rows: [] };
+      } finally {
+        // Purely a transient extraction input — never a stored business record — so clean it up
+        // regardless of outcome instead of leaving vendor-uploaded files sitting in Blob storage.
+        void del(file.url).catch((e) => console.error('RA Bill AI extract: blob cleanup failed', fileName, e));
       }
     }));
 
