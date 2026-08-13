@@ -47,7 +47,7 @@ export default function AnalyticsPage() {
   const projectName = project?.name ?? '...';
   const role = project?.myRole ?? '';
 
-  const { data, isLoading: dataLoading } = useSWR<AnalyticsData>(
+  const { data, isLoading: dataLoading, mutate } = useSWR<AnalyticsData>(
     projectId ? `/api/execution-intelligence/${projectId}/analytics` : null,
     jsonFetcher,
     { revalidateOnFocus: false, dedupingInterval: 120_000 },
@@ -87,7 +87,7 @@ export default function AnalyticsPage() {
           </div>
 
           {/* Tab content */}
-          {tab === 'curves' && <SCurveTab data={data} />}
+          {tab === 'curves' && <SCurveTab data={data} projectId={projectId} role={role} onConfigSaved={() => void mutate()} />}
           {tab === 'vendors' && <VendorTab data={data} role={role} />}
           {tab === 'delays' && <DelayTab data={data} />}
           {tab === 'payments' && <PaymentTab data={data} />}
@@ -99,7 +99,7 @@ export default function AnalyticsPage() {
 }
 
 // ---- Tab: S-Curve + Burndown ----
-function SCurveTab({ data }: { data: AnalyticsData }) {
+function SCurveTab({ data, projectId, role, onConfigSaved }: { data: AnalyticsData; projectId: string; role: string; onConfigSaved: () => void }) {
   // Sample to max 52 points for readability
   const sample = <T,>(arr: T[], max = 52) => {
     if (arr.length <= max) return arr;
@@ -168,33 +168,150 @@ function SCurveTab({ data }: { data: AnalyticsData }) {
       </ChartCard>
 
       {/* Delay cost */}
-      <ChartCard title="Delay Cost Estimate" subtitle="Based on configured project parameters">
-        {!data.delayCost.isConfigured ? (
-          <div className="flex flex-col items-center justify-center h-40 gap-2">
-            <p className="text-[13px] text-[rgba(232,228,220,0.35)]">Configure to enable</p>
-            <p className="text-[12px] text-surface-300">Set daily overhead cost in Schedule Config</p>
-          </div>
-        ) : (
-          <div className="space-y-3 py-4">
-            {[
-              { label: 'Overhead Cost', value: data.delayCost.overheadCost, color: 'text-warning-600' },
-              { label: 'Penalty Cost', value: data.delayCost.penaltyCost, color: 'text-[#e06050]' },
-              { label: 'Opportunity Cost', value: data.delayCost.opportunityCost, color: 'text-[rgba(232,228,220,0.55)]' },
-            ].map((row) => (
-              <div key={row.label} className="flex justify-between items-center py-2 border-b border-[rgba(255,255,255,0.07)]">
-                <span className="text-[13px] text-[rgba(232,228,220,0.55)]">{row.label}</span>
-                <span className={`text-[13px] font-semibold ${row.color}`}>{formatCurrency(row.value)}</span>
-              </div>
-            ))}
-            <div className="flex justify-between items-center pt-1">
-              <span className="text-[14px] font-semibold text-[#e8e4dc]">Total Estimate</span>
-              <span className="text-[16px] font-bold text-[#e06050]">{formatCurrency(data.delayCost.totalEstimatedCost)}</span>
-            </div>
-            <p className="text-[11px] text-[rgba(232,228,220,0.35)]">Based on {data.delayCost.totalOverrunDays} overrun days. Model assumptions apply.</p>
-          </div>
-        )}
-      </ChartCard>
+      <DelayCostCard data={data} projectId={projectId} role={role} onSaved={onConfigSaved} />
     </div>
+  );
+}
+
+// ---- Delay Cost Estimate card + its inline "configure rates" form ----
+// CLIENT/PMC only (matches the PUT /schedule-config route's own role check) — other roles see
+// the read-only card with no way to edit, same as everywhere else in the app.
+function DelayCostCard({
+  data, projectId, role, onSaved,
+}: { data: AnalyticsData; projectId: string; role: string; onSaved: () => void }) {
+  const canConfigure = role === 'CLIENT' || role === 'PMC';
+  const [editing, setEditing] = useState(false);
+  const [overhead, setOverhead] = useState(String(data.scheduleConfig?.dailyOverheadCost ?? ''));
+  // Stored as a fraction (0.0005 = 0.05%/day) but edited as a plain percent — easier to reason
+  // about than typing "0.00005".
+  const [penaltyPercent, setPenaltyPercent] = useState(
+    data.scheduleConfig ? String(data.scheduleConfig.penaltyRatePerDay * 100) : '',
+  );
+  const [opportunity, setOpportunity] = useState(String(data.scheduleConfig?.opportunityCostFactor ?? '1'));
+  const [saving, setSaving] = useState(false);
+  const [error, setError] = useState('');
+
+  const startEditing = () => {
+    setOverhead(String(data.scheduleConfig?.dailyOverheadCost ?? '0'));
+    setPenaltyPercent(data.scheduleConfig ? String(data.scheduleConfig.penaltyRatePerDay * 100) : '0');
+    setOpportunity(String(data.scheduleConfig?.opportunityCostFactor ?? '1'));
+    setError('');
+    setEditing(true);
+  };
+
+  const save = async () => {
+    const dailyOverheadCost = parseFloat(overhead);
+    const penaltyRatePerDay = parseFloat(penaltyPercent) / 100;
+    const opportunityCostFactor = parseFloat(opportunity);
+    if (!Number.isFinite(dailyOverheadCost) || dailyOverheadCost < 0) {
+      setError('Daily overhead cost must be a non-negative number'); return;
+    }
+    if (!Number.isFinite(penaltyRatePerDay) || penaltyRatePerDay < 0) {
+      setError('Penalty rate must be a non-negative number'); return;
+    }
+    if (!Number.isFinite(opportunityCostFactor) || opportunityCostFactor < 0) {
+      setError('Opportunity cost factor must be a non-negative number'); return;
+    }
+    setSaving(true);
+    setError('');
+    try {
+      const res = await fetch(`/api/execution-intelligence/${projectId}/schedule-config`, {
+        method: 'PUT',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({ dailyOverheadCost, penaltyRatePerDay, opportunityCostFactor }),
+      });
+      const json = await res.json();
+      if (!json.success) {
+        setError(json.error ?? 'Could not save. Try again.');
+        return;
+      }
+      setEditing(false);
+      onSaved();
+    } catch {
+      setError('Could not save. Try again.');
+    } finally {
+      setSaving(false);
+    }
+  };
+
+  return (
+    <ChartCard title="Delay Cost Estimate" subtitle="Based on configured project parameters">
+      {editing ? (
+        <div className="space-y-3 py-2">
+          <Field label="Daily Overhead Cost (₹/day)" value={overhead} onChange={setOverhead} />
+          <Field label="Penalty Rate (% of project value, per day)" value={penaltyPercent} onChange={setPenaltyPercent} step="0.001" />
+          <Field label="Opportunity Cost Factor (×, e.g. 1.2 = +20%)" value={opportunity} onChange={setOpportunity} step="0.1" />
+          {error && <p className="text-[12px] text-[#e06050]">{error}</p>}
+          <div className="flex gap-2 pt-1">
+            <button
+              onClick={() => void save()}
+              disabled={saving}
+              className="px-3 py-1.5 rounded-md text-[12px] font-semibold bg-[#3b82f6] text-white disabled:opacity-50"
+            >
+              {saving ? 'Saving…' : 'Save'}
+            </button>
+            <button
+              onClick={() => setEditing(false)}
+              disabled={saving}
+              className="px-3 py-1.5 rounded-md text-[12px] font-medium text-[rgba(232,228,220,0.55)] hover:text-[#e8e4dc]"
+            >
+              Cancel
+            </button>
+          </div>
+        </div>
+      ) : !data.delayCost.isConfigured ? (
+        <div className="flex flex-col items-center justify-center h-40 gap-2">
+          <p className="text-[13px] text-[rgba(232,228,220,0.35)]">Configure to enable</p>
+          <p className="text-[12px] text-surface-300">Set daily overhead cost in Schedule Config</p>
+          {canConfigure && (
+            <button onClick={startEditing} className="mt-1 px-3 py-1.5 rounded-md text-[12px] font-semibold bg-[#3b82f6] text-white">
+              Configure
+            </button>
+          )}
+        </div>
+      ) : (
+        <div className="space-y-3 py-4">
+          {[
+            { label: 'Overhead Cost', value: data.delayCost.overheadCost, color: 'text-warning-600' },
+            { label: 'Penalty Cost', value: data.delayCost.penaltyCost, color: 'text-[#e06050]' },
+            { label: 'Opportunity Cost', value: data.delayCost.opportunityCost, color: 'text-[rgba(232,228,220,0.55)]' },
+          ].map((row) => (
+            <div key={row.label} className="flex justify-between items-center py-2 border-b border-[rgba(255,255,255,0.07)]">
+              <span className="text-[13px] text-[rgba(232,228,220,0.55)]">{row.label}</span>
+              <span className={`text-[13px] font-semibold ${row.color}`}>{formatCurrency(row.value)}</span>
+            </div>
+          ))}
+          <div className="flex justify-between items-center pt-1">
+            <span className="text-[14px] font-semibold text-[#e8e4dc]">Total Estimate</span>
+            <span className="text-[16px] font-bold text-[#e06050]">{formatCurrency(data.delayCost.totalEstimatedCost)}</span>
+          </div>
+          <div className="flex items-center justify-between">
+            <p className="text-[11px] text-[rgba(232,228,220,0.35)]">Based on {data.delayCost.totalOverrunDays} overrun days. Model assumptions apply.</p>
+            {canConfigure && (
+              <button onClick={startEditing} className="text-[11px] font-medium text-[#3b82f6] hover:underline shrink-0 ml-2">
+                Edit rates
+              </button>
+            )}
+          </div>
+        </div>
+      )}
+    </ChartCard>
+  );
+}
+
+function Field({ label, value, onChange, step = '1' }: { label: string; value: string; onChange: (v: string) => void; step?: string }) {
+  return (
+    <label className="block">
+      <span className="block text-[11px] text-[rgba(232,228,220,0.5)] mb-1">{label}</span>
+      <input
+        type="number"
+        min="0"
+        step={step}
+        value={value}
+        onChange={(e) => onChange(e.target.value)}
+        className="w-full rounded-md bg-[rgba(255,255,255,0.05)] border border-[rgba(255,255,255,0.1)] px-3 py-1.5 text-[13px] text-[#e8e4dc] focus:outline-none focus:border-[#3b82f6]"
+      />
+    </label>
   );
 }
 

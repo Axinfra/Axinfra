@@ -39,21 +39,36 @@ export async function PUT(
     }
 
     const body = await request.json();
+    // Partial update: a caller that only sends e.g. { dailyOverheadCost } (the analytics page's
+    // "configure delay cost" form does exactly this) must not silently blank out
+    // projectStartDate or reset the other rates to their bare defaults — only touch a field
+    // when the request body actually includes it.
+    const hasStart = Object.prototype.hasOwnProperty.call(body, 'projectStartDate');
+    const hasOverhead = Object.prototype.hasOwnProperty.call(body, 'dailyOverheadCost');
+    const hasPenalty = Object.prototype.hasOwnProperty.call(body, 'penaltyRatePerDay');
+    const hasOpportunity = Object.prototype.hasOwnProperty.call(body, 'opportunityCostFactor');
+
+    for (const [has, field] of [[hasOverhead, 'dailyOverheadCost'], [hasPenalty, 'penaltyRatePerDay'], [hasOpportunity, 'opportunityCostFactor']] as const) {
+      if (has && (typeof body[field] !== 'number' || !Number.isFinite(body[field]) || body[field] < 0)) {
+        return NextResponse.json({ success: false, error: `${field} must be a non-negative number` }, { status: 400 });
+      }
+    }
+
     const config = await prisma.projectScheduleConfig.upsert({
       where: { projectId: params.projectId },
       create: {
         id: crypto.randomUUID(),
         projectId: params.projectId,
-        projectStartDate: body.projectStartDate ? new Date(body.projectStartDate) : null,
-        dailyOverheadCost: Number(body.dailyOverheadCost ?? 0),
-        penaltyRatePerDay: Number(body.penaltyRatePerDay ?? 0),
-        opportunityCostFactor: Number(body.opportunityCostFactor ?? 1),
+        projectStartDate: hasStart && body.projectStartDate ? new Date(body.projectStartDate) : null,
+        dailyOverheadCost: hasOverhead ? Number(body.dailyOverheadCost) : 0,
+        penaltyRatePerDay: hasPenalty ? Number(body.penaltyRatePerDay) : 0,
+        opportunityCostFactor: hasOpportunity ? Number(body.opportunityCostFactor) : 1,
       },
       update: {
-        projectStartDate: body.projectStartDate ? new Date(body.projectStartDate) : null,
-        dailyOverheadCost: Number(body.dailyOverheadCost ?? 0),
-        penaltyRatePerDay: Number(body.penaltyRatePerDay ?? 0),
-        opportunityCostFactor: Number(body.opportunityCostFactor ?? 1),
+        ...(hasStart && { projectStartDate: body.projectStartDate ? new Date(body.projectStartDate) : null }),
+        ...(hasOverhead && { dailyOverheadCost: Number(body.dailyOverheadCost) }),
+        ...(hasPenalty && { penaltyRatePerDay: Number(body.penaltyRatePerDay) }),
+        ...(hasOpportunity && { opportunityCostFactor: Number(body.opportunityCostFactor) }),
         updatedAt: new Date(),
       },
     });
