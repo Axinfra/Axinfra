@@ -1,5 +1,5 @@
 import { SignJWT, jwtVerify } from 'jose';
-import { cookies } from 'next/headers';
+import { cookies, headers } from 'next/headers';
 import { prisma } from './db';
 import { cached, invalidate, invalidatePrefix } from './cache';
 import { Role } from '@/types';
@@ -63,8 +63,16 @@ export async function verifySession(token: string): Promise<SessionPayload | nul
 }
 
 export async function getSession(): Promise<AuthContext | null> {
+  // Web uses the httpOnly `session` cookie. Native clients (mobile app) send
+  // `Authorization: Bearer <token>` instead, since they can't rely on cookie
+  // persistence the way a browser can — see MOBILE_APP_SETUP.md §3.1.
+  const headerStore = await headers();
+  const bearerToken = headerStore.get('authorization')?.replace(/^Bearer\s+/i, '').trim();
+
   const cookieStore = await cookies();
-  const token = cookieStore.get('session')?.value;
+  const cookieToken = cookieStore.get('session')?.value;
+
+  const token = bearerToken || cookieToken;
 
   if (!token) {
     return null;

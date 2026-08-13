@@ -41,22 +41,53 @@ async function getSessionEmail(token: string): Promise<string | null> {
   }
 }
 
+// Dev-only CORS for testing the mobile app via `expo start --web` in a
+// browser. Native iOS/Android builds aren't subject to CORS at all (no
+// browser involved), so this never matters for them — it only exists so the
+// web-preview target of the Expo app can call this API cross-origin during
+// local development. Never enabled in production.
+const DEV_CORS_ORIGINS = ['http://localhost:8081', 'http://localhost:19006'];
+
+function applyDevCors(response: NextResponse, request: NextRequest): NextResponse {
+  if (process.env.NODE_ENV === 'production') return response;
+  const origin = request.headers.get('origin');
+  if (!origin || !DEV_CORS_ORIGINS.includes(origin)) return response;
+
+  response.headers.set('Access-Control-Allow-Origin', origin);
+  response.headers.set('Access-Control-Allow-Credentials', 'true');
+  response.headers.set('Access-Control-Allow-Headers', 'Authorization, Content-Type');
+  response.headers.set('Access-Control-Allow-Methods', 'GET, POST, PUT, PATCH, DELETE, OPTIONS');
+  return response;
+}
+
 export async function middleware(request: NextRequest) {
   const { pathname } = request.nextUrl;
-  const sessionToken = request.cookies.get('session')?.value?.trim();
+  const cookieToken = request.cookies.get('session')?.value?.trim();
+  const bearerToken = request.headers
+    .get('authorization')
+    ?.replace(/^Bearer\s+/i, '')
+    .trim();
+  const sessionToken = cookieToken || bearerToken;
 
   // ── API routes ──────────────────────────────────────────────────────────
   if (pathname.startsWith('/api/')) {
-    if (PUBLIC_API_ROUTES.some((r) => pathname === r || pathname.startsWith(r + '/'))) return NextResponse.next();
-    if (SELF_AUTH_ROUTES.some((r) => pathname.startsWith(r))) return NextResponse.next();
+    // Preflight — answer directly, never reaches a route handler either way.
+    if (request.method === 'OPTIONS') {
+      return applyDevCors(new NextResponse(null, { status: 204 }), request);
+    }
+
+    if (PUBLIC_API_ROUTES.some((r) => pathname === r || pathname.startsWith(r + '/')))
+      return applyDevCors(NextResponse.next(), request);
+    if (SELF_AUTH_ROUTES.some((r) => pathname.startsWith(r)))
+      return applyDevCors(NextResponse.next(), request);
 
     if (!sessionToken) {
-      return NextResponse.json(
-        { success: false, error: 'Authentication required' },
-        { status: 401 },
+      return applyDevCors(
+        NextResponse.json({ success: false, error: 'Authentication required' }, { status: 401 }),
+        request,
       );
     }
-    return NextResponse.next();
+    return applyDevCors(NextResponse.next(), request);
   }
 
   // ── Page routes ─────────────────────────────────────────────────────────

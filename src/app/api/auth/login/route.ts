@@ -119,6 +119,10 @@ export async function POST(request: NextRequest) {
     const response = NextResponse.json({
       success: true,
       data: {
+        // Plaintext token in the body — needed by native clients (mobile app),
+        // which can't rely on the httpOnly cookie below the way a browser can.
+        // Stored in Keychain/Keystore on-device, never in plain storage.
+        token,
         user: {
           id: user.id,
           name: user.name,
