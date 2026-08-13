@@ -27,10 +27,15 @@ export async function GET(
     const auth = await requireProjectAuth(projectId);
     RoleGuard.requireRole(auth, ['CLIENT', 'PMC']);
 
-    const [project, variance, directOrders, consultantRoles, drawingSets, scheduleConfig, milestones] = await Promise.all([
+    const [project, variance, directOrders, directOrdersList, consultantRoles, drawingSets, scheduleConfig, milestones] = await Promise.all([
       prisma.project.findUnique({ where: { id: projectId }, select: { metadata: true } }),
       AnalysisService.getVarianceAnalysis(projectId),
       DirectOrderService.getSummary(projectId),
+      prisma.directOrder.findMany({
+        where: { projectId },
+        select: { id: true, doNumber: true, itemDescription: true, value: true, billedValue: true, status: true },
+        orderBy: { doNumber: 'asc' },
+      }),
       prisma.projectRole.findMany({
         where: { projectId, role: 'CONSULTANT' },
         include: { user: { select: { id: true, name: true } } },
@@ -98,13 +103,18 @@ export async function GET(
           paidToDate: totalPaidToDate,
           outstanding: totalCommitted - totalPaidToDate,
         },
-        boqAndDirectOrders: {
-          planned: variance.bills.totals.totalPlannedValue,
+        // BOQ (Purchase Orders) on its own — variance.bills.totals blends Direct Orders into
+        // planned/released (see AnalysisService.getVarianceAnalysis), but submitted/approved
+        // are already BOQ-only (Direct Orders never go through RA Bill submit/approve, only
+        // ordered -> delivered -> paid), so only planned/released need Direct Orders subtracted
+        // back out. Kept as subtraction rather than a second query so this can't drift from the
+        // combined total above.
+        boq: {
+          planned: variance.bills.totals.totalPlannedValue - directOrders.totalOrdered,
           submitted: variance.bills.totals.totalSubmittedValue,
           approved: variance.bills.totals.totalApprovedValue,
-          released: variance.bills.totals.totalReleasedValue,
-          variance: variance.bills.totals.totalVariance,
-          variancePercent: variance.bills.totals.totalVariancePercent,
+          released: variance.bills.totals.totalReleasedValue - directOrders.paid,
+          orderCount: variance.bills.byOrder.length,
         },
         directOrders: {
           ordered: directOrders.totalOrdered,
@@ -112,6 +122,18 @@ export async function GET(
           paid: directOrders.paid,
           outstanding: directOrders.outstanding,
           variance: directOrders.totalVariance,
+          orders: directOrdersList.map((o) => ({
+            id: o.id, doNumber: o.doNumber, description: o.itemDescription,
+            ordered: o.value, billed: o.billedValue, status: o.status,
+          })),
+        },
+        // Combined (BOQ + Direct Orders) — what "Total Order Value" on the project Overview
+        // tab shows (f752a8b), kept here too for the one headline "all orders" figure.
+        boqAndDirectOrders: {
+          planned: variance.bills.totals.totalPlannedValue,
+          released: variance.bills.totals.totalReleasedValue,
+          variance: variance.bills.totals.totalVariance,
+          variancePercent: variance.bills.totals.totalVariancePercent,
         },
         consultantFees: {
           total: consultantFeesTotal,

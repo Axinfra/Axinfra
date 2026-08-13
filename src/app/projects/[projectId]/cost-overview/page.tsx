@@ -11,12 +11,21 @@ import { jsonFetcher } from '@/lib/fetcher';
 interface CostOverviewData {
   currency: string;
   totals: { committed: number; paidToDate: number; outstanding: number };
-  boqAndDirectOrders: { planned: number; submitted: number; approved: number; released: number; variance: number; variancePercent: number };
-  directOrders: { ordered: number; delivered: number; paid: number; outstanding: number; variance: number };
+  boq: { planned: number; submitted: number; approved: number; released: number; orderCount: number };
+  directOrders: {
+    ordered: number; delivered: number; paid: number; outstanding: number; variance: number;
+    orders: Array<{ id: string; doNumber: string; description: string; ordered: number; billed: number | null; status: string }>;
+  };
+  boqAndDirectOrders: { planned: number; released: number; variance: number; variancePercent: number };
   consultantFees: { total: number; byPerson: Array<{ userId: string; name: string; fee: number }> };
   architectureFees: { total: number; paid: number; due: number; setCount: number };
   delayCost: { overheadCost: number; penaltyCost: number; opportunityCost: number; totalEstimatedCost: number; totalOverrunDays: number; isConfigured: boolean };
 }
+
+const STATUS_COLOR: Record<string, string> = {
+  ORDERED: '#94a3b8', IN_PROGRESS: '#3b82f6', IN_DELIVERY: '#f5a623',
+  DELIVERED: '#22c55e', QTY_VARIANCE: '#f97316', PAID: '#22c55e',
+};
 
 /**
  * Cost Overview — the single "what has this project actually cost, all-in" page.
@@ -52,7 +61,7 @@ export default function CostOverviewPage() {
         <div>
           <h1 className="text-2xl font-bold" style={{ color: 'var(--ax-text)' }}>Cost Overview</h1>
           <p className="text-sm mt-1" style={{ color: 'rgba(var(--ax-text-rgb),0.45)' }}>
-            Every cost category on this project, in one place — BOQ &amp; Direct Orders, consultant fees, architecture fees, and delay cost exposure.
+            Every cost category on this project, in one place — BOQ, Direct Orders, consultant fees, architecture fees, and delay cost exposure.
           </p>
         </div>
 
@@ -75,18 +84,73 @@ export default function CostOverviewPage() {
                 subtext="Committed minus paid to date" />
             </div>
 
-            {/* Breakdown by category */}
-            <Section title="BOQ &amp; Direct Orders" subtitle="Purchase-Order procurement — planned vs actually released">
-              <div className="grid gap-4 sm:grid-cols-2 md:grid-cols-4">
-                <MiniStat label="Planned" value={formatCurrency(data.boqAndDirectOrders.planned, currency)} />
-                <MiniStat label="Submitted" value={formatCurrency(data.boqAndDirectOrders.submitted, currency)} />
-                <MiniStat label="Approved" value={formatCurrency(data.boqAndDirectOrders.approved, currency)} />
-                <MiniStat label="Released" value={formatCurrency(data.boqAndDirectOrders.released, currency)} color="green" />
+            {/* BOQ (Purchase Orders) */}
+            <Section title="BOQ (Purchase Orders)" subtitle={`${data.boq.orderCount} purchase order(s) with BOQ items`}>
+              <ProgressBar planned={data.boq.planned} released={data.boq.released} currency={currency} />
+              <div className="grid gap-4 sm:grid-cols-2 md:grid-cols-4 mt-4">
+                <MiniStat label="Planned" value={formatCurrency(data.boq.planned, currency)} />
+                <MiniStat label="Submitted" value={formatCurrency(data.boq.submitted, currency)} />
+                <MiniStat label="Approved" value={formatCurrency(data.boq.approved, currency)} />
+                <MiniStat label="Released" value={formatCurrency(data.boq.released, currency)} color="green" />
               </div>
-              <p className="text-xs mt-3" style={{ color: 'rgba(var(--ax-text-rgb),0.45)' }}>
-                Variance: {formatCurrency(data.boqAndDirectOrders.variance, currency)} ({data.boqAndDirectOrders.variancePercent > 0 ? '+' : ''}{data.boqAndDirectOrders.variancePercent}%)
-                — of which Direct Orders account for {formatCurrency(data.directOrders.ordered, currency)} ordered / {formatCurrency(data.directOrders.paid, currency)} paid.
-              </p>
+            </Section>
+
+            {/* Direct Orders */}
+            <Section title="Direct Orders" subtitle="One-off vendor purchases outside the BOQ flow (e.g. HVAC, Electrical, Civil)">
+              <ProgressBar planned={data.directOrders.ordered} released={data.directOrders.paid} currency={currency} />
+              <div className="grid gap-4 sm:grid-cols-2 md:grid-cols-4 mt-4 mb-4">
+                <MiniStat label="Ordered" value={formatCurrency(data.directOrders.ordered, currency)} />
+                <MiniStat label="Delivered" value={formatCurrency(data.directOrders.delivered, currency)} />
+                <MiniStat label="Paid" value={formatCurrency(data.directOrders.paid, currency)} color="green" />
+                <MiniStat
+                  label="Variance"
+                  value={formatCurrency(data.directOrders.variance, currency)}
+                  color={data.directOrders.variance < 0 ? 'orange' : 'gray'}
+                />
+              </div>
+
+              {data.directOrders.orders.length === 0 ? (
+                <EmptyRow message="No Direct Orders on this project." />
+              ) : (
+                <div className="overflow-x-auto -mx-1">
+                  <table className="w-full text-sm">
+                    <thead>
+                      <tr className="text-left" style={{ color: 'rgba(var(--ax-text-rgb),0.45)' }}>
+                        <th className="font-medium px-1 py-1.5">Order</th>
+                        <th className="font-medium px-1 py-1.5">Description</th>
+                        <th className="font-medium px-1 py-1.5 text-right">Ordered</th>
+                        <th className="font-medium px-1 py-1.5 text-right">Billed</th>
+                        <th className="font-medium px-1 py-1.5 text-right">Variance</th>
+                        <th className="font-medium px-1 py-1.5 text-right">Status</th>
+                      </tr>
+                    </thead>
+                    <tbody>
+                      {data.directOrders.orders.map((o) => {
+                        const variance = o.billed != null ? o.ordered - o.billed : null;
+                        return (
+                          <tr key={o.id} style={{ borderTop: '1px solid rgba(var(--ax-text-rgb),0.07)' }}>
+                            <td className="px-1 py-2 font-medium" style={{ color: 'var(--ax-text)' }}>{o.doNumber}</td>
+                            <td className="px-1 py-2" style={{ color: 'rgba(var(--ax-text-rgb),0.7)', maxWidth: 320 }}>
+                              <span className="line-clamp-1">{o.description}</span>
+                            </td>
+                            <td className="px-1 py-2 text-right" style={{ color: 'var(--ax-text)' }}>{formatCurrency(o.ordered, currency)}</td>
+                            <td className="px-1 py-2 text-right" style={{ color: 'var(--ax-text)' }}>{o.billed != null ? formatCurrency(o.billed, currency) : '—'}</td>
+                            <td className="px-1 py-2 text-right" style={{ color: variance != null && variance < 0 ? '#f97316' : 'rgba(var(--ax-text-rgb),0.6)' }}>
+                              {variance != null ? formatCurrency(variance, currency) : '—'}
+                            </td>
+                            <td className="px-1 py-2 text-right">
+                              <span className="text-xs font-semibold px-2 py-0.5 rounded-full whitespace-nowrap"
+                                style={{ color: STATUS_COLOR[o.status] ?? '#94a3b8', background: `${STATUS_COLOR[o.status] ?? '#94a3b8'}20` }}>
+                                {o.status.replace(/_/g, ' ')}
+                              </span>
+                            </td>
+                          </tr>
+                        );
+                      })}
+                    </tbody>
+                  </table>
+                </div>
+              )}
             </Section>
 
             <Section title="Consultant Fees" subtitle="Engagement fees set on the Roles page — not tracked for payment status yet">
@@ -147,6 +211,30 @@ function Section({ title, subtitle, children }: { title: string; subtitle?: stri
       {subtitle && <p className="text-xs mb-3 mt-0.5" style={{ color: 'rgba(var(--ax-text-rgb),0.45)' }}>{subtitle}</p>}
       <div className="mt-3">{children}</div>
     </div></div>
+  );
+}
+
+/** Horizontal "released as a % of planned" bar — the same released/planned pair each section
+ * already shows as numbers, just made scannable at a glance without reading digits. */
+function ProgressBar({ planned, released, currency }: { planned: number; released: number; currency: string }) {
+  const pct = planned > 0 ? Math.min(100, Math.round((released / planned) * 100)) : 0;
+  const overPct = planned > 0 && released > planned ? Math.min(100, Math.round((planned / released) * 100)) : null;
+  return (
+    <div>
+      <div className="flex justify-between items-baseline mb-1.5">
+        <span className="text-xs" style={{ color: 'rgba(var(--ax-text-rgb),0.5)' }}>
+          {overPct != null
+            ? `Released ${formatCurrency(released, currency)} — over the planned ${formatCurrency(planned, currency)}`
+            : `${pct}% released`}
+        </span>
+      </div>
+      <div className="h-2 rounded-full overflow-hidden" style={{ background: 'rgba(var(--ax-text-rgb),0.08)' }}>
+        <div
+          className="h-full rounded-full transition-all"
+          style={{ width: `${overPct != null ? 100 : pct}%`, background: overPct != null ? '#f97316' : '#22c55e' }}
+        />
+      </div>
+    </div>
   );
 }
 
