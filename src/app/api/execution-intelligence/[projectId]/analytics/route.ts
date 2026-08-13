@@ -19,6 +19,7 @@ import {
   estimateDelayCost,
 } from '@/lib/scheduleMetrics';
 import { computeCPM, milestonesCpmInputs } from '@/lib/cpm';
+import { DirectOrderService } from '@/services/DirectOrderService';
 
 export async function GET(
   request: NextRequest,
@@ -246,7 +247,20 @@ async function computeAnalytics(projectId: string, auth: { role: string; userId:
     // (escalationTrend and paymentCycleDays were fetched earlier in Promise.all)
 
     // --- Delay cost estimation ---
-    const totalProjectValue = filtered.reduce((s, m) => s + (m.value || 0), 0);
+    // NOT sum(milestone.value) — that's 0 for schedule-imported milestones and any never
+    // explicitly linked to a BOQ item (same root cause as the S-Curve/Burndown weighting bug
+    // above), which would always silently zero out the penalty cost even with a real
+    // penaltyRatePerDay configured. Uses the same BOQ-planned + Direct-Order total
+    // AnalysisService's variance tab reports as "proposed budget", so this stays consistent
+    // with the rest of the app instead of quietly disagreeing with it.
+    const [boqPlannedAgg, directOrderSummary] = await Promise.all([
+      prisma.bOQItem.aggregate({
+        where: { boq: { projectId, status: 'APPROVED' } },
+        _sum: { plannedValue: true },
+      }),
+      DirectOrderService.getSummary(projectId),
+    ]);
+    const totalProjectValue = (boqPlannedAgg._sum.plannedValue ?? 0) + directOrderSummary.totalOrdered;
     const delayCostResult = estimateDelayCost(kpis.totalOverrunDays, {
       dailyOverheadCost: scheduleConfig?.dailyOverheadCost ?? 0,
       penaltyRatePerDay: scheduleConfig?.penaltyRatePerDay ?? 0,

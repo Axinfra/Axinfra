@@ -631,7 +631,12 @@ export class ReportService {
       vendorName, avgDays: days.reduce((s, d) => s + d, 0) / days.length,
     }));
 
-    const totalProjectValue = allMilestones.reduce((s, m) => s + (m.value || 0), 0);
+    // NOT sum(milestone.value) — that's 0 for schedule-imported milestones and any never
+    // explicitly linked to a BOQ item, which would always silently zero out the penalty cost
+    // even with a real penaltyRatePerDay configured. `variance` (AnalysisService, fetched
+    // above) already computed the same BOQ-planned + Direct-Order total this report's own
+    // "proposed budget" figure uses, so reusing it keeps the two numbers from disagreeing.
+    const totalProjectValue = variance.bills.totals.totalPlannedValue;
     const delayCost = estimateDelayCost(kpis.totalOverrunDays, {
       dailyOverheadCost: scheduleConfig?.dailyOverheadCost ?? 0,
       penaltyRatePerDay: scheduleConfig?.penaltyRatePerDay ?? 0,
