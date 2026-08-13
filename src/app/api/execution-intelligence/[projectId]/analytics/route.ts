@@ -203,12 +203,17 @@ async function computeAnalytics(projectId: string, auth: { role: string; userId:
         ? new Date(Math.max(...allDates.map((d) => d.getTime())))
         : today;
 
+    // Schedule-imported milestones (and any never linked to a BOQ) carry value=0 — weighting
+    // the curve by real value alone would then divide 0-by-0-ish and render flat at 0% for the
+    // entire timeline regardless of how much actually completed. `|| 1` (same fallback already
+    // used above for the CPM inputs) makes those count as one equally-weighted unit instead, so
+    // the curve reflects real progress-by-activity-count rather than silently going empty.
     const sCurve = computeSCurve(
       milestonesWithDates.map((m) => ({
         id: m.id,
         plannedEnd: m.plannedEnd,
         actualEnd: m.actualEnd,
-        value: m.value,
+        value: m.value || 1,
       })),
       sCurveFrom,
       sCurveTo,
@@ -220,7 +225,7 @@ async function computeAnalytics(projectId: string, auth: { role: string; userId:
         id: m.id,
         plannedEnd: m.plannedEnd,
         actualEnd: m.actualEnd,
-        value: m.value,
+        value: m.value || 1,
       })),
       sCurveFrom,
       sCurveTo,
