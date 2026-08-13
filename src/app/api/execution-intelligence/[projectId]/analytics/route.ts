@@ -117,7 +117,13 @@ async function computeAnalytics(projectId: string, auth: { role: string; userId:
       // Prefer explicit vendorUser FK, fallback to evidence submitter
       const vendorId = m.vendorUser?.id ?? firstEvidence?.submittedById ?? null;
       const vendorName = m.vendorUser?.name ?? firstEvidence?.submittedBy?.name ?? null;
-      const actualEnd = m.actualVerification ?? m.actualSubmission ?? null;
+      // actualVerification/actualSubmission only ever get set by the payment-workflow state
+      // machine (vendor submits evidence -> PMC verifies) — schedule-imported milestones never
+      // enter that workflow at all (see the percentComplete comment below), so those two were
+      // always null for them, which made every date-driven "actual" computation downstream
+      // (S-Curve, Burndown) silently flat regardless of real completion. m.actualEnd is the
+      // column schedule import (MSPDI ActualFinish) actually populates — fall back to it.
+      const actualEnd = m.actualVerification ?? m.actualSubmission ?? m.actualEnd ?? null;
 
       // Approval cycle: evidence submitted → first verification
       const approvalCycleDays =
