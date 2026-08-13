@@ -32,6 +32,9 @@ interface ProjectData {
   myUserId: string;
   permissions: Record<string, boolean>;
   boqs: Array<{ id: string; status: string; items: Array<{ id: string; plannedValue: number }> }>;
+  /** One-off vendor purchases outside the BOQ flow (HVAC/Electrical/Civil-style direct
+   * orders) — undefined for Vendor/Viewer, who don't get project-wide totals. */
+  directOrdersTotal?: number;
   milestones: Array<{
     id: string; title: string; state: string;
     plannedEnd: string | null;
@@ -431,6 +434,12 @@ function OverviewTab({ project, projectId }: { project: ProjectData; projectId: 
   const boqs = project.boqs ?? [];
   const milestones = project.milestones ?? [];
   const totalBOQValue = boqs.reduce((sum, boq) => sum + (boq.items ?? []).reduce((s, i) => s + i.plannedValue, 0), 0);
+  // Total Order Value = everything ordered on this project, not just the BOQ/Purchase-Order
+  // portion — Direct Orders (one-off vendor purchases outside the BOQ flow, e.g. HVAC/
+  // Electrical/Civil) are real project spend too. Without this, this card silently disagreed
+  // with the Analysis page's "Order Planned Value" (which already includes Direct Orders) by
+  // however much a project has ordered directly.
+  const totalOrderValue = totalBOQValue + (project.directOrdersTotal ?? 0);
   const ms = {
     total: milestones.length,
     draft: milestones.filter((m) => m.state === 'DRAFT').length,
@@ -445,7 +454,7 @@ function OverviewTab({ project, projectId }: { project: ProjectData; projectId: 
       <div className="grid gap-4 md:grid-cols-4">
         <div className="card"><div className="card-body">
           <p className="text-sm font-medium" style={{ color: 'rgba(var(--ax-text-rgb),0.6)' }}>Total Order Value</p>
-          <p className="text-2xl font-bold" style={{ color: 'var(--ax-text)' }}>{formatCurrency(totalBOQValue, project?.currency)}</p>
+          <p className="text-2xl font-bold" style={{ color: 'var(--ax-text)' }}>{formatCurrency(totalOrderValue, project?.currency)}</p>
         </div></div>
         <div className="card"><div className="card-body">
           <p className="text-sm font-medium" style={{ color: 'rgba(var(--ax-text-rgb),0.6)' }}>Total Activities</p>

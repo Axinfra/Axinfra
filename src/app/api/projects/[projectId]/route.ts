@@ -8,6 +8,7 @@ import { AuditActionTypes, Role } from '@/types';
 import { cached } from '@/lib/cache';
 import { invalidateProjectAndMemberCaches } from '@/lib/cache-invalidation';
 import { z } from 'zod';
+import { DirectOrderService } from '@/services/DirectOrderService';
 
 const updateProjectSchema = z.object({
   name: z.string().min(1).max(200).optional(),
@@ -106,6 +107,15 @@ export async function GET(
 
     const metadata = project.metadata ? JSON.parse(project.metadata) : {};
 
+    // Direct Orders (one-off vendor purchases outside the BOQ flow) are real project spend
+    // too — omitting them from the total shown on the Overview tab understates it by whatever
+    // a project has ordered directly. Scoped to the same full-visibility roles as `boqs` above
+    // (Vendor/Viewer don't get boqs either, for the same "don't leak other parties' order
+    // values" reason).
+    const directOrdersTotal = hasFullMilestoneVisibility
+      ? (await DirectOrderService.getSummary(projectId)).totalOrdered
+      : undefined;
+
     return NextResponse.json({
       success: true,
       data: {
@@ -114,6 +124,7 @@ export async function GET(
         myRole: auth.role,
         myUserId: auth.userId,
         permissions: RoleGuard.getPermissions(auth.role),
+        directOrdersTotal,
       },
     });
   } catch (error) {
