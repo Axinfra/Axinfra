@@ -1023,9 +1023,6 @@ export class AnalysisService {
 
     const totalActivities = milestones.length;
     const overdueCount = overdueActivities.length;
-    const onTimePercent = totalActivities > 0
-      ? Math.round(((totalActivities - overdueCount) / totalActivities) * 100)
-      : 100;
 
     const healthBreakdown: Record<ActivityHealth, number> = {
       ON_TRACK: 0, AT_RISK: 0, DELAYED: 0, COMPLETED_LATE: 0, COMPLETED_ON_TIME: 0,
@@ -1034,6 +1031,16 @@ export class AnalysisService {
       const { health } = computeScheduleVariance(m, now);
       healthBreakdown[health]++;
     }
+
+    // Deliberately NOT "(total - overdueCount) / total": overdueCount only counts activities
+    // overdue as of *today*, which is meaningless for a finished/closed project (nothing still
+    // open can be "currently overdue" once everything's CLOSED, so that formula reads a
+    // trivial, misleading 100% even when plenty of activities finished late historically).
+    // healthBreakdown already carries that history per activity (COMPLETED_LATE vs
+    // COMPLETED_ON_TIME), so on-time% is "not late by either measure" over the same total.
+    const onTimePercent = totalActivities > 0
+      ? Math.round(((healthBreakdown.ON_TRACK + healthBreakdown.COMPLETED_ON_TIME) / totalActivities) * 100)
+      : 100;
 
     // ── Bill variance, per Purchase Order ───────────────────────────────
     const byOrder: VarianceAnalysis['bills']['byOrder'] = [];

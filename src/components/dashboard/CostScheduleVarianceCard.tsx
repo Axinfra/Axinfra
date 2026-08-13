@@ -70,7 +70,11 @@ function VarianceBody({ data, currency }: { data: VarianceData; currency?: strin
 
   const scoreColor = overallVarianceScore > 50 ? 'text-red-400' : overallVarianceScore > 25 ? 'text-yellow-300' : 'text-green-300';
   const costColor = absPercent > 20 ? 'text-red-400' : absPercent > 10 ? 'text-yellow-300' : 'text-green-300';
-  const scheduleColor = schedule.overdueCount > 0 ? (schedule.onTimePercent < 60 ? 'text-red-400' : 'text-yellow-300') : 'text-green-300';
+  // Driven by onTimePercent alone (not gated on overdueCount>0 first) — overdueCount is 0 for
+  // any closed project regardless of how much of it finished late, so gating on it first made a
+  // badly-delayed-but-finished project show green. onTimePercent already accounts for both
+  // currently-overdue and historically-completed-late activities (see AnalysisService).
+  const scheduleColor = schedule.onTimePercent < 60 ? 'text-red-400' : schedule.onTimePercent < 85 ? 'text-yellow-300' : 'text-green-300';
 
   const costSentence = totalPlannedValue === 0
     ? 'No Order planned value recorded yet.'
@@ -78,11 +82,17 @@ function VarianceBody({ data, currency }: { data: VarianceData; currency?: strin
       ? `${formatCurrency(totalVariance, currency)} (${absPercent}% of planned value) not yet released.`
       : `${formatCurrency(Math.abs(totalVariance), currency)} (${absPercent}% of planned value) released over the Order plan.`;
 
+  // overdueCount === 0 only means nothing is *currently* overdue — on a finished/closed project
+  // that's true even when plenty of activities finished late historically (nothing open can be
+  // "overdue" once it's closed), so it alone can't justify "all on schedule". Only say that when
+  // onTimePercent (which does carry completed-late history — see AnalysisService) agrees.
   const scheduleSentence = schedule.totalActivities === 0
     ? 'No scheduled activities yet.'
-    : schedule.overdueCount === 0
-      ? `All ${schedule.totalActivities} activities are on schedule.`
-      : `${schedule.overdueCount} of ${schedule.totalActivities} activities overdue (${schedule.onTimePercent}% on-time overall).`;
+    : schedule.overdueCount > 0
+      ? `${schedule.overdueCount} of ${schedule.totalActivities} activities overdue (${schedule.onTimePercent}% on-time overall).`
+      : schedule.onTimePercent === 100
+        ? `All ${schedule.totalActivities} activities are on schedule.`
+        : `All ${schedule.totalActivities} activities complete — ${schedule.onTimePercent}% finished on time.`;
 
   return (
     <div className="space-y-4">
