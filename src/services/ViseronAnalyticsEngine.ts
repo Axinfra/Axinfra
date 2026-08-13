@@ -79,6 +79,7 @@ export class ViseronAnalyticsEngine {
         plannedEnd: true,
         actualVerification: true,
         actualSubmission: true,
+        actualEnd: true,
         value: true,
         vendorUserId: true,
       },
@@ -92,7 +93,10 @@ export class ViseronAnalyticsEngine {
       title: m.title,
       state: m.state,
       plannedEnd: m.plannedEnd,
-      actualEnd: m.actualVerification ?? m.actualSubmission ?? null,
+      // actualVerification/actualSubmission only get set by the payment-workflow state machine
+      // — schedule-imported milestones never enter it, so both stay null for them regardless of
+      // real completion. Fall back to the milestone's own actualEnd column.
+      actualEnd: m.actualVerification ?? m.actualSubmission ?? m.actualEnd ?? null,
       value: m.value || 1,
       vendorId: m.vendorUserId,
     }));

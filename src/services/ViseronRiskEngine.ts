@@ -79,6 +79,7 @@ export class ViseronRiskEngine {
           plannedEnd: true,
           actualVerification: true,
           actualSubmission: true,
+          actualEnd: true,
           value: true,
           vendorUserId: true,
           evidence: {
@@ -116,7 +117,10 @@ export class ViseronRiskEngine {
       if (!m.plannedEnd) continue;
 
       const isComplete = COMPLETE_STATES.has(m.state as MilestoneState);
-      const endDate = m.actualVerification ?? m.actualSubmission ?? null;
+      // actualVerification/actualSubmission only get set by the payment-workflow state machine
+      // — schedule-imported milestones never enter it, so both stay null for them regardless of
+      // real completion. Fall back to the milestone's own actualEnd column.
+      const endDate = m.actualVerification ?? m.actualSubmission ?? m.actualEnd ?? null;
 
       if (isComplete && endDate) {
         evaluatedCount++;

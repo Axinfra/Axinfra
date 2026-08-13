@@ -31,7 +31,8 @@ import type { Role } from '@/types';
  * Schema notes:
  * - Milestone.vendorUserId -> vendorUser (User relation) for vendor name
  * - Milestone.evidence (not "evidences"), Evidence.status (not "approvalStatus")
- * - No "actualEnd" — derive from actualVerification ?? actualSubmission
+ * - "Actual end" date: actualVerification ?? actualSubmission ?? actualEnd (see getActualEnd) —
+ *   the first two are payment-workflow-only and stay null for schedule-imported milestones
  * - AuditLog.actionType (not "action")
  */
 
@@ -149,9 +150,14 @@ function getVendorName(m: {
   return m.vendorUser?.name ?? m.evidence?.[0]?.submittedBy?.name ?? null;
 }
 
-/** Derive "actual end" date from actualVerification or actualSubmission */
-function getActualEnd(m: { actualVerification: Date | null; actualSubmission: Date | null }): Date | null {
-  return m.actualVerification ?? m.actualSubmission ?? null;
+/** Derive "actual end" date — actualVerification/actualSubmission only get set by the
+ * payment-workflow state machine, which schedule-imported milestones never enter, so both stay
+ * null for them; falls back to the milestone's own actualEnd column (schedule import's MSPDI
+ * ActualFinish, or any direct completion write) so a completed schedule-imported milestone
+ * doesn't read as having no actual end date at all — callers that then default a missing date
+ * to "today" would otherwise report a milestone finished in the past as wildly overdue. */
+function getActualEnd(m: { actualVerification: Date | null; actualSubmission: Date | null; actualEnd: Date | null }): Date | null {
+  return m.actualVerification ?? m.actualSubmission ?? m.actualEnd ?? null;
 }
 
 // ============================================

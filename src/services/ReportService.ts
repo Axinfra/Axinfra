@@ -291,7 +291,7 @@ export class ReportService {
         select: {
           id: true, title: true, state: true, percentComplete: true, plannedStart: true, plannedEnd: true,
           wbsCode: true, outlineLevel: true, phaseId: true, sortOrder: true, value: true,
-          actualVerification: true, actualSubmission: true,
+          actualVerification: true, actualSubmission: true, actualEnd: true,
           vendorUser: { select: { id: true, name: true } },
           evidence: { orderBy: { submittedAt: 'asc' }, take: 1, select: { submittedAt: true, submittedById: true } },
           verifications: { orderBy: { verifiedAt: 'asc' }, take: 1, select: { verifiedAt: true } },
@@ -529,7 +529,12 @@ export class ReportService {
       title: m.title,
       state: m.state,
       plannedEnd: m.plannedEnd,
-      actualEnd: m.actualVerification ?? m.actualSubmission ?? null,
+      // actualVerification/actualSubmission only get set by the payment-workflow state machine
+      // — schedule-imported milestones never enter it, so both stay null for them and the
+      // report's S-Curve/burndown/KPIs would show 0% progress regardless of real completion.
+      // Fall back to the milestone's own actualEnd column (schedule import's MSPDI ActualFinish,
+      // or any direct completion-date write) — same fix as the EI analytics/gantt routes.
+      actualEnd: m.actualVerification ?? m.actualSubmission ?? m.actualEnd ?? null,
       value: m.value || 1,
       vendorId: m.vendorUser?.id ?? null,
       percentComplete: m.percentComplete,
@@ -574,7 +579,12 @@ export class ReportService {
       .filter((m): m is typeof m & { vendorUser: NonNullable<typeof m.vendorUser> } => m.vendorUser !== null)
       .map((m) => ({
         id: m.id, title: m.title, state: m.state, plannedEnd: m.plannedEnd,
-        actualEnd: m.actualVerification ?? m.actualSubmission ?? null, value: m.value || 1,
+        // actualVerification/actualSubmission only get set by the payment-workflow state machine
+      // — schedule-imported milestones never enter it, so both stay null for them and the
+      // report's S-Curve/burndown/KPIs would show 0% progress regardless of real completion.
+      // Fall back to the milestone's own actualEnd column (schedule import's MSPDI ActualFinish,
+      // or any direct completion-date write) — same fix as the EI analytics/gantt routes.
+      actualEnd: m.actualVerification ?? m.actualSubmission ?? m.actualEnd ?? null, value: m.value || 1,
         percentComplete: m.percentComplete,
         vendorId: m.vendorUser.id, vendorName: m.vendorUser.name,
         approvalCycleDays: approvalCycleByMilestone.get(m.id) ?? null,

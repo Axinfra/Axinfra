@@ -97,7 +97,13 @@ export async function GET(
             plannedStart: m.plannedStart,
             plannedEnd: m.plannedEnd,
             actualStart: m.actualStart,
-            actualEnd: m.actualVerification ?? m.actualSubmission ?? null,
+            // actualVerification/actualSubmission only get set by the payment-workflow state
+            // machine — schedule-imported milestones never enter it (see percentComplete
+            // comment below), so both stay permanently null for them and the Gantt's "actual"
+            // bar never rendered regardless of real completion. Same bug/fix as the sibling
+            // analytics route — fall back to the milestone's own actualEnd column (what
+            // schedule import's MSPDI ActualFinish, or any direct completion write, populates).
+            actualEnd: m.actualVerification ?? m.actualSubmission ?? m.actualEnd ?? null,
             baselinePlannedStart: m.baselinePlannedStart,
             baselinePlannedEnd: m.baselinePlannedEnd,
             value: m.value,

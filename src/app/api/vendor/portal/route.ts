@@ -100,7 +100,11 @@ export async function GET(request: NextRequest) {
     const rawMilestones = vendorMilestones.map((m) => {
       const firstEvidence = m.evidence[0] ?? null;
       const firstVerification = m.verifications[0] ?? null;
-      const actualEnd = m.actualVerification ?? m.actualSubmission ?? null;
+      // actualVerification/actualSubmission only ever get set by the payment-workflow state
+      // machine — schedule-imported milestones never enter it, so both stay null for them
+      // regardless of real completion. Fall back to the milestone's own actualEnd column (same
+      // fix as the EI analytics/gantt routes and ReportService).
+      const actualEnd = m.actualVerification ?? m.actualSubmission ?? m.actualEnd ?? null;
 
       const approvalCycleDays =
         firstEvidence && firstVerification
@@ -252,7 +256,7 @@ export async function GET(request: NextRequest) {
           plannedStart: m.plannedStart,
           plannedEnd: m.plannedEnd,
           actualStart: m.actualStart,
-          actualEnd: m.actualVerification ?? m.actualSubmission ?? null,
+          actualEnd: m.actualVerification ?? m.actualSubmission ?? m.actualEnd ?? null,
           baselinePlannedStart: m.baselinePlannedStart,
           baselinePlannedEnd: m.baselinePlannedEnd,
           value: m.value,
@@ -425,7 +429,7 @@ export async function GET(request: NextRequest) {
         return {
           id: m.id, title: m.title, state: m.state, sortOrder: m.sortOrder,
           plannedStart: m.plannedStart, plannedEnd: m.plannedEnd,
-          actualStart: m.actualStart, actualEnd: m.actualVerification ?? m.actualSubmission ?? null,
+          actualStart: m.actualStart, actualEnd: m.actualVerification ?? m.actualSubmission ?? m.actualEnd ?? null,
           baselinePlannedStart: m.baselinePlannedStart, baselinePlannedEnd: m.baselinePlannedEnd,
           value: m.value, vendorId: m.vendorUser?.id ?? null, vendorName: m.vendorUser?.name ?? null,
           isCritical: criticalSet.has(m.id), totalFloat: cpmNode?.totalFloat ?? null,
