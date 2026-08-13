@@ -11,7 +11,7 @@ import { jsonFetcher } from '@/lib/fetcher';
 interface CostOverviewData {
   currency: string;
   totals: { committed: number; paidToDate: number; outstanding: number };
-  boq: { planned: number; submitted: number; approved: number; released: number; orderCount: number };
+  boq: { planned: number; submitted: number; approved: number; released: number; variance: number; variancePercent: number; orderCount: number };
   directOrders: {
     ordered: number; delivered: number; paid: number; outstanding: number; variance: number;
     orders: Array<{ id: string; doNumber: string; description: string; ordered: number; billed: number | null; status: string }>;
@@ -87,11 +87,16 @@ export default function CostOverviewPage() {
             {/* BOQ (Purchase Orders) */}
             <Section title="BOQ (Purchase Orders)" subtitle={`${data.boq.orderCount} purchase order(s) with BOQ items`}>
               <ProgressBar planned={data.boq.planned} released={data.boq.released} currency={currency} />
-              <div className="grid gap-4 sm:grid-cols-2 md:grid-cols-4 mt-4">
+              <div className="grid gap-4 sm:grid-cols-2 md:grid-cols-5 mt-4">
                 <MiniStat label="Planned" value={formatCurrency(data.boq.planned, currency)} />
                 <MiniStat label="Submitted" value={formatCurrency(data.boq.submitted, currency)} />
                 <MiniStat label="Approved" value={formatCurrency(data.boq.approved, currency)} />
                 <MiniStat label="Released" value={formatCurrency(data.boq.released, currency)} color="green" />
+                <MiniStat
+                  label="Variance"
+                  value={`${formatCurrency(data.boq.variance, currency)} (${data.boq.variancePercent > 0 ? '+' : ''}${data.boq.variancePercent}%)`}
+                  color={data.boq.variance < 0 ? 'orange' : 'gray'}
+                />
               </div>
             </Section>
 

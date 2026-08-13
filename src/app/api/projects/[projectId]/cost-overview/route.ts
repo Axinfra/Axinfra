@@ -109,13 +109,20 @@ export async function GET(
         // ordered -> delivered -> paid), so only planned/released need Direct Orders subtracted
         // back out. Kept as subtraction rather than a second query so this can't drift from the
         // combined total above.
-        boq: {
-          planned: variance.bills.totals.totalPlannedValue - directOrders.totalOrdered,
-          submitted: variance.bills.totals.totalSubmittedValue,
-          approved: variance.bills.totals.totalApprovedValue,
-          released: variance.bills.totals.totalReleasedValue - directOrders.paid,
-          orderCount: variance.bills.byOrder.length,
-        },
+        boq: (() => {
+          const planned = variance.bills.totals.totalPlannedValue - directOrders.totalOrdered;
+          const released = variance.bills.totals.totalReleasedValue - directOrders.paid;
+          const varianceValue = planned - released;
+          return {
+            planned,
+            submitted: variance.bills.totals.totalSubmittedValue,
+            approved: variance.bills.totals.totalApprovedValue,
+            released,
+            variance: varianceValue,
+            variancePercent: planned > 0 ? Math.round((varianceValue / planned) * 1000) / 10 : 0,
+            orderCount: variance.bills.byOrder.length,
+          };
+        })(),
         directOrders: {
           ordered: directOrders.totalOrdered,
           delivered: directOrders.totalDeliveredValue,
