@@ -171,6 +171,26 @@ export interface VarianceAnalysis {
       dueDate: Date;
       daysRemaining: number;
     }>;
+    /** Not yet overdue, but running behind the linear pace from plannedStart to plannedEnd by
+     * more than the AT_RISK threshold (see computeScheduleVariance) — the predictive list:
+     * these are quietly falling behind *before* they'd show up in overdueActivities above, so
+     * this is the answer to "which activities may cause delay" ahead of time, not after. */
+    atRiskActivities: Array<{
+      id: string;
+      title: string;
+      dueDate: Date;
+      expectedPercent: number;
+      actualPercent: number;
+      progressGapPoints: number;
+      value: number;
+      vendorName: string | null;
+    }>;
+    /** Every activity, split into the same two groups onTimePercent is computed from
+     * (ON_TRACK/COMPLETED_ON_TIME vs AT_RISK/DELAYED/COMPLETED_LATE) — the "which activities
+     * make up that %" breakdown, same shape/definition as the Activities page's On-Time
+     * Status tab so the two never disagree. */
+    onTimeActivities: Array<{ id: string; title: string; plannedEnd: Date | null; percentComplete: number | null; health: ActivityHealth }>;
+    notOnTimeActivities: Array<{ id: string; title: string; plannedEnd: Date | null; percentComplete: number | null; health: ActivityHealth }>;
     totalActivities: number;
     overdueCount: number;
     onTimePercent: number;
@@ -961,8 +981,9 @@ export class AnalysisService {
       prisma.milestone.findMany({
         where: { projectId },
         select: {
-          id: true, title: true, state: true,
+          id: true, title: true, state: true, value: true,
           plannedStart: true, plannedEnd: true, actualStart: true, actualEnd: true, percentComplete: true,
+          vendorUser: { select: { name: true } },
         },
       }),
       prisma.phase.findMany({
@@ -1027,10 +1048,44 @@ export class AnalysisService {
     const healthBreakdown: Record<ActivityHealth, number> = {
       ON_TRACK: 0, AT_RISK: 0, DELAYED: 0, COMPLETED_LATE: 0, COMPLETED_ON_TIME: 0,
     };
+    const atRiskActivities: VarianceAnalysis['schedule']['atRiskActivities'] = [];
+    const onTimeActivities: VarianceAnalysis['schedule']['onTimeActivities'] = [];
+    const notOnTimeActivities: VarianceAnalysis['schedule']['notOnTimeActivities'] = [];
+    // Same severity ordering as the Activities page's On-Time Status tab — already-late
+    // activities are the more urgent read, so they sort before ones only running behind pace.
+    const notOnTimeSeverity: Record<string, number> = { DELAYED: 0, COMPLETED_LATE: 1, AT_RISK: 2 };
+
     for (const m of milestones) {
-      const { health } = computeScheduleVariance(m, now);
+      const { health, progressGapPoints } = computeScheduleVariance(m, now);
       healthBreakdown[health]++;
+
+      const row = { id: m.id, title: m.title, plannedEnd: m.plannedEnd, percentComplete: m.percentComplete, health };
+      if (health === 'ON_TRACK' || health === 'COMPLETED_ON_TIME') onTimeActivities.push(row);
+      else notOnTimeActivities.push(row);
+
+      if (health === 'AT_RISK' && m.plannedStart && m.plannedEnd && progressGapPoints !== null) {
+        // Must use startOfDay(now), not raw `now` — computeScheduleVariance derives
+        // progressGapPoints from the same midnight-normalized "today", so using raw `now`
+        // here would make expectedPercent - actualPercent disagree with progressGapPoints
+        // by however many hours have elapsed today.
+        const totalSpan = m.plannedEnd.getTime() - m.plannedStart.getTime();
+        const elapsed = Math.min(Math.max(startOfDay(now).getTime() - m.plannedStart.getTime(), 0), totalSpan);
+        atRiskActivities.push({
+          id: m.id,
+          title: m.title,
+          dueDate: m.plannedEnd,
+          expectedPercent: Math.round((elapsed / totalSpan) * 100),
+          actualPercent: Math.round(m.percentComplete ?? 0),
+          progressGapPoints,
+          value: m.value || 0,
+          vendorName: m.vendorUser?.name ?? null,
+        });
+      }
     }
+    // Furthest behind pace first — the ones most likely to actually slip.
+    atRiskActivities.sort((a, b) => b.progressGapPoints - a.progressGapPoints);
+    onTimeActivities.sort((a, b) => (a.plannedEnd?.toISOString() ?? '').localeCompare(b.plannedEnd?.toISOString() ?? ''));
+    notOnTimeActivities.sort((a, b) => (notOnTimeSeverity[a.health] ?? 9) - (notOnTimeSeverity[b.health] ?? 9));
 
     // Deliberately NOT "(total - overdueCount) / total": overdueCount only counts activities
     // overdue as of *today*, which is meaningless for a finished/closed project (nothing still
@@ -1137,6 +1192,9 @@ export class AnalysisService {
       schedule: {
         overdueActivities: overdueActivities.sort((a, b) => b.daysOverdue - a.daysOverdue),
         upcomingAtRisk: upcomingAtRisk.sort((a, b) => a.daysRemaining - b.daysRemaining),
+        atRiskActivities,
+        onTimeActivities,
+        notOnTimeActivities,
         totalActivities,
         overdueCount,
         onTimePercent,

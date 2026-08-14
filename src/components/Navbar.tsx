@@ -21,7 +21,6 @@ import {
   FolderOpen,
   CalendarRange,
   MessageCircle,
-  Wallet,
 } from 'lucide-react';
 import { cn } from '@/lib/utils';
 import { jsonFetcher } from '@/lib/fetcher';
@@ -61,8 +60,9 @@ export default function Navbar({ projectId, projectName, role }: NavbarProps) {
     { href: `/projects/${projectId}/messages`, label: 'Messages', icon: MessageCircle, always: true, prefetchApi: [`/api/projects/${projectId}/messages/conversations`] },
     // Analysis and Payments are deliberately NOT extended to SITE_ENGINEER (read-only PMC
     // variant, but these two stay off-limits per the role's definition).
+    // Cost Overview moved into Analysis (as a tab, after Time & Money Variance) — no longer a
+    // top-level nav item. Its route now just redirects there; see cost-overview/page.tsx.
     { href: `/projects/${projectId}/analysis`, label: 'Analysis', icon: BarChart2, roles: ['CLIENT', 'PMC'], prefetchApi: [`/api/projects/${projectId}/analysis`] },
-    { href: `/projects/${projectId}/cost-overview`, label: 'Cost Overview', icon: Wallet, roles: ['CLIENT', 'PMC'], prefetchApi: [`/api/projects/${projectId}/cost-overview`] },
     { href: `/projects/${projectId}/payments`, label: role === 'VENDOR' ? 'My Invoices' : 'Payments', icon: CreditCard, roles: ['CLIENT', 'PMC', 'VENDOR'], prefetchApi: [`/api/projects/${projectId}/payment-eligibility`] },
     { href: `/projects/${projectId}/ra-bills`, label: 'RA Bills', icon: Receipt, roles: ['CLIENT', 'PMC', 'VENDOR', 'CONSULTANT', 'SITE_ENGINEER'], prefetchApi: [`/api/projects/${projectId}/ra-bills`] },
     { href: `/projects/${projectId}/follow-ups`, label: 'Follow-ups', icon: BellRing, roles: ['CLIENT', 'PMC', 'SITE_ENGINEER'], prefetchApi: [`/api/projects/${projectId}/follow-ups`] },

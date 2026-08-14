@@ -71,7 +71,9 @@ export async function POST(request: NextRequest) {
 
     const response = NextResponse.json({
       success: true,
-      data: { user: { id: user.id, name: user.name, email: user.email } },
+      // `token` alongside the cookie, same reasoning as /api/auth/login —
+      // native clients read it and store it themselves (see MOBILE_APP_SETUP.md §3.1).
+      data: { token, user: { id: user.id, name: user.name, email: user.email } },
     });
 
     response.cookies.set('session', token, {

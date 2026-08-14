@@ -25,6 +25,10 @@ export interface ScheduleVarianceResult {
    * today - plannedEnd (only once today is past plannedEnd; null otherwise). */
   delayDays: number | null;
   health: ActivityHealth;
+  /** expectedPercent - actualPercent for an in-progress, not-yet-overdue activity — how far
+   * behind the linear pace it's running. Positive = behind. Only set for ON_TRACK/AT_RISK
+   * (the branch that actually has a planned span to project a pace from); null otherwise. */
+  progressGapPoints: number | null;
 }
 
 const DAY_MS = 86_400_000;
@@ -74,6 +78,7 @@ export function computeScheduleVariance(input: ScheduleVarianceInput, now: Date 
 
   let delayDays: number | null = null;
   let health: ActivityHealth;
+  let progressGapPoints: number | null = null;
 
   if (completed) {
     delayDays = actualEnd && plannedEnd ? diffDays(startOfDay(actualEnd), startOfDay(plannedEnd)) : null;
@@ -89,12 +94,13 @@ export function computeScheduleVariance(input: ScheduleVarianceInput, now: Date 
     const elapsed = Math.min(Math.max(today.getTime() - plannedStart.getTime(), 0), totalSpan);
     const expectedPercent = (elapsed / totalSpan) * 100;
     const actualPercent = input.percentComplete ?? 0;
-    health = expectedPercent - actualPercent > AT_RISK_THRESHOLD_POINTS ? 'AT_RISK' : 'ON_TRACK';
+    progressGapPoints = Math.round(expectedPercent - actualPercent);
+    health = progressGapPoints > AT_RISK_THRESHOLD_POINTS ? 'AT_RISK' : 'ON_TRACK';
   } else {
     health = 'ON_TRACK';
   }
 
-  return { plannedDurationDays, actualDurationDays, scheduleVarianceDays, delayDays, health };
+  return { plannedDurationDays, actualDurationDays, scheduleVarianceDays, delayDays, health, progressGapPoints };
 }
 
 export const HEALTH_LABEL: Record<ActivityHealth, string> = {
@@ -111,4 +117,11 @@ export const HEALTH_COLOR: Record<ActivityHealth, { color: string; bg: string }>
   DELAYED: { color: '#e06050', bg: 'rgba(224,96,80,0.14)' },
   COMPLETED_LATE: { color: '#f97316', bg: 'rgba(249,115,22,0.14)' },
   COMPLETED_ON_TIME: { color: '#38bdf8', bg: 'rgba(56,189,248,0.14)' },
+};
+
+/** Worst-to-best across all 5 states — the shared "sort by Health" ordering used by both the
+ * Activities page's All Activities table and OnTimeStatusSection, so picking Health sorts the
+ * same way everywhere instead of each place inventing its own order. */
+export const HEALTH_SEVERITY: Record<ActivityHealth, number> = {
+  DELAYED: 0, COMPLETED_LATE: 1, AT_RISK: 2, ON_TRACK: 3, COMPLETED_ON_TIME: 4,
 };

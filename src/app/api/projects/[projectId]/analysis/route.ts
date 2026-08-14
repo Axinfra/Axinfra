@@ -67,6 +67,10 @@ export async function GET(
           };
           break;
         case 'variance':
+        case 'schedule-risk':
+          // Schedule Risk tab reuses the exact same variance computation (and cache entry) as
+          // Time & Money Variance — it's a different, more detailed view of the same
+          // `schedule` data, not a second calculation that could disagree with it.
           data = {
             variance: await cached(`analysis:${projectId}:variance`, ttlMs, () =>
               AnalysisService.getVarianceAnalysis(projectId),

@@ -26,7 +26,7 @@ import { formatCurrency, formatDate } from '@/lib/utils';
 import { useProject } from '@/lib/contexts/ProjectContext';
 import { jsonFetcher } from '@/lib/fetcher';
 import { startOfDay, groupActivitiesByStatus, type ActivityStatusBucket } from '@/lib/activityStatus';
-import { computeScheduleVariance, HEALTH_LABEL, HEALTH_COLOR } from '@/lib/scheduleVariance';
+import { computeScheduleVariance, HEALTH_LABEL, HEALTH_COLOR, HEALTH_SEVERITY } from '@/lib/scheduleVariance';
 import { CHART_TOOLTIP } from '@/lib/chartConfig';
 
 interface Activity {
@@ -107,6 +107,8 @@ const DAY_LABELS = ['Mon', 'Tue', 'Wed', 'Thu', 'Fri', 'Sat', 'Sun'];
 type ActivityTab = ActivityStatusBucket | 'ALL';
 // Today first (the primary "what needs my attention right now" view), then urgency-descending,
 // then the full unscoped table last — mirrors how a PMC actually triages a day.
+// On-Time Status (which activities make up the on-time %) now lives on the Analysis page's
+// Schedule Risk tab instead of duplicating it here — see OnTimeStatusSection's other usage.
 const TAB_ORDER: ActivityTab[] = ['DUE_TODAY', 'OVERDUE', 'UPCOMING', 'COMPLETED', 'ALL'];
 const TAB_CONFIG: Record<ActivityTab, { label: string; icon: LucideIcon; dotColor: string; emptyMessage: string }> = {
   DUE_TODAY: { label: 'Today', icon: CalendarClock, dotColor: '#f97316', emptyMessage: 'Nothing due today.' },
@@ -117,6 +119,41 @@ const TAB_CONFIG: Record<ActivityTab, { label: string; icon: LucideIcon; dotColo
 };
 
 type DependencyFilter = 'ALL' | 'BLOCKED' | 'HAS_DEPENDENCIES' | 'NO_DEPENDENCIES';
+
+// All Activities table — sort applied after the Phase/Dependency filters, before pagination.
+type ActivitySortKey = 'default' | 'name' | 'dueDate' | 'percent' | 'health' | 'priority';
+const ACTIVITY_SORT_OPTIONS: Array<{ value: ActivitySortKey; label: string }> = [
+  { value: 'default', label: 'Default' },
+  { value: 'health', label: 'Health' },
+  { value: 'dueDate', label: 'Due Date' },
+  { value: 'percent', label: '% Complete' },
+  { value: 'priority', label: 'Priority' },
+  { value: 'name', label: 'Name (A–Z)' },
+];
+const PRIORITY_SEVERITY: Record<string, number> = { URGENT: 0, HIGH: 1, NORMAL: 2, LOW: 3 };
+
+function sortActivities(list: Activity[], sortBy: ActivitySortKey, today: Date): Activity[] {
+  if (sortBy === 'default') return list;
+  const sorted = [...list];
+  switch (sortBy) {
+    case 'health':
+      sorted.sort((a, b) => HEALTH_SEVERITY[computeScheduleVariance(a, today).health] - HEALTH_SEVERITY[computeScheduleVariance(b, today).health]);
+      break;
+    case 'dueDate':
+      sorted.sort((a, b) => (a.plannedEnd ?? '9999').localeCompare(b.plannedEnd ?? '9999'));
+      break;
+    case 'percent':
+      sorted.sort((a, b) => (b.percentComplete ?? 0) - (a.percentComplete ?? 0));
+      break;
+    case 'priority':
+      sorted.sort((a, b) => (PRIORITY_SEVERITY[a.priority] ?? 9) - (PRIORITY_SEVERITY[b.priority] ?? 9));
+      break;
+    case 'name':
+      sorted.sort((a, b) => a.title.localeCompare(b.title));
+      break;
+  }
+  return sorted;
+}
 
 /** An activity is "Blocked" when at least one of its predecessors hasn't finished yet — it
  * can't meaningfully start until that dependency clears. */
@@ -189,6 +226,7 @@ export default function ActivitiesPage() {
   const [approvalsPage, setApprovalsPage] = useState(1);
   const [phaseFilter, setPhaseFilter] = useState(urlPhaseId);
   const [dependencyFilter, setDependencyFilter] = useState<DependencyFilter>('ALL');
+  const [activitySortBy, setActivitySortBy] = useState<ActivitySortKey>('default');
   const [page, setPage] = useState(1);
   const [editingId, setEditingId] = useState<string | null>(null);
 
@@ -273,6 +311,7 @@ export default function ActivitiesPage() {
   const grouped = useMemo(() => groupActivitiesByStatus(myActivities, today), [myActivities, today]);
   const completedCount = grouped.COMPLETED.length;
   const completionPct = myActivities.length > 0 ? Math.round((completedCount / myActivities.length) * 100) : 0;
+
   const tabCount = (t: ActivityTab) => (t === 'ALL' ? activities.length : grouped[t].length);
 
   // ── This week: due vs completed, one bucket per day ──────────────────────
@@ -343,18 +382,22 @@ export default function ActivitiesPage() {
   const endDate = project?.endDate ? new Date(project.endDate as string) : null;
   const daysRemaining = endDate ? Math.ceil((startOfDay(endDate).getTime() - today.getTime()) / DAY_MS) : null;
 
-  const visibleActivities = activities
-    .filter((a) => {
-      if (!phaseFilter) return true;
-      if (phaseFilter === 'none') return !a.phaseId;
-      return a.phaseId !== null && a.phaseId !== undefined && phaseFilterIds!.has(a.phaseId);
-    })
-    .filter((a) => {
-      if (dependencyFilter === 'ALL') return true;
-      if (dependencyFilter === 'BLOCKED') return isBlocked(a);
-      if (dependencyFilter === 'HAS_DEPENDENCIES') return hasDependencies(a);
-      return !hasDependencies(a); // NO_DEPENDENCIES
-    });
+  const visibleActivities = sortActivities(
+    activities
+      .filter((a) => {
+        if (!phaseFilter) return true;
+        if (phaseFilter === 'none') return !a.phaseId;
+        return a.phaseId !== null && a.phaseId !== undefined && phaseFilterIds!.has(a.phaseId);
+      })
+      .filter((a) => {
+        if (dependencyFilter === 'ALL') return true;
+        if (dependencyFilter === 'BLOCKED') return isBlocked(a);
+        if (dependencyFilter === 'HAS_DEPENDENCIES') return hasDependencies(a);
+        return !hasDependencies(a); // NO_DEPENDENCIES
+      }),
+    activitySortBy,
+    today,
+  );
 
   const totalPages = Math.max(1, Math.ceil(visibleActivities.length / PAGE_SIZE));
   const safePage = Math.min(page, totalPages);
@@ -521,6 +564,16 @@ export default function ActivitiesPage() {
                   <option value="BLOCKED">Blocked (waiting on predecessor)</option>
                   <option value="HAS_DEPENDENCIES">Has dependencies</option>
                   <option value="NO_DEPENDENCIES">No dependencies</option>
+                </select>
+              </div>
+              <div className="flex items-center gap-3 w-full sm:w-auto">
+                <label className="text-sm text-[rgba(232,228,220,0.55)] shrink-0">Sort by:</label>
+                <select
+                  value={activitySortBy}
+                  onChange={(e) => { setActivitySortBy(e.target.value as ActivitySortKey); setPage(1); }}
+                  className="input flex-1 sm:flex-none sm:w-52 text-sm"
+                >
+                  {ACTIVITY_SORT_OPTIONS.map((opt) => <option key={opt.value} value={opt.value}>{opt.label}</option>)}
                 </select>
               </div>
             </div>
