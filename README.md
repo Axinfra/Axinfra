@@ -1,4 +1,4 @@
-# Axinfra
+## Axinfra
 
 Evidence-first project intelligence for construction teams. Axinfra tracks project roles, milestones, BOQs, evidence, payments, follow-ups, audit logs, vendor views, and admin operations in a Next.js app backed by PostgreSQL and Prisma.
 
