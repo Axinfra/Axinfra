@@ -1,10 +1,9 @@
 import { NextRequest, NextResponse } from 'next/server';
 import { prisma } from '@/lib/db';
 import { requireAuth } from '@/lib/auth';
+import { isAdminEmail } from '@/lib/adminAuth';
 import { cached } from '@/lib/cache';
-import { invalidateUserWorkspaceCaches } from '@/lib/cache-invalidation';
-import { AuditLogger } from '@/services/AuditLogger';
-import { AuditActionTypes, Role } from '@/types';
+import { ProjectService } from '@/services/ProjectService';
 import { z } from 'zod';
 
 export const dynamic = 'force-dynamic';
@@ -86,66 +85,29 @@ export async function GET() {
   }
 }
 
-// POST /api/projects - Create a new project (CLIENT role only)
+// POST /api/projects - Create a new project directly (platform admin only).
+//
+// This used to be open to any user whose account preferredRole was CLIENT — removed because
+// the platform charges per project, so a project can no longer be created for free by
+// self-service. The normal path now is POST /api/project-requests (a prospective or existing
+// Client asks for one) → an admin reviews it and calls
+// POST /api/admin/project-requests/[id]/approve, which creates the Client account (if new) and
+// the project together. This route stays as a direct escape hatch for admin use only, sharing
+// the same ProjectService.createForOwner the approval route uses — see that service for why.
 export async function POST(request: NextRequest) {
   try {
     const auth = await requireAuth();
     const body = await request.json();
     const parsed = createProjectSchema.parse(body);
-    const { name, description, location, contractValue, currency, startDate, endDate } = parsed;
 
-    // Only users whose account role is CLIENT (project owner) can create projects
-    const user = await prisma.user.findUnique({
-      where: { id: auth.userId },
-      select: { preferredRole: true },
-    });
-    if (user?.preferredRole !== 'CLIENT') {
+    if (!isAdminEmail(auth.email)) {
       return NextResponse.json(
-        { success: false, error: 'Only project owners can create new projects.' },
+        { success: false, error: 'Projects are created by an admin approving a project request — see /request-project.' },
         { status: 403 },
       );
     }
 
-    // Build metadata from optional fields
-    const metadata = (location || contractValue || currency || startDate || endDate)
-      ? JSON.stringify({ location, contractValue, currency: currency || 'INR', startDate, endDate })
-      : undefined;
-
-    // Create project and assign creator as owner
-    const project = await prisma.$transaction(async (tx) => {
-      const project = await tx.project.create({
-        data: {
-          name,
-          description,
-          metadata,
-        },
-      });
-
-      // Assign the creating user as project owner
-      // Other users must be invited/assigned explicitly
-      await tx.projectRole.create({
-        data: {
-          projectId: project.id,
-          userId: auth.userId,
-          role: Role.CLIENT,
-        },
-      });
-
-      return project;
-    });
-
-    await invalidateUserWorkspaceCaches(auth.userId);
-
-    // Log creation
-    await AuditLogger.log({
-      projectId: project.id,
-      actorId: auth.userId,
-      role: Role.CLIENT,
-      actionType: AuditActionTypes.PROJECT_CREATE,
-      entityType: 'Project',
-      entityId: project.id,
-      afterJson: { name, description },
-    });
+    const project = await ProjectService.createForOwner(auth.userId, parsed);
 
     return NextResponse.json({
       success: true,

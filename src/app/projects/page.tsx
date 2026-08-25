@@ -2,6 +2,7 @@
 
 import { ProjectsListSkeleton } from '@/components/ui/SkeletonPage';
 import { useState, useEffect, useCallback } from 'react';
+import { useRouter } from 'next/navigation';
 import Link from 'next/link';
 import Layout from '@/components/Layout';
 import ClientOnly from '@/components/auth/ClientOnly';
@@ -34,6 +35,7 @@ const emptyForm: ProjectForm = {
 };
 
 export default function ProjectsPage() {
+  const router = useRouter();
   const [projects, setProjects] = useState<Project[]>([]);
   const [loading, setLoading] = useState(true);
   const [error, setError] = useState('');
@@ -81,11 +83,11 @@ export default function ProjectsPage() {
     }
   }, [toast]);
 
+  // Creating a project is no longer free-form self-service — the platform charges per project,
+  // so a new one only ever comes from an admin approving a request. This just hands off to that
+  // form instead of opening the old create modal (which now only ever handles edits).
   const openCreateModal = () => {
-    setEditingProject(null);
-    setForm(emptyForm);
-    setModalError('');
-    setShowModal(true);
+    router.push('/request-project');
   };
 
   const openEditModal = (project: Project) => {
@@ -103,8 +105,12 @@ export default function ProjectsPage() {
     setShowModal(true);
   };
 
+  // Editing an existing project only — creating a new one now goes through openCreateModal's
+  // redirect to /request-project instead, so this modal (and this handler) never runs the
+  // create path anymore.
   const handleSubmit = async (e: React.FormEvent) => {
     e.preventDefault();
+    if (!editingProject) return;
     setSubmitting(true);
     setModalError('');
 
@@ -118,11 +124,8 @@ export default function ProjectsPage() {
       if (form.startDate) body.startDate = form.startDate;
       if (form.endDate) body.endDate = form.endDate;
 
-      const url = editingProject ? `/api/projects/${editingProject.id}` : '/api/projects';
-      const method = editingProject ? 'PATCH' : 'POST';
-
-      const res = await fetch(url, {
-        method,
+      const res = await fetch(`/api/projects/${editingProject.id}`, {
+        method: 'PATCH',
         headers: { 'Content-Type': 'application/json' },
         body: JSON.stringify(body),
       });
@@ -131,29 +134,18 @@ export default function ProjectsPage() {
       if (!res.ok || !data.success) throw new Error(data.error || 'Failed to save project');
 
       setShowModal(false);
-      setToast(editingProject ? 'Project updated successfully' : 'Project created successfully');
+      setToast('Project updated successfully');
 
-      if (editingProject) {
-        const meta = (form.location || form.contractValue || form.startDate || form.endDate)
-          ? JSON.stringify({ location: form.location, contractValue: form.contractValue ? parseFloat(form.contractValue) : undefined, startDate: form.startDate, endDate: form.endDate })
-          : undefined;
-        setProjects((prev) =>
-          prev.map((p) =>
-            p.id === editingProject.id
-              ? { ...p, name: form.name, description: form.description || undefined, metadata: meta }
-              : p,
-          ),
-        );
-      } else {
-        const meta = (form.location || form.contractValue || form.startDate || form.endDate)
-          ? JSON.stringify({ location: form.location, contractValue: form.contractValue ? parseFloat(form.contractValue) : undefined, startDate: form.startDate, endDate: form.endDate })
-          : undefined;
-        setProjects((prev) => [
-          { id: data.data.id, name: form.name, description: form.description || undefined, myRole: 'CLIENT', milestoneCount: 0, createdAt: new Date().toISOString(), metadata: meta },
-          ...prev,
-        ]);
-        setUserRole('CLIENT');
-      }
+      const meta = (form.location || form.contractValue || form.startDate || form.endDate)
+        ? JSON.stringify({ location: form.location, contractValue: form.contractValue ? parseFloat(form.contractValue) : undefined, startDate: form.startDate, endDate: form.endDate })
+        : undefined;
+      setProjects((prev) =>
+        prev.map((p) =>
+          p.id === editingProject.id
+            ? { ...p, name: form.name, description: form.description || undefined, metadata: meta }
+            : p,
+        ),
+      );
     } catch (err) {
       setModalError(err instanceof Error ? err.message : 'Something went wrong');
     } finally {
@@ -219,7 +211,7 @@ export default function ProjectsPage() {
           <ClientOnly role={userRole}>
             <button onClick={openCreateModal} className="btn btn-primary flex items-center gap-2">
               <Plus className="w-4 h-4" />
-              Add Project
+              Request Project
             </button>
           </ClientOnly>
         </div>
@@ -235,10 +227,10 @@ export default function ProjectsPage() {
             {userRole === 'CLIENT' ? (
               <>
                 <p className="text-sm mb-6" style={{ color: 'rgba(var(--ax-text-rgb), 0.45)' }}>
-                  Create your first project to get started.
+                  Request your first project to get started — our team sets it up and emails you access.
                 </p>
                 <button onClick={openCreateModal} className="btn btn-primary">
-                  Create your first project
+                  Request your first project
                 </button>
               </>
             ) : (
@@ -422,7 +414,7 @@ export default function ProjectsPage() {
               style={{ borderColor: 'var(--ax-border)' }}
             >
               <h2 className="text-lg font-semibold" style={{ color: 'var(--ax-text)' }}>
-                {editingProject ? 'Edit Project' : 'Create Project'}
+                Edit Project
               </h2>
               <button
                 onClick={() => !submitting && setShowModal(false)}
@@ -521,9 +513,7 @@ export default function ProjectsPage() {
                   className="btn btn-primary text-sm"
                 >
                   {submitting && <Loader2 className="w-4 h-4 animate-spin" />}
-                  {submitting
-                    ? (editingProject ? 'Saving...' : 'Creating...')
-                    : (editingProject ? 'Save Changes' : 'Create Project')}
+                  {submitting ? 'Saving...' : 'Save Changes'}
                 </button>
               </div>
             </form>

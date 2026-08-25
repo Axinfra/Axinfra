@@ -9,8 +9,10 @@ const PUBLIC_API_ROUTES = [
   '/api/auth/google/callback',
   '/api/health',
   '/api/invite',       // invite GET (details) is public; POST requires session handled in route
-  '/api/demo-request', // demo request form — no session needed
-  '/api/contact',      // support form — no session needed
+  '/api/demo-request',     // demo request form — no session needed
+  '/api/contact',          // support form — no session needed
+  '/api/project-requests', // "request a new project" form — no session needed (optionally
+                            // attaches one if present; enforced inside the route, not here)
 ];
 
 // API routes that use their own secret-based auth
@@ -22,6 +24,7 @@ const PUBLIC_PAGE_ROUTES = [
   '/auth/login',
   '/auth/register',
   '/invite',           // invite acceptance page is public (shows sign-in prompt when needed)
+  '/request-project',  // "request a new project" form is public — see /api/project-requests
 ];
 
 function getAdminEmails(): string[] {

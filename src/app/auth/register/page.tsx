@@ -9,8 +9,11 @@ import Link from 'next/link';
 import { Suspense } from 'react';
 import AxinfraLogo from '@/components/AxinfraLogo';
 
+// CLIENT is deliberately excluded — the platform charges per project, so a Client account (and
+// its first project) is only created once an admin approves a request submitted at
+// /request-project, never by self-service registration. See that page and
+// POST /api/admin/project-requests/[id]/approve.
 const ROLES = [
-  { id: 'CLIENT',        label: 'Client',        icon: '🏢', desc: 'Project owner' },
   { id: 'PMC',           label: 'PMC',           icon: '📋', desc: 'Project manager' },
   { id: 'VENDOR',        label: 'Vendor',        icon: '🔧', desc: 'Contractor' },
   { id: 'CONSULTANT',    label: 'Consultant',    icon: '💡', desc: 'Specialist' },
@@ -171,6 +174,13 @@ function RegisterContent() {
                 );
               })}
             </div>
+            <p className="text-xs text-[rgba(var(--ax-text-rgb),0.4)] mt-3">
+              Looking to set up a new project as the owner?{' '}
+              <Link href="/request-project" className="text-[var(--ax-accent)] hover:underline font-medium">
+                Request access
+              </Link>{' '}
+              instead — we'll email you login details once it's approved.
+            </p>
           </div>
 
           {/* Google */}

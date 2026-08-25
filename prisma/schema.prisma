@@ -199,13 +199,13 @@ model RABill {
 
   /// The date PMC/Consultant certifies measured quantities as executed — the "Finished when"
   /// date shown across the app — headline #2.
-  certifiedAt      DateTime?
-  certifiedById    String?
-  certifiedRemarks String?
+  certifiedAt                 DateTime?
+  certifiedById               String?
+  certifiedRemarks            String?
   /// The Site Engineer-uploaded measurement sheet (see RABillMeasurementSheet below) PMC/
   /// Consultant picked as the reference when certifying — distinct from the optional fresh
   /// storageKey/fileName attachment below, which is for a separately-uploaded certificate.
-  certifiedMeasurementSheetId String? @unique
+  certifiedMeasurementSheetId String?   @unique
 
   /// Sum of lineItems.thisBillAmount at certification, net of `deductions` — headline #3.
   approvedValue Float?
@@ -231,19 +231,19 @@ model RABill {
   createdAt   DateTime @default(now())
   updatedAt   DateTime @updatedAt
 
-  project             Project          @relation(fields: [projectId], references: [id], onDelete: Cascade)
-  order               Phase            @relation(fields: [orderId], references: [id], onDelete: Cascade)
-  lineItems           RABillLineItem[]
-  createdBy           User             @relation("RABillCreator", fields: [createdById], references: [id])
-  submittedBy         User?            @relation("RABillSubmitter", fields: [submittedById], references: [id])
-  siteEngineerReviewedBy User?         @relation("RABillSiteEngineerReviewer", fields: [siteEngineerReviewedById], references: [id])
-  vendorAcceptedBy    User?            @relation("RABillVendorAccepter", fields: [vendorAcceptedById], references: [id])
-  revisionRequestedBy User?            @relation("RABillRevisionRequester", fields: [revisionRequestedById], references: [id])
-  certifiedBy         User?            @relation("RABillCertifier", fields: [certifiedById], references: [id])
-  approvedBy          User?            @relation("RABillApprover", fields: [approvedById], references: [id])
-  releasedBy          User?            @relation("RABillPaymentReleaser", fields: [releasedById], references: [id])
-  measurementSheets   RABillMeasurementSheet[] @relation("RABillSheets")
-  certifiedMeasurementSheet RABillMeasurementSheet? @relation("RABillCertifiedSheet", fields: [certifiedMeasurementSheetId], references: [id], onDelete: SetNull)
+  project                   Project                  @relation(fields: [projectId], references: [id], onDelete: Cascade)
+  order                     Phase                    @relation(fields: [orderId], references: [id], onDelete: Cascade)
+  lineItems                 RABillLineItem[]
+  createdBy                 User                     @relation("RABillCreator", fields: [createdById], references: [id])
+  submittedBy               User?                    @relation("RABillSubmitter", fields: [submittedById], references: [id])
+  siteEngineerReviewedBy    User?                    @relation("RABillSiteEngineerReviewer", fields: [siteEngineerReviewedById], references: [id])
+  vendorAcceptedBy          User?                    @relation("RABillVendorAccepter", fields: [vendorAcceptedById], references: [id])
+  revisionRequestedBy       User?                    @relation("RABillRevisionRequester", fields: [revisionRequestedById], references: [id])
+  certifiedBy               User?                    @relation("RABillCertifier", fields: [certifiedById], references: [id])
+  approvedBy                User?                    @relation("RABillApprover", fields: [approvedById], references: [id])
+  releasedBy                User?                    @relation("RABillPaymentReleaser", fields: [releasedById], references: [id])
+  measurementSheets         RABillMeasurementSheet[] @relation("RABillSheets")
+  certifiedMeasurementSheet RABillMeasurementSheet?  @relation("RABillCertifiedSheet", fields: [certifiedMeasurementSheetId], references: [id], onDelete: SetNull)
 
   @@unique([orderId, billNumber])
   @@index([projectId])
@@ -258,20 +258,20 @@ model RABill {
 /// while the Site Engineer has the bill for review. Readable by anyone who can view the bill
 /// (PMC, Consultant, Client, the assigned Vendor); only the Site Engineer can add one.
 model RABillMeasurementSheet {
-  id           String   @id @default(uuid())
-  raBillId     String
-  storageKey   String
-  fileName     String
-  mimeType     String
-  fileSize     Int
-  remarks      String?
-  uploadedAt   DateTime @default(now())
-  uploadedById String
-  raBill       RABill   @relation("RABillSheets", fields: [raBillId], references: [id], onDelete: Cascade)
-  uploadedBy   User     @relation(fields: [uploadedById], references: [id])
+  id               String   @id @default(uuid())
+  raBillId         String
+  storageKey       String
+  fileName         String
+  mimeType         String
+  fileSize         Int
+  remarks          String?
+  uploadedAt       DateTime @default(now())
+  uploadedById     String
+  raBill           RABill   @relation("RABillSheets", fields: [raBillId], references: [id], onDelete: Cascade)
+  uploadedBy       User     @relation(fields: [uploadedById], references: [id])
   /// Set on the RA Bill that picked this sheet as its certification reference (RABill.
   /// certifiedMeasurementSheetId) — null until then, and there can be at most one.
-  certifiedForBill RABill? @relation("RABillCertifiedSheet")
+  certifiedForBill RABill?  @relation("RABillCertifiedSheet")
 
   @@index([raBillId])
 }
@@ -559,46 +559,47 @@ model PaymentEligibility {
 }
 
 model Project {
-  id               String                 @id @default(uuid())
-  name             String
-  description      String?
-  status           String                 @default("ONGOING")
-  metadata         String?
-  createdAt        DateTime               @default(now())
-  updatedAt        DateTime               @updatedAt
-  isExampleProject Boolean                @default(false)
-  deletedAt        DateTime?
-  auditLogs        AuditLog[]
-  boqs             BOQ[]
-  workOrders       WorkOrder[]
-  raBills          RABill[]
-  followUps        FollowUp[]
-  milestones       Milestone[]
-  phases           Phase[]
-  roles            ProjectRole[]
-  scheduleConfig   ProjectScheduleConfig?
-  vendorMetrics    VendorMetrics[]
-  projectMetrics   ProjectMetrics[]
-  systemEvents     SystemEvent[]
-  cashAdjustments  CashAdjustment[]
-  privateCosts     PrivateCostEntry[]
-  customViews      CustomView[]
+  id                       String                 @id @default(uuid())
+  name                     String
+  description              String?
+  status                   String                 @default("ONGOING")
+  metadata                 String?
+  createdAt                DateTime               @default(now())
+  updatedAt                DateTime               @updatedAt
+  isExampleProject         Boolean                @default(false)
+  deletedAt                DateTime?
+  auditLogs                AuditLog[]
+  boqs                     BOQ[]
+  workOrders               WorkOrder[]
+  raBills                  RABill[]
+  followUps                FollowUp[]
+  milestones               Milestone[]
+  phases                   Phase[]
+  roles                    ProjectRole[]
+  scheduleConfig           ProjectScheduleConfig?
+  vendorMetrics            VendorMetrics[]
+  projectMetrics           ProjectMetrics[]
+  systemEvents             SystemEvent[]
+  cashAdjustments          CashAdjustment[]
+  privateCosts             PrivateCostEntry[]
+  customViews              CustomView[]
   // Architecture module
-  drawingSets      DrawingSet[]
-  drawingRows      DrawingRow[]
-  setRequests      SetRequest[]
-  vendorRequests   VendorRequest[]
-  projectInvites   ProjectInvite[]
-  scheduleImports  ScheduleImport[]
-  resources        Resource[]
+  drawingSets              DrawingSet[]
+  drawingRows              DrawingRow[]
+  setRequests              SetRequest[]
+  vendorRequests           VendorRequest[]
+  projectInvites           ProjectInvite[]
+  projectRequestsFulfilled ProjectRequest[]
+  scheduleImports          ScheduleImport[]
+  resources                Resource[]
   // Documents module
-  projectDocuments     ProjectDocument[]
-  checklists           Checklist[]
-  dailyProgressReports DailyProgressReport[]
-  reportInsights       ReportInsight[]
-  messages             Message[]
+  projectDocuments         ProjectDocument[]
+  checklists               Checklist[]
+  dailyProgressReports     DailyProgressReport[]
+  reportInsights           ReportInsight[]
+  messages                 Message[]
   // Direct Orders module
-  directOrders         DirectOrder[]
+  directOrders             DirectOrder[]
 }
 
 /// Direct message between two members of the same project — one-on-one only, no role-wide
@@ -720,75 +721,76 @@ model ProjectRole {
 }
 
 model User {
-  id                         String                     @id @default(uuid())
-  name                       String
-  email                      String                     @unique
-  hashedPassword             String?
-  googleId                   String?                    @unique
-  avatarUrl                  String?
-  preferredRole              String?
+  id                              String                     @id @default(uuid())
+  name                            String
+  email                           String                     @unique
+  hashedPassword                  String?
+  googleId                        String?                    @unique
+  avatarUrl                       String?
+  preferredRole                   String?
   // Vendor profile fields — generic on User (a vendor is just a User with a VENDOR
   // ProjectRole); null for CLIENT/PMC/other users.
-  companyName                String?
-  contactPerson              String?
-  mobile                     String?
-  gstNumber                  String?
-  address                    String?
-  createdAt                  DateTime                   @default(now())
-  updatedAt                  DateTime                   @updatedAt
-  auditLogs                  AuditLog[]
-  eligibilityEvents          EligibilityEvent[]
-  evidence                   Evidence[]
-  milestoneComments          MilestoneComment[]
-  followUps                  FollowUp[]
-  transitions                MilestoneStateTransition[]
-  projectRoles               ProjectRole[]
-  verifications              Verification[]
-  assignedMilestones         Milestone[]                @relation("MilestoneVendor")
-  assignedPhases             Phase[]                    @relation("PhaseVendor")
-  vendorMetrics              VendorMetrics[]
-  systemEventsActor          SystemEvent[]              @relation("SystemEventActor")
-  cashAdjustments            CashAdjustment[]           @relation("CashAdjustmentCreator")
-  privateCosts               PrivateCostEntry[]         @relation("PrivateCostCreator")
+  companyName                     String?
+  contactPerson                   String?
+  mobile                          String?
+  gstNumber                       String?
+  address                         String?
+  createdAt                       DateTime                   @default(now())
+  updatedAt                       DateTime                   @updatedAt
+  auditLogs                       AuditLog[]
+  eligibilityEvents               EligibilityEvent[]
+  evidence                        Evidence[]
+  milestoneComments               MilestoneComment[]
+  followUps                       FollowUp[]
+  transitions                     MilestoneStateTransition[]
+  projectRoles                    ProjectRole[]
+  verifications                   Verification[]
+  assignedMilestones              Milestone[]                @relation("MilestoneVendor")
+  assignedPhases                  Phase[]                    @relation("PhaseVendor")
+  vendorMetrics                   VendorMetrics[]
+  systemEventsActor               SystemEvent[]              @relation("SystemEventActor")
+  cashAdjustments                 CashAdjustment[]           @relation("CashAdjustmentCreator")
+  privateCosts                    PrivateCostEntry[]         @relation("PrivateCostCreator")
   // Architecture module
-  drawingSetsCreated         DrawingSet[]               @relation("DrawingSetCreator")
-  drawingSetsRequested       DrawingSet[]               @relation("DrawingSetRequester")
-  drawingSetsPaid            DrawingSet[]               @relation("DrawingSetPaymentReleaser")
-  drawingRows                DrawingRow[]               @relation("DrawingRowCreator")
-  drawingRowsPaid            DrawingRow[]               @relation("DrawingRowPaymentReleaser")
-  drawingVersionsUploaded    DrawingVersion[]           @relation("DrawingVersionUploader")
-  drawingVersionsReviewed    DrawingVersion[]           @relation("DrawingVersionReviewer")
-  setRequests                SetRequest[]               @relation("SetRequestCreator")
-  vendorRequestsSubmitted    VendorRequest[]            @relation("VendorRequestSubmitter")
-  vendorRequestsResponded    VendorRequest[]            @relation("VendorRequestResponder")
-  vendorRequestFiles         VendorRequestFile[]        @relation("VendorRequestFileUploader")
-  projectInvitesSent         ProjectInvite[]            @relation("ProjectInviteInviter")
-  scheduleImportsUploaded    ScheduleImport[]
-  workOrderRevisionsCreated  WorkOrderRevision[]        @relation("WorkOrderRevisionCreator")
-  workOrderRevisionsAccepted WorkOrderRevision[]        @relation("WorkOrderRevisionAcceptor")
-  workOrderRevisionsRejected WorkOrderRevision[]        @relation("WorkOrderRevisionRejector")
-  raBillsCreated             RABill[]                   @relation("RABillCreator")
-  raBillsSubmitted           RABill[]                   @relation("RABillSubmitter")
-  raBillsSiteEngineerReviewed RABill[]                  @relation("RABillSiteEngineerReviewer")
-  raBillsVendorAccepted     RABill[]                    @relation("RABillVendorAccepter")
-  raBillsRevisionRequested   RABill[]                   @relation("RABillRevisionRequester")
-  raBillsCertified           RABill[]                   @relation("RABillCertifier")
-  raBillsApproved            RABill[]                   @relation("RABillApprover")
-  raBillsPaymentReleased     RABill[]                   @relation("RABillPaymentReleaser")
+  drawingSetsCreated              DrawingSet[]               @relation("DrawingSetCreator")
+  drawingSetsRequested            DrawingSet[]               @relation("DrawingSetRequester")
+  drawingSetsPaid                 DrawingSet[]               @relation("DrawingSetPaymentReleaser")
+  drawingRows                     DrawingRow[]               @relation("DrawingRowCreator")
+  drawingRowsPaid                 DrawingRow[]               @relation("DrawingRowPaymentReleaser")
+  drawingVersionsUploaded         DrawingVersion[]           @relation("DrawingVersionUploader")
+  drawingVersionsReviewed         DrawingVersion[]           @relation("DrawingVersionReviewer")
+  setRequests                     SetRequest[]               @relation("SetRequestCreator")
+  vendorRequestsSubmitted         VendorRequest[]            @relation("VendorRequestSubmitter")
+  vendorRequestsResponded         VendorRequest[]            @relation("VendorRequestResponder")
+  vendorRequestFiles              VendorRequestFile[]        @relation("VendorRequestFileUploader")
+  projectInvitesSent              ProjectInvite[]            @relation("ProjectInviteInviter")
+  projectRequestsMade             ProjectRequest[]           @relation("ProjectRequestRequester")
+  scheduleImportsUploaded         ScheduleImport[]
+  workOrderRevisionsCreated       WorkOrderRevision[]        @relation("WorkOrderRevisionCreator")
+  workOrderRevisionsAccepted      WorkOrderRevision[]        @relation("WorkOrderRevisionAcceptor")
+  workOrderRevisionsRejected      WorkOrderRevision[]        @relation("WorkOrderRevisionRejector")
+  raBillsCreated                  RABill[]                   @relation("RABillCreator")
+  raBillsSubmitted                RABill[]                   @relation("RABillSubmitter")
+  raBillsSiteEngineerReviewed     RABill[]                   @relation("RABillSiteEngineerReviewer")
+  raBillsVendorAccepted           RABill[]                   @relation("RABillVendorAccepter")
+  raBillsRevisionRequested        RABill[]                   @relation("RABillRevisionRequester")
+  raBillsCertified                RABill[]                   @relation("RABillCertifier")
+  raBillsApproved                 RABill[]                   @relation("RABillApprover")
+  raBillsPaymentReleased          RABill[]                   @relation("RABillPaymentReleaser")
   raBillMeasurementSheetsUploaded RABillMeasurementSheet[]
   // Documents module
-  projectDocumentsUploaded   ProjectDocument[]          @relation("ProjectDocumentUploader")
-  checklistsCreated          Checklist[]                @relation("ChecklistCreator")
-  checklistsSigned           Checklist[]                @relation("ChecklistSigner")
-  dprsCreated                DailyProgressReport[]      @relation("DPRCreator")
-  dprsSigned                 DailyProgressReport[]      @relation("DPRSigner")
+  projectDocumentsUploaded        ProjectDocument[]          @relation("ProjectDocumentUploader")
+  checklistsCreated               Checklist[]                @relation("ChecklistCreator")
+  checklistsSigned                Checklist[]                @relation("ChecklistSigner")
+  dprsCreated                     DailyProgressReport[]      @relation("DPRCreator")
+  dprsSigned                      DailyProgressReport[]      @relation("DPRSigner")
   // Direct messages
-  messagesSent               Message[]                  @relation("MessageSender")
-  messagesReceived           Message[]                  @relation("MessageRecipient")
+  messagesSent                    Message[]                  @relation("MessageSender")
+  messagesReceived                Message[]                  @relation("MessageRecipient")
   // Direct Orders module
-  directOrdersAsVendor       DirectOrder[]               @relation("DirectOrderVendor")
-  directOrdersCreated        DirectOrder[]               @relation("DirectOrderCreator")
-  directOrdersBilled         DirectOrder[]               @relation("DirectOrderBillGenerator")
+  directOrdersAsVendor            DirectOrder[]              @relation("DirectOrderVendor")
+  directOrdersCreated             DirectOrder[]              @relation("DirectOrderCreator")
+  directOrdersBilled              DirectOrder[]              @relation("DirectOrderBillGenerator")
 }
 
 model Verification {
@@ -993,25 +995,25 @@ model DrawingSet {
 /// formal BOQ/Purchase-Order/Work-Order/RA-Bill milestone-gated flow. Tracked through delivery
 /// and payment with a single status field rather than a multi-stage approval chain.
 model DirectOrder {
-  id              String    @id @default(uuid())
-  projectId       String
+  id                String    @id @default(uuid())
+  projectId         String
   /// Sequential per-project label, e.g. "DO-001"
-  doNumber        String
-  vendorUserId    String
-  itemDescription String
-  value           Float
+  doNumber          String
+  vendorUserId      String
+  itemDescription   String
+  value             Float
   /// ORDERED | IN_PROGRESS | IN_DELIVERY | DELIVERED | QTY_VARIANCE | PAID
-  status          String    @default("ORDERED")
-  remarks         String?
+  status            String    @default("ORDERED")
+  remarks           String?
   /// The actual bill amount PMC or the Vendor records once delivered — may differ from `value`
   /// (the original ordered estimate), e.g. on a quantity variance. Null until a bill is
   /// generated. `value - billedValue` is the order's variance.
-  billedValue     Float?
-  billGeneratedAt DateTime?
+  billedValue       Float?
+  billGeneratedAt   DateTime?
   billGeneratedById String?
-  createdById     String
-  createdAt       DateTime  @default(now())
-  updatedAt       DateTime  @updatedAt
+  createdById       String
+  createdAt         DateTime  @default(now())
+  updatedAt         DateTime  @updatedAt
 
   project         Project @relation(fields: [projectId], references: [id], onDelete: Cascade)
   vendorUser      User    @relation("DirectOrderVendor", fields: [vendorUserId], references: [id])
@@ -1178,6 +1180,35 @@ model ProjectInvite {
   @@index([token])
   @@index([phaseId])
   @@index([status])
+}
+
+/// A prospective (or existing) Client asking for a project to be set up — the platform charges
+/// per project, so a Client account and a Project are never created directly by self-service;
+/// they're only ever created by an admin approving one of these. Unlike ProjectInvite, there is
+/// no projectId at creation time (the project doesn't exist yet) — `createdProject` is only set
+/// once approved. `requestedByUserId` is set when an already-approved Client requests another
+/// project from inside the app rather than a brand-new prospect submitting the public form.
+model ProjectRequest {
+  id                String    @id @default(uuid())
+  name              String
+  email             String
+  companyName       String?
+  phone             String?
+  projectName       String
+  projectDetails    String?
+  status            String    @default("PENDING") // PENDING | APPROVED | REJECTED
+  requestedByUserId String?
+  reviewedByEmail   String?
+  reviewedAt        DateTime?
+  rejectionReason   String?
+  createdProjectId  String?
+  createdAt         DateTime  @default(now())
+
+  requestedBy    User?    @relation("ProjectRequestRequester", fields: [requestedByUserId], references: [id])
+  createdProject Project? @relation(fields: [createdProjectId], references: [id])
+
+  @@index([status])
+  @@index([email])
 }
 
 /// File attachment for a vendor request
@@ -1383,17 +1414,17 @@ model DPRProcurementRow {
   id                         String   @id @default(uuid())
   dprId                      String
   sortOrder                  Int      @default(0)
-  materialName                String
-  description                 String?
-  unit                        String
-  alreadyReceived             Float    @default(0)
-  receivedThisWeek            Float    @default(0)
-  cumulativeReceivedTillDate  Float    @default(0)
-  consumedTillDate            Float    @default(0)
-  balanceAtSite               Float    @default(0)
-  additionalRequirement       String?
-  createdAt                   DateTime @default(now())
-  updatedAt                   DateTime @updatedAt
+  materialName               String
+  description                String?
+  unit                       String
+  alreadyReceived            Float    @default(0)
+  receivedThisWeek           Float    @default(0)
+  cumulativeReceivedTillDate Float    @default(0)
+  consumedTillDate           Float    @default(0)
+  balanceAtSite              Float    @default(0)
+  additionalRequirement      String?
+  createdAt                  DateTime @default(now())
+  updatedAt                  DateTime @updatedAt
 
   dpr DailyProgressReport @relation(fields: [dprId], references: [id], onDelete: Cascade)
 

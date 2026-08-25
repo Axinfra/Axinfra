@@ -686,3 +686,78 @@ export async function sendShareEmail(
     attachments: [{ filename: params.fileName, content: params.buffer, contentType: params.mimeType }],
   });
 }
+
+/** Notifies the team (same recipient as sendDemoRequestEmail) that a new ProjectRequest needs
+ * review — so approving doesn't depend on someone remembering to check the admin dashboard. */
+export async function sendProjectRequestAdminNotifyEmail(name: string, email: string, projectName: string, companyName?: string) {
+  const html = baseTemplate(`
+    <h1 style="margin:0 0 6px;font-size:20px;font-weight:800;color:#e8e4dc;">New Project Request</h1>
+    <p style="margin:0 0 24px;font-size:13.5px;color:rgba(232,228,220,0.55);">Someone has requested a new project on Axinfra — review it in the admin panel.</p>
+
+    <table width="100%" cellpadding="0" cellspacing="0" style="background:rgba(255,255,255,0.03);border:1px solid rgba(255,255,255,0.07);border-radius:10px;margin-bottom:16px;">
+      ${credential('Name', name)}
+      ${credential('Email', email)}
+      ${credential('Company', companyName || 'Not provided')}
+      ${credential('Project', projectName)}
+    </table>
+
+    ${btn('Review in Admin', `${APP_URL}/admin/project-requests`)}
+  `);
+
+  return getResend().emails.send({
+    from: FROM,
+    to: SUPPORT_EMAIL,
+    subject: `New project request — ${projectName}`,
+    html,
+  });
+}
+
+/** Confirms a ProjectRequest was received — sent immediately on submission, before any admin
+ * has looked at it. The actual "you're in" email is whichever of sendWelcomeEmail (brand new
+ * account) or sendProjectAssignedEmail (already have one, this is another project) fits once an
+ * admin approves — this one only ever says "we got it, sit tight." */
+export async function sendProjectRequestReceivedEmail(to: string, name: string, projectName: string) {
+  const html = baseTemplate(`
+    <h1 style="margin:0 0 6px;font-size:20px;font-weight:800;color:#e8e4dc;">Request received</h1>
+    <p style="margin:0 0 24px;font-size:13.5px;color:rgba(232,228,220,0.55);">Hi ${escapeHtml(name)}, thanks for your interest in Axinfra. We've received your request to set up:</p>
+
+    <table width="100%" cellpadding="0" cellspacing="0" style="background:rgba(255,255,255,0.03);border:1px solid rgba(255,255,255,0.07);border-radius:10px;margin-bottom:8px;">
+      ${credential('Project', projectName)}
+    </table>
+
+    <p style="font-size:12px;color:rgba(232,228,220,0.35);margin:10px 0 0;">
+      Our team will review it shortly. Once approved, you'll receive a separate email with your login details.
+    </p>
+  `);
+
+  return getResend().emails.send({
+    from: FROM,
+    to,
+    subject: `We've received your request — ${projectName}`,
+    html,
+  });
+}
+
+/** Sent when an admin declines a ProjectRequest. */
+export async function sendProjectRequestRejectedEmail(to: string, name: string, projectName: string, reason?: string) {
+  const html = baseTemplate(`
+    <h1 style="margin:0 0 6px;font-size:20px;font-weight:800;color:#e8e4dc;">About your request</h1>
+    <p style="margin:0 0 24px;font-size:13.5px;color:rgba(232,228,220,0.55);">Hi ${escapeHtml(name)}, we weren't able to set up "${escapeHtml(projectName)}" this time.</p>
+
+    ${reason ? `
+    <div style="background:rgba(255,255,255,0.03);border:1px solid rgba(255,255,255,0.07);border-radius:10px;padding:14px 16px;margin-bottom:16px;">
+      <p style="font-size:13.5px;color:#e8e4dc;margin:0;line-height:1.7;white-space:pre-wrap;">${escapeHtml(reason)}</p>
+    </div>` : ''}
+
+    <p style="font-size:12px;color:rgba(232,228,220,0.35);margin:0;">
+      If you think this is a mistake or want to submit a new request, just reply to this email.
+    </p>
+  `);
+
+  return getResend().emails.send({
+    from: FROM,
+    to,
+    subject: `Update on your request — ${projectName}`,
+    html,
+  });
+}

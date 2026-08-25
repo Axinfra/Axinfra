@@ -9,26 +9,37 @@ import { z } from 'zod';
 
 export const dynamic = 'force-dynamic';
 
-const VALID_ROLES = ['CLIENT', 'PMC', 'VENDOR', 'CONSULTANT', 'SITE_ENGINEER'] as const;
+// CLIENT is deliberately excluded — the platform charges per project, so a Client account (and
+// its first project) is only ever created by an admin approving a ProjectRequest, never by
+// self-service. See POST /api/project-requests and /api/admin/project-requests/[id]/approve.
+const VALID_ROLES = ['PMC', 'VENDOR', 'CONSULTANT', 'SITE_ENGINEER'] as const;
 
 const registerSchema = z.object({
   name:          z.string().min(2).max(100).trim(),
   email:         z.string().email().toLowerCase().trim(),
   password:      z.string().min(8).max(128),
-  preferredRole: z.enum(VALID_ROLES),
+  preferredRole: z.string(),
 });
 
 export async function POST(request: NextRequest) {
   try {
     const body = await request.json();
-    const { name, email, password, preferredRole } = registerSchema.parse(body);
+    const parsed = registerSchema.parse(body);
+    const { name, email, password } = parsed;
 
-    if (!preferredRole) {
+    if (parsed.preferredRole === 'CLIENT') {
       return NextResponse.json(
-        { success: false, error: 'Please select your role to create an account.' },
+        { success: false, error: 'Client accounts are created once your project request is approved — submit a request instead of registering here.' },
         { status: 400 },
       );
     }
+    if (!VALID_ROLES.includes(parsed.preferredRole as typeof VALID_ROLES[number])) {
+      return NextResponse.json(
+        { success: false, error: 'Please select a valid role to create an account.' },
+        { status: 400 },
+      );
+    }
+    const preferredRole = parsed.preferredRole as typeof VALID_ROLES[number];
 
     const clientIp = request.headers.get('x-forwarded-for')?.split(',')[0]?.trim()
       || request.headers.get('x-real-ip')

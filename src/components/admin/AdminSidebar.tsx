@@ -6,11 +6,12 @@ import AxinfraLogo from '@/components/AxinfraLogo';
 import { useState, useEffect } from 'react';
 
 const NAV_ITEMS = [
-  { href: '/admin/dashboard', label: 'Dashboard', Icon: DashboardIcon },
-  { href: '/admin/users',     label: 'Users',     Icon: UsersIcon },
-  { href: '/admin/projects',  label: 'Projects',  Icon: ProjectsIcon },
-  { href: '/admin/vendors',   label: 'Vendors',   Icon: VendorIcon },
-  { href: '/admin/system',    label: 'System & Issues', Icon: SystemIcon },
+  { href: '/admin/dashboard',        label: 'Dashboard',        Icon: DashboardIcon },
+  { href: '/admin/project-requests', label: 'Project Requests', Icon: RequestsIcon },
+  { href: '/admin/users',            label: 'Users',            Icon: UsersIcon },
+  { href: '/admin/projects',         label: 'Projects',         Icon: ProjectsIcon },
+  { href: '/admin/vendors',          label: 'Vendors',          Icon: VendorIcon },
+  { href: '/admin/system',           label: 'System & Issues',  Icon: SystemIcon },
 ];
 
 interface Props {
@@ -125,6 +126,14 @@ function DashboardIcon({ className }: { className?: string }) {
   return (
     <svg className={className} fill="none" viewBox="0 0 24 24" strokeWidth={1.5} stroke="currentColor">
       <path strokeLinecap="round" strokeLinejoin="round" d="M3.75 6A2.25 2.25 0 016 3.75h2.25A2.25 2.25 0 0110.5 6v2.25a2.25 2.25 0 01-2.25 2.25H6a2.25 2.25 0 01-2.25-2.25V6zM3.75 15.75A2.25 2.25 0 016 13.5h2.25a2.25 2.25 0 012.25 2.25V18a2.25 2.25 0 01-2.25 2.25H6A2.25 2.25 0 013.75 18v-2.25zM13.5 6a2.25 2.25 0 012.25-2.25H18A2.25 2.25 0 0120.25 6v2.25A2.25 2.25 0 0118 10.5h-2.25a2.25 2.25 0 01-2.25-2.25V6zM13.5 15.75a2.25 2.25 0 012.25-2.25H18a2.25 2.25 0 012.25 2.25V18A2.25 2.25 0 0118 20.25h-2.25A2.25 2.25 0 0113.5 18v-2.25z" />
+    </svg>
+  );
+}
+
+function RequestsIcon({ className }: { className?: string }) {
+  return (
+    <svg className={className} fill="none" viewBox="0 0 24 24" strokeWidth={1.5} stroke="currentColor">
+      <path strokeLinecap="round" strokeLinejoin="round" d="M3 8.25V18a2.25 2.25 0 002.25 2.25h13.5A2.25 2.25 0 0021 18V8.25m-18 0V6a2.25 2.25 0 012.25-2.25h13.5A2.25 2.25 0 0121 6v2.25m-18 0h18M9 15.75l1.5 1.5 4.5-4.5" />
     </svg>
   );
 }
