@@ -85,26 +85,33 @@ export async function GET() {
   }
 }
 
-// POST /api/projects - Create a new project directly (platform admin only).
+// POST /api/projects - Create a new project directly.
 //
-// This used to be open to any user whose account preferredRole was CLIENT — removed because
-// the platform charges per project, so a project can no longer be created for free by
-// self-service. The normal path now is POST /api/project-requests (a prospective or existing
-// Client asks for one) → an admin reviews it and calls
-// POST /api/admin/project-requests/[id]/approve, which creates the Client account (if new) and
-// the project together. This route stays as a direct escape hatch for admin use only, sharing
-// the same ProjectService.createForOwner the approval route uses — see that service for why.
+// A brand-new prospective Client has no account yet, so their *first* project can only ever
+// come from POST /api/project-requests → an admin approving it via
+// POST /api/admin/project-requests/[id]/approve, which creates the Client account and that
+// first project together (billing verified out-of-band before approval). Once a Client already
+// has an account and at least one project from that flow, every *additional* project they make
+// is a direct, self-service create through this route — no repeat admin approval — since the
+// relationship (and how billing works with them) is already established. Admins can also always
+// create directly here.
 export async function POST(request: NextRequest) {
   try {
     const auth = await requireAuth();
     const body = await request.json();
     const parsed = createProjectSchema.parse(body);
 
-    if (!isAdminEmail(auth.email)) {
-      return NextResponse.json(
-        { success: false, error: 'Projects are created by an admin approving a project request — see /request-project.' },
-        { status: 403 },
-      );
+    const isAdmin = isAdminEmail(auth.email);
+    if (!isAdmin) {
+      const existingProjectCount = await prisma.projectRole.count({
+        where: { userId: auth.userId, role: 'CLIENT' },
+      });
+      if (existingProjectCount === 0) {
+        return NextResponse.json(
+          { success: false, error: 'Your first project is set up by an admin approving a request — see /request-project.' },
+          { status: 403 },
+        );
+      }
     }
 
     const project = await ProjectService.createForOwner(auth.userId, parsed);

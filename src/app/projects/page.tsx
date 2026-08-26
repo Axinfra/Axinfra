@@ -83,11 +83,19 @@ export default function ProjectsPage() {
     }
   }, [toast]);
 
-  // Creating a project is no longer free-form self-service — the platform charges per project,
-  // so a new one only ever comes from an admin approving a request. This just hands off to that
-  // form instead of opening the old create modal (which now only ever handles edits).
+  // A Client's *first* project always comes from an admin approving a request (the platform
+  // charges per project, and a brand-new prospect has no account yet to create one with).
+  // Once they already have at least one project from that flow, every additional project is
+  // direct self-service — no repeat approval needed — so send them straight to the create modal.
   const openCreateModal = () => {
-    router.push('/request-project');
+    if (userRole === 'CLIENT' && projects.length === 0) {
+      router.push('/request-project');
+      return;
+    }
+    setEditingProject(null);
+    setForm(emptyForm);
+    setModalError('');
+    setShowModal(true);
   };
 
   const openEditModal = (project: Project) => {
@@ -105,12 +113,8 @@ export default function ProjectsPage() {
     setShowModal(true);
   };
 
-  // Editing an existing project only — creating a new one now goes through openCreateModal's
-  // redirect to /request-project instead, so this modal (and this handler) never runs the
-  // create path anymore.
   const handleSubmit = async (e: React.FormEvent) => {
     e.preventDefault();
-    if (!editingProject) return;
     setSubmitting(true);
     setModalError('');
 
@@ -124,28 +128,41 @@ export default function ProjectsPage() {
       if (form.startDate) body.startDate = form.startDate;
       if (form.endDate) body.endDate = form.endDate;
 
-      const res = await fetch(`/api/projects/${editingProject.id}`, {
-        method: 'PATCH',
-        headers: { 'Content-Type': 'application/json' },
-        body: JSON.stringify(body),
-      });
-      const data = await res.json();
+      if (editingProject) {
+        const res = await fetch(`/api/projects/${editingProject.id}`, {
+          method: 'PATCH',
+          headers: { 'Content-Type': 'application/json' },
+          body: JSON.stringify(body),
+        });
+        const data = await res.json();
+        if (!res.ok || !data.success) throw new Error(data.error || 'Failed to save project');
 
-      if (!res.ok || !data.success) throw new Error(data.error || 'Failed to save project');
+        setShowModal(false);
+        setToast('Project updated successfully');
 
-      setShowModal(false);
-      setToast('Project updated successfully');
+        const meta = (form.location || form.contractValue || form.startDate || form.endDate)
+          ? JSON.stringify({ location: form.location, contractValue: form.contractValue ? parseFloat(form.contractValue) : undefined, startDate: form.startDate, endDate: form.endDate })
+          : undefined;
+        setProjects((prev) =>
+          prev.map((p) =>
+            p.id === editingProject.id
+              ? { ...p, name: form.name, description: form.description || undefined, metadata: meta }
+              : p,
+          ),
+        );
+      } else {
+        const res = await fetch('/api/projects', {
+          method: 'POST',
+          headers: { 'Content-Type': 'application/json' },
+          body: JSON.stringify(body),
+        });
+        const data = await res.json();
+        if (!res.ok || !data.success) throw new Error(data.error || 'Failed to create project');
 
-      const meta = (form.location || form.contractValue || form.startDate || form.endDate)
-        ? JSON.stringify({ location: form.location, contractValue: form.contractValue ? parseFloat(form.contractValue) : undefined, startDate: form.startDate, endDate: form.endDate })
-        : undefined;
-      setProjects((prev) =>
-        prev.map((p) =>
-          p.id === editingProject.id
-            ? { ...p, name: form.name, description: form.description || undefined, metadata: meta }
-            : p,
-        ),
-      );
+        setShowModal(false);
+        setToast('Project created successfully');
+        loadProjects();
+      }
     } catch (err) {
       setModalError(err instanceof Error ? err.message : 'Something went wrong');
     } finally {
@@ -211,7 +228,7 @@ export default function ProjectsPage() {
           <ClientOnly role={userRole}>
             <button onClick={openCreateModal} className="btn btn-primary flex items-center gap-2">
               <Plus className="w-4 h-4" />
-              Request Project
+              {userRole === 'CLIENT' && projects.length === 0 ? 'Request Project' : 'New Project'}
             </button>
           </ClientOnly>
         </div>
@@ -414,7 +431,7 @@ export default function ProjectsPage() {
               style={{ borderColor: 'var(--ax-border)' }}
             >
               <h2 className="text-lg font-semibold" style={{ color: 'var(--ax-text)' }}>
-                Edit Project
+                {editingProject ? 'Edit Project' : 'New Project'}
               </h2>
               <button
                 onClick={() => !submitting && setShowModal(false)}
@@ -513,7 +530,9 @@ export default function ProjectsPage() {
                   className="btn btn-primary text-sm"
                 >
                   {submitting && <Loader2 className="w-4 h-4 animate-spin" />}
-                  {submitting ? 'Saving...' : 'Save Changes'}
+                  {submitting
+                    ? (editingProject ? 'Saving...' : 'Creating...')
+                    : (editingProject ? 'Save Changes' : 'Create Project')}
                 </button>
               </div>
             </form>
