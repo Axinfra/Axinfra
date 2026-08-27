@@ -41,6 +41,22 @@ interface ProjectData {
   }>;
 }
 
+const WEEK_DAY_LABEL = ['Sun', 'Mon', 'Tue', 'Wed', 'Thu', 'Fri', 'Sat'];
+
+/** "Today" / "Tomorrow" / "Mon" plus a short date. No clock time — every form that sets
+ * `plannedEnd` (ActivityEditModal, PhaseEditModal, WorkOrderUploadModal, etc.) only ever
+ * collects a plain date, never a time of day, so there's no real time to show. Mirrors the
+ * mobile app's identical helper in src/app/project/[projectId].tsx so "This Week" reads the
+ * same on both. */
+function weekAgendaLabel(iso: string, today: Date): { dayLabel: string; dateLabel: string } {
+  const d = new Date(iso);
+  const dayStart = new Date(d.getFullYear(), d.getMonth(), d.getDate());
+  const diffDays = Math.round((dayStart.getTime() - today.getTime()) / 86_400_000);
+  const dayLabel = diffDays === 0 ? 'Today' : diffDays === 1 ? 'Tomorrow' : WEEK_DAY_LABEL[d.getDay()];
+  const dateLabel = d.toLocaleDateString('en-GB', { day: 'numeric', month: 'short' });
+  return { dayLabel, dateLabel };
+}
+
 // ── Main page ─────────────────────────────────────────────────────────────────
 
 export default function ProjectDetailPage() {
@@ -449,6 +465,17 @@ function OverviewTab({ project, projectId }: { project: ProjectData; projectId: 
     closed: milestones.filter((m) => m.state === 'CLOSED').length,
   };
 
+  const today = new Date();
+  today.setHours(0, 0, 0, 0);
+  const weekEnd = new Date(today.getTime() + 6 * 86_400_000);
+  const thisWeek = milestones
+    .filter((m) => m.plannedEnd && m.state !== 'VERIFIED' && m.state !== 'CLOSED')
+    .filter((m) => {
+      const due = new Date(m.plannedEnd as string).getTime();
+      return due >= today.getTime() && due <= weekEnd.getTime();
+    })
+    .sort((a, b) => new Date(a.plannedEnd as string).getTime() - new Date(b.plannedEnd as string).getTime());
+
   return (
     <div className="space-y-6">
       <div className="grid gap-4 md:grid-cols-4">
@@ -468,6 +495,47 @@ function OverviewTab({ project, projectId }: { project: ProjectData; projectId: 
           <p className="text-sm font-medium" style={{ color: 'rgba(var(--ax-text-rgb),0.6)' }}>In Progress</p>
           <p className="text-2xl font-bold text-orange-400">{ms.inProgress}</p>
         </div></div>
+      </div>
+
+      <div className="card">
+        <div className="card-header flex justify-between items-center">
+          <h2 className="text-lg font-semibold">This Week</h2>
+          <Link href={`/projects/${projectId}/activities`} className="text-sm hover:underline" style={{ color: 'var(--ax-accent)' }}>View all</Link>
+        </div>
+        <div className="card-body">
+          {thisWeek.length === 0 ? (
+            <p className="text-sm" style={{ color: 'rgba(var(--ax-text-rgb),0.45)' }}>Nothing scheduled this week.</p>
+          ) : (
+            <div className="space-y-2">
+              {thisWeek.map((m) => {
+                const agenda = weekAgendaLabel(m.plannedEnd as string, today);
+                const isToday = agenda.dayLabel === 'Today';
+                return (
+                  <Link
+                    key={m.id}
+                    href={`/projects/${projectId}/activities/${m.id}`}
+                    className="flex items-center gap-3 rounded-lg border p-2.5 transition-colors hover:bg-[rgba(255,255,255,0.03)]"
+                    style={{ borderColor: 'var(--ax-border)' }}
+                  >
+                    <div
+                      className="flex w-14 shrink-0 flex-col items-center rounded-md py-1.5"
+                      style={{ backgroundColor: isToday ? 'var(--ax-accent-subtle)' : 'rgba(255,255,255,0.05)' }}
+                    >
+                      <span className="text-[10px] font-bold uppercase" style={{ color: isToday ? 'var(--ax-accent)' : 'rgba(var(--ax-text-rgb),0.55)' }}>
+                        {agenda.dayLabel}
+                      </span>
+                      <span className="text-[10px]" style={{ color: 'rgba(var(--ax-text-rgb),0.4)' }}>{agenda.dateLabel}</span>
+                    </div>
+                    <div className="min-w-0 flex-1">
+                      <p className="truncate text-sm font-medium" style={{ color: 'var(--ax-text)' }}>{m.title}</p>
+                    </div>
+                    <ActivityStateBadge state={m.state as any} />
+                  </Link>
+                );
+              })}
+            </div>
+          )}
+        </div>
       </div>
 
       {/* Simple cost/schedule variance summary — CLIENT and PMC only, same access as Analysis */}
