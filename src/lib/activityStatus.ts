@@ -29,9 +29,15 @@ export function classifyActivity(activity: ClassifiableActivity, today: Date): A
   return 'UPCOMING';
 }
 
+function plannedEndTime(activity: ClassifiableActivity): number {
+  return activity.plannedEnd ? new Date(activity.plannedEnd).getTime() : Infinity;
+}
+
 /** Groups activities into all four buckets in a single pass via `classifyActivity` — the
  * `reduce` mirrors `classifyActivity`'s exhaustiveness so every input activity appears in
- * exactly one output array. */
+ * exactly one output array. Upcoming/Overdue are then sorted soonest-due-first (instead of
+ * left in whatever order the caller passed them in), and Completed most-recently-finished
+ * first, so each list actually reads in the order its name implies. */
 export function groupActivitiesByStatus<T extends ClassifiableActivity>(
   activities: T[],
   today: Date = startOfDay(new Date()),
@@ -45,6 +51,9 @@ export function groupActivitiesByStatus<T extends ClassifiableActivity>(
   for (const activity of activities) {
     groups[classifyActivity(activity, today)].push(activity);
   }
+  groups.UPCOMING.sort((a, b) => plannedEndTime(a) - plannedEndTime(b));
+  groups.OVERDUE.sort((a, b) => plannedEndTime(a) - plannedEndTime(b));
+  groups.COMPLETED.sort((a, b) => plannedEndTime(b) - plannedEndTime(a));
   return groups;
 }
 
