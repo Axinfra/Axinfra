@@ -139,6 +139,18 @@ export const publicFormRateLimiter = new RateLimiter(
 );
 
 /**
+ * Pre-configured forgot-password rate limiter:
+ *   5 requests per 30 minutes per IP+email — each request triggers a bcrypt hash (cost 12) and
+ *   an outbound email, and unlike login this has no "wrong password" signal to slow an attacker
+ *   down on its own, so it needs its own limiter rather than reusing loginRateLimiter.
+ */
+export const forgotPasswordRateLimiter = new RateLimiter(
+    'forgot-password',
+    5,
+    30 * 60 * 1000
+);
+
+/**
  * Pre-configured AI-generation rate limiter (Work Order AI draft, and any future AI-drafting
  * endpoint):
  *   20 requests per hour per user — every request is a real, billed Claude API call shared

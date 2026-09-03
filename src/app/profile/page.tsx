@@ -1,9 +1,9 @@
 'use client';
 
-import { useEffect, useState } from 'react';
+import { useEffect, useMemo, useState } from 'react';
 import Link from 'next/link';
 import useSWR from 'swr';
-import { Building2, CheckCircle2, AlertTriangle, User as UserIcon, FolderKanban } from 'lucide-react';
+import { Building2, CheckCircle2, AlertTriangle, User as UserIcon, FolderKanban, KeyRound, Eye, EyeOff, Loader2 } from 'lucide-react';
 import Layout from '@/components/Layout';
 import { jsonFetcher } from '@/lib/fetcher';
 
@@ -42,6 +42,61 @@ export default function ProfilePage() {
   const [saving, setSaving] = useState(false);
   const [error, setError] = useState('');
   const [saved, setSaved] = useState(false);
+
+  // A user can now hold more than one role on the same project (multi-role-per-project), so
+  // /api/profile returns one array entry per (project, role) pair — grouping by projectId here
+  // turns that back into one row per project with every role shown, instead of the same project
+  // appearing twice (and colliding on the same React `key`) with only one role visible each time.
+  const groupedProjects = useMemo(() => {
+    if (!profile) return [];
+    const byProject = new Map<string, { projectId: string; projectName: string; projectStatus: string; roles: string[] }>();
+    for (const p of profile.projects) {
+      const existing = byProject.get(p.projectId);
+      if (existing) existing.roles.push(p.role);
+      else byProject.set(p.projectId, { projectId: p.projectId, projectName: p.projectName, projectStatus: p.projectStatus, roles: [p.role] });
+    }
+    return Array.from(byProject.values());
+  }, [profile]);
+
+  // Change password
+  const [pwForm, setPwForm] = useState({ currentPassword: '', newPassword: '', confirmPassword: '' });
+  const [pwShow, setPwShow] = useState(false);
+  const [pwSaving, setPwSaving] = useState(false);
+  const [pwError, setPwError] = useState('');
+  const [pwSuccess, setPwSuccess] = useState('');
+
+  const handleChangePassword = async (e: React.FormEvent) => {
+    e.preventDefault();
+    setPwError('');
+    setPwSuccess('');
+    if (pwForm.newPassword.length < 8) {
+      setPwError('New password must be at least 8 characters');
+      return;
+    }
+    if (pwForm.newPassword !== pwForm.confirmPassword) {
+      setPwError('New password and confirmation do not match');
+      return;
+    }
+    setPwSaving(true);
+    try {
+      const res = await fetch('/api/profile/change-password', {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({ currentPassword: pwForm.currentPassword, newPassword: pwForm.newPassword }),
+      });
+      const data = await res.json();
+      if (data.success) {
+        setPwSuccess('Password changed successfully.');
+        setPwForm({ currentPassword: '', newPassword: '', confirmPassword: '' });
+      } else {
+        setPwError(data.error || 'Failed to change password');
+      }
+    } catch {
+      setPwError('An error occurred while changing your password');
+    } finally {
+      setPwSaving(false);
+    }
+  };
 
   useEffect(() => {
     if (!profile) return;
@@ -230,18 +285,86 @@ export default function ProfilePage() {
           </button>
         </div>
 
-        {/* My Projects */}
+        {/* Change Password */}
+        <div className="card">
+          <div className="card-header flex items-center gap-2">
+            <KeyRound className="w-4 h-4" style={{ color: 'var(--ax-accent)' }} />
+            <h2 className="font-semibold">Change Password</h2>
+          </div>
+          <div className="card-body space-y-4">
+            {pwError && <div className="alert alert-error text-sm">{pwError}</div>}
+            {pwSuccess && (
+              <div className="rounded-lg border p-3 flex items-center gap-2 text-sm" style={{ borderColor: 'rgba(92,186,128,0.3)', background: 'rgba(92,186,128,0.07)', color: '#5cba80' }}>
+                <CheckCircle2 className="w-4 h-4 shrink-0" />
+                {pwSuccess}
+              </div>
+            )}
+            <form onSubmit={handleChangePassword} className="space-y-4">
+              <div>
+                <label className="label">Current Password</label>
+                <div className="relative">
+                  <input
+                    type={pwShow ? 'text' : 'password'} className="input pr-10" autoComplete="current-password"
+                    value={pwForm.currentPassword}
+                    onChange={(e) => setPwForm((f) => ({ ...f, currentPassword: e.target.value }))}
+                  />
+                </div>
+              </div>
+              <div className="grid grid-cols-1 sm:grid-cols-2 gap-4">
+                <div>
+                  <label className="label">New Password</label>
+                  <input
+                    type={pwShow ? 'text' : 'password'} className="input" autoComplete="new-password"
+                    placeholder="At least 8 characters"
+                    value={pwForm.newPassword}
+                    onChange={(e) => setPwForm((f) => ({ ...f, newPassword: e.target.value }))}
+                  />
+                </div>
+                <div>
+                  <label className="label">Confirm New Password</label>
+                  <input
+                    type={pwShow ? 'text' : 'password'} className="input" autoComplete="new-password"
+                    value={pwForm.confirmPassword}
+                    onChange={(e) => setPwForm((f) => ({ ...f, confirmPassword: e.target.value }))}
+                  />
+                </div>
+              </div>
+              <div className="flex items-center justify-between">
+                <button
+                  type="button"
+                  onClick={() => setPwShow((v) => !v)}
+                  className="text-xs font-medium flex items-center gap-1.5"
+                  style={{ color: 'rgba(var(--ax-text-rgb),0.45)' }}
+                >
+                  {pwShow ? <EyeOff className="w-3.5 h-3.5" /> : <Eye className="w-3.5 h-3.5" />}
+                  {pwShow ? 'Hide passwords' : 'Show passwords'}
+                </button>
+                <button
+                  type="submit"
+                  disabled={pwSaving || !pwForm.currentPassword || !pwForm.newPassword || !pwForm.confirmPassword}
+                  className="btn btn-primary disabled:opacity-50 flex items-center gap-1.5"
+                >
+                  {pwSaving && <Loader2 className="w-3.5 h-3.5 animate-spin" />}
+                  {pwSaving ? 'Changing…' : 'Change Password'}
+                </button>
+              </div>
+            </form>
+          </div>
+        </div>
+
+        {/* My Projects — one row per project, all of that user's roles on it shown as pills
+        (a user can hold more than one role on the same project since multi-role-per-project). */}
         <div className="card">
           <div className="card-header flex items-center gap-2">
             <FolderKanban className="w-4 h-4" style={{ color: 'var(--ax-accent)' }} />
-            <h2 className="font-semibold">My Projects ({profile.projects.length})</h2>
+            <h2 className="font-semibold">My Projects ({groupedProjects.length})</h2>
           </div>
           <div className="card-body p-0">
-            {profile.projects.length === 0 ? (
+            {groupedProjects.length === 0 ? (
               <p className="text-sm text-center py-8" style={{ color: 'rgba(232,228,220,0.45)' }}>You&apos;re not part of any project yet.</p>
             ) : (
               <div className="divide-y" style={{ borderColor: 'var(--ax-border-subtle)' }}>
-                {profile.projects.map((p) => (
+                {groupedProjects.map((p) => (
                   <Link
                     key={p.projectId}
                     href={`/projects/${p.projectId}`}
@@ -251,9 +374,13 @@ export default function ProfilePage() {
                       <p className="text-sm font-medium truncate" style={{ color: 'var(--ax-text)' }}>{p.projectName}</p>
                       <p className="text-xs mt-0.5" style={{ color: 'rgba(232,228,220,0.4)' }}>{p.projectStatus}</p>
                     </div>
-                    <span className="text-xs px-2 py-0.5 rounded-full font-medium shrink-0 bg-[rgba(255,255,255,0.06)]" style={{ color: 'rgba(232,228,220,0.6)' }}>
-                      {ROLE_LABEL[p.role] ?? p.role}
-                    </span>
+                    <div className="flex flex-wrap justify-end gap-1.5 shrink-0">
+                      {p.roles.map((role) => (
+                        <span key={role} className="text-xs px-2 py-0.5 rounded-full font-medium bg-[rgba(255,255,255,0.06)]" style={{ color: 'rgba(232,228,220,0.6)' }}>
+                          {ROLE_LABEL[role] ?? role}
+                        </span>
+                      ))}
+                    </div>
                   </Link>
                 ))}
               </div>

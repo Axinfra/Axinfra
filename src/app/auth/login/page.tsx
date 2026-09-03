@@ -167,7 +167,7 @@ function LoginContent() {
                 <label htmlFor="password" className="text-xs font-medium text-[rgba(var(--ax-text-rgb),0.55)] uppercase tracking-wider block">
                   Password
                 </label>
-                <Link href="#" className="text-xs font-medium text-[var(--ax-accent)] hover:underline">Forgot password?</Link>
+                <Link href="/auth/forgot-password" className="text-xs font-medium text-[var(--ax-accent)] hover:underline">Forgot password?</Link>
               </div>
               <div className="relative">
                 <Input id="password" type={showPassword ? 'text' : 'password'} value={password}

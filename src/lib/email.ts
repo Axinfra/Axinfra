@@ -138,6 +138,56 @@ export async function sendWelcomeEmail(to: string, name: string, password: strin
   });
 }
 
+/** Forgot-password flow (public, self-service) — distinct wording from
+ * sendPasswordChangedEmail below, which is for an *admin* resetting someone's password.
+ * Same "email the new password, no click-through link" mechanism (matches the rest of this
+ * app's onboarding/reset conventions — see ProjectRequest approval), just different copy. */
+export async function sendForgotPasswordEmail(to: string, name: string, newPassword: string) {
+  const loginUrl = `${APP_URL}/auth/login`;
+  const html = baseTemplate(`
+    <h1 style="margin:0 0 6px;font-size:20px;font-weight:800;color:#e8e4dc;">Password Reset</h1>
+    <p style="margin:0 0 24px;font-size:13.5px;color:rgba(232,228,220,0.55);">Hi ${escapeHtml(name)}, you (or someone with access to your email) requested a password reset for your Axinfra account. Here's your new password:</p>
+
+    <table width="100%" cellpadding="0" cellspacing="0" style="background:rgba(255,255,255,0.03);border:1px solid rgba(255,255,255,0.07);border-radius:10px;margin-bottom:8px;">
+      ${credential('Email', to)}
+      ${credential('New password', newPassword)}
+    </table>
+
+    <p style="font-size:12px;color:rgba(232,228,220,0.35);margin:10px 0 0;">
+      Log in with this password, then change it from your Profile page. If you didn't request this, contact support immediately.
+    </p>
+
+    ${btn('Log in now', loginUrl)}
+  `);
+
+  return getResend().emails.send({
+    from: FROM,
+    to,
+    subject: 'Reset your Axinfra password',
+    html,
+  });
+}
+
+/** Self-service change (user already knew their current password and set a new one from
+ * Profile) — a security notification only, so unlike the two functions above it never puts a
+ * password in the email body. */
+export async function sendPasswordChangedConfirmationEmail(to: string, name: string) {
+  const html = baseTemplate(`
+    <h1 style="margin:0 0 6px;font-size:20px;font-weight:800;color:#e8e4dc;">Password Changed</h1>
+    <p style="margin:0 0 8px;font-size:13.5px;color:rgba(232,228,220,0.55);">Hi ${escapeHtml(name)}, your Axinfra account password was just changed.</p>
+    <p style="font-size:12px;color:rgba(232,228,220,0.35);margin:16px 0 0;">
+      If this wasn't you, contact support immediately — someone else may have access to your account.
+    </p>
+  `);
+
+  return getResend().emails.send({
+    from: FROM,
+    to,
+    subject: 'Your Axinfra password was changed',
+    html,
+  });
+}
+
 export async function sendPasswordChangedEmail(to: string, name: string, newPassword: string) {
   const loginUrl = `${APP_URL}/auth/login`;
   const html = baseTemplate(`

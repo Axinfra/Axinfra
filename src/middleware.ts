@@ -7,6 +7,7 @@ const PUBLIC_API_ROUTES = [
   '/api/auth/register',
   '/api/auth/google',
   '/api/auth/google/callback',
+  '/api/auth/forgot-password', // no session needed — that's the whole point of this route
   '/api/health',
   '/api/invite',       // invite GET (details) is public; POST requires session handled in route
   '/api/demo-request',     // demo request form — no session needed
@@ -23,6 +24,7 @@ const PUBLIC_PAGE_ROUTES = [
   '/',
   '/auth/login',
   '/auth/register',
+  '/auth/forgot-password', // "forgot password" form — see /api/auth/forgot-password
   '/invite',           // invite acceptance page is public (shows sign-in prompt when needed)
   '/request-project',  // "request a new project" form is public — see /api/project-requests
 ];
