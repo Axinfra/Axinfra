@@ -53,8 +53,10 @@ async function benchmarkDb() {
     const u = await prisma.user.findFirst();
     const p = await prisma.project.findFirst();
     if (!u || !p) return null;
-    return prisma.projectRole.findUnique({
-      where: { projectId_userId: { projectId: p.id, userId: u.id } },
+    // A user can hold several roles per project now, so this is no longer a single-row
+    // unique lookup — findFirst against the (projectId, userId) index instead.
+    return prisma.projectRole.findFirst({
+      where: { projectId: p.id, userId: u.id },
     });
   });
 }

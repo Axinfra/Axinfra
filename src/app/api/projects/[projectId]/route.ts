@@ -1,6 +1,6 @@
 import { NextRequest, NextResponse } from 'next/server';
 import { prisma } from '@/lib/db';
-import { requireProjectAuth, invalidateProjectAuthForProject } from '@/lib/auth';
+import { requireProjectAuth, invalidateProjectAuthForProject, getMyProjectRoles } from '@/lib/auth';
 import { RoleGuard } from '@/services/RoleGuard';
 import { requireProjectOwner } from '@/lib/guards/requireClient';
 import { AuditLogger } from '@/services/AuditLogger';
@@ -116,12 +116,19 @@ export async function GET(
       ? (await DirectOrderService.getSummary(projectId)).totalOrdered
       : undefined;
 
+    // Every role the caller holds on this project (a user can now hold more than one — see
+    // ProjectRole's @@unique([projectId, userId, role])). `myRole` stays the single *active*
+    // one (resolved by requireProjectAuth from the activeRole_<projectId> cookie); `myRoles`
+    // drives the Navbar's role switcher, hidden whenever it's just the one entry.
+    const myRoles = await getMyProjectRoles(projectId);
+
     return NextResponse.json({
       success: true,
       data: {
         ...project,
         currency: metadata.currency || 'INR',
         myRole: auth.role,
+        myRoles,
         myUserId: auth.userId,
         permissions: RoleGuard.getPermissions(auth.role),
         directOrdersTotal,

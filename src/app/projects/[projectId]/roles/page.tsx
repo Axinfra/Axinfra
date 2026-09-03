@@ -56,7 +56,9 @@ export default function RolesPage() {
   const [addSuccess, setAddSuccess] = useState('');
   const [adding, setAdding] = useState(false);
   const [conflictData, setConflictData] = useState<{ userPreferredRole: string; message: string } | null>(null);
-  const [confirmRemoveUserId, setConfirmRemoveUserId] = useState<string | null>(null);
+  // A user can hold several roles on this project now, so identifying which row to remove
+  // needs both the userId and the specific role — not userId alone.
+  const [confirmRemove, setConfirmRemove] = useState<{ userId: string; role: string } | null>(null);
   const [confirmCancelInviteId, setConfirmCancelInviteId] = useState<string | null>(null);
 
   // Consultant name + fee — fee is required before a consultant is added to the project;
@@ -184,13 +186,13 @@ export default function RolesPage() {
     void submitRole(true);
   };
 
-  const handleRemoveRole = async (userId: string) => {
-    setConfirmRemoveUserId(null);
+  const handleRemoveRole = async (userId: string, role: string) => {
+    setConfirmRemove(null);
     try {
       const res = await fetch(`/api/projects/${projectId}/roles`, {
         method: 'DELETE',
         headers: { 'Content-Type': 'application/json' },
-        body: JSON.stringify({ userId }),
+        body: JSON.stringify({ userId, role }),
       });
       const data = await res.json();
       if (data.success) {
@@ -264,7 +266,9 @@ export default function RolesPage() {
                   <tr><td colSpan={6} className="text-center py-8 text-[rgba(232,228,220,0.4)]">No team members yet</td></tr>
                 )}
                 {roles.map((entry) => (
-                  <tr key={entry.isPendingInvite ? `invite-${entry.inviteId}` : entry.userId!}>
+                  // A user can hold several roles on this project now — userId alone is no
+                  // longer a unique key (see ProjectRole's @@unique([projectId, userId, role])).
+                  <tr key={entry.isPendingInvite ? `invite-${entry.inviteId}` : `${entry.userId}-${entry.role}`}>
                     <td className="font-medium">
                       {entry.isPendingInvite ? (
                         <span className="flex items-center gap-2 text-[rgba(232,228,220,0.45)]">
@@ -336,7 +340,7 @@ export default function RolesPage() {
                             </button>
                           ) : (
                             <button
-                              onClick={() => setConfirmRemoveUserId(entry.userId!)}
+                              onClick={() => setConfirmRemove({ userId: entry.userId!, role: entry.role })}
                               className="text-[#e06050] hover:text-[#c8503f] text-sm"
                             >
                               Remove
@@ -416,28 +420,34 @@ export default function RolesPage() {
       </div>
 
       {/* Remove User confirmation modal */}
-      {confirmRemoveUserId && (
+      {confirmRemove && (
         <div className="fixed inset-0 bg-black/70 flex items-center justify-center z-50">
           <div className="bg-[#13151a] border border-[rgba(255,255,255,0.1)] rounded-xl max-w-sm w-full mx-4">
             <div className="p-6">
-              <h2 className="text-lg font-semibold mb-2 text-[#e06050]">Remove User</h2>
+              <h2 className="text-lg font-semibold mb-2 text-[#e06050]">Remove Role</h2>
               <p className="text-[rgba(232,228,220,0.55)] mb-4 text-sm">
-                Are you sure you want to remove{' '}
+                Are you sure you want to remove the{' '}
                 <span className="font-medium text-[#e8e4dc]">
-                  {roles.find((r) => r.userId === confirmRemoveUserId)?.name ?? 'this user'}
+                  {ROLE_LABELS[confirmRemove.role] ?? confirmRemove.role}
                 </span>{' '}
-                from the project?
+                role from{' '}
+                <span className="font-medium text-[#e8e4dc]">
+                  {roles.find((r) => r.userId === confirmRemove.userId && r.role === confirmRemove.role)?.name ?? 'this user'}
+                </span>
+                ? {roles.filter((r) => r.userId === confirmRemove.userId).length > 1
+                  ? 'Their other role(s) on this project are unaffected.'
+                  : 'They will lose access to this project.'}
               </p>
               {error && <div className="alert alert-error mb-3 text-sm">{error}</div>}
               <div className="flex justify-end gap-3">
-                <button onClick={() => setConfirmRemoveUserId(null)} className="btn btn-secondary">
+                <button onClick={() => setConfirmRemove(null)} className="btn btn-secondary">
                   Cancel
                 </button>
                 <button
-                  onClick={() => void handleRemoveRole(confirmRemoveUserId)}
+                  onClick={() => void handleRemoveRole(confirmRemove.userId, confirmRemove.role)}
                   className="btn bg-[#e06050] text-white hover:bg-[#c8503f]"
                 >
-                  Remove User
+                  Remove Role
                 </button>
               </div>
             </div>

@@ -23,6 +23,9 @@ export interface ProjectMeta {
    * present, defaults to "INR" server-side for projects created before this existed. */
   currency: string;
   myRole: 'CLIENT' | 'PMC' | 'VENDOR' | 'VIEWER' | 'CONSULTANT' | 'SITE_ENGINEER';
+  /** Every role the caller holds on this project — more than one entry means the Navbar's
+   * role switcher should show. `myRole` is whichever of these is currently active. */
+  myRoles?: Array<'CLIENT' | 'PMC' | 'VENDOR' | 'VIEWER' | 'CONSULTANT' | 'SITE_ENGINEER'>;
   permissions?: Record<string, boolean>;
   // Anything else the API returns; consumers cast as needed.
   [key: string]: unknown;

@@ -4,7 +4,11 @@ import { Role, AuditActionType } from '@/types';
 export interface AuditLogEntry {
   projectId: string;
   actorId: string;
-  role: Role;
+  // Normally a Role, but widened to string so a platform-admin actor (not necessarily a
+  // member of the project at all — see roles/route.ts's requireRoleManager()) can be
+  // recorded as its own distinct value ('PLATFORM_ADMIN') rather than borrowing a real
+  // project role that doesn't apply to them.
+  role: Role | string;
   actionType: AuditActionType;
   entityType: string;
   entityId: string;

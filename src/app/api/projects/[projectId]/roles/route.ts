@@ -1,6 +1,6 @@
 import { NextRequest, NextResponse } from 'next/server';
 import { prisma } from '@/lib/db';
-import { requireProjectAuth, invalidateProjectAuth } from '@/lib/auth';
+import { requireAuth, requireProjectAuth, invalidateProjectAuth } from '@/lib/auth';
 import {
   invalidateProjectAndMemberCaches,
   invalidateUserWorkspaceCaches,
@@ -13,6 +13,26 @@ import { sendProjectAssignedEmail, sendProjectInviteEmail, sendRoleConflictInvit
 import { isDemoEmail } from '@/lib/invite-utils';
 import { randomBytes } from 'crypto';
 import { loadAssignablePhase } from '@/lib/vendor-po-assignment';
+import { isAdminEmail } from '@/lib/adminAuth';
+
+/**
+ * Who may assign/edit/remove roles on this project: normally just its own CLIENT, but a
+ * platform admin (see adminAuth.ts) can also manage roles on *any* project from /admin —
+ * including ones they aren't a member of at all, where requireProjectAuth() would 401 them
+ * before RoleGuard ever got a say. Returns a minimal auth-shaped object (only userId/name/role
+ * are read by the handlers below) so both paths share the same POST/PATCH/DELETE logic.
+ * Admin actions are audit-logged under the synthetic 'PLATFORM_ADMIN' role, not a borrowed
+ * project role that wouldn't actually apply to them.
+ */
+async function requireRoleManager(projectId: string): Promise<{ userId: string; name: string; role: string }> {
+  const session = await requireAuth();
+  if (isAdminEmail(session.email)) {
+    return { userId: session.userId, name: session.name, role: 'PLATFORM_ADMIN' };
+  }
+  const auth = await requireProjectAuth(projectId);
+  RoleGuard.requireRole(auth, ['CLIENT']);
+  return auth;
+}
 
 const assignRoleSchema = z.object({
   email: z.string().email(),
@@ -33,6 +53,10 @@ const assignRoleSchema = z.object({
 const removeRoleSchema = z.object({
   userId: z.string().uuid().optional(),
   inviteId: z.string().uuid().optional(),
+  // Required alongside userId now — a user can hold several roles on this project, so the
+  // caller must say which row to remove. Not needed for the inviteId path (an invite only
+  // ever grants one role).
+  role: z.enum(['CLIENT', 'PMC', 'VENDOR', 'VIEWER', 'CONSULTANT', 'SITE_ENGINEER']).optional(),
 });
 
 const updateConsultantSchema = z.object({
@@ -119,9 +143,7 @@ export async function POST(
 ) {
   try {
     const { projectId } = await params;
-    const auth = await requireProjectAuth(projectId);
-
-    RoleGuard.requireRole(auth, ['CLIENT']);
+    const auth = await requireRoleManager(projectId);
 
     const body = await request.json();
     const { email, role, force, phaseId, fee, name } = assignRoleSchema.parse(body);
@@ -142,6 +164,15 @@ export async function POST(
     ]);
     const user = userRows[0] ?? null;
     const currency = projectMeta?.metadata ? (JSON.parse(projectMeta.metadata).currency || 'INR') : 'INR';
+
+    // Already holds a role on THIS project (any role) — the preferredRole conflict check
+    // below exists to catch mistakes when inviting a stranger under a possibly-wrong role,
+    // not to gate an additive grant to someone already established here. A user can hold
+    // several roles per project now, so requiring an invite/accept round-trip every time the
+    // new role differs from their account-wide preferredRole would make that the common case.
+    const isExistingProjectMember = user
+      ? (await prisma.projectRole.findFirst({ where: { projectId, userId: user.id } })) !== null
+      : false;
 
     // "Assign to Purchase Order" onboarding option — only valid for a VENDOR invite, and only
     // onto a Purchase Order that doesn't already have a vendor.
@@ -205,17 +236,21 @@ export async function POST(
       }
 
       const isDemo = isDemoEmail(email);
+      const roleLabel = ROLE_LABELS[role] ?? role;
       return NextResponse.json({
         success: true,
         invited: true,
+        // This path applies to any role, not just VENDOR — the message used to say "Demo
+        // vendor added" unconditionally, which was wrong for e.g. a demo CLIENT/VIEWER invite.
         message: isDemo
-          ? `Demo vendor added. They will be auto-assigned to this project when they register with ${email}.`
+          ? `Demo ${roleLabel} added. They will be auto-assigned to this project when they register with ${email}.`
           : `Invitation sent to ${email}. They will appear as "Pending Invite" until they accept.`,
       });
     }
 
-    // ── User exists → check preferredRole conflict ───────────────────────────
-    if (user.preferredRole && user.preferredRole !== role) {
+    // ── User exists → check preferredRole conflict (skipped for an existing project member —
+    // see isExistingProjectMember above) ───────────────────────────
+    if (user.preferredRole && user.preferredRole !== role && !isExistingProjectMember) {
       if (!force) {
         // Warn the admin — let them confirm before proceeding
         return NextResponse.json(
@@ -283,13 +318,16 @@ export async function POST(
     }
 
     // ── No conflict → assign directly ────────────────────────────────────────
-    const existingRole = await prisma.projectRole.findUnique({
-      where: { projectId_userId: { projectId, userId: user.id } },
+    // A user can now hold several roles on the same project — only block an exact duplicate
+    // of the role being assigned; a user who already holds e.g. PMC can also be granted
+    // CONSULTANT here.
+    const existingRole = await prisma.projectRole.findFirst({
+      where: { projectId, userId: user.id, role },
     });
 
     if (existingRole) {
       return NextResponse.json(
-        { success: false, error: 'User already has a role in this project. Remove first.' },
+        { success: false, error: `User already has the ${ROLE_LABELS[role] ?? role} role on this project.` },
         { status: 400 }
       );
     }
@@ -362,9 +400,7 @@ export async function PATCH(
 ) {
   try {
     const { projectId } = await params;
-    const auth = await requireProjectAuth(projectId);
-
-    RoleGuard.requireRole(auth, ['CLIENT']);
+    const auth = await requireRoleManager(projectId);
 
     const body = await request.json();
     const { userId, inviteId, fee, name } = updateConsultantSchema.parse(body);
@@ -409,19 +445,18 @@ export async function PATCH(
       return NextResponse.json({ success: false, error: 'Fee is required' }, { status: 400 });
     }
 
-    const existingRole = await prisma.projectRole.findUnique({
-      where: { projectId_userId: { projectId, userId: userId! } },
+    // A user can hold several roles on this project now — look up the CONSULTANT row
+    // specifically, since fee only ever applies to that one.
+    const existingRole = await prisma.projectRole.findFirst({
+      where: { projectId, userId: userId!, role: 'CONSULTANT' },
     });
 
     if (!existingRole) {
-      return NextResponse.json({ success: false, error: 'Role not found' }, { status: 404 });
-    }
-    if (existingRole.role !== 'CONSULTANT') {
-      return NextResponse.json({ success: false, error: 'Fee only applies to Consultants' }, { status: 400 });
+      return NextResponse.json({ success: false, error: 'Consultant role not found for this user' }, { status: 404 });
     }
 
     const before = existingRole.fee;
-    await prisma.projectRole.update({ where: { projectId_userId: { projectId, userId: userId! } }, data: { fee } });
+    await prisma.projectRole.update({ where: { id: existingRole.id }, data: { fee } });
 
     await invalidateProjectAndMemberCaches(projectId);
 
@@ -459,9 +494,7 @@ export async function DELETE(
 ) {
   try {
     const { projectId } = await params;
-    const auth = await requireProjectAuth(projectId);
-
-    RoleGuard.requireRole(auth, ['CLIENT']);
+    const auth = await requireRoleManager(projectId);
 
     const body = await request.json();
     const parsed = removeRoleSchema.parse(body);
@@ -476,13 +509,18 @@ export async function DELETE(
     }
 
     // ── Remove an existing role ───────────────────────────────────────────────
-    if (!parsed.userId) {
-      return NextResponse.json({ success: false, error: 'userId or inviteId required' }, { status: 400 });
+    // `role` is required alongside userId now — a user can hold several roles on this
+    // project, so the caller must say which row to remove.
+    if (!parsed.userId || !parsed.role) {
+      return NextResponse.json({ success: false, error: 'userId and role are required' }, { status: 400 });
     }
 
     const userId = parsed.userId;
+    const roleToRemove = parsed.role;
 
-    if (userId === auth.userId) {
+    // Only block removing the last CLIENT row specifically — under multi-role a CLIENT
+    // removing one of their own other roles (e.g. CONSULTANT) on this project is fine.
+    if (userId === auth.userId && roleToRemove === Role.CLIENT) {
       const clientCount = await prisma.projectRole.count({
         where: { projectId, role: Role.CLIENT },
       });
@@ -494,8 +532,8 @@ export async function DELETE(
       }
     }
 
-    const existingRole = await prisma.projectRole.findUnique({
-      where: { projectId_userId: { projectId, userId } },
+    const existingRole = await prisma.projectRole.findFirst({
+      where: { projectId, userId, role: roleToRemove },
       include: { user: true },
     });
 
@@ -504,7 +542,7 @@ export async function DELETE(
     }
 
     await prisma.projectRole.delete({
-      where: { projectId_userId: { projectId, userId } },
+      where: { id: existingRole.id },
     });
 
     await invalidateProjectAuth(projectId, userId);

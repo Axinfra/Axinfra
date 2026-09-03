@@ -16,10 +16,12 @@ export async function requireClient(session: AuthContext): Promise<void> {
 }
 
 export async function requireProjectOwner(session: AuthContext, projectId: string): Promise<void> {
-  const role = await prisma.projectRole.findUnique({
-    where: { projectId_userId: { projectId, userId: session.userId } },
+  // A user can hold several roles on this project now — check for the CLIENT row
+  // specifically rather than "the" (now possibly ambiguous) role.
+  const role = await prisma.projectRole.findFirst({
+    where: { projectId, userId: session.userId, role: 'CLIENT' },
   });
-  if (!role || role.role !== 'CLIENT') {
+  if (!role) {
     throw new Error('FORBIDDEN: Only the project client can perform this action');
   }
 }

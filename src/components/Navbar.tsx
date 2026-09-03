@@ -1,7 +1,7 @@
 'use client';
 
 import Link from 'next/link';
-import { useRef } from 'react';
+import { useEffect, useRef, useState } from 'react';
 import { usePathname } from 'next/navigation';
 import useSWR from 'swr';
 import { Badge } from '@/components/ui/Badge';
@@ -18,12 +18,14 @@ import {
   Users,
   Settings,
   ChevronRight,
+  ChevronDown,
   FolderOpen,
   CalendarRange,
   MessageCircle,
 } from 'lucide-react';
 import { cn } from '@/lib/utils';
 import { jsonFetcher } from '@/lib/fetcher';
+import { useProject } from '@/lib/contexts/ProjectContext';
 
 interface NavbarProps {
   projectId: string;
@@ -45,7 +47,97 @@ const roleLabels: Record<string, string> = {
   SITE_ENGINEER: 'SITE ENGINEER',
 };
 
+/** Dropdown next to the role badge — only rendered when the caller holds more than one role
+ * on this project (see ProjectRole's @@unique([projectId, userId, role])). Picking a role
+ * calls switch-role to set the activeRole_<projectId> cookie, then does a full reload so
+ * every server component, API route, and RoleGuard check picks it up consistently. */
+function RoleSwitcher({ projectId, activeRole, roles }: { projectId: string; activeRole: string; roles: string[] }) {
+  const [open, setOpen] = useState(false);
+  const [switching, setSwitching] = useState(false);
+  const [error, setError] = useState('');
+  const ref = useRef<HTMLDivElement>(null);
+
+  useEffect(() => {
+    const handler = (e: MouseEvent) => {
+      if (ref.current && !ref.current.contains(e.target as Node)) setOpen(false);
+    };
+    document.addEventListener('mousedown', handler);
+    return () => document.removeEventListener('mousedown', handler);
+  }, []);
+
+  async function switchTo(nextRole: string) {
+    if (nextRole === activeRole) {
+      setOpen(false);
+      return;
+    }
+    setSwitching(true);
+    setError('');
+    try {
+      const res = await fetch(`/api/projects/${projectId}/switch-role`, {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({ role: nextRole }),
+      });
+      const data = await res.json();
+      if (!data.success) {
+        setError(data.error || 'Could not switch role');
+        setSwitching(false);
+        return;
+      }
+      // Full reload, not router.refresh() — every server component + SWR cache on the page
+      // needs to re-read under the newly active role, not just re-render client-side.
+      window.location.reload();
+    } catch {
+      setError('Could not switch role');
+      setSwitching(false);
+    }
+  }
+
+  return (
+    <div className="relative" ref={ref}>
+      <button
+        type="button"
+        onClick={() => setOpen((v) => !v)}
+        disabled={switching}
+        className="flex items-center gap-1"
+        aria-label="Switch role"
+      >
+        <Badge variant={roleColors[activeRole] || 'secondary'} className="px-3 py-1 text-xs uppercase tracking-wider">
+          {roleLabels[activeRole] ?? activeRole}
+        </Badge>
+        <ChevronDown className="h-3.5 w-3.5" style={{ color: 'rgba(var(--ax-text-rgb),0.4)' }} />
+      </button>
+      {open && (
+        <div
+          className="absolute right-0 top-full mt-1 w-52 rounded-lg shadow-2xl z-50 border overflow-hidden"
+          style={{ backgroundColor: 'var(--ax-modal)', borderColor: 'var(--ax-border)' }}
+        >
+          <div className="px-3 py-1.5 text-[10.5px] font-semibold uppercase tracking-wider" style={{ color: 'rgba(var(--ax-text-rgb),0.4)' }}>
+            Switch role
+          </div>
+          {roles.map((r) => (
+            <button
+              key={r}
+              type="button"
+              onClick={() => switchTo(r)}
+              disabled={switching}
+              className="w-full text-left px-3 py-2 text-[13px] transition-colors ax-hover-overlay flex items-center justify-between"
+              style={{ color: r === activeRole ? 'var(--ax-accent)' : 'rgba(var(--ax-text-rgb),0.75)' }}
+            >
+              {roleLabels[r] ?? r}
+              {r === activeRole && <span className="text-[10px]">Active</span>}
+            </button>
+          ))}
+          {error && <div className="alert alert-error mx-2 my-1.5 text-[11px] px-2 py-1">{error}</div>}
+        </div>
+      )}
+    </div>
+  );
+}
+
 export default function Navbar({ projectId, projectName, role }: NavbarProps) {
+  const { project } = useProject();
+  const myRoles = project?.myRoles;
   const pathname = usePathname();
 
   // Map each nav target to the API endpoint(s) the destination page will
@@ -116,9 +208,13 @@ export default function Navbar({ projectId, projectName, role }: NavbarProps) {
           <ChevronRight className="h-4 w-4 shrink-0" style={{ color: 'rgba(var(--ax-text-rgb), 0.2)' }} />
           <h1 className="text-xl font-bold truncate tracking-tight" style={{ color: 'var(--ax-text)' }}>{projectName}</h1>
         </div>
-        <Badge variant={roleColors[role] || 'secondary'} className="px-3 py-1 text-xs uppercase tracking-wider">
-          {roleLabels[role] ?? role}
-        </Badge>
+        {myRoles && myRoles.length > 1 ? (
+          <RoleSwitcher projectId={projectId} activeRole={role} roles={myRoles} />
+        ) : (
+          <Badge variant={roleColors[role] || 'secondary'} className="px-3 py-1 text-xs uppercase tracking-wider">
+            {roleLabels[role] ?? role}
+          </Badge>
+        )}
       </div>
 
       {/* Tab Navigation */}

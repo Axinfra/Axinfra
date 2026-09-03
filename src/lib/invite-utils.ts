@@ -33,7 +33,10 @@ export async function autoAcceptPendingInvites(
     try {
       await prisma.$transaction([
         prisma.projectRole.upsert({
-          where: { projectId_userId: { projectId: invite.projectId, userId } },
+          // A user can hold several roles per project now — key on the specific role this
+          // invite grants, not just (project, user), so a different-role invite doesn't
+          // collide with a role the user already holds.
+          where: { projectId_userId_role: { projectId: invite.projectId, userId, role: invite.role } },
           create: {
             projectId: invite.projectId,
             userId,
