@@ -40,8 +40,9 @@ export interface ProjectAuthContext extends AuthContext {
 
 // Which role is "active" when a user holds several on the same project and hasn't picked one
 // yet this session — earlier entries win. Kept in one place so getProjectAuth() and anything
-// that needs a sane default (e.g. first-time switch-role UI state) agree.
-const ROLE_PRIORITY: Role[] = [
+// that needs a sane default (e.g. first-time switch-role UI state, the projects list's default
+// badge) agree. Exported for that reuse.
+export const ROLE_PRIORITY: Role[] = [
   Role.CLIENT,
   Role.PMC,
   Role.SITE_ENGINEER,
@@ -50,7 +51,7 @@ const ROLE_PRIORITY: Role[] = [
   Role.VIEWER,
 ];
 
-function pickActiveRole(heldRoles: Role[], requested: string | undefined): Role {
+export function pickActiveRole(heldRoles: Role[], requested: string | undefined): Role {
   if (requested && heldRoles.includes(requested as Role)) {
     return requested as Role;
   }

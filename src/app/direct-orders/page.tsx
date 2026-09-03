@@ -10,6 +10,7 @@ interface Project {
   name: string;
   status: string;
   myRole: string;
+  myRoles?: string[];
 }
 
 /** Top-level landing/picker page — mirrors Architecture's pattern. Direct Orders has no
@@ -27,7 +28,9 @@ export default function DirectOrdersLandingPage() {
         if (data.success) {
           // PMC-only here — Direct Orders is restricted to PMC and Vendor, and a Vendor never
           // lands on this picker (they use the separate /vendor/direct-orders portal view).
-          const pmcProjects = (data.data as Project[]).filter((p) => p.myRole === 'PMC');
+          // Checks the full myRoles set, not just the resolved "active" myRole — a user can
+          // hold PMC as a secondary role on a project now.
+          const pmcProjects = (data.data as Project[]).filter((p) => (p.myRoles ?? [p.myRole]).includes('PMC'));
           setProjects(pmcProjects);
           if (pmcProjects.length === 1) {
             router.replace(`/projects/${pmcProjects[0].id}/direct-orders`);

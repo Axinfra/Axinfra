@@ -1,6 +1,7 @@
 import { NextRequest, NextResponse } from 'next/server';
 import { prisma } from '@/lib/db';
-import { requireAuth } from '@/lib/auth';
+import { requireAuth, pickActiveRole } from '@/lib/auth';
+import type { Role } from '@/types';
 import { isAdminEmail } from '@/lib/adminAuth';
 import { cached } from '@/lib/cache';
 import { ProjectService } from '@/services/ProjectService';
@@ -53,20 +54,37 @@ export async function GET() {
       prisma.user.findUnique({ where: { id: auth.userId }, select: { preferredRole: true } }),
     ]);
 
-    const projects = projectRoles.map((pr) => ({
-      id: pr.project.id,
-      name: pr.project.name,
-      description: pr.project.description,
-      status: pr.project.status,
-      isExampleProject: pr.project.isExampleProject,
-      myRole: pr.role,
-      roles: pr.project.roles.map((r) => ({
+    // A user can hold several roles on the same project now (see ProjectRole's
+    // @@unique([projectId, userId, role])), so `projectRoles` can carry more than one row per
+    // project — group them into one card per project instead of one per role, or the list
+    // shows the same project several times over. `myRole` is the same "which one is active by
+    // default" resolution getProjectAuth() uses; `myRoles` carries the full set for a project
+    // card that wants to show them all (e.g. a role switcher).
+    const byProject = new Map<string, { project: (typeof projectRoles)[number]['project']; heldRoles: Role[] }>();
+    for (const pr of projectRoles) {
+      const entry = byProject.get(pr.project.id);
+      if (entry) {
+        entry.heldRoles.push(pr.role as Role);
+      } else {
+        byProject.set(pr.project.id, { project: pr.project, heldRoles: [pr.role as Role] });
+      }
+    }
+
+    const projects = Array.from(byProject.values()).map(({ project, heldRoles }) => ({
+      id: project.id,
+      name: project.name,
+      description: project.description,
+      status: project.status,
+      isExampleProject: project.isExampleProject,
+      myRole: pickActiveRole(heldRoles, undefined),
+      myRoles: heldRoles,
+      roles: project.roles.map((r) => ({
         userId: r.userId,
         userName: r.user.name,
         role: r.role,
       })),
-      milestoneCount: pr.project._count.milestones,
-      createdAt: pr.project.createdAt,
+      milestoneCount: project._count.milestones,
+      createdAt: project.createdAt,
     }));
 
     return NextResponse.json({ success: true, data: projects, preferredRole: user?.preferredRole ?? null });

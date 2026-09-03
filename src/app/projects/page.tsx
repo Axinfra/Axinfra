@@ -16,6 +16,9 @@ interface Project {
   status?: string;
   isExampleProject?: boolean;
   myRole: string;
+  /** Every role held on this project — more than one entry when the person wears several
+   * hats here (e.g. PMC and Consultant at once). */
+  myRoles?: string[];
   milestoneCount: number;
   createdAt: string;
   metadata?: string;
@@ -285,7 +288,11 @@ export default function ProjectsPage() {
                       </span>
                     )}
                   </div>
-                  <span className="badge badge-draft">{project.myRole}</span>
+                  <div className="flex flex-wrap gap-1 justify-end">
+                    {(project.myRoles && project.myRoles.length > 0 ? project.myRoles : [project.myRole]).map((r) => (
+                      <span key={r} className="badge badge-draft">{r}</span>
+                    ))}
+                  </div>
                 </div>
                 {project.description && (
                   <p className="text-sm mt-2 line-clamp-2" style={{ color: 'rgba(var(--ax-text-rgb), 0.55)' }}>
@@ -298,7 +305,7 @@ export default function ProjectsPage() {
                 </div>
               </Link>
 
-              {project.myRole === 'CLIENT' && (
+              {(project.myRoles ?? [project.myRole]).includes('CLIENT') && (
                 <div className="absolute top-3 right-12 flex gap-1 opacity-0 group-hover:opacity-100 transition-opacity">
                   <button
                     onClick={(e) => { e.preventDefault(); e.stopPropagation(); openEditModal(project); }}
@@ -377,7 +384,11 @@ export default function ProjectsPage() {
                     </div>
                   </td>
                   <td>
-                    <span className="badge badge-draft">{project.myRole}</span>
+                    <div className="flex flex-wrap gap-1">
+                      {(project.myRoles && project.myRoles.length > 0 ? project.myRoles : [project.myRole]).map((r) => (
+                        <span key={r} className="badge badge-draft">{r}</span>
+                      ))}
+                    </div>
                   </td>
                   <td style={{ color: 'rgba(var(--ax-text-rgb), 0.7)' }}>
                     {project.milestoneCount}
@@ -386,7 +397,7 @@ export default function ProjectsPage() {
                     {formatDate(project.createdAt)}
                   </td>
                   <td>
-                    {project.myRole === 'CLIENT' && (
+                    {(project.myRoles ?? [project.myRole]).includes('CLIENT') && (
                       <div className="flex gap-1 justify-end">
                         <button
                           onClick={() => openEditModal(project)}
