@@ -236,11 +236,14 @@ export async function POST(
       }
 
       const isDemo = isDemoEmail(email);
+      const roleLabel = ROLE_LABELS[role] ?? role;
       return NextResponse.json({
         success: true,
         invited: true,
+        // This path applies to any role, not just VENDOR — the message used to say "Demo
+        // vendor added" unconditionally, which was wrong for e.g. a demo CLIENT/VIEWER invite.
         message: isDemo
-          ? `Demo vendor added. They will be auto-assigned to this project when they register with ${email}.`
+          ? `Demo ${roleLabel} added. They will be auto-assigned to this project when they register with ${email}.`
           : `Invitation sent to ${email}. They will appear as "Pending Invite" until they accept.`,
       });
     }

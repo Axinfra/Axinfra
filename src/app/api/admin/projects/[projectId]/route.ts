@@ -24,7 +24,7 @@ export async function GET(
           roles: {
             orderBy: { createdAt: 'asc' },
             select: {
-              role: true, createdAt: true,
+              role: true, createdAt: true, fee: true,
               user: { select: { id: true, name: true, email: true } },
             },
           },

@@ -5,7 +5,7 @@ import Link from 'next/link';
 import { useParams } from 'next/navigation';
 import { formatCurrency } from '@/lib/utils';
 
-interface UserRole { role: string; createdAt: string; user: { id: string; name: string; email: string } }
+interface UserRole { role: string; createdAt: string; fee: number | null; user: { id: string; name: string; email: string } }
 interface Milestone {
   id: string; title: string; state: string; value: number;
   plannedStart: string | null; plannedEnd: string | null;
@@ -130,6 +130,17 @@ export default function AdminProjectDetailPage() {
   // small inline error for a failed remove-role action.
   const [teamError, setTeamError] = useState('');
 
+  // "Change" — swap whoever holds one role for someone else, in one action instead of a
+  // separate remove + add. Under the hood it's still two calls to the same roles endpoint:
+  // assign the new person first, then only remove the old one once that succeeds outright
+  // (not when it comes back as a pending invite — see submitChange below).
+  const [changeTarget, setChangeTarget] = useState<{ userId: string; role: string; name: string; email: string; fee: number | null } | null>(null);
+  const [changeEmail, setChangeEmail] = useState('');
+  const [changeFee, setChangeFee] = useState('');
+  const [changing, setChanging] = useState(false);
+  const [changeError, setChangeError] = useState('');
+  const [changeNotice, setChangeNotice] = useState('');
+
   const loadData = () =>
     fetch(`/api/admin/projects/${projectId}`).then(r => r.json())
       .then(d => { if (d.success) setData(d.data); else setError(d.error); })
@@ -202,6 +213,70 @@ export default function AdminProjectDetailPage() {
       else setTeamError(resData.error || 'Failed to remove role');
     } catch {
       setTeamError('Failed to remove role');
+    }
+  }
+
+  function openChangeModal(m: UserRole, role: string) {
+    setChangeTarget({ userId: m.user.id, role, name: m.user.name, email: m.user.email, fee: m.fee });
+    setChangeEmail('');
+    setChangeFee(m.fee != null ? String(m.fee) : '');
+    setChangeError('');
+    setChangeNotice('');
+  }
+
+  async function submitChange() {
+    if (!changeTarget) return;
+    setChangeError('');
+    setChangeNotice('');
+    setChanging(true);
+    try {
+      // 1. Assign the new person to this role first.
+      const assignRes = await fetch(`/api/projects/${projectId}/roles`, {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({
+          email: changeEmail,
+          role: changeTarget.role,
+          ...(changeTarget.role === 'CONSULTANT' && changeFee ? { fee: parseFloat(changeFee) } : {}),
+        }),
+      });
+      const assignData = await assignRes.json();
+      if (!assignData.success) {
+        setChangeError(assignData.error || 'Failed to assign the new person');
+        return;
+      }
+
+      if (assignData.invited) {
+        // Not applied yet (new user, or a preferredRole conflict for someone not already on
+        // this project) — leaving the current holder in place until the invite is accepted
+        // is safer than removing them and leaving the role empty in the meantime.
+        setChangeNotice(
+          `${assignData.message} ${changeTarget.name} still holds ${ROLE_LABELS[changeTarget.role] ?? changeTarget.role} until they accept — remove ${changeTarget.name} manually once the new person is in.`
+        );
+        return;
+      }
+
+      // 2. New person is in — now remove the old holder from this exact role.
+      const removeRes = await fetch(`/api/projects/${projectId}/roles`, {
+        method: 'DELETE',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({ userId: changeTarget.userId, role: changeTarget.role }),
+      });
+      const removeData = await removeRes.json();
+      if (!removeData.success) {
+        setChangeError(
+          `${changeEmail} was added, but removing ${changeTarget.name} failed: ${removeData.error || 'unknown error'}. Remove them manually.`
+        );
+        void loadData();
+        return;
+      }
+
+      setChangeTarget(null);
+      void loadData();
+    } catch {
+      setChangeError('Network error');
+    } finally {
+      setChanging(false);
     }
   }
 
@@ -334,6 +409,13 @@ export default function AdminProjectDetailPage() {
                       </div>
                       <div className="text-[11.5px] text-[rgba(var(--ax-text-rgb),0.35)] whitespace-nowrap hidden sm:block">Since {fmt(m.createdAt)}</div>
                       <button
+                        onClick={() => openChangeModal(m, role)}
+                        className="shrink-0 text-[12px] font-medium transition-colors"
+                        style={{ color: 'var(--ax-accent)' }}
+                      >
+                        Change
+                      </button>
+                      <button
                         onClick={() => setConfirmRemove({ userId: m.user.id, role, name: m.user.name })}
                         className="shrink-0 text-[12px] font-medium text-[#e06050] hover:text-[#c8503f] transition-colors"
                       >
@@ -405,6 +487,59 @@ export default function AdminProjectDetailPage() {
                         {adding ? 'Adding…' : 'Add Role'}
                       </button>
                     )}
+                  </div>
+                </>
+              )}
+            </div>
+          </div>
+        </div>
+      )}
+
+      {/* Change modal — swap whoever holds one role for someone else */}
+      {changeTarget && (
+        <div className="fixed inset-0 bg-black/70 flex items-center justify-center z-50">
+          <div className="bg-[#13151a] border border-[rgba(255,255,255,0.1)] rounded-xl max-w-sm w-full mx-4">
+            <div className="p-6">
+              <h2 className="text-lg font-semibold mb-1 text-[var(--ax-text)]">
+                Change {ROLE_LABELS[changeTarget.role] ?? changeTarget.role}
+              </h2>
+              <p className="text-[12.5px] text-[rgba(232,228,220,0.5)] mb-4">
+                Currently <span className="font-medium text-[#e8e4dc]">{changeTarget.name}</span> ({changeTarget.email})
+              </p>
+
+              {changeNotice ? (
+                <>
+                  <div className="text-[13px] text-[#fb923c] leading-relaxed mb-4">{changeNotice}</div>
+                  <div className="flex justify-end">
+                    <button onClick={() => setChangeTarget(null)} className="btn btn-secondary">Close</button>
+                  </div>
+                </>
+              ) : (
+                <>
+                  <div className="space-y-3">
+                    <div>
+                      <label className="text-[11.5px] font-semibold text-[rgba(232,228,220,0.5)] uppercase tracking-wide">New person&apos;s email</label>
+                      <input type="email" value={changeEmail} onChange={e => setChangeEmail(e.target.value)}
+                        placeholder="person@company.com" className="input w-full mt-1" />
+                    </div>
+                    {changeTarget.role === 'CONSULTANT' && (
+                      <div>
+                        <label className="text-[11.5px] font-semibold text-[rgba(232,228,220,0.5)] uppercase tracking-wide">Fee (required)</label>
+                        <input type="number" value={changeFee} onChange={e => setChangeFee(e.target.value)}
+                          placeholder="0.00" className="input w-full mt-1" />
+                      </div>
+                    )}
+                  </div>
+                  {changeError && <div className="alert alert-error mt-3 text-sm">{changeError}</div>}
+                  <div className="flex justify-end gap-3 mt-5">
+                    <button onClick={() => setChangeTarget(null)} className="btn btn-secondary">Cancel</button>
+                    <button
+                      onClick={() => void submitChange()}
+                      disabled={changing || !changeEmail.trim() || (changeTarget.role === 'CONSULTANT' && !changeFee)}
+                      className="btn bg-[var(--ax-accent)] text-white"
+                    >
+                      {changing ? 'Changing…' : 'Change'}
+                    </button>
                   </div>
                 </>
               )}
