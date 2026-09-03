@@ -197,13 +197,19 @@ export async function POST(request: NextRequest) {
       });
     }
 
-    // ── Vendor in DB → check preferredRole conflict ──────────────────────────
+    // ── Vendor in DB → check preferredRole conflict (skipped for a user already on this
+    // project in some other role — a user can hold several roles per project now, so this
+    // exists to catch inviting a stranger under a possibly-wrong role, not to gate an
+    // additive grant to someone already established here) ────────────────────
     const ROLE_LABELS: Record<string, string> = {
       CLIENT: 'Project Owner', PMC: 'PMC', VENDOR: 'Vendor', CONSULTANT: 'Consultant', VIEWER: 'Viewer',
       SITE_ENGINEER: 'Site Engineer',
     };
 
-    if (existingUser.preferredRole && existingUser.preferredRole !== 'VENDOR') {
+    const isExistingProjectMember =
+      (await prisma.projectRole.findFirst({ where: { projectId, userId: existingUser.id } })) !== null;
+
+    if (existingUser.preferredRole && existingUser.preferredRole !== 'VENDOR' && !isExistingProjectMember) {
       if (!force) {
         return NextResponse.json(
           {

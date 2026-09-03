@@ -165,6 +165,15 @@ export async function POST(
     const user = userRows[0] ?? null;
     const currency = projectMeta?.metadata ? (JSON.parse(projectMeta.metadata).currency || 'INR') : 'INR';
 
+    // Already holds a role on THIS project (any role) — the preferredRole conflict check
+    // below exists to catch mistakes when inviting a stranger under a possibly-wrong role,
+    // not to gate an additive grant to someone already established here. A user can hold
+    // several roles per project now, so requiring an invite/accept round-trip every time the
+    // new role differs from their account-wide preferredRole would make that the common case.
+    const isExistingProjectMember = user
+      ? (await prisma.projectRole.findFirst({ where: { projectId, userId: user.id } })) !== null
+      : false;
+
     // "Assign to Purchase Order" onboarding option — only valid for a VENDOR invite, and only
     // onto a Purchase Order that doesn't already have a vendor.
     let poAssignment: Extract<Awaited<ReturnType<typeof loadAssignablePhase>>, { ok: true }> | null = null;
@@ -236,8 +245,9 @@ export async function POST(
       });
     }
 
-    // ── User exists → check preferredRole conflict ───────────────────────────
-    if (user.preferredRole && user.preferredRole !== role) {
+    // ── User exists → check preferredRole conflict (skipped for an existing project member —
+    // see isExistingProjectMember above) ───────────────────────────
+    if (user.preferredRole && user.preferredRole !== role && !isExistingProjectMember) {
       if (!force) {
         // Warn the admin — let them confirm before proceeding
         return NextResponse.json(
