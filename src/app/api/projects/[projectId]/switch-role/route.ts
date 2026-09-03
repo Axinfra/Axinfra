@@ -1,4 +1,4 @@
-git checkout feature/multi-role-per-projectimport { NextRequest, NextResponse } from 'next/server';
+import { NextRequest, NextResponse } from 'next/server';
 import { z } from 'zod';
 import { requireAuth, getMyProjectRoles, SESSION_COOKIE_MAX_AGE_SECONDS } from '@/lib/auth';
 
