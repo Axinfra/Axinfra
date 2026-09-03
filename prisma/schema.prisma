@@ -702,6 +702,11 @@ model ProjectScheduleConfig {
   project               Project   @relation(fields: [projectId], references: [id], onDelete: Cascade)
 }
 
+/// A user can hold several of these on the same project (e.g. PMC + CONSULTANT
+/// simultaneously) — unique per (project, user, role), not per (project, user). Which role is
+/// "active" for a given browsing session is resolved by getProjectAuth() in lib/auth.ts (an
+/// activeRole_<projectId> cookie, falling back to a fixed priority order) and switched via
+/// POST /api/projects/[projectId]/switch-role.
 model ProjectRole {
   id        String   @id @default(uuid())
   projectId String
@@ -714,9 +719,10 @@ model ProjectRole {
   project   Project  @relation(fields: [projectId], references: [id], onDelete: Cascade)
   user      User     @relation(fields: [userId], references: [id], onDelete: Cascade)
 
-  @@unique([projectId, userId])
+  @@unique([projectId, userId, role])
   @@index([projectId])
   @@index([userId])
+  @@index([projectId, userId])
   @@index([projectId, role])
 }
 
