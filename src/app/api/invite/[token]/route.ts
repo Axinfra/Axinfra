@@ -112,9 +112,11 @@ export async function POST(
       );
     }
 
-    // Check not already a member
-    const existing = await prisma.projectRole.findUnique({
-      where: { projectId_userId: { projectId: invite.projectId, userId: session.userId } },
+    // Check not already holding this specific role — a user may already have a different
+    // role on this project (a user can hold several), which is fine; this invite just adds
+    // the invited one.
+    const existing = await prisma.projectRole.findFirst({
+      where: { projectId: invite.projectId, userId: session.userId, role: invite.role },
     });
 
     if (existing) {

@@ -201,10 +201,10 @@ export async function PATCH(
     if ('vendorUserId' in body) {
       const vendorUserId = body.vendorUserId || null;
       if (vendorUserId) {
-        const vendorRole = await prisma.projectRole.findUnique({
-          where: { projectId_userId: { projectId, userId: vendorUserId } },
+        const vendorRole = await prisma.projectRole.findFirst({
+          where: { projectId, userId: vendorUserId, role: 'VENDOR' },
         });
-        if (!vendorRole || vendorRole.role !== 'VENDOR') {
+        if (!vendorRole) {
           return NextResponse.json({ success: false, error: 'Assigned vendor must be a VENDOR on this project' }, { status: 400 });
         }
       }

@@ -35,10 +35,11 @@ export async function GET(request: NextRequest) {
       );
     }
 
-    const callerRole = await prisma.projectRole.findUnique({
-      where: { projectId_userId: { projectId, userId: auth.userId } },
+    // A user can hold several roles on this project now — any CLIENT or PMC row is enough.
+    const callerRole = await prisma.projectRole.findFirst({
+      where: { projectId, userId: auth.userId, role: { in: [Role.CLIENT, Role.PMC] } },
     });
-    if (!callerRole || (callerRole.role !== Role.CLIENT && callerRole.role !== Role.PMC)) {
+    if (!callerRole) {
       return NextResponse.json(
         { success: false, error: 'You must be Owner or PMC of this project' },
         { status: 403 },
@@ -110,10 +111,11 @@ export async function POST(request: NextRequest) {
     const body = await request.json();
     const { email, projectId, force, phaseId } = createVendorSchema.parse(body);
 
+    // A user can hold several roles on this project now — any CLIENT or PMC row is enough.
     const [project, callerRole, projectMeta] = await Promise.all([
       prisma.project.findUnique({ where: { id: projectId }, select: { name: true } }),
-      prisma.projectRole.findUnique({
-        where: { projectId_userId: { projectId, userId: auth.userId } },
+      prisma.projectRole.findFirst({
+        where: { projectId, userId: auth.userId, role: { in: [Role.CLIENT, Role.PMC] } },
       }),
       prisma.project.findUnique({ where: { id: projectId }, select: { metadata: true } }),
     ]);
@@ -122,7 +124,7 @@ export async function POST(request: NextRequest) {
       return NextResponse.json({ success: false, error: 'Project not found' }, { status: 404 });
     }
 
-    if (!callerRole || (callerRole.role !== Role.CLIENT && callerRole.role !== Role.PMC)) {
+    if (!callerRole) {
       return NextResponse.json(
         { success: false, error: 'You must be Owner or PMC of this project' },
         { status: 403 },
@@ -264,13 +266,15 @@ export async function POST(request: NextRequest) {
     }
 
     // ── No conflict → assign directly ────────────────────────────────────────
-    const existingRole = await prisma.projectRole.findUnique({
-      where: { projectId_userId: { projectId, userId: existingUser.id } },
+    // Scoped to VENDOR specifically — a user already holding e.g. CLIENT or PMC on this
+    // project can now also be granted VENDOR (a user can hold several roles per project).
+    const existingVendorRole = await prisma.projectRole.findFirst({
+      where: { projectId, userId: existingUser.id, role: Role.VENDOR },
     });
 
-    if (existingRole) {
+    if (existingVendorRole) {
       return NextResponse.json(
-        { success: false, error: 'This user already has a role in this project' },
+        { success: false, error: 'This user already has the Vendor role on this project' },
         { status: 400 },
       );
     }

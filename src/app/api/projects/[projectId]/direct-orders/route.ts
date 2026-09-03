@@ -80,10 +80,10 @@ export async function POST(
     const body = await request.json();
     const { vendorUserId, itemDescription, value, remarks } = createSchema.parse(body);
 
-    const vendorRole = await prisma.projectRole.findUnique({
-      where: { projectId_userId: { projectId, userId: vendorUserId } },
+    const vendorRole = await prisma.projectRole.findFirst({
+      where: { projectId, userId: vendorUserId, role: 'VENDOR' },
     });
-    if (!vendorRole || vendorRole.role !== 'VENDOR') {
+    if (!vendorRole) {
       return NextResponse.json({ success: false, error: 'Selected user is not a Vendor on this project' }, { status: 400 });
     }
 

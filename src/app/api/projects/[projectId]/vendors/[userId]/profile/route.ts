@@ -6,10 +6,12 @@ import { AuditLogger } from '@/services/AuditLogger';
 import { AuditActionTypes } from '@/types';
 
 async function findVendorOnProject(userId: string, projectId: string) {
-  const role = await prisma.projectRole.findUnique({
-    where: { projectId_userId: { projectId, userId } },
+  // A user can hold several roles on this project now — check for the VENDOR row
+  // specifically rather than "the" (now possibly ambiguous) role.
+  const role = await prisma.projectRole.findFirst({
+    where: { projectId, userId, role: 'VENDOR' },
   });
-  if (!role || role.role !== 'VENDOR') return null;
+  if (!role) return null;
   return prisma.user.findUnique({
     where: { id: userId },
     select: { id: true, name: true, email: true, companyName: true, contactPerson: true, mobile: true, gstNumber: true, address: true },
