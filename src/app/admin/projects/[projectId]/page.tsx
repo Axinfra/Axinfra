@@ -98,6 +98,11 @@ function Pagination({ page, total, pageSize, onChange }: { page: number; total: 
   );
 }
 
+const ROLE_LABELS: Record<string, string> = {
+  CLIENT: 'Project Owner', PMC: 'PMC', VENDOR: 'Vendor', CONSULTANT: 'Consultant',
+  VIEWER: 'Viewer', SITE_ENGINEER: 'Site Engineer',
+};
+
 export default function AdminProjectDetailPage() {
   const { projectId } = useParams<{ projectId: string }>();
   const [data, setData] = useState<Data | null>(null);
@@ -108,12 +113,97 @@ export default function AdminProjectDetailPage() {
   const [auditPage, setAuditPage] = useState(0);
   const [msPage, setMsPage] = useState(0);
 
-  useEffect(() => {
+  // Team management — assigning/removing roles as a platform admin reuses the same
+  // /api/projects/[projectId]/roles endpoint the project's own CLIENT-facing Roles page
+  // uses (see roles/route.ts's requireRoleManager()), which also lets an admin manage a
+  // project they aren't themselves a member of.
+  const [showAddModal, setShowAddModal] = useState(false);
+  const [newEmail, setNewEmail] = useState('');
+  const [newRole, setNewRole] = useState('PMC');
+  const [newFee, setNewFee] = useState('');
+  const [adding, setAdding] = useState(false);
+  const [addError, setAddError] = useState('');
+  const [addSuccess, setAddSuccess] = useState('');
+  const [conflictData, setConflictData] = useState<{ userPreferredRole: string; message: string } | null>(null);
+  const [confirmRemove, setConfirmRemove] = useState<{ userId: string; role: string; name: string } | null>(null);
+  // Separate from the page-fatal `error` above (which replaces the whole page) — this is a
+  // small inline error for a failed remove-role action.
+  const [teamError, setTeamError] = useState('');
+
+  const loadData = () =>
     fetch(`/api/admin/projects/${projectId}`).then(r => r.json())
       .then(d => { if (d.success) setData(d.data); else setError(d.error); })
-      .catch(() => setError('Network error'))
-      .finally(() => setLoading(false));
+      .catch(() => setError('Network error'));
+
+  useEffect(() => {
+    loadData().finally(() => setLoading(false));
+    // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [projectId]);
+
+  function resetAddModal() {
+    setShowAddModal(false);
+    setNewEmail('');
+    setNewRole('PMC');
+    setNewFee('');
+    setAddError('');
+    setAddSuccess('');
+    setConflictData(null);
+  }
+
+  async function submitRole(force: boolean) {
+    setAddError('');
+    setAddSuccess('');
+    setAdding(true);
+    try {
+      const res = await fetch(`/api/projects/${projectId}/roles`, {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({
+          email: newEmail,
+          role: newRole,
+          force,
+          ...(newRole === 'CONSULTANT' && newFee ? { fee: parseFloat(newFee) } : {}),
+        }),
+      });
+      const resData = await res.json();
+      if (resData.success) {
+        if (resData.invited) {
+          setAddSuccess(resData.message);
+          setConflictData(null);
+        } else {
+          resetAddModal();
+          void loadData();
+        }
+      } else if (resData.conflict) {
+        setConflictData({ userPreferredRole: resData.userPreferredRole, message: resData.error });
+      } else {
+        setAddError(resData.error || 'Failed to add role');
+      }
+    } catch {
+      setAddError('Network error');
+    } finally {
+      setAdding(false);
+    }
+  }
+
+  async function handleRemoveRole() {
+    if (!confirmRemove) return;
+    const { userId, role } = confirmRemove;
+    setConfirmRemove(null);
+    setTeamError('');
+    try {
+      const res = await fetch(`/api/projects/${projectId}/roles`, {
+        method: 'DELETE',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({ userId, role }),
+      });
+      const resData = await res.json();
+      if (resData.success) void loadData();
+      else setTeamError(resData.error || 'Failed to remove role');
+    } catch {
+      setTeamError('Failed to remove role');
+    }
+  }
 
   // Reset pagination when switching filters/tabs
   useEffect(() => { setMsPage(0); }, [msFilter, tab]);
@@ -204,6 +294,24 @@ export default function AdminProjectDetailPage() {
       {/* ── TEAM ────────────────────────────────────────────────────────── */}
       {tab === 'team' && (
         <div className="space-y-4">
+          <div className="flex items-center justify-between">
+            <p className="text-[12px] text-[rgba(var(--ax-text-rgb),0.4)]">
+              A person can hold more than one role on this project (e.g. PMC and Consultant at once).
+            </p>
+            <button onClick={() => setShowAddModal(true)}
+              className="shrink-0 text-[12.5px] font-semibold px-3 py-1.5 rounded-lg transition-colors"
+              style={{ background: 'rgba(var(--ax-accent-rgb),0.12)', color: 'var(--ax-accent)' }}>
+              + Add Role
+            </button>
+          </div>
+          {teamError && <div className="alert alert-error text-sm">{teamError}</div>}
+
+          {project.roles.length === 0 && (
+            <div className="bg-[var(--ax-surface)] border border-[var(--ax-border)] rounded-xl px-5 py-10 text-center text-[13px] text-[rgba(var(--ax-text-rgb),0.4)]">
+              No one has a role on this project yet.
+            </div>
+          )}
+
           {['CLIENT', 'PMC', 'VENDOR', 'CONSULTANT', 'VIEWER', 'SITE_ENGINEER'].map(role => {
             const members = roleGroups[role] ?? [];
             if (!members.length) return null;
@@ -225,12 +333,104 @@ export default function AdminProjectDetailPage() {
                         <div className="text-[12px] text-[rgba(var(--ax-text-rgb),0.45)] truncate">{m.user.email}</div>
                       </div>
                       <div className="text-[11.5px] text-[rgba(var(--ax-text-rgb),0.35)] whitespace-nowrap hidden sm:block">Since {fmt(m.createdAt)}</div>
+                      <button
+                        onClick={() => setConfirmRemove({ userId: m.user.id, role, name: m.user.name })}
+                        className="shrink-0 text-[12px] font-medium text-[#e06050] hover:text-[#c8503f] transition-colors"
+                      >
+                        Remove
+                      </button>
                     </div>
                   ))}
                 </div>
               </div>
             );
           })}
+        </div>
+      )}
+
+      {/* Add Role modal */}
+      {showAddModal && (
+        <div className="fixed inset-0 bg-black/70 flex items-center justify-center z-50">
+          <div className="bg-[#13151a] border border-[rgba(255,255,255,0.1)] rounded-xl max-w-sm w-full mx-4">
+            <div className="p-6">
+              {conflictData ? (
+                <>
+                  <h2 className="text-lg font-semibold mb-2 text-[#fb923c]">Role Conflict</h2>
+                  <p className="text-[rgba(232,228,220,0.65)] mb-4 text-[13px] leading-relaxed">{conflictData.message}</p>
+                  {addError && <div className="alert alert-error mb-3 text-sm">{addError}</div>}
+                  <div className="flex justify-end gap-3">
+                    <button onClick={resetAddModal} className="btn btn-secondary">Cancel</button>
+                    <button onClick={() => void submitRole(true)} disabled={adding} className="btn bg-[#fb923c] text-white hover:bg-[#e08030]">
+                      {adding ? 'Sending…' : 'Send Invite Anyway'}
+                    </button>
+                  </div>
+                </>
+              ) : (
+                <>
+                  <h2 className="text-lg font-semibold mb-4 text-[var(--ax-text)]">Add Role</h2>
+                  <div className="space-y-3">
+                    <div>
+                      <label className="text-[11.5px] font-semibold text-[rgba(232,228,220,0.5)] uppercase tracking-wide">Email</label>
+                      <input type="email" value={newEmail} onChange={e => setNewEmail(e.target.value)}
+                        placeholder="person@company.com" className="input w-full mt-1" />
+                    </div>
+                    <div>
+                      <label className="text-[11.5px] font-semibold text-[rgba(232,228,220,0.5)] uppercase tracking-wide">Role</label>
+                      <select value={newRole} onChange={e => setNewRole(e.target.value)} className="input w-full mt-1">
+                        {['CLIENT', 'PMC', 'VENDOR', 'CONSULTANT', 'VIEWER', 'SITE_ENGINEER'].map(r => (
+                          <option key={r} value={r}>{ROLE_LABELS[r] ?? r}</option>
+                        ))}
+                      </select>
+                    </div>
+                    {newRole === 'CONSULTANT' && (
+                      <div>
+                        <label className="text-[11.5px] font-semibold text-[rgba(232,228,220,0.5)] uppercase tracking-wide">Fee (required)</label>
+                        <input type="number" value={newFee} onChange={e => setNewFee(e.target.value)}
+                          placeholder="0.00" className="input w-full mt-1" />
+                      </div>
+                    )}
+                  </div>
+                  {addSuccess && <div className="mt-3 text-[13px] text-[#5cba80]">{addSuccess}</div>}
+                  {addError && <div className="alert alert-error mt-3 text-sm">{addError}</div>}
+                  <div className="flex justify-end gap-3 mt-5">
+                    <button onClick={resetAddModal} className="btn btn-secondary">
+                      {addSuccess ? 'Done' : 'Cancel'}
+                    </button>
+                    {!addSuccess && (
+                      <button
+                        onClick={() => void submitRole(false)}
+                        disabled={adding || !newEmail.trim() || (newRole === 'CONSULTANT' && !newFee)}
+                        className="btn bg-[var(--ax-accent)] text-white"
+                      >
+                        {adding ? 'Adding…' : 'Add Role'}
+                      </button>
+                    )}
+                  </div>
+                </>
+              )}
+            </div>
+          </div>
+        </div>
+      )}
+
+      {/* Remove Role confirmation modal */}
+      {confirmRemove && (
+        <div className="fixed inset-0 bg-black/70 flex items-center justify-center z-50">
+          <div className="bg-[#13151a] border border-[rgba(255,255,255,0.1)] rounded-xl max-w-sm w-full mx-4">
+            <div className="p-6">
+              <h2 className="text-lg font-semibold mb-2 text-[#e06050]">Remove Role</h2>
+              <p className="text-[rgba(232,228,220,0.55)] mb-4 text-sm">
+                Remove the <span className="font-medium text-[#e8e4dc]">{ROLE_LABELS[confirmRemove.role] ?? confirmRemove.role}</span> role
+                from <span className="font-medium text-[#e8e4dc]">{confirmRemove.name}</span> on this project?
+              </p>
+              <div className="flex justify-end gap-3">
+                <button onClick={() => setConfirmRemove(null)} className="btn btn-secondary">Cancel</button>
+                <button onClick={() => void handleRemoveRole()} className="btn bg-[#e06050] text-white hover:bg-[#c8503f]">
+                  Remove Role
+                </button>
+              </div>
+            </div>
+          </div>
         </div>
       )}
 

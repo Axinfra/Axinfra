@@ -1,6 +1,6 @@
 import { NextRequest, NextResponse } from 'next/server';
 import { prisma } from '@/lib/db';
-import { requireProjectAuth, invalidateProjectAuth } from '@/lib/auth';
+import { requireAuth, requireProjectAuth, invalidateProjectAuth } from '@/lib/auth';
 import {
   invalidateProjectAndMemberCaches,
   invalidateUserWorkspaceCaches,
@@ -13,6 +13,26 @@ import { sendProjectAssignedEmail, sendProjectInviteEmail, sendRoleConflictInvit
 import { isDemoEmail } from '@/lib/invite-utils';
 import { randomBytes } from 'crypto';
 import { loadAssignablePhase } from '@/lib/vendor-po-assignment';
+import { isAdminEmail } from '@/lib/adminAuth';
+
+/**
+ * Who may assign/edit/remove roles on this project: normally just its own CLIENT, but a
+ * platform admin (see adminAuth.ts) can also manage roles on *any* project from /admin —
+ * including ones they aren't a member of at all, where requireProjectAuth() would 401 them
+ * before RoleGuard ever got a say. Returns a minimal auth-shaped object (only userId/name/role
+ * are read by the handlers below) so both paths share the same POST/PATCH/DELETE logic.
+ * Admin actions are audit-logged under the synthetic 'PLATFORM_ADMIN' role, not a borrowed
+ * project role that wouldn't actually apply to them.
+ */
+async function requireRoleManager(projectId: string): Promise<{ userId: string; name: string; role: string }> {
+  const session = await requireAuth();
+  if (isAdminEmail(session.email)) {
+    return { userId: session.userId, name: session.name, role: 'PLATFORM_ADMIN' };
+  }
+  const auth = await requireProjectAuth(projectId);
+  RoleGuard.requireRole(auth, ['CLIENT']);
+  return auth;
+}
 
 const assignRoleSchema = z.object({
   email: z.string().email(),
@@ -123,9 +143,7 @@ export async function POST(
 ) {
   try {
     const { projectId } = await params;
-    const auth = await requireProjectAuth(projectId);
-
-    RoleGuard.requireRole(auth, ['CLIENT']);
+    const auth = await requireRoleManager(projectId);
 
     const body = await request.json();
     const { email, role, force, phaseId, fee, name } = assignRoleSchema.parse(body);
@@ -369,9 +387,7 @@ export async function PATCH(
 ) {
   try {
     const { projectId } = await params;
-    const auth = await requireProjectAuth(projectId);
-
-    RoleGuard.requireRole(auth, ['CLIENT']);
+    const auth = await requireRoleManager(projectId);
 
     const body = await request.json();
     const { userId, inviteId, fee, name } = updateConsultantSchema.parse(body);
@@ -465,9 +481,7 @@ export async function DELETE(
 ) {
   try {
     const { projectId } = await params;
-    const auth = await requireProjectAuth(projectId);
-
-    RoleGuard.requireRole(auth, ['CLIENT']);
+    const auth = await requireRoleManager(projectId);
 
     const body = await request.json();
     const parsed = removeRoleSchema.parse(body);
