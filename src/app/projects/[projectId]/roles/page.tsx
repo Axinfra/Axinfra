@@ -266,7 +266,9 @@ export default function RolesPage() {
                   <tr><td colSpan={6} className="text-center py-8 text-[rgba(232,228,220,0.4)]">No team members yet</td></tr>
                 )}
                 {roles.map((entry) => (
-                  <tr key={entry.isPendingInvite ? `invite-${entry.inviteId}` : entry.userId!}>
+                  // A user can hold several roles on this project now — userId alone is no
+                  // longer a unique key (see ProjectRole's @@unique([projectId, userId, role])).
+                  <tr key={entry.isPendingInvite ? `invite-${entry.inviteId}` : `${entry.userId}-${entry.role}`}>
                     <td className="font-medium">
                       {entry.isPendingInvite ? (
                         <span className="flex items-center gap-2 text-[rgba(232,228,220,0.45)]">
