@@ -33,6 +33,10 @@ const assignRoleSchema = z.object({
 const removeRoleSchema = z.object({
   userId: z.string().uuid().optional(),
   inviteId: z.string().uuid().optional(),
+  // Required alongside userId now — a user can hold several roles on this project, so the
+  // caller must say which row to remove. Not needed for the inviteId path (an invite only
+  // ever grants one role).
+  role: z.enum(['CLIENT', 'PMC', 'VENDOR', 'VIEWER', 'CONSULTANT', 'SITE_ENGINEER']).optional(),
 });
 
 const updateConsultantSchema = z.object({
@@ -283,13 +287,16 @@ export async function POST(
     }
 
     // ── No conflict → assign directly ────────────────────────────────────────
-    const existingRole = await prisma.projectRole.findUnique({
-      where: { projectId_userId: { projectId, userId: user.id } },
+    // A user can now hold several roles on the same project — only block an exact duplicate
+    // of the role being assigned; a user who already holds e.g. PMC can also be granted
+    // CONSULTANT here.
+    const existingRole = await prisma.projectRole.findFirst({
+      where: { projectId, userId: user.id, role },
     });
 
     if (existingRole) {
       return NextResponse.json(
-        { success: false, error: 'User already has a role in this project. Remove first.' },
+        { success: false, error: `User already has the ${ROLE_LABELS[role] ?? role} role on this project.` },
         { status: 400 }
       );
     }
@@ -409,19 +416,18 @@ export async function PATCH(
       return NextResponse.json({ success: false, error: 'Fee is required' }, { status: 400 });
     }
 
-    const existingRole = await prisma.projectRole.findUnique({
-      where: { projectId_userId: { projectId, userId: userId! } },
+    // A user can hold several roles on this project now — look up the CONSULTANT row
+    // specifically, since fee only ever applies to that one.
+    const existingRole = await prisma.projectRole.findFirst({
+      where: { projectId, userId: userId!, role: 'CONSULTANT' },
     });
 
     if (!existingRole) {
-      return NextResponse.json({ success: false, error: 'Role not found' }, { status: 404 });
-    }
-    if (existingRole.role !== 'CONSULTANT') {
-      return NextResponse.json({ success: false, error: 'Fee only applies to Consultants' }, { status: 400 });
+      return NextResponse.json({ success: false, error: 'Consultant role not found for this user' }, { status: 404 });
     }
 
     const before = existingRole.fee;
-    await prisma.projectRole.update({ where: { projectId_userId: { projectId, userId: userId! } }, data: { fee } });
+    await prisma.projectRole.update({ where: { id: existingRole.id }, data: { fee } });
 
     await invalidateProjectAndMemberCaches(projectId);
 
@@ -476,13 +482,18 @@ export async function DELETE(
     }
 
     // ── Remove an existing role ───────────────────────────────────────────────
-    if (!parsed.userId) {
-      return NextResponse.json({ success: false, error: 'userId or inviteId required' }, { status: 400 });
+    // `role` is required alongside userId now — a user can hold several roles on this
+    // project, so the caller must say which row to remove.
+    if (!parsed.userId || !parsed.role) {
+      return NextResponse.json({ success: false, error: 'userId and role are required' }, { status: 400 });
     }
 
     const userId = parsed.userId;
+    const roleToRemove = parsed.role;
 
-    if (userId === auth.userId) {
+    // Only block removing the last CLIENT row specifically — under multi-role a CLIENT
+    // removing one of their own other roles (e.g. CONSULTANT) on this project is fine.
+    if (userId === auth.userId && roleToRemove === Role.CLIENT) {
       const clientCount = await prisma.projectRole.count({
         where: { projectId, role: Role.CLIENT },
       });
@@ -494,8 +505,8 @@ export async function DELETE(
       }
     }
 
-    const existingRole = await prisma.projectRole.findUnique({
-      where: { projectId_userId: { projectId, userId } },
+    const existingRole = await prisma.projectRole.findFirst({
+      where: { projectId, userId, role: roleToRemove },
       include: { user: true },
     });
 
@@ -504,7 +515,7 @@ export async function DELETE(
     }
 
     await prisma.projectRole.delete({
-      where: { projectId_userId: { projectId, userId } },
+      where: { id: existingRole.id },
     });
 
     await invalidateProjectAuth(projectId, userId);
