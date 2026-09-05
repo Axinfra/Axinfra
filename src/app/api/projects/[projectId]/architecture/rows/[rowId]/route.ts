@@ -6,6 +6,7 @@ import { z } from 'zod';
 const patchSchema = z.object({
   name: z.string().min(1).max(500).optional(),
   category: z.string().min(1).max(200).optional(),
+  dwgNumber: z.string().max(100).nullable().optional(),
   floor: z.enum(['BASEMENT', 'GROUND_FLOOR', 'FIRST_FLOOR', 'SECOND_FLOOR', 'TERRACE', 'ALL_FLOORS']).optional(),
   description: z.string().optional(),
   setId: z.string().uuid().nullable().optional(),
@@ -25,7 +26,7 @@ export async function PATCH(
     if (!row) return NextResponse.json({ success: false, error: 'Not found' }, { status: 404 });
 
     const body = await request.json();
-    const { name, category, floor, description, setId, dueDate } = patchSchema.parse(body);
+    const { name, category, dwgNumber, floor, description, setId, dueDate } = patchSchema.parse(body);
 
     // Set assignment changes are restricted to Architects only.
     if ('setId' in body && auth.role !== 'CONSULTANT') {
@@ -34,8 +35,8 @@ export async function PATCH(
 
     // Permission matrix
     if (auth.role === 'PMC') {
-      // PMC can edit name of any row and set due date
-      const allowedKeys = ['name', 'dueDate'];
+      // PMC can edit name/dwgNumber of any row and set due date
+      const allowedKeys = ['name', 'dwgNumber', 'dueDate'];
       const attempted = Object.keys(body).filter((k) => !allowedKeys.includes(k));
       if (attempted.length > 0) {
         return NextResponse.json({ success: false, error: 'PMC can only edit name and due date' }, { status: 403 });
@@ -57,6 +58,7 @@ export async function PATCH(
       data: {
         ...(name !== undefined ? { name } : {}),
         ...(category !== undefined ? { category } : {}),
+        ...(dwgNumber !== undefined ? { dwgNumber } : {}),
         ...(floor !== undefined ? { floor } : {}),
         ...(description !== undefined ? { description } : {}),
         ...(setId !== undefined ? { setId } : {}),

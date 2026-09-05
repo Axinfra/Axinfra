@@ -18,8 +18,9 @@ const ALLOWED_MIME_TYPES = new Set([
   'application/vnd.ms-excel', 'application/vnd.openxmlformats-officedocument.spreadsheetml.sheet',
 ]);
 
-// GET /api/projects/[projectId]/documents?category=SPEC|OTHER - list, everyone with project
-// access can view (including Vendor).
+// GET /api/projects/[projectId]/documents?category=SPEC|OTHER - CLIENT/PMC/CONSULTANT see
+// everything; VENDOR/SITE_ENGINEER only see a document once a PMC has explicitly shared it with
+// their role (see the visibility route) — sharing is a deliberate PMC action, same as drawings.
 export async function GET(
   request: NextRequest,
   { params }: { params: Promise<{ projectId: string }> },
@@ -33,10 +34,16 @@ export async function GET(
       return NextResponse.json({ success: false, error: 'Invalid category' }, { status: 400 });
     }
 
+    const restrictedRoles = ['VENDOR', 'SITE_ENGINEER'];
+    const sharingFilter = restrictedRoles.includes(auth.role)
+      ? { sharedWithRoles: { contains: auth.role } }
+      : {};
+
     const documents = await prisma.projectDocument.findMany({
-      where: { projectId, deletedAt: null, ...(category ? { category } : {}) },
+      where: { projectId, deletedAt: null, ...sharingFilter, ...(category ? { category } : {}) },
       include: {
         uploadedBy: { select: { name: true } },
+        sharedBy: { select: { name: true } },
         files: { select: { id: true, fileName: true, size: true } },
       },
       orderBy: { createdAt: 'desc' },
@@ -47,6 +54,9 @@ export async function GET(
       data: documents.map((d) => ({
         id: d.id, title: d.title, description: d.description, category: d.category,
         createdAt: d.createdAt, uploadedByName: d.uploadedBy.name, files: d.files,
+        sharedWithRoles: d.sharedWithRoles ? d.sharedWithRoles.split(',') : [],
+        sharedByName: d.sharedBy?.name ?? null,
+        sharedAt: d.sharedAt,
       })),
     });
   } catch (error) {

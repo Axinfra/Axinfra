@@ -14,7 +14,7 @@ const createSchema = z.object({
   type: z.string().min(1).max(100),
   priority: z.enum(['LOW', 'NORMAL', 'HIGH', 'URGENT']).default('NORMAL'),
   dueDate: z.string().optional(),
-  sendTo: z.enum(['PMC', 'CONSULTANT', 'CLIENT', 'VENDOR', 'BOTH', 'ALL']).default('PMC'),
+  sendTo: z.enum(['PMC', 'CONSULTANT', 'CLIENT', 'VENDOR', 'SITE_ENGINEER', 'BOTH', 'ALL']).default('PMC'),
   refNumber: z.string().max(100).optional(),
 });
 
@@ -28,10 +28,11 @@ export async function GET(_req: NextRequest, { params }: { params: Promise<{ pro
 
     // Determine which sendTo values address this role
     const myRoleSendTos: string[] =
-      auth.role === 'PMC'        ? ['PMC', 'BOTH', 'ALL'] :
-      auth.role === 'CONSULTANT' ? ['CONSULTANT', 'BOTH', 'ALL'] :
-      auth.role === 'VENDOR'     ? ['VENDOR', 'BOTH', 'ALL'] :
-      auth.role === 'CLIENT'      ? ['CLIENT', 'ALL'] :
+      auth.role === 'PMC'           ? ['PMC', 'BOTH', 'ALL'] :
+      auth.role === 'CONSULTANT'    ? ['CONSULTANT', 'BOTH', 'ALL'] :
+      auth.role === 'VENDOR'        ? ['VENDOR', 'BOTH', 'ALL'] :
+      auth.role === 'SITE_ENGINEER' ? ['SITE_ENGINEER', 'ALL'] :
+      auth.role === 'CLIENT'         ? ['CLIENT', 'ALL'] :
       [];
 
     const where =

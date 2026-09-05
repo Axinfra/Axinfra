@@ -13,9 +13,10 @@ const respondSchema = z.object({
 // Returns true if this role can receive/respond to this request (i.e. is a valid recipient)
 function canRespondAsRecipient(role: string, sendTo: string): boolean {
   if (role === 'CLIENT') return true;
-  if (role === 'PMC')        return ['PMC', 'BOTH', 'ALL'].includes(sendTo);
-  if (role === 'CONSULTANT') return ['CONSULTANT', 'BOTH', 'ALL'].includes(sendTo);
-  if (role === 'VENDOR')     return ['VENDOR', 'BOTH', 'ALL'].includes(sendTo);
+  if (role === 'PMC')           return ['PMC', 'BOTH', 'ALL'].includes(sendTo);
+  if (role === 'CONSULTANT')    return ['CONSULTANT', 'BOTH', 'ALL'].includes(sendTo);
+  if (role === 'VENDOR')        return ['VENDOR', 'BOTH', 'ALL'].includes(sendTo);
+  if (role === 'SITE_ENGINEER') return ['SITE_ENGINEER', 'ALL'].includes(sendTo);
   return false;
 }
 

@@ -765,6 +765,7 @@ model User {
   drawingRowsPaid                 DrawingRow[]               @relation("DrawingRowPaymentReleaser")
   drawingVersionsUploaded         DrawingVersion[]           @relation("DrawingVersionUploader")
   drawingVersionsReviewed         DrawingVersion[]           @relation("DrawingVersionReviewer")
+  drawingVersionsShared           DrawingVersion[]           @relation("DrawingVersionSharer")
   setRequests                     SetRequest[]               @relation("SetRequestCreator")
   vendorRequestsSubmitted         VendorRequest[]            @relation("VendorRequestSubmitter")
   vendorRequestsResponded         VendorRequest[]            @relation("VendorRequestResponder")
@@ -786,6 +787,7 @@ model User {
   raBillMeasurementSheetsUploaded RABillMeasurementSheet[]
   // Documents module
   projectDocumentsUploaded        ProjectDocument[]          @relation("ProjectDocumentUploader")
+  projectDocumentsShared          ProjectDocument[]          @relation("ProjectDocumentSharer")
   checklistsCreated               Checklist[]                @relation("ChecklistCreator")
   checklistsSigned                Checklist[]                @relation("ChecklistSigner")
   dprsCreated                     DailyProgressReport[]      @relation("DPRCreator")
@@ -1040,6 +1042,9 @@ model DrawingRow {
   serialNo    Int
   category    String
   name        String
+  /// Formal drawing number (e.g. "A-101") — distinct from `serialNo`, which is just this
+  /// project's internal running count and not a real drawing-numbering convention.
+  dwgNumber   String?
   /// BASEMENT | GROUND_FLOOR | FIRST_FLOOR | SECOND_FLOOR | TERRACE | ALL_FLOORS
   floor       String    @default("ALL_FLOORS")
   description String?
@@ -1083,10 +1088,18 @@ model DrawingVersion {
   reviewStatus    String    @default("PENDING")
   rejectionReason String?
   isCurrent       Boolean   @default(true)
+  /// Comma-separated subset of {VENDOR, SITE_ENGINEER, CONSULTANT} this version has been shared
+  /// with — same comma-list convention as VendorRequest.sendTo/ADMIN_EMAILS rather than a native
+  /// array column, so it reads and updates the same way the rest of this schema does. Null/empty
+  /// means not shared with anyone outside CLIENT/PMC (who always see every drawing regardless).
+  sharedWithRoles String?
+  sharedById      String?
+  sharedAt        DateTime?
 
   drawingRow DrawingRow @relation(fields: [drawingRowId], references: [id], onDelete: Cascade)
   uploadedBy User       @relation("DrawingVersionUploader", fields: [uploadedById], references: [id])
   reviewedBy User?      @relation("DrawingVersionReviewer", fields: [reviewedById], references: [id])
+  sharedBy   User?      @relation("DrawingVersionSharer", fields: [sharedById], references: [id])
 
   @@index([drawingRowId])
   @@index([uploadedById])
@@ -1315,9 +1328,16 @@ model ProjectDocument {
   createdAt    DateTime  @default(now())
   updatedAt    DateTime  @updatedAt
   deletedAt    DateTime?
+  /// Comma-separated subset of {VENDOR, SITE_ENGINEER, CONSULTANT} this document has been
+  /// shared with — same convention as DrawingVersion.sharedWithRoles. Null/empty means not
+  /// shared with anyone outside CLIENT/PMC (who always see every document regardless).
+  sharedWithRoles String?
+  sharedById      String?
+  sharedAt        DateTime?
 
   project    Project               @relation(fields: [projectId], references: [id], onDelete: Cascade)
   uploadedBy User                  @relation("ProjectDocumentUploader", fields: [uploadedById], references: [id])
+  sharedBy   User?                 @relation("ProjectDocumentSharer", fields: [sharedById], references: [id])
   files      ProjectDocumentFile[]
 
   @@index([projectId, category, createdAt])

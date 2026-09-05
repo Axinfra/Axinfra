@@ -8,6 +8,7 @@ export const dynamic = 'force-dynamic';
 const createRowSchema = z.object({
   category: z.string().min(1).max(200),
   name: z.string().min(1).max(500),
+  dwgNumber: z.string().max(100).optional(),
   floor: z.string().min(1).max(200).default('All'),
   description: z.string().optional(),
   setId: z.string().uuid().optional(),
@@ -23,8 +24,15 @@ export async function GET(
     const { projectId } = await params;
     const auth = await requireProjectAuth(projectId);
 
-    // VENDOR sees only APPROVED rows (read-only)
-    const vendorFilter = auth.role === 'VENDOR' ? { status: 'APPROVED' } : {};
+    // VENDOR and SITE_ENGINEER only see field-facing roles' own drawings once a PMC has
+    // explicitly shared that drawing's current version with their role — sharing is a
+    // deliberate PMC action (see the versions/[versionId]/share route), not implied by
+    // APPROVED status alone, so a drawing sitting at APPROVED but never shared stays hidden.
+    // CLIENT/PMC/CONSULTANT always see everything, same as before this field existed.
+    const restrictedRoles = ['VENDOR', 'SITE_ENGINEER'];
+    const sharingFilter = restrictedRoles.includes(auth.role)
+      ? { versions: { some: { isCurrent: true, sharedWithRoles: { contains: auth.role } } } }
+      : {};
 
     const { searchParams } = new URL(request.url);
     const setId = searchParams.get('setId');
@@ -35,9 +43,9 @@ export async function GET(
     const rows = await prisma.drawingRow.findMany({
       where: {
         projectId,
-        ...vendorFilter,
+        ...sharingFilter,
         ...(setId ? { setId } : {}),
-        ...(status && !vendorFilter.status ? { status } : {}),
+        ...(status ? { status } : {}),
         ...(floor ? { floor } : {}),
         ...(category ? { category } : {}),
       },
@@ -51,13 +59,23 @@ export async function GET(
           include: {
             uploadedBy: { select: { id: true, name: true } },
             reviewedBy: { select: { id: true, name: true } },
+            sharedBy: { select: { id: true, name: true } },
           },
         },
       },
       orderBy: [{ setId: 'asc' }, { serialNo: 'asc' }],
     });
 
-    return NextResponse.json({ success: true, data: rows });
+    return NextResponse.json({
+      success: true,
+      data: rows.map((row) => ({
+        ...row,
+        versions: row.versions.map((v) => ({
+          ...v,
+          sharedWithRoles: v.sharedWithRoles ? v.sharedWithRoles.split(',') : [],
+        })),
+      })),
+    });
   } catch (error) {
     if (error instanceof Error && error.message === 'UNAUTHORIZED') {
       return NextResponse.json({ success: false, error: 'Unauthorized' }, { status: 401 });
@@ -80,7 +98,7 @@ export async function POST(
     }
 
     const body = await request.json();
-    const { category, name, floor, description, setId, dueDate } = createRowSchema.parse(body);
+    const { category, name, dwgNumber, floor, description, setId, dueDate } = createRowSchema.parse(body);
 
     // Auto-assign serial number
     const maxRow = await prisma.drawingRow.findFirst({
@@ -95,6 +113,7 @@ export async function POST(
         projectId,
         category,
         name,
+        dwgNumber: dwgNumber ?? null,
         floor,
         description,
         setId: setId ?? null,
